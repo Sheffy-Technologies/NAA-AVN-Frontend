@@ -1,0 +1,10 @@
+@import "tailwindcss";
+
+@import "./tokens.css";
+
+@theme {
+  --color-primary-med: var(--surface-primary-med-em);
+  --color-inverse-black: var(--text-inverse-black-neutral);
+  --background-image-auth-gradient: var(--auth-bg-gradient);
+  --font-primary: var(--font-primary), sans-serif;
+}

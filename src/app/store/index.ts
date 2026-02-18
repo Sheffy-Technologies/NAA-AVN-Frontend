@@ -1,0 +1,77 @@
+import { configureStore } from "@reduxjs/toolkit";
+import authReducer, {
+  AUTH_STORAGE_KEY,
+  type AuthState,
+} from "@/features/auth/authSlice";
+import { dashboardApi } from "@/features/dashboard/api";
+import { personnelApi } from "@/features/personnel/api";
+import { inventoryApi } from "@/features/inventory/api";
+import { financeApi } from "@/features/finance/api";
+import { unitsApi } from "@/shared/api/units";
+
+const getPersistedAuthState = (): AuthState | undefined => {
+  if (typeof window === "undefined") return undefined;
+
+  try {
+    const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!stored) return undefined;
+
+    const parsed = JSON.parse(stored) as Partial<AuthState>;
+
+    return {
+      user: parsed.user ?? null,
+      token: parsed.token ?? null,
+      isAuthenticated: !!parsed.token,
+    };
+  } catch {
+    return undefined;
+  }
+};
+
+const persistedAuthState = getPersistedAuthState();
+
+export const store = configureStore({
+  reducer: {
+    auth: authReducer,
+    [dashboardApi.reducerPath]: dashboardApi.reducer,
+    [personnelApi.reducerPath]: personnelApi.reducer,
+    [inventoryApi.reducerPath]: inventoryApi.reducer,
+    [financeApi.reducerPath]: financeApi.reducer,
+    [unitsApi.reducerPath]: unitsApi.reducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(
+      dashboardApi.middleware,
+      personnelApi.middleware,
+      inventoryApi.middleware,
+      financeApi.middleware,
+      unitsApi.middleware,
+    ),
+  preloadedState: persistedAuthState ? { auth: persistedAuthState } : undefined,
+});
+
+if (typeof window !== "undefined") {
+  store.subscribe(() => {
+    const state = store.getState();
+    const auth = state.auth as AuthState;
+
+    try {
+      if (auth.isAuthenticated && auth.token) {
+        window.localStorage.setItem(
+          AUTH_STORAGE_KEY,
+          JSON.stringify({
+            user: auth.user,
+            token: auth.token,
+          }),
+        );
+      } else {
+        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore persistence errors
+    }
+  });
+}
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
