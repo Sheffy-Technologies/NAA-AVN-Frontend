@@ -57,20 +57,21 @@ export const FinanceFormPage = () => {
 
   const [createExpense, { isLoading }] = useCreateExpenseMutation();
 
-  const budgets = budgetsData ?? [];
+  const budgets = (budgetsData ?? []) as FinanceBudget[];
   const units = (unitsData ?? []) as Unit[];
   const categories = (categoriesData ?? []) as FinanceExpenseCategory[];
   const expenseTypes = (expenseTypesData ?? []) as FinanceExpenseType[];
   const aircraftList = (aircraftData ?? []) as FinanceAircraft[];
 
   const selectedBudget: FinanceBudget | undefined = useMemo(
-    () =>
-      budgets.find(
-        (budget) =>
-          budget.id ===
-          (typeof values.budget_id === "number" ? values.budget_id : -1),
-      ),
-    [budgets, values.budget_id],
+    () => {
+      const list = (budgetsData ?? []) as FinanceBudget[];
+      const selectedId =
+        typeof values.budget_id === "number" ? values.budget_id : -1;
+
+      return list.find((budget) => budget.id === selectedId);
+    },
+    [budgetsData, values.budget_id],
   );
 
   const parsedQuantity =

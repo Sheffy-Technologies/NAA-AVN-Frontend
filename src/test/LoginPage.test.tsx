@@ -36,12 +36,13 @@ const renderWithProviders = (component: React.ReactElement) => {
 describe('LoginPage Integration', () => {
   beforeEach(() => {
     mockedNavigate.mockReset();
+    vi.restoreAllMocks();
   });
 
   it('renders login form correctly', () => {
     renderWithProviders(<LoginPage />);
     
-    expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+    expect(screen.getByText('Nigerian Army Aviation Database')).toBeInTheDocument();
     expect(screen.getByLabelText(/Username or Email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Password/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Login/i })).toBeInTheDocument();
@@ -58,6 +59,23 @@ describe('LoginPage Integration', () => {
   });
 
   it('navigates to dashboard on successful login', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        message: 'Login successful',
+        token: 'test-token',
+        expired_at: null,
+        data: {
+          id: 1,
+          firstname: 'Test',
+          lastname: 'User',
+          username: 'testuser',
+          email: 'test@example.com',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch);
+
     renderWithProviders(<LoginPage />);
     
     const usernameInput = screen.getByLabelText(/Username or Email/i);
@@ -69,7 +87,6 @@ describe('LoginPage Integration', () => {
     
     fireEvent.click(loginButton);
 
-    // Wait for the async login simulation (setTimeout in component)
     await waitFor(() => {
       expect(mockedNavigate).toHaveBeenCalledWith('/dashboard');
     }, { timeout: 2000 });

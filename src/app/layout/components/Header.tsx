@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 
 type HeaderProps = {
@@ -5,6 +6,36 @@ type HeaderProps = {
 };
 
 export const Header = ({ onOpenSidebar }: HeaderProps) => {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setNow(new Date());
+    }, 60000);
+
+    return () => {
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const dateTimeLabel = useMemo(() => {
+    const datePart = now.toLocaleDateString("en-GB", {
+      weekday: "long",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+
+    const timePart = now.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC",
+    });
+
+    return `${datePart} | ${timePart}`;
+  }, [now]);
+
   return (
     <header className="h-16 bg-[#001219] border-b border-[#0A4D66]/30 px-4 md:px-6 flex items-center justify-between">
       {/* Left: Mobile menu + Date/Time */}
@@ -17,7 +48,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
           <Icon icon="mdi:menu" className="w-5 h-5" />
         </button>
         <div className="text-gray-400 text-xs sm:text-sm font-medium truncate">
-          Monday, 26 January 2026 | 22:14 ZULU | Abuja
+          {dateTimeLabel}
         </div>
       </div>
 

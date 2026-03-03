@@ -1,27 +1,54 @@
-import { useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, type ChangeEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
-import { useCreateUnitMutation } from "@/shared/api/units";
+import {
+  useCreateUnitMutation,
+  useUpdateUnitMutation,
+  useGetUnitsQuery,
+} from "@/shared/api/units";
 
 type UnitFormValues = {
   name: string;
+  description: string;
 };
 
 const emptyUnitValues: UnitFormValues = {
   name: "",
+  description: "",
 };
 
 export const UnitFormPage = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
+
+  const { data: units } = useGetUnitsQuery(undefined, {
+    skip: !isEditMode,
+  });
+
   const [values, setValues] = useState<UnitFormValues>(emptyUnitValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [createUnit, { isLoading: isSubmitting }] = useCreateUnitMutation();
+  const [createUnit, { isLoading: isCreating }] = useCreateUnitMutation();
+  const [updateUnit, { isLoading: isUpdating }] = useUpdateUnitMutation();
+  const isSubmitting = isCreating || isUpdating;
+
+  useEffect(() => {
+    if (isEditMode && units) {
+      const unit = units.find((u) => u.id === Number(id));
+      if (unit) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setValues({
+          name: unit.name,
+          description: unit.description || "",
+        });
+      }
+    }
+  }, [isEditMode, units, id]);
 
   const handleChange =
-    (field: keyof UnitFormValues) =>
-    (event: ChangeEvent<HTMLInputElement>) => {
+    (field: keyof UnitFormValues) => (event: ChangeEvent<HTMLInputElement>) => {
       setValues((prev) => ({
         ...prev,
         [field]: event.target.value,
@@ -40,10 +67,23 @@ export const UnitFormPage = () => {
     }
 
     try {
-      await createUnit({ name: values.name.trim() }).unwrap();
+      if (isEditMode && id) {
+        await updateUnit({
+          id: Number(id),
+          name: values.name.trim(),
+          description: values.description.trim(),
+        }).unwrap();
+      } else {
+        await createUnit({
+          name: values.name.trim(),
+          description: values.description.trim(),
+        }).unwrap();
+      }
       navigate("/dashboard/units");
     } catch {
-      setSubmitError("Failed to create unit. Please try again.");
+      setSubmitError(
+        `Failed to ${isEditMode ? "update" : "create"} unit. Please try again.`,
+      );
     }
   };
 
@@ -60,7 +100,7 @@ export const UnitFormPage = () => {
             <span>Back to Units</span>
           </button>
           <h1 className="text-base sm:text-lg font-semibold text-white">
-            Add Unit
+            {isEditMode ? "Edit Unit" : "Add Unit"}
           </h1>
         </div>
         <button
@@ -79,6 +119,12 @@ export const UnitFormPage = () => {
         </button>
       </section>
 
+      {submitError && (
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded text-xs text-red-400">
+          {submitError}
+        </div>
+      )}
+
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
           <h2 className="text-sm sm:text-base font-semibold text-white uppercase tracking-wide">
@@ -86,29 +132,34 @@ export const UnitFormPage = () => {
           </h2>
         </div>
         <div className="px-4 sm:px-6 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
-                Unit Name
+                Unit Name <span className="text-red-400">*</span>
               </label>
               <input
                 type="text"
                 value={values.name}
                 onChange={handleChange("name")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                 placeholder="Enter Unit Name"
               />
             </div>
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
+                Description
+              </label>
+              <input
+                type="text"
+                value={values.description}
+                onChange={handleChange("description")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                placeholder="Enter Description"
+              />
+            </div>
           </div>
-
-          {submitError && (
-            <p className="mt-4 text-[11px] sm:text-xs text-red-400">
-              {submitError}
-            </p>
-          )}
         </div>
       </section>
     </div>
   );
 };
-

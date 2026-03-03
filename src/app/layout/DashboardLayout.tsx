@@ -32,8 +32,13 @@ export const DashboardLayout = () => {
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-[#0A4D66] scrollbar-track-transparent">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#0A4D66] scrollbar-track-transparent">
+          <div
+            className="min-h-full p-6"
+            style={{ background: "var(--auth-bg-gradient)" }}
+          >
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
