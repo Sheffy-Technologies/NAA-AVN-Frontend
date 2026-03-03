@@ -6,7 +6,7 @@ import { logout } from "@/features/auth/authSlice";
 
 const NAV_ITEMS = [
   { name: "Dashboard", path: "/dashboard", icon: "mdi:view-dashboard" },
-  { name: "Weather", path: "/dashboard/weather", icon: "mdi:thermometer" },
+  // { name: "Weather", path: "/dashboard/weather", icon: "mdi:thermometer" },
   { name: "Units", path: "/dashboard/units", icon: "mdi:office-building" },
   { name: "Assets", path: "/dashboard/assets", icon: "mdi:sitemap" },
   { name: "Operations", path: "/dashboard/operations", icon: "mdi:database" },

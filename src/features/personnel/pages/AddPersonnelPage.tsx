@@ -253,16 +253,7 @@ export const AddPersonnelPage = () => {
   };
 
   const aircraftOptions: MultiSelectOption[] = useMemo(() => {
-    if (isLoadingAircrafts) {
-      return (
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <Icon
-            icon="mdi:loading"
-            className="w-8 h-8 text-cyan-400 animate-spin"
-          />
-        </div>
-      );
-    }
+    if (isLoadingAircrafts) return [];
 
     return (
       aircrafts?.map((a) => ({
@@ -270,7 +261,7 @@ export const AddPersonnelPage = () => {
         value: a.id,
       })) || []
     );
-  }, [aircrafts]);
+  }, [aircrafts, isLoadingAircrafts]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
