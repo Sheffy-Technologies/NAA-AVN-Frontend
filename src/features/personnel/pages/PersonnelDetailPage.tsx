@@ -16,6 +16,7 @@ type PersonnelDetail = {
   bloodGroup: string;
   callSign: string;
   rating: string;
+  image: string | null;
   currentDeploymentDate: string;
   currentDeploymentUnit: string;
   lastDeploymentDate: string;
@@ -169,6 +170,22 @@ export const PersonnelDetailPage = () => {
       return "Medical";
     };
 
+    const formatDate = (dateString: string) => {
+      if (!dateString) return "N/A";
+      return new Date(dateString).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+    };
+
+    const sortedDeployments = [...apiPerson.deployments].sort(
+      (a, b) =>
+        new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
+    );
+    const lastDeployment =
+      sortedDeployments.length > 0 ? sortedDeployments[0] : null;
+
     return {
       id: String(apiPerson.id),
       serviceNo: apiPerson.service_number,
@@ -179,10 +196,16 @@ export const PersonnelDetailPage = () => {
       bloodGroup: apiPerson.blood_group,
       callSign: apiPerson.call_sign,
       rating: apiPerson.rating_type,
-      currentDeploymentDate: "",
-      currentDeploymentUnit: apiPerson.unit.name,
-      lastDeploymentDate: "",
-      lastDeploymentUnit: "",
+      image: apiPerson.image,
+      currentDeploymentDate: apiPerson.latest_deployment
+        ? formatDate(apiPerson.latest_deployment.start_date)
+        : "N/A",
+      currentDeploymentUnit:
+        apiPerson.latest_deployment?.to_unit?.name || apiPerson.unit.name,
+      lastDeploymentDate: lastDeployment
+        ? formatDate(lastDeployment.end_date || lastDeployment.start_date)
+        : "N/A",
+      lastDeploymentUnit: lastDeployment?.to_unit?.name || "N/A",
       branch: apiPerson.branch.name,
       corps: apiPerson.corp.name,
       specialty: apiPerson.specialty.name,
@@ -229,6 +252,7 @@ export const PersonnelDetailPage = () => {
               </button>
               <button
                 type="button"
+                onClick={() => navigate(`/dashboard/personnel/${id}/edit`)}
                 className="px-3 py-1.5 rounded border border-[#0A4D66]/60 text-xs text-gray-200 hover:bg-[#0A4D66]/30"
               >
                 Edit
@@ -342,10 +366,18 @@ export const PersonnelDetailPage = () => {
               <div className="grid gap-4 lg:grid-cols-[260px,1.5fr,1.2fr]">
                 <div className="space-y-4">
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 flex flex-col items-center gap-3">
-                    <div className="w-28 h-28 rounded-lg bg-[#0A4D66] flex items-center justify-center text-2xl font-semibold text-white">
-                      {person.firstName[0]}
-                      {person.lastName[0]}
-                    </div>
+                    {person.image ? (
+                      <img
+                        src={person.image}
+                        alt={`${person.firstName} ${person.lastName}`}
+                        className="w-28 h-28 rounded-lg object-cover bg-[#0A4D66]"
+                      />
+                    ) : (
+                      <div className="w-28 h-28 rounded-lg bg-[#0A4D66] flex items-center justify-center text-2xl font-semibold text-white">
+                        {person.firstName[0]}
+                        {person.lastName[0]}
+                      </div>
+                    )}
                     <div className="text-center">
                       <div className="text-sm font-semibold text-white">
                         {person.firstName} {person.lastName}

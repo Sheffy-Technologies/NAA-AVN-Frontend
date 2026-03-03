@@ -7,7 +7,10 @@ import { dashboardApi } from "@/features/dashboard/api";
 import { personnelApi } from "@/features/personnel/api";
 import { inventoryApi } from "@/features/inventory/api";
 import { financeApi } from "@/features/finance/api";
+import { operationsApi } from "@/features/operations/api";
+import { assetsApi } from "@/features/assets/api";
 import { unitsApi } from "@/shared/api/units";
+import toastReducer from "@/shared/store/toastSlice";
 
 const getPersistedAuthState = (): AuthState | undefined => {
   if (typeof window === "undefined") return undefined;
@@ -33,10 +36,13 @@ const persistedAuthState = getPersistedAuthState();
 export const store = configureStore({
   reducer: {
     auth: authReducer,
+    toast: toastReducer,
     [dashboardApi.reducerPath]: dashboardApi.reducer,
     [personnelApi.reducerPath]: personnelApi.reducer,
     [inventoryApi.reducerPath]: inventoryApi.reducer,
     [financeApi.reducerPath]: financeApi.reducer,
+    [operationsApi.reducerPath]: operationsApi.reducer,
+    [assetsApi.reducerPath]: assetsApi.reducer,
     [unitsApi.reducerPath]: unitsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
@@ -45,6 +51,8 @@ export const store = configureStore({
       personnelApi.middleware,
       inventoryApi.middleware,
       financeApi.middleware,
+      operationsApi.middleware,
+      assetsApi.middleware,
       unitsApi.middleware,
     ),
   preloadedState: persistedAuthState ? { auth: persistedAuthState } : undefined,
@@ -75,3 +83,11 @@ if (typeof window !== "undefined") {
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
+
+import {
+  type TypedUseSelectorHook,
+  useDispatch,
+  useSelector,
+} from "react-redux";
+export const useAppDispatch = () => useDispatch<AppDispatch>();
+export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;

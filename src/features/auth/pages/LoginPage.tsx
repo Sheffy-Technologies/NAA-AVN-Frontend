@@ -190,8 +190,8 @@ export const LoginPage = () => {
       <div className="w-full max-w-md bg-[#001219] border border-[#0A4D66]/50 rounded-lg px-8 py-10">
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
-            label="Username"
-            placeholder="Enter Username"
+            label="Username or Email"
+            placeholder="Enter Username or Email"
             value={formData.login}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, login: e.target.value }))

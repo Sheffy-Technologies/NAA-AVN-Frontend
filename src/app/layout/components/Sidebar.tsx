@@ -6,45 +6,23 @@ import { logout } from "@/features/auth/authSlice";
 
 const NAV_ITEMS = [
   { name: "Dashboard", path: "/dashboard", icon: "mdi:view-dashboard" },
+  { name: "Weather", path: "/dashboard/weather", icon: "mdi:thermometer" },
   { name: "Units", path: "/dashboard/units", icon: "mdi:office-building" },
-  { name: "Aircraft", path: "/dashboard/aircraft", icon: "mdi:airplane" },
+  { name: "Assets", path: "/dashboard/assets", icon: "mdi:sitemap" },
   { name: "Operations", path: "/dashboard/operations", icon: "mdi:database" },
-  {
-    name: "Flight Programme",
-    path: "/dashboard/flight-programme",
-    icon: "mdi:airplane-takeoff",
-  },
   { name: "Personnel", path: "/dashboard/personnel", icon: "mdi:account" },
+  { name: "Inventory", path: "/dashboard/inventory", icon: "mdi:package-variant" },
+  { name: "Finances", path: "/dashboard/finance", icon: "mdi:wallet-outline" },
+  { name: "Security", path: "/dashboard/security", icon: "mdi:shield-outline" },
+  { name: "Reports", path: "/dashboard/reports", icon: "mdi:chart-line" },
   {
-    name: "Materials",
-    path: "/dashboard/materials",
-    icon: "mdi:file-document",
-  },
-  {
-    name: "Inventory",
-    path: "/dashboard/inventory",
-    icon: "mdi:package-variant",
-  },
-  { name: "Finance", path: "/dashboard/finance", icon: "mdi:finance" },
-  {
-    name: "Activity Log",
-    path: "/dashboard/activity-log",
-    icon: "mdi:clock-outline",
-  },
-  {
-    name: "Reports & Intelligence",
-    path: "/dashboard/reports",
-    icon: "mdi:chart-line",
-  },
-  {
-    name: "Documentation",
-    path: "/dashboard/documentation",
+    name: "Documents",
+    path: "/dashboard/documents",
     icon: "mdi:book-open-page-variant",
   },
 ];
 
 const BOTTOM_ITEMS = [
-  { name: "Help", path: "/dashboard/help", icon: "mdi:help-circle-outline" },
   {
     name: "Configuration",
     path: "/dashboard/configuration",

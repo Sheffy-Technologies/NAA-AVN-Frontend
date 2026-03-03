@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -9,6 +9,7 @@ import {
   type FinanceExpense,
   type FinanceBudget,
 } from "@/features/finance/api";
+import { useClickOutside } from "@/shared/hooks/useClickOutside";
 
 type FinanceTabKey = "expenses" | "budgets";
 type FinanceViewMode = "table" | "grid";
@@ -68,6 +69,8 @@ export const FinancePage = () => {
   const [openBudgetActionId, setOpenBudgetActionId] = useState<number | null>(
     null,
   );
+  const expensesTableRef = useRef<HTMLDivElement>(null);
+  const budgetsTableRef = useRef<HTMLDivElement>(null);
 
   const summaryCards = useMemo(() => {
     const formatCurrency = (value: number | undefined) =>
@@ -112,14 +115,14 @@ export const FinancePage = () => {
         month: "short",
         year: "numeric",
       }),
-      category: expense.expense_category.name,
+      category: expense.expense_category?.name ?? "-",
       partName: expense.part_name,
       partNumber: expense.part_number,
-      aircraft: expense.aircraft.name,
+      aircraft: expense.aircraft?.name ?? "-",
       workOrder: expense.work_order,
       quantity: expense.quantity,
-      unit: expense.unit.name,
-      expenseType: expense.expense_type.name,
+      unit: expense.unit?.name ?? "-",
+      expenseType: expense.expense_type?.name ?? "-",
       unitCost: expense.unit_cost,
       totalCost: expense.total_cost,
     }));
@@ -131,11 +134,11 @@ export const FinancePage = () => {
     return budgetsData.map((budget: FinanceBudget) => ({
       id: budget.id,
       name: budget.name,
-      category: budget.expense_category.name,
-      aircraft: budget.aircraft.name,
-      unit: budget.unit.name,
+      category: budget.expense_category?.name ?? "-",
+      aircraft: budget.aircraft?.name ?? "-",
+      unit: budget.unit?.name ?? "-",
       amount: budget.amount,
-      period: `${budget.start_date} - ${budget.end_date}`,
+      period: `${budget.start_date ?? ""} - ${budget.end_date ?? ""}`,
     }));
   }, [budgetsData]);
 
@@ -156,6 +159,18 @@ export const FinancePage = () => {
   const handleToggleBudgetActions = (id: number) => {
     setOpenBudgetActionId((current) => (current === id ? null : id));
   };
+
+  useClickOutside(
+    expensesTableRef,
+    () => setOpenExpenseDetailId(null),
+    activeTab === "expenses" && openExpenseDetailId !== null,
+  );
+
+  useClickOutside(
+    budgetsTableRef,
+    () => setOpenBudgetActionId(null),
+    activeTab === "budgets" && openBudgetActionId !== null,
+  );
 
   const handleViewBudget = (id: number) => {
     navigate(`/dashboard/finance/budgets/${id}`);
@@ -286,7 +301,7 @@ export const FinancePage = () => {
         </div>
 
         {activeTab === "expenses" && expensesViewMode === "table" && (
-          <div className="overflow-x-auto">
+          <div ref={expensesTableRef} className="overflow-x-auto">
             <table className="min-w-full text-xs sm:text-sm text-gray-200">
               <thead>
                 <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
@@ -553,7 +568,7 @@ export const FinancePage = () => {
         )}
 
         {activeTab === "budgets" && budgetsViewMode === "table" && (
-          <div className="overflow-x-auto">
+          <div ref={budgetsTableRef} className="overflow-x-auto">
             <table className="min-w-full text-xs sm:text-sm text-gray-200">
               <thead>
                 <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">

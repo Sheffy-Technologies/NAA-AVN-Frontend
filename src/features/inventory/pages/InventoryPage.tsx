@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -8,6 +8,7 @@ import {
   useUpdateInventoryStockMutation,
   type InventoryItem,
 } from "@/features/inventory/api";
+import { useClickOutside } from "@/shared/hooks/useClickOutside";
 
 type InventoryViewMode = "table" | "grid";
 
@@ -67,7 +68,8 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
   const [reason, setReason] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [updateInventoryStock, { isLoading }] = useUpdateInventoryStockMutation();
+  const [updateInventoryStock, { isLoading }] =
+    useUpdateInventoryStockMutation();
 
   const handleQuantityChange = (event: ChangeEvent<HTMLInputElement>) => {
     setQuantity(event.target.value);
@@ -82,7 +84,9 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
   const parsedQuantity = quantity.trim().length > 0 ? Number(quantity) : 0;
 
   const isQuantityInvalid =
-    quantity.trim().length === 0 || Number.isNaN(parsedQuantity) || parsedQuantity <= 0;
+    quantity.trim().length === 0 ||
+    Number.isNaN(parsedQuantity) ||
+    parsedQuantity <= 0;
 
   let newStockLevel = row.currentStock;
 
@@ -104,7 +108,9 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
     }
 
     const stockType =
-      adjustmentType === "remove" ? ("out_of_stock" as const) : ("in_stock" as const);
+      adjustmentType === "remove"
+        ? ("out_of_stock" as const)
+        : ("in_stock" as const);
 
     try {
       await updateInventoryStock({
@@ -156,7 +162,9 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <p className="text-[11px] uppercase text-gray-400">Adjustment Type</p>
+            <p className="text-[11px] uppercase text-gray-400">
+              Adjustment Type
+            </p>
             <div className="space-y-1">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -205,7 +213,9 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
               <Icon icon="mdi:information-outline" className="w-3.5 h-3.5" />
               <span>
                 New Stock Level{" "}
-                <span className="font-semibold text-white">{newStockLevel}</span>
+                <span className="font-semibold text-white">
+                  {newStockLevel}
+                </span>
               </span>
             </div>
           </div>
@@ -232,7 +242,8 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
             onClick={handleSubmit}
             className={cn(
               "w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
-              (isLoading || isQuantityInvalid) && "opacity-70 cursor-not-allowed",
+              (isLoading || isQuantityInvalid) &&
+                "opacity-70 cursor-not-allowed",
             )}
             disabled={isLoading || isQuantityInvalid}
           >
@@ -264,6 +275,7 @@ export const InventoryPage = () => {
   const [updateStockRow, setUpdateStockRow] = useState<InventoryRow | null>(
     null,
   );
+  const tableRef = useRef<HTMLDivElement>(null);
 
   const rows: InventoryRow[] = useMemo(() => {
     if (!inventoriesData) {
@@ -322,6 +334,12 @@ export const InventoryPage = () => {
     setOpenActionId(null);
     setUpdateStockRow(row);
   };
+
+  useClickOutside(
+    tableRef,
+    () => setOpenActionId(null),
+    viewMode === "table" && openActionId !== null,
+  );
 
   const handleCloseUpdateStock = (shouldRefresh?: boolean) => {
     setUpdateStockRow(null);
@@ -479,7 +497,7 @@ export const InventoryPage = () => {
         </div>
 
         {viewMode === "table" && (
-          <div className="overflow-x-auto">
+          <div ref={tableRef} className="overflow-x-auto">
             <table className="min-w-full text-xs sm:text-sm text-gray-200">
               <thead>
                 <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
@@ -714,7 +732,10 @@ export const InventoryPage = () => {
         )}
       </section>
       {updateStockRow && (
-        <UpdateStockModal row={updateStockRow} onClose={handleCloseUpdateStock} />
+        <UpdateStockModal
+          row={updateStockRow}
+          onClose={handleCloseUpdateStock}
+        />
       )}
     </div>
   );

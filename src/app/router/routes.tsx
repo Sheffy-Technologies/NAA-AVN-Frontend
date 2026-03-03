@@ -72,9 +72,29 @@ const UnitsPage = lazy(() =>
     default: module.UnitsPage,
   })),
 );
+const AssetsPage = lazy(() =>
+  import("@/features/assets/pages/AssetsPage").then((module) => ({
+    default: module.AssetsPage,
+  })),
+);
+const AddAssetPage = lazy(() =>
+  import("@/features/assets/pages/AddAssetPage").then((module) => ({
+    default: module.AddAssetPage,
+  })),
+);
+const AssetDetailsPage = lazy(() =>
+  import("@/features/assets/pages/AssetDetailsPage").then((module) => ({
+    default: module.AssetDetailsPage,
+  })),
+);
 const UnitFormPage = lazy(() =>
   import("@/features/units/pages/UnitFormPage").then((module) => ({
     default: module.UnitFormPage,
+  })),
+);
+const UnitsDetailsPage = lazy(() =>
+  import("@/features/units/pages/UnitsDetailsPage").then((module) => ({
+    default: module.UnitsDetailsPage,
   })),
 );
 const FlightProgrammePage = lazy(() =>
@@ -84,14 +104,39 @@ const FlightProgrammePage = lazy(() =>
     }),
   ),
 );
+const OperationsPage = lazy(() =>
+  import("@/features/operations/pages/OperationsPage").then((module) => ({
+    default: module.OperationsPage,
+  })),
+);
+const AddOperationPage = lazy(() =>
+  import("@/features/operations/pages/AddOperationPage").then((module) => ({
+    default: module.AddOperationPage,
+  })),
+);
+const OperationDetailsPage = lazy(() =>
+  import("@/features/operations/pages/OperationDetailsPage").then((module) => ({
+    default: module.OperationDetailsPage,
+  })),
+);
 const PersonnelPage = lazy(() =>
   import("@/features/personnel/pages/PersonnelPage").then((module) => ({
     default: module.PersonnelPage,
   })),
 );
+const AddPersonnelPage = lazy(() =>
+  import("@/features/personnel/pages/AddPersonnelPage").then((module) => ({
+    default: module.AddPersonnelPage,
+  })),
+);
 const PersonnelDetailPage = lazy(() =>
   import("@/features/personnel/pages/PersonnelDetailPage").then((module) => ({
     default: module.PersonnelDetailPage,
+  })),
+);
+const EditPersonnelPage = lazy(() =>
+  import("@/features/personnel/pages/EditPersonnelPage").then((module) => ({
+    default: module.EditPersonnelPage,
   })),
 );
 const ComingSoonPage = lazy(() =>
@@ -179,6 +224,46 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "units/:id",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <UnitsDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "units/:id/edit",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <UnitFormPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "assets",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AssetsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "assets/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddAssetPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "assets/:id",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AssetDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
         path: "personnel",
         element: (
           <Suspense fallback={loadingElement}>
@@ -187,10 +272,26 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "personnel/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddPersonnelPage />
+          </Suspense>
+        ),
+      },
+      {
         path: "personnel/:id",
         element: (
           <Suspense fallback={loadingElement}>
             <PersonnelDetailPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "personnel/:id/edit",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <EditPersonnelPage />
           </Suspense>
         ),
       },
@@ -263,6 +364,30 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <FlightProgrammePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "operations",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <OperationsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "operations/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddOperationPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "operations/:id",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <OperationDetailsPage />
           </Suspense>
         ),
       },

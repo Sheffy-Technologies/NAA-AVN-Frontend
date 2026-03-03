@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
-import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
+import { useGetUnitsQuery, useDeleteUnitMutation, type Unit } from "@/shared/api/units";
+import { useClickOutside } from "@/shared/hooks/useClickOutside";
 
 type UnitRow = {
   id: number;
@@ -15,6 +16,16 @@ type UnitRow = {
 export const UnitsPage = () => {
   const navigate = useNavigate();
   const { data, isLoading, isError } = useGetUnitsQuery();
+  const [deleteUnit] = useDeleteUnitMutation();
+  
+  const [activeActionId, setActiveActionId] = useState<number | null>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  useClickOutside(
+    actionsRef, 
+    () => setActiveActionId(null), 
+    activeActionId !== null
+  );
 
   const units: UnitRow[] = useMemo(() => {
     if (!data) return [];
@@ -38,6 +49,27 @@ export const UnitsPage = () => {
 
   const handleAddUnit = () => {
     navigate("/dashboard/units/add");
+  };
+
+  const handleActionClick = (id: number) => {
+    setActiveActionId(activeActionId === id ? null : id);
+  };
+
+  const handleView = (id: number) => {
+    navigate(`/dashboard/units/${id}`);
+    setActiveActionId(null);
+  };
+
+  const handleEdit = (id: number) => {
+    navigate(`/dashboard/units/${id}/edit`);
+    setActiveActionId(null);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Are you sure you want to delete this unit?")) {
+      await deleteUnit(id);
+    }
+    setActiveActionId(null);
   };
 
   return (
@@ -71,7 +103,7 @@ export const UnitsPage = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto min-h-[300px]">
           <table className="min-w-full text-xs sm:text-sm text-gray-200">
             <thead>
               <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
@@ -132,9 +164,13 @@ export const UnitsPage = () => {
                         <span className="text-gray-100">Active</span>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 align-middle text-right">
+                    <td className="px-4 sm:px-6 py-3 align-middle text-right relative">
                       <button
                         type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleActionClick(unit.id);
+                        }}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
                       >
                         <Icon
@@ -142,6 +178,31 @@ export const UnitsPage = () => {
                           className="w-5 h-5"
                         />
                       </button>
+                      {activeActionId === unit.id && (
+                        <div
+                          ref={actionsRef}
+                          className="absolute right-8 top-0 w-32 bg-[#001825] border border-[#0A4D66] rounded-md shadow-lg z-10 overflow-hidden"
+                        >
+                          <button
+                            onClick={() => handleView(unit.id)}
+                            className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/40 flex items-center gap-2"
+                          >
+                            <Icon icon="mdi:eye" className="w-4 h-4" /> View
+                          </button>
+                          <button
+                            onClick={() => handleEdit(unit.id)}
+                            className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/40 flex items-center gap-2"
+                          >
+                            <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(unit.id)}
+                            className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 flex items-center gap-2"
+                          >
+                            <Icon icon="mdi:trash-can" className="w-4 h-4" /> Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))
