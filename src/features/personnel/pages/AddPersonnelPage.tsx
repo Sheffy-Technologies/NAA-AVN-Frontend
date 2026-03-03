@@ -254,14 +254,7 @@ export const AddPersonnelPage = () => {
 
   const aircraftOptions: MultiSelectOption[] = useMemo(() => {
     if (isLoadingAircrafts) {
-      return (
-        <div className="flex items-center justify-center min-h-[50vh]">
-          <Icon
-            icon="mdi:loading"
-            className="w-8 h-8 text-cyan-400 animate-spin"
-          />
-        </div>
-      );
+      return [];
     }
 
     return (
@@ -270,7 +263,7 @@ export const AddPersonnelPage = () => {
         value: a.id,
       })) || []
     );
-  }, [aircrafts]);
+  }, [aircrafts, isLoadingAircrafts]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -526,30 +519,28 @@ export const AddPersonnelPage = () => {
               <option value="Medical">Medical</option>
             </SelectField>
 
-            {/* Hidden fields or fields not in UI mock but required by API */}
-            <div className="hidden">
-              <SelectField
-                label="Unit"
-                name="unit_id"
-                value={formData.unit_id}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Unit</option>
-                {renderOptions(units)}
-              </SelectField>
+            {/* Fields required by API */}
+            <SelectField
+              label="Unit"
+              name="unit_id"
+              value={formData.unit_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Unit</option>
+              {renderOptions(units)}
+            </SelectField>
 
-              <SelectField
-                label="Corp"
-                name="corp_id"
-                value={formData.corp_id}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Corp</option>
-                {renderOptions(corps)}
-              </SelectField>
-            </div>
+            <SelectField
+              label="Corp"
+              name="corp_id"
+              value={formData.corp_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Corp</option>
+              {renderOptions(corps)}
+            </SelectField>
           </div>
         </div>
 
