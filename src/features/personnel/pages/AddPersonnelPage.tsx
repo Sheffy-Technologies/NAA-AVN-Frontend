@@ -253,7 +253,13 @@ export const AddPersonnelPage = () => {
   };
 
   const aircraftOptions: MultiSelectOption[] = useMemo(() => {
+<<<<<<< HEAD
     if (isLoadingAircrafts) return [];
+=======
+    if (isLoadingAircrafts) {
+      return [];
+    }
+>>>>>>> 43c2b0b4eff46974f156ac4a7ec018ee96dc2bd7
 
     return (
       aircrafts?.map((a) => ({
@@ -517,30 +523,28 @@ export const AddPersonnelPage = () => {
               <option value="Medical">Medical</option>
             </SelectField>
 
-            {/* Hidden fields or fields not in UI mock but required by API */}
-            <div className="hidden">
-              <SelectField
-                label="Unit"
-                name="unit_id"
-                value={formData.unit_id}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Unit</option>
-                {renderOptions(units)}
-              </SelectField>
+            {/* Fields required by API */}
+            <SelectField
+              label="Unit"
+              name="unit_id"
+              value={formData.unit_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Unit</option>
+              {renderOptions(units)}
+            </SelectField>
 
-              <SelectField
-                label="Corp"
-                name="corp_id"
-                value={formData.corp_id}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Corp</option>
-                {renderOptions(corps)}
-              </SelectField>
-            </div>
+            <SelectField
+              label="Corp"
+              name="corp_id"
+              value={formData.corp_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Corp</option>
+              {renderOptions(corps)}
+            </SelectField>
           </div>
         </div>
 
