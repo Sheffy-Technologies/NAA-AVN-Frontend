@@ -5,7 +5,7 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { useCreateAssetMutation, type CreateAssetPayload } from "../api";
 
 // Mock data for dropdowns
-const AIRCRAFT_TYPES = ["Helicopter", "Fixed Wing", "UAV"];
+const AIRCRAFT_TYPES = ["Bell UH-1H", "Magnus Fusion 212", "MD530F Cayuse Warrior"];
 const POSITIONS = ["Engine 1", "Engine 2", "Main Rotor", "Tail Rotor"];
 const COMPONENT_TYPES = ["Avionics", "Landing Gear", "Weapon System"];
 const DOCUMENT_TYPES = [
@@ -187,7 +187,7 @@ export const AddAssetPage = () => {
           ({ pilots_involved, certifying_engineer, ...d }) => ({
             event_type: "Defect",
             description: d.defect_description,
-            status: d.rectified ? "rectified" : "pending",
+            status: d.rectified ? "under_maintenance" : "serviceable",
             pilots_involved: Number(pilots_involved) || undefined,
             certifying_engineer: Number(certifying_engineer) || undefined,
             ...d,
