@@ -28,22 +28,30 @@ export type InventoryStock = {
 
 export type InventoryItem = {
   id: number;
+  type: string;
+  asset_id: number;
   expense_category_id: number;
   unit_id: number;
+  serial_number: string;
   part_number: string;
-  part_name: string;
-  nsn_number: string;
-  ata_chapter: string;
+  current_stock: number;
   re_order_level: number;
+  unit_cost: string;
   measurement_unit: string;
+  vendor: string;
   expiry_date: string | null;
+  remark: string;
+  description: string;
   created_at: string;
   updated_at: string;
-  current_stock: number;
   stock_level: string;
   expense_category: InventoryExpenseCategory;
   unit: InventoryUnit;
   stocks: InventoryStock[];
+  // Legacy fields that might still be needed or can be removed if verified
+  part_name?: string;
+  nsn_number?: string;
+  ata_chapter?: string;
 };
 
 export type InventoryDashboardResponse = {
@@ -51,7 +59,13 @@ export type InventoryDashboardResponse = {
   low_stock: number;
   expired_items: number;
   critical_stock: number;
-  recent_inventories: InventoryItem[];
+};
+
+export type InventoryFilters = {
+  units?: number[];
+  categories?: number[];
+  aircraft_types?: number[];
+  type?: string;
 };
 
 export type CreateInventoryPayload = {
@@ -85,10 +99,17 @@ export const inventoryApi = createApi({
         method: "GET",
       }),
     }),
-    getInventories: builder.query<InventoryItem[], void>({
+    getExpenseCategories: builder.query<InventoryExpenseCategory[], void>({
       query: () => ({
+        url: "/expense-categories",
+        method: "GET",
+      }),
+    }),
+    getInventories: builder.query<InventoryItem[], InventoryFilters | void>({
+      query: (params) => ({
         url: "/inventories",
         method: "GET",
+        params: params || undefined,
       }),
     }),
     getInventoryById: builder.query<InventoryItem, number | string>({
@@ -129,6 +150,7 @@ export const inventoryApi = createApi({
 
 export const {
   useGetInventoryDashboardQuery,
+  useGetExpenseCategoriesQuery,
   useGetInventoriesQuery,
   useGetInventoryByIdQuery,
   useCreateInventoryMutation,

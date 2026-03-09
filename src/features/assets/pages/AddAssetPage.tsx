@@ -107,6 +107,48 @@ export const AddAssetPage = () => {
     },
   ]);
 
+  // Calculate Next Inspection Due
+  // Logic: (Last Major Inspection + Inspection Interval) - Total Airframe Hours
+  // > 0: Due In X hrs
+  // = 0: Due Now
+  // < 0: Overdue by X hrs
+  const { nextInspectionTitle, nextInspectionValue } = (() => {
+    const total = Number(formData.total_airframe_hours);
+    const last = Number(formData.last_major_inspection_hours);
+    const interval = Number(formData.inspection_interval);
+
+    // If any required field is missing/zero
+    if (
+      !formData.total_airframe_hours &&
+      !formData.last_major_inspection_hours &&
+      !formData.inspection_interval
+    ) {
+      return {
+        nextInspectionTitle: "Next Inspection Due",
+        nextInspectionValue: "00 hrs",
+      };
+    }
+
+    const remaining = last + interval - total;
+
+    if (remaining > 0) {
+      return {
+        nextInspectionTitle: "Next Inspection Due In",
+        nextInspectionValue: `${remaining} hrs`,
+      };
+    } else if (remaining === 0) {
+      return {
+        nextInspectionTitle: "Inspection Due Now",
+        nextInspectionValue: "0 hrs",
+      };
+    } else {
+      return {
+        nextInspectionTitle: "Inspection Overdue by",
+        nextInspectionValue: `${Math.abs(remaining)} hrs`,
+      };
+    }
+  })();
+
   const handleInputChange = (
     field: string,
     value: string | number | boolean,
@@ -496,9 +538,11 @@ export const AddAssetPage = () => {
             </div>
             <div className="space-y-1">
               <label className="text-xs text-gray-400">
-                next inspection due
+                {nextInspectionTitle}
               </label>
-              <div className="text-xl font-bold text-white">00 hrs</div>
+              <div className="text-xl font-bold text-white">
+                {nextInspectionValue}
+              </div>
             </div>
 
             <div className="space-y-1">

@@ -142,10 +142,11 @@ export const assetsApi = createApi({
   baseQuery: axiosBaseQuery(),
   tagTypes: ["Assets"],
   endpoints: (builder) => ({
-    getAssets: builder.query<Asset[], void>({
-      query: () => ({
+    getAssets: builder.query<Asset[], { type?: string } | void>({
+      query: (params) => ({
         url: "/assets",
         method: "GET",
+        params: params || undefined,
       }),
       providesTags: (result) =>
         result

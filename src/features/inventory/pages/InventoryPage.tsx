@@ -1,16 +1,16 @@
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState, type ChangeEvent, useRef } from "react";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
   useGetInventoryDashboardQuery,
   useGetInventoriesQuery,
+  useGetExpenseCategoriesQuery,
   useUpdateInventoryStockMutation,
-  type InventoryItem,
 } from "@/features/inventory/api";
+import { useGetUnitsQuery } from "@/shared/api/units";
+import { useGetAssetsQuery } from "@/features/assets/api";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
-
-type InventoryViewMode = "table" | "grid";
+import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 
 type InventoryStatusLevel = "High" | "Low" | "Critical" | "Medium" | "Unknown";
 
@@ -26,22 +26,28 @@ type InventoryRow = {
   stockLevel: InventoryStatusLevel;
   currentStock: number;
   reorderLevel: number;
+  type: string;
+  assetId: number;
+  description: string;
+  remark: string;
+  serialNumber: string;
+  unitCost: string;
+  totalCost: string;
+  aircraftType: string;
+  measurementUnit: string;
 };
 
-const stockLevelBadgeColor: Record<InventoryStatusLevel, string> = {
-  High: "bg-emerald-500/20 text-emerald-300",
-  Medium: "bg-amber-500/20 text-amber-300",
-  Low: "bg-orange-500/20 text-orange-300",
-  Critical: "bg-red-500/20 text-red-300",
-  Unknown: "bg-gray-500/20 text-gray-300",
+type MultiFilterState<T> = {
+  all: boolean;
+  selected: T[];
 };
 
-const stockLevelDotColor: Record<InventoryStatusLevel, string> = {
-  High: "bg-emerald-400",
-  Medium: "bg-amber-300",
-  Low: "bg-orange-300",
-  Critical: "bg-red-400",
-  Unknown: "bg-gray-400",
+const stockLevelColor: Record<InventoryStatusLevel, string> = {
+  High: "text-emerald-400",
+  Medium: "text-amber-400",
+  Low: "text-red-400",
+  Critical: "text-orange-500",
+  Unknown: "text-gray-400",
 };
 
 const mapStockLevel = (value: string | undefined): InventoryStatusLevel => {
@@ -107,16 +113,25 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
       return;
     }
 
-    const stockType =
-      adjustmentType === "remove"
-        ? ("out_of_stock" as const)
-        : ("in_stock" as const);
+    let finalQuantity = parsedQuantity;
+    let finalStockType: "in_stock" | "out_of_stock" =
+      adjustmentType === "remove" ? "out_of_stock" : "in_stock";
+
+    if (adjustmentType === "audit") {
+      const diff = parsedQuantity - row.currentStock;
+      if (diff === 0) {
+        onClose(false);
+        return;
+      }
+      finalQuantity = Math.abs(diff);
+      finalStockType = diff > 0 ? "in_stock" : "out_of_stock";
+    }
 
     try {
       await updateInventoryStock({
         inventory_id: row.id,
-        stock_type: stockType,
-        quantity: parsedQuantity,
+        stock_type: finalStockType,
+        quantity: finalQuantity,
       }).unwrap();
 
       onClose(true);
@@ -147,7 +162,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
         <div className="px-4 sm:px-5 py-4 space-y-4 text-xs sm:text-sm text-gray-200">
           <div className="space-y-1">
             <div className="text-[11px] uppercase text-gray-400">
-              Inventory ID:{row.inventoryId}
+              Inventory ID: {row.inventoryId}
             </div>
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -256,485 +271,591 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
 };
 
 export const InventoryPage = () => {
-  const navigate = useNavigate();
-  const {
-    data: dashboardData,
-    isLoading: isDashboardLoading,
-    isError: isDashboardError,
-    refetch: refetchDashboard,
-  } = useGetInventoryDashboardQuery();
-  const {
-    data: inventoriesData,
-    isLoading: isInventoriesLoading,
-    isError: isInventoriesError,
-    refetch: refetchInventories,
-  } = useGetInventoriesQuery();
-
-  const [viewMode, setViewMode] = useState<InventoryViewMode>("table");
+  // State for Tabs and Filters
+  const [activeTab, setActiveTab] = useState("Stocks");
+  const [activeSubTab, setActiveSubTab] = useState("Aircraft");
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [updateStockRow, setUpdateStockRow] = useState<InventoryRow | null>(
     null,
   );
-  const tableRef = useRef<HTMLDivElement>(null);
+  const [openFilterMenu, setOpenFilterMenu] = useState<
+    "units" | "categories" | "aircraft" | null
+  >(null);
 
-  const rows: InventoryRow[] = useMemo(() => {
-    if (!inventoriesData) {
-      return [];
+  // Filters State
+  const [unitFilter, setUnitFilter] = useState<MultiFilterState<number>>({
+    all: true,
+    selected: [],
+  });
+  const [categoryFilter, setCategoryFilter] = useState<
+    MultiFilterState<number>
+  >({
+    all: true,
+    selected: [],
+  });
+  const [aircraftTypeFilter, setAircraftTypeFilter] = useState<
+    MultiFilterState<number>
+  >({
+    all: true,
+    selected: [],
+  });
+
+  // Queries
+  const { data: dashboardData } = useGetInventoryDashboardQuery();
+  const { data: units = [] } = useGetUnitsQuery();
+  const { data: categories = [] } = useGetExpenseCategoriesQuery();
+  const { data: aircraftAssets = [] } = useGetAssetsQuery({ type: "aircraft" });
+
+  // Memoized filters for API
+  const apiFilters = useMemo(() => {
+    let typeFilter: string | undefined;
+    if (activeTab === "Stocks") {
+      if (activeSubTab === "Aircraft") typeFilter = "aircraft";
+      else if (activeSubTab === "Ground Support") typeFilter = "ground_support";
+      else if (activeSubTab === "General") typeFilter = "general";
     }
 
-    return inventoriesData.map((item: InventoryItem) => ({
-      id: item.id,
-      inventoryId: `INV-${item.id.toString().padStart(4, "0")}`,
-      partNumber: item.part_number,
-      partName: item.part_name,
-      category: item.expense_category.name,
-      nsn: item.nsn_number,
-      ataChapter: item.ata_chapter,
-      unit: item.unit.name,
-      stockLevel: mapStockLevel(item.stock_level),
-      currentStock: item.current_stock,
-      reorderLevel: item.re_order_level,
-    }));
-  }, [inventoriesData]);
+    return {
+      units: unitFilter.all ? undefined : unitFilter.selected,
+      categories: categoryFilter.all ? undefined : categoryFilter.selected,
+      aircraft_types: aircraftTypeFilter.all
+        ? undefined
+        : aircraftTypeFilter.selected,
+      type: typeFilter,
+    };
+  }, [unitFilter, categoryFilter, aircraftTypeFilter, activeTab, activeSubTab]);
 
-  const recentInventories: InventoryRow[] = useMemo(() => {
-    if (!dashboardData) return [];
-    return dashboardData.recent_inventories.map((item) => ({
-      id: item.id,
-      inventoryId: `INV-${item.id.toString().padStart(4, "0")}`,
-      partNumber: item.part_number,
-      partName: item.part_name,
-      category: item.expense_category.name,
-      nsn: item.nsn_number,
-      ataChapter: item.ata_chapter,
-      unit: item.unit.name,
-      stockLevel: mapStockLevel(item.stock_level),
-      currentStock: item.current_stock,
-      reorderLevel: item.re_order_level,
-    }));
-  }, [dashboardData]);
+  const {
+    data: inventoriesData,
+    isLoading: isInventoriesLoading,
+    refetch: refetchInventories,
+  } = useGetInventoriesQuery(apiFilters, { skip: activeTab !== "Stocks" });
 
-  const handleToggleActions = (id: number) => {
-    setOpenActionId((current) => (current === id ? null : id));
-  };
+  // Handlers
+  const handleToggleAll =
+    <T,>(setState: React.Dispatch<React.SetStateAction<MultiFilterState<T>>>) =>
+    (checked: boolean) => {
+      if (checked) {
+        setState({ all: true, selected: [] });
+      } else {
+        setState((prev) => ({ all: false, selected: prev.selected }));
+      }
+    };
 
-  const handleAddStock = () => {
-    navigate("/dashboard/inventory/add");
-  };
+  const handleToggleItem =
+    <T,>(setState: React.Dispatch<React.SetStateAction<MultiFilterState<T>>>) =>
+    (item: T, checked: boolean) => {
+      setState((prev) => {
+        const newSelected = checked
+          ? [...prev.selected, item]
+          : prev.selected.filter((i) => i !== item);
+        return {
+          all: newSelected.length === 0,
+          selected: newSelected,
+        };
+      });
+    };
 
-  const handleViewStock = (id: number) => {
-    navigate(`/dashboard/inventory/${id}`);
-  };
+  // Close filters when clicking outside
+  const filtersRef = useRef<HTMLDivElement>(null);
+  useClickOutside(filtersRef, () => setOpenFilterMenu(null));
 
-  const handleEditStock = (id: number) => {
-    navigate(`/dashboard/inventory/${id}/edit`);
-  };
+  // Transform data
+  const inventoryRows: InventoryRow[] = useMemo(() => {
+    if (!inventoriesData) return [];
+    return inventoriesData.map((item) => {
+      const unitCostValue = Number.parseFloat(item.unit_cost) || 0;
+      const totalCostValue = unitCostValue * item.current_stock;
 
-  const handleOpenUpdateStock = (row: InventoryRow) => {
-    setOpenActionId(null);
-    setUpdateStockRow(row);
-  };
+      return {
+        id: item.id,
+        inventoryId: `INV-${item.id.toString().padStart(4, "0")}`,
+        partNumber: item.part_number,
+        partName: item.description || item.part_name || "N/A",
+        category: item.expense_category?.name || "Uncategorized",
+        nsn: item.nsn_number || "-",
+        ataChapter: item.ata_chapter || "-",
+        unit: item.unit?.name || "N/A",
+        stockLevel: mapStockLevel(item.stock_level),
+        currentStock: item.current_stock,
+        reorderLevel: item.re_order_level,
+        type: item.type,
+        assetId: item.asset_id,
+        description: item.description,
+        remark: item.remark,
+        serialNumber: item.serial_number || "-",
+        unitCost: `₦${unitCostValue.toLocaleString()}`,
+        totalCost: `₦${totalCostValue.toLocaleString()}`,
+        aircraftType:
+          aircraftAssets.find((a) => a.id === item.asset_id)?.name || "-",
+        measurementUnit: item.measurement_unit || "Units",
+      };
+    });
+  }, [inventoriesData, aircraftAssets]);
 
-  useClickOutside(
-    tableRef,
-    () => setOpenActionId(null),
-    viewMode === "table" && openActionId !== null,
-  );
-
-  const handleCloseUpdateStock = (shouldRefresh?: boolean) => {
-    setUpdateStockRow(null);
-    if (shouldRefresh) {
-      refetchInventories();
-      refetchDashboard();
-    }
-  };
-
-  const totalInStock = dashboardData?.total_stock ?? 0;
-  const lowStockItems = dashboardData?.low_stock ?? 0;
-  const expiredItems = dashboardData?.expired_items ?? 0;
-  const criticalStock = dashboardData?.critical_stock ?? 0;
-
-  const summaryCards = [
+  const stats = [
     {
-      id: "total",
+      label: "Total Items",
+      value: inventoriesData?.length ?? 0,
+      color: "bg-[#7FD5FF]",
+    },
+    {
       label: "Total In Stock",
-      value: totalInStock,
-      icon: "mdi:archive-outline",
-      bg: "bg-emerald-700",
+      value: dashboardData?.total_stock ?? 0,
+      color: "bg-emerald-400",
     },
     {
-      id: "low",
-      label: "Low Stock Items",
-      value: lowStockItems,
-      icon: "mdi:alert-outline",
-      bg: "bg-lime-700",
+      label: "Low In Stock",
+      value: dashboardData?.low_stock ?? 0,
+      color: "bg-amber-400",
     },
     {
-      id: "expired",
-      label: "Expired Items",
-      value: expiredItems,
-      icon: "mdi:skull-outline",
-      bg: "bg-amber-700",
+      label: "Expired",
+      value: dashboardData?.expired_items ?? 0,
+      color: "bg-red-400",
     },
     {
-      id: "critical",
       label: "Critical",
-      value: criticalStock,
-      icon: "mdi:alert-octagram-outline",
-      bg: "bg-red-800",
+      value: dashboardData?.critical_stock ?? 0,
+      color: "bg-red-600",
     },
   ];
 
-  const isSummaryError = isDashboardError;
-  const isTableError = isInventoriesError;
-
   return (
-    <div className="px-2 sm:px-0">
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-        {isDashboardLoading
-          ? summaryCards.map((card) => (
-              <div
-                key={card.id}
-                className="h-24 sm:h-28 bg-[#001219] border border-[#0A4D66]/40 rounded-xl flex items-center justify-between px-4"
-              >
-                <div className="space-y-2 flex-1">
-                  <div className="h-3 w-24 bg-[#021a27] rounded-full animate-pulse" />
-                  <div className="h-6 w-16 bg-[#021a27] rounded-full animate-pulse" />
-                </div>
-                <div className="w-10 h-10 rounded bg-[#021a27] animate-pulse" />
-              </div>
-            ))
-          : summaryCards.map((card) => (
-              <div
-                key={card.id}
-                className={cn(
-                  "h-24 sm:h-28 rounded-xl flex items-center justify-between px-4 border border-[#0A4D66]/40",
-                  "bg-[#001219]",
-                )}
-              >
-                <div>
-                  <p className="text-[11px] sm:text-xs uppercase tracking-wide text-gray-400">
-                    {card.label}
-                  </p>
-                  <p className="text-2xl sm:text-3xl font-semibold text-white mt-1">
-                    {isSummaryError ? "—" : card.value}
-                  </p>
-                </div>
-                <div
-                  className={cn(
-                    "w-10 h-10 rounded flex items-center justify-center",
-                    card.bg,
-                  )}
-                >
-                  <Icon icon={card.icon} className="w-5 h-5 text-white" />
-                </div>
-              </div>
-            ))}
-      </section>
-
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
-          <div className="flex items-center gap-4">
-            <h2 className="text-sm sm:text-base font-semibold tracking-wide text-white uppercase">
-              Inventory
-            </h2>
-            <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#021a27] p-1">
-              <button
-                type="button"
-                onClick={() => setViewMode("table")}
-                className={cn(
-                  "px-2 py-1 rounded-sm flex items-center justify-center",
-                  viewMode === "table"
-                    ? "bg-[#0A4D66] text-white"
-                    : "text-gray-400",
-                )}
-              >
-                <Icon icon="mdi:view-list" className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("grid")}
-                className={cn(
-                  "px-2 py-1 rounded-sm flex items-center justify-center",
-                  viewMode === "grid"
-                    ? "bg-[#0A4D66] text-white"
-                    : "text-gray-400",
-                )}
-              >
-                <Icon icon="mdi:view-grid-outline" className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200"
-            >
-              {rows.length}
-            </button>
-            <button
-              type="button"
-              className="hidden md:inline-flex px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 whitespace-nowrap"
-            >
-              All Units
-            </button>
-            <button
-              type="button"
-              className="hidden md:inline-flex px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 whitespace-nowrap"
-            >
-              All Category
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
-              onClick={handleAddStock}
-            >
-              <Icon icon="mdi:plus" className="w-4 h-4" />
+    <div className="space-y-6">
+      {/* Header & Tabs */}
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            Inventory
+          </h1>
+          <div className="flex items-center gap-3">
+            <button className="inline-flex items-center gap-2 px-4 py-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-black text-sm font-bold rounded-lg transition-colors shadow-[0_0_15px_rgba(127,213,255,0.3)]">
+              <Icon icon="mdi:plus" className="w-5 h-5" />
               <span>Add Stock</span>
             </button>
           </div>
         </div>
 
-        {viewMode === "table" && (
-          <div ref={tableRef} className="overflow-x-auto">
-            <table className="min-w-full text-xs sm:text-sm text-gray-200">
-              <thead>
-                <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
-                  <th className="px-4 sm:px-6 py-3 text-left">Inventory ID</th>
-                  <th className="px-4 py-3 text-left">Part No.</th>
-                  <th className="px-4 py-3 text-left">Part Name</th>
-                  <th className="px-4 py-3 text-left">Category</th>
-                  <th className="px-4 py-3 text-left">NSN</th>
-                  <th className="px-4 py-3 text-left">ATA Chapter</th>
-                  <th className="px-4 py-3 text-left">Unit</th>
-                  <th className="px-4 py-3 text-left">Stock Level</th>
-                  <th className="px-4 sm:px-6 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {isInventoriesLoading && rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 sm:px-6 py-6 text-center text-gray-400"
-                    >
-                      <div className="inline-flex items-center gap-2">
-                        <span className="h-4 w-4 border-2 border-[#0A4D66]/60 border-t-transparent rounded-full animate-spin" />
-                        <span>Loading inventory...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 sm:px-6 py-6 text-center text-gray-400"
-                    >
-                      {isTableError
-                        ? "Failed to load inventory."
-                        : "No inventory records found."}
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row, index) => (
-                    <tr
-                      key={row.id}
-                      className={cn(
-                        "border-t border-[#0A4D66]/40",
-                        index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
-                      )}
-                    >
-                      <td className="px-4 sm:px-6 py-3 align-middle text-gray-100">
-                        {row.inventoryId}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.partNumber}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.partName}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.category}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.nsn}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.ataChapter}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.unit}
-                      </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="inline-flex items-center gap-2">
-                          <span
-                            className={cn(
-                              "w-2 h-2 rounded-full",
-                              stockLevelDotColor[row.stockLevel],
-                            )}
-                          />
-                          <span
-                            className={cn(
-                              "px-2 py-0.5 rounded-full text-[11px]",
-                              stockLevelBadgeColor[row.stockLevel],
-                            )}
-                          >
-                            {row.stockLevel}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActions(row.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
-                        >
-                          <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
-                        </button>
+        {/* Main Tabs */}
+        <div className="flex items-center gap-8 border-b border-[#0A4D66]/40">
+          {[
+            { id: "Stocks", icon: "mdi:cube-outline" },
+            { id: "Requisitions", icon: "mdi:file-document-outline" },
+            { id: "Stock History", icon: "mdi:history" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition-colors",
+                activeTab === tab.id
+                  ? "border-[#7FD5FF] text-[#7FD5FF]"
+                  : "border-transparent text-gray-400 hover:text-gray-200",
+              )}
+            >
+              <Icon icon={tab.icon} className="w-5 h-5" />
+              {tab.id}
+            </button>
+          ))}
+        </div>
+      </div>
 
-                        {openActionId === row.id && (
-                          <div className="absolute right-4 top-10 z-20 w-48 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
-                            <div className="py-1 text-xs text-gray-200">
-                              <button
-                                type="button"
-                                onClick={() => handleViewStock(row.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:eye-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>View</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenUpdateStock(row)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:pencil-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleEditStock(row.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:database-plus"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Update Stock</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:download-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Download</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                              >
-                                <Icon
-                                  icon="mdi:trash-can-outline"
-                                  className="w-4 h-4"
-                                />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {viewMode === "grid" && (
-          <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {isInventoriesLoading && rows.length === 0
-              ? Array.from({ length: 6 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg px-3 py-3 flex flex-col gap-3"
+      {/* Content Area */}
+      <div className="space-y-6">
+        {activeTab === "Stocks" ? (
+          <>
+            {/* Sub-tabs & Stats */}
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              {/* Sub-tabs */}
+              <div className="flex bg-[#001825] p-1 rounded-lg">
+                {["Aircraft", "Ground Support", "General"].map((subTab) => (
+                  <button
+                    key={subTab}
+                    onClick={() => setActiveSubTab(subTab)}
+                    className={cn(
+                      "px-4 py-1.5 rounded-md text-xs font-medium transition-all",
+                      activeSubTab === subTab
+                        ? "bg-[#7FD5FF] text-black shadow-sm"
+                        : "text-gray-400 hover:text-gray-200",
+                    )}
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex flex-col gap-1">
-                        <div className="h-3 w-28 bg-[#021a27] rounded-full animate-pulse" />
-                        <div className="h-2.5 w-20 bg-[#021a27] rounded-full animate-pulse" />
-                      </div>
-                      <div className="h-6 w-16 bg-[#021a27] rounded-full animate-pulse" />
+                    {subTab}
+                  </button>
+                ))}
+              </div>
+
+              {/* Stats Bar */}
+              <div className="flex items-center gap-6 text-sm">
+                {stats.map((stat, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full ${stat.color}`}
+                    ></span>
+                    <span className="text-gray-400">{stat.label}:</span>
+                    <span className="text-white font-bold">{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3" ref={filtersRef}>
+              <div className="flex items-center gap-2 text-sm text-gray-400 mr-2">
+                <Icon icon="mdi:filter-variant" className="w-4 h-4" />
+                <span>Filter by:</span>
+              </div>
+
+              {/* Unit Filter */}
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    setOpenFilterMenu(
+                      openFilterMenu === "units" ? null : "units",
+                    )
+                  }
+                  className={cn(
+                    "px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 inline-flex items-center gap-1 hover:border-[#7FD5FF]/50 transition-colors",
+                    !unitFilter.all && "border-[#7FD5FF] text-[#7FD5FF]",
+                  )}
+                >
+                  <span>
+                    {unitFilter.all
+                      ? "All Locations"
+                      : `${unitFilter.selected.length} Locations`}
+                  </span>
+                  <Icon icon="mdi:chevron-down" className="w-3 h-3" />
+                </button>
+                {openFilterMenu === "units" && (
+                  <div className="absolute top-full mt-1 left-0 z-20 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                    <div className="mb-2">
+                      <Checkbox
+                        checked={unitFilter.all}
+                        onChange={(e) =>
+                          handleToggleAll(setUnitFilter)(e.target.checked)
+                        }
+                        label="All Locations"
+                      />
                     </div>
-                    <div className="space-y-2 text-[11px] text-gray-300">
-                      <div className="h-2.5 w-32 bg-[#021a27] rounded-full animate-pulse" />
-                      <div className="h-2.5 w-32 bg-[#021a27] rounded-full animate-pulse" />
-                      <div className="h-2.5 w-24 bg-[#021a27] rounded-full animate-pulse" />
+                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                      {units.map((unit) => (
+                        <Checkbox
+                          key={unit.id}
+                          checked={unitFilter.selected.includes(unit.id)}
+                          onChange={(e) =>
+                            handleToggleItem(setUnitFilter)(
+                              unit.id,
+                              e.target.checked,
+                            )
+                          }
+                          label={unit.name}
+                        />
+                      ))}
                     </div>
                   </div>
-                ))
-              : (recentInventories.length > 0 ? recentInventories : rows).map(
-                  (item) => (
-                    <div
-                      key={item.id}
-                      className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg px-3 py-3 flex flex-col gap-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex flex-col gap-1">
-                          <p className="text-xs font-semibold text-white truncate max-w-[160px]">
-                            {item.partName}
-                          </p>
-                          <p className="text-[11px] text-gray-400">
-                            Inventory {item.inventoryId}
-                          </p>
-                        </div>
-                        <span
-                          className={cn(
-                            "px-2 py-0.5 rounded-full text-[11px] whitespace-nowrap",
-                            stockLevelBadgeColor[item.stockLevel],
-                          )}
-                        >
-                          Stock Level: {item.stockLevel}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-gray-300 space-y-1">
-                        <p>
-                          Quantity In-Stock:{" "}
-                          <span className="text-gray-100">
-                            {item.currentStock}
-                          </span>
-                        </p>
-                        <p>
-                          Re-Order Level:{" "}
-                          <span className="text-gray-100">
-                            {item.reorderLevel}
-                          </span>
-                        </p>
-                        <p>
-                          Unit:{" "}
-                          <span className="text-gray-100">{item.unit}</span>
-                        </p>
-                      </div>
-                    </div>
-                  ),
                 )}
+              </div>
+
+              {/* Category Filter */}
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    setOpenFilterMenu(
+                      openFilterMenu === "categories" ? null : "categories",
+                    )
+                  }
+                  className={cn(
+                    "px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 inline-flex items-center gap-1 hover:border-[#7FD5FF]/50 transition-colors",
+                    !categoryFilter.all && "border-[#7FD5FF] text-[#7FD5FF]",
+                  )}
+                >
+                  <span>
+                    {categoryFilter.all
+                      ? "All Categories"
+                      : `${categoryFilter.selected.length} Categories`}
+                  </span>
+                  <Icon icon="mdi:chevron-down" className="w-3 h-3" />
+                </button>
+                {openFilterMenu === "categories" && (
+                  <div className="absolute top-full mt-1 left-0 z-20 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                    <div className="mb-2">
+                      <Checkbox
+                        checked={categoryFilter.all}
+                        onChange={(e) =>
+                          handleToggleAll(setCategoryFilter)(e.target.checked)
+                        }
+                        label="All Categories"
+                      />
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                      {categories.map((cat) => (
+                        <Checkbox
+                          key={cat.id}
+                          checked={categoryFilter.selected.includes(cat.id)}
+                          onChange={(e) =>
+                            handleToggleItem(setCategoryFilter)(
+                              cat.id,
+                              e.target.checked,
+                            )
+                          }
+                          label={cat.name}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Aircraft Filter */}
+              <div className="relative">
+                <button
+                  onClick={() =>
+                    setOpenFilterMenu(
+                      openFilterMenu === "aircraft" ? null : "aircraft",
+                    )
+                  }
+                  className={cn(
+                    "px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 inline-flex items-center gap-1 hover:border-[#7FD5FF]/50 transition-colors",
+                    !aircraftTypeFilter.all &&
+                      "border-[#7FD5FF] text-[#7FD5FF]",
+                  )}
+                >
+                  <span>
+                    {aircraftTypeFilter.all
+                      ? "All Aircraft Types"
+                      : `${aircraftTypeFilter.selected.length} Aircraft Types`}
+                  </span>
+                  <Icon icon="mdi:chevron-down" className="w-3 h-3" />
+                </button>
+                {openFilterMenu === "aircraft" && (
+                  <div className="absolute top-full mt-1 left-0 z-20 w-64 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                    <div className="mb-2">
+                      <Checkbox
+                        checked={aircraftTypeFilter.all}
+                        onChange={(e) =>
+                          handleToggleAll(setAircraftTypeFilter)(
+                            e.target.checked,
+                          )
+                        }
+                        label="All Aircraft Types"
+                      />
+                    </div>
+                    <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                      {aircraftAssets.map((asset) => (
+                        <Checkbox
+                          key={asset.id}
+                          checked={aircraftTypeFilter.selected.includes(
+                            asset.id,
+                          )}
+                          onChange={(e) =>
+                            handleToggleItem(setAircraftTypeFilter)(
+                              asset.id,
+                              e.target.checked,
+                            )
+                          }
+                          label={`${asset.name} (${asset.serial_number})`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Inventory Table */}
+            <div className="rounded-lg border border-[#0A4D66]/40 overflow-hidden bg-[#001219]">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm text-gray-300">
+                  <thead className="bg-[#001825] text-gray-400 font-medium border-b border-[#0A4D66]/40">
+                    <tr>
+                      <th className="px-4 py-3 whitespace-nowrap">
+                        Item Description
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap">Serial No</th>
+                      <th className="px-4 py-3 whitespace-nowrap">
+                        Aircraft Type
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap">Category</th>
+                      <th className="px-4 py-3 whitespace-nowrap">
+                        Stock Level
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap text-right">
+                        Current Stock
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap text-right">
+                        Unit Cost
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap text-right">
+                        Total Cost
+                      </th>
+                      <th className="px-4 py-3 whitespace-nowrap text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A4D66]/20">
+                    {isInventoriesLoading ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-4 py-8 text-center text-gray-500"
+                        >
+                          Loading inventory...
+                        </td>
+                      </tr>
+                    ) : inventoryRows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={9}
+                          className="px-4 py-8 text-center text-gray-500"
+                        >
+                          No inventory items found.
+                        </td>
+                      </tr>
+                    ) : (
+                      inventoryRows.map((row) => (
+                        <tr
+                          key={row.id}
+                          className="hover:bg-[#0A4D66]/10 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-white">
+                              {row.description || row.partName}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {row.partNumber}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">
+                            {row.serialNumber}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">
+                            {row.aircraftType}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">
+                            {row.category}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={cn(
+                                "font-medium",
+                                stockLevelColor[row.stockLevel],
+                              )}
+                            >
+                              {row.stockLevel}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-white">
+                            {row.currentStock}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-gray-400">
+                            {row.unitCost}
+                          </td>
+                          <td className="px-4 py-3 text-right font-mono text-white">
+                            {row.totalCost}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="relative inline-block">
+                              <button
+                                onClick={() =>
+                                  setOpenActionId(
+                                    openActionId === row.id ? null : row.id,
+                                  )
+                                }
+                                className="p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
+                              >
+                                <Icon
+                                  icon="mdi:dots-vertical"
+                                  className="w-4 h-4"
+                                />
+                              </button>
+                              {openActionId === row.id && (
+                                <div className="absolute right-0 mt-1 w-40 bg-[#001219] border border-[#0A4D66]/40 rounded shadow-xl z-20 overflow-hidden">
+                                  <button className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2">
+                                    <Icon
+                                      icon="mdi:eye"
+                                      className="w-3.5 h-3.5 text-blue-400"
+                                    />
+                                    View
+                                  </button>
+                                  <button className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2">
+                                    <Icon
+                                      icon="mdi:pencil"
+                                      className="w-3.5 h-3.5 text-amber-400"
+                                    />
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setUpdateStockRow(row);
+                                      setOpenActionId(null);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+                                  >
+                                    <Icon
+                                      icon="mdi:database-edit"
+                                      className="w-3.5 h-3.5 text-emerald-400"
+                                    />
+                                    Update Stock
+                                  </button>
+                                  <button className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2">
+                                    <Icon
+                                      icon="mdi:download"
+                                      className="w-3.5 h-3.5 text-gray-400"
+                                    />
+                                    Download
+                                  </button>
+                                  <div className="h-px bg-[#0A4D66]/40 my-1" />
+                                  <button className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 hover:text-red-300 flex items-center gap-2">
+                                    <Icon
+                                      icon="mdi:delete"
+                                      className="w-3.5 h-3.5"
+                                    />
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-500">
+            <Icon icon="mdi:tools" className="w-12 h-12 mb-4 opacity-20" />
+            <p className="text-lg font-medium">
+              {activeTab} module coming soon
+            </p>
+            <p className="text-sm">
+              This feature is currently under development.
+            </p>
           </div>
         )}
-      </section>
+      </div>
+
+      {/* Update Stock Modal */}
       {updateStockRow && (
         <UpdateStockModal
           row={updateStockRow}
-          onClose={handleCloseUpdateStock}
+          onClose={(shouldRefresh) => {
+            setUpdateStockRow(null);
+            if (shouldRefresh) {
+              refetchInventories();
+            }
+          }}
+        />
+      )}
+
+      {/* Backdrop for closing action menu */}
+      {openActionId !== null && (
+        <div
+          className="fixed inset-0 z-10 bg-transparent"
+          onClick={() => setOpenActionId(null)}
         />
       )}
     </div>
