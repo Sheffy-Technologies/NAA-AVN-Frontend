@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useGetUnitsQuery } from "@/shared/api/units";
+import { cn } from "@/shared/utils/cn";
 import { useCreateAssetMutation, type CreateAssetPayload } from "../api";
 
 // Mock data for dropdowns
-const AIRCRAFT_TYPES = ["Bell UH-1H", "Magnus Fusion 212", "MD530F Cayuse Warrior"];
+const AIRCRAFT_TYPES = [
+  "Bell UH-1H",
+  "Magnus Fusion 212",
+  "MD530F Cayuse Warrior",
+];
 const POSITIONS = ["Engine 1", "Engine 2", "Main Rotor", "Tail Rotor"];
 const COMPONENT_TYPES = ["Avionics", "Landing Gear", "Weapon System"];
 const DOCUMENT_TYPES = [
@@ -14,10 +19,22 @@ const DOCUMENT_TYPES = [
   "Registration",
 ];
 
+type AircraftTabKey =
+  | "airframe"
+  | "engine"
+  | "avionics"
+  | "discrepancy"
+  | "documentations";
+
+type TrackByKey = "hours" | "cycles" | "both";
+
 export const AddAssetPage = () => {
   const navigate = useNavigate();
   const [createAsset, { isLoading }] = useCreateAssetMutation();
   const { data: units = [] } = useGetUnitsQuery();
+
+  const [activeTab, setActiveTab] = useState<AircraftTabKey>("airframe");
+  const [airframeTrackBy, setAirframeTrackBy] = useState<TrackByKey>("both");
 
   // Form State
   const [formData, setFormData] = useState({
@@ -33,20 +50,20 @@ export const AddAssetPage = () => {
     date_inducted: "", // UI only?
     date_into_service: "", // UI only?
     unit_id: "",
-    airbase: "", // UI only?
-    hangar: "", // UI only?
+    operation_status: "serviceable",
 
     // Airframe
     total_airframe_hours: "",
     service_life_limit: "",
-    operation_status: "serviceable",
     last_major_inspection_date: "",
     last_major_inspection_hours: "",
     inspection_interval: "",
     next_annual_inspection: "",
     next_type_of_inspection: "",
-    airframe_cycles: "", // Optional
-    service_life_limit_cycles: "", // Optional
+    airframe_cycles: "",
+    service_life_limit_cycles: "",
+    last_inspection_cycles: "",
+    inspection_interval_cycles: "",
     landings: "",
 
     // Configuration
@@ -60,6 +77,7 @@ export const AddAssetPage = () => {
   const [engines, setEngines] = useState([
     {
       position_id: 1, // Mock
+      track_by: "hours" as TrackByKey,
       serial_number: "",
       model: "",
       installation_date: "",
@@ -67,11 +85,40 @@ export const AddAssetPage = () => {
       time_since_overhaul: "",
       service_life_limit: "",
       overhaul_limit: "",
+      cycles_since_new: "",
+      service_life_limit_cycles: "",
+      cycles_since_overhaul: "",
+      overhaul_limit_cycles: "",
     },
+  ]);
+
+  const [activeEngineIndex, setActiveEngineIndex] = useState(0);
+
+  const [engineComponentsByEngine, setEngineComponentsByEngine] = useState([
+    [
+      {
+        component_type: "",
+        track_by: "hours" as TrackByKey,
+        part_number: "",
+        serial_number: "",
+        life_limit_hours: "",
+        time_since_overhaul: "",
+        time_since_new: "",
+        overhaul_limit: "",
+        hours_used: "",
+        installed_at: "",
+        cycles_since_new: "",
+        service_life_limit_cycles: "",
+        cycles_since_overhaul: "",
+        overhaul_limit_cycles: "",
+      },
+    ],
   ]);
 
   const [components, setComponents] = useState([
     {
+      component_type: "",
+      track_by: "hours" as TrackByKey,
       part_number: "",
       serial_number: "",
       life_limit_hours: "",
@@ -80,6 +127,25 @@ export const AddAssetPage = () => {
       overhaul_limit: "",
       hours_used: "",
       installed_at: "",
+    },
+  ]);
+
+  const [avionicsComponents, setAvionicsComponents] = useState([
+    {
+      component_type: "",
+      track_by: "hours" as TrackByKey,
+      part_number: "",
+      serial_number: "",
+      life_limit_hours: "",
+      time_since_overhaul: "",
+      time_since_new: "",
+      overhaul_limit: "",
+      hours_used: "",
+      installed_at: "",
+      cycles_since_new: "",
+      service_life_limit_cycles: "",
+      cycles_since_overhaul: "",
+      overhaul_limit_cycles: "",
     },
   ]);
 
@@ -107,47 +173,57 @@ export const AddAssetPage = () => {
     },
   ]);
 
-  // Calculate Next Inspection Due
-  // Logic: (Last Major Inspection + Inspection Interval) - Total Airframe Hours
-  // > 0: Due In X hrs
-  // = 0: Due Now
-  // < 0: Overdue by X hrs
-  const { nextInspectionTitle, nextInspectionValue } = (() => {
+  const airframeLifeRemainingHours = useMemo(() => {
+    const total = Number(formData.total_airframe_hours);
+    const limit = Number(formData.service_life_limit);
+    if (!limit || Number.isNaN(limit)) return "00 hrs";
+    const remaining = limit - (Number.isNaN(total) ? 0 : total);
+    const value = Math.max(0, remaining);
+    return `${value} hrs`;
+  }, [formData.service_life_limit, formData.total_airframe_hours]);
+
+  const airframeLifeRemainingCycles = useMemo(() => {
+    const total = Number(formData.airframe_cycles);
+    const limit = Number(formData.service_life_limit_cycles);
+    if (!limit || Number.isNaN(limit)) return "00 Cyc";
+    const remaining = limit - (Number.isNaN(total) ? 0 : total);
+    const value = Math.max(0, remaining);
+    return `${value} Cyc`;
+  }, [formData.service_life_limit_cycles, formData.airframe_cycles]);
+
+  const nextInspectionDueHours = useMemo(() => {
     const total = Number(formData.total_airframe_hours);
     const last = Number(formData.last_major_inspection_hours);
     const interval = Number(formData.inspection_interval);
+    if (!interval || Number.isNaN(interval)) return "00 hrs";
+    const remaining =
+      (Number.isNaN(last) ? 0 : last) +
+      interval -
+      (Number.isNaN(total) ? 0 : total);
+    const value = Math.max(0, remaining);
+    return `${value} hrs`;
+  }, [
+    formData.inspection_interval,
+    formData.last_major_inspection_hours,
+    formData.total_airframe_hours,
+  ]);
 
-    // If any required field is missing/zero
-    if (
-      !formData.total_airframe_hours &&
-      !formData.last_major_inspection_hours &&
-      !formData.inspection_interval
-    ) {
-      return {
-        nextInspectionTitle: "Next Inspection Due",
-        nextInspectionValue: "00 hrs",
-      };
-    }
-
-    const remaining = last + interval - total;
-
-    if (remaining > 0) {
-      return {
-        nextInspectionTitle: "Next Inspection Due In",
-        nextInspectionValue: `${remaining} hrs`,
-      };
-    } else if (remaining === 0) {
-      return {
-        nextInspectionTitle: "Inspection Due Now",
-        nextInspectionValue: "0 hrs",
-      };
-    } else {
-      return {
-        nextInspectionTitle: "Inspection Overdue by",
-        nextInspectionValue: `${Math.abs(remaining)} hrs`,
-      };
-    }
-  })();
+  const nextInspectionDueCycles = useMemo(() => {
+    const total = Number(formData.airframe_cycles);
+    const last = Number(formData.last_inspection_cycles);
+    const interval = Number(formData.inspection_interval_cycles);
+    if (!interval || Number.isNaN(interval)) return "00 Cyc";
+    const remaining =
+      (Number.isNaN(last) ? 0 : last) +
+      interval -
+      (Number.isNaN(total) ? 0 : total);
+    const value = Math.max(0, remaining);
+    return `${value} Cyc`;
+  }, [
+    formData.airframe_cycles,
+    formData.inspection_interval_cycles,
+    formData.last_inspection_cycles,
+  ]);
 
   const handleInputChange = (
     field: string,
@@ -181,8 +257,109 @@ export const AddAssetPage = () => {
     setter(list.filter((_, i) => i !== index));
   };
 
+  const addEngine = () => {
+    const newIndex = engines.length;
+    setEngines([
+      ...engines,
+      {
+        position_id: 1,
+        track_by: "hours",
+        serial_number: "",
+        model: "",
+        installation_date: "",
+        time_since_new: "",
+        time_since_overhaul: "",
+        service_life_limit: "",
+        overhaul_limit: "",
+        cycles_since_new: "",
+        service_life_limit_cycles: "",
+        cycles_since_overhaul: "",
+        overhaul_limit_cycles: "",
+      },
+    ]);
+    setEngineComponentsByEngine([
+      ...engineComponentsByEngine,
+      [
+        {
+          component_type: "",
+          track_by: "hours",
+          part_number: "",
+          serial_number: "",
+          life_limit_hours: "",
+          time_since_overhaul: "",
+          time_since_new: "",
+          overhaul_limit: "",
+          hours_used: "",
+          installed_at: "",
+          cycles_since_new: "",
+          service_life_limit_cycles: "",
+          cycles_since_overhaul: "",
+          overhaul_limit_cycles: "",
+        },
+      ],
+    ]);
+    setActiveEngineIndex(newIndex);
+  };
+
+  const removeEngine = (index: number) => {
+    if (engines.length <= 1) return;
+    const nextEngines = engines.filter((_, i) => i !== index);
+    const nextEngineComponents = engineComponentsByEngine.filter(
+      (_, i) => i !== index,
+    );
+    setEngines(nextEngines);
+    setEngineComponentsByEngine(nextEngineComponents);
+    setActiveEngineIndex((prev) => {
+      if (prev === index) return Math.max(0, index - 1);
+      if (prev > index) return prev - 1;
+      return prev;
+    });
+  };
+
+  const addEngineComponent = () => {
+    setEngineComponentsByEngine((prev) =>
+      prev.map((list, i) =>
+        i === activeEngineIndex
+          ? [
+              ...list,
+              {
+                component_type: "",
+                track_by: "hours",
+                part_number: "",
+                serial_number: "",
+                life_limit_hours: "",
+                time_since_overhaul: "",
+                time_since_new: "",
+                overhaul_limit: "",
+                hours_used: "",
+                installed_at: "",
+                cycles_since_new: "",
+                service_life_limit_cycles: "",
+                cycles_since_overhaul: "",
+                overhaul_limit_cycles: "",
+              },
+            ]
+          : list,
+      ),
+    );
+  };
+
+  const removeEngineComponent = (index: number) => {
+    setEngineComponentsByEngine((prev) =>
+      prev.map((list, i) =>
+        i === activeEngineIndex ? list.filter((_, j) => j !== index) : list,
+      ),
+    );
+  };
+
   const handleSubmit = async () => {
     try {
+      const allComponents = [
+        ...components,
+        ...engineComponentsByEngine.flatMap((list) => list),
+        ...avionicsComponents,
+      ];
+
       const payload: CreateAssetPayload = {
         type: "aircraft",
         unit_id: Number(formData.unit_id) || 1, // Default to 1 if not selected
@@ -203,23 +380,49 @@ export const AddAssetPage = () => {
         manufacturer: formData.manufacturer,
         purchase_date: formData.purchase_date,
 
-        engines: engines.map((e) => ({
-          ...e,
-          position_id: 1, // Default or map from UI
-          time_since_new: Number(e.time_since_new) || 0,
-          time_since_overhaul: Number(e.time_since_overhaul) || 0,
-          service_life_limit: Number(e.service_life_limit) || 0,
-          overhaul_limit: Number(e.overhaul_limit) || 0,
-        })),
+        engines: engines.map(
+          ({
+            position_id,
+            serial_number,
+            model,
+            installation_date,
+            time_since_new,
+            time_since_overhaul,
+            service_life_limit,
+            overhaul_limit,
+          }) => ({
+            position_id: Number(position_id) || 1,
+            serial_number,
+            model,
+            installation_date,
+            time_since_new: Number(time_since_new) || 0,
+            time_since_overhaul: Number(time_since_overhaul) || 0,
+            service_life_limit: Number(service_life_limit) || 0,
+            overhaul_limit: Number(overhaul_limit) || 0,
+          }),
+        ),
 
-        components: components.map((c) => ({
-          ...c,
-          life_limit_hours: Number(c.life_limit_hours) || 0,
-          time_since_overhaul: Number(c.time_since_overhaul) || 0,
-          time_since_new: Number(c.time_since_new) || 0,
-          overhaul_limit: Number(c.overhaul_limit) || 0,
-          hours_used: Number(c.hours_used) || 0,
-        })),
+        components: allComponents.map(
+          ({
+            part_number,
+            serial_number,
+            life_limit_hours,
+            time_since_overhaul,
+            time_since_new,
+            overhaul_limit,
+            hours_used,
+            installed_at,
+          }) => ({
+            part_number,
+            serial_number,
+            life_limit_hours: Number(life_limit_hours) || 0,
+            time_since_overhaul: Number(time_since_overhaul) || 0,
+            time_since_new: Number(time_since_new) || 0,
+            overhaul_limit: Number(overhaul_limit) || 0,
+            hours_used: Number(hours_used) || Number(time_since_new) || 0,
+            installed_at,
+          }),
+        ),
 
         documents: documents.map((d) => ({
           ...d,
@@ -412,65 +615,6 @@ export const AddAssetPage = () => {
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-gray-400">Airbase</label>
-              <select
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                value={formData.airbase}
-                onChange={(e) => handleInputChange("airbase", e.target.value)}
-              >
-                <option value="">Select Airbase</option>
-                <option value="base1">Base 1</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">Hangar</label>
-              <select
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                value={formData.hangar}
-                onChange={(e) => handleInputChange("hangar", e.target.value)}
-              >
-                <option value="">Select Hangar</option>
-                <option value="h1">Hangar 1</option>
-              </select>
-            </div>
-          </div>
-        </section>
-
-        {/* Airframe */}
-        <section>
-          <h2 className="text-xs font-bold text-[#7FD5FF] uppercase mb-4">
-            Airframe
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Total Airframe Hrs
-              </label>
-              <input
-                type="number"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter Hrs"
-                value={formData.total_airframe_hours}
-                onChange={(e) =>
-                  handleInputChange("total_airframe_hours", e.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Service Life Limit hrs
-              </label>
-              <input
-                type="number"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter Hrs"
-                value={formData.service_life_limit}
-                onChange={(e) =>
-                  handleInputChange("service_life_limit", e.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-1">
               <label className="text-xs text-gray-400">Operation Status</label>
               <select
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
@@ -484,723 +628,2290 @@ export const AddAssetPage = () => {
                 <option value="grounded">Grounded</option>
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">Life Remaining</label>
-              <div className="text-xl font-bold text-white">00 hrs</div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Last Major Inspection Date
-              </label>
-              <input
-                type="date"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                value={formData.last_major_inspection_date}
-                onChange={(e) =>
-                  handleInputChange(
-                    "last_major_inspection_date",
-                    e.target.value,
-                  )
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Last Major Inspection hrs
-              </label>
-              <input
-                type="number"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter Hrs"
-                value={formData.last_major_inspection_hours}
-                onChange={(e) =>
-                  handleInputChange(
-                    "last_major_inspection_hours",
-                    e.target.value,
-                  )
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Inspection Interval
-              </label>
-              <input
-                type="number"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter Hrs"
-                value={formData.inspection_interval}
-                onChange={(e) =>
-                  handleInputChange("inspection_interval", e.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                {nextInspectionTitle}
-              </label>
-              <div className="text-xl font-bold text-white">
-                {nextInspectionValue}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Next Annual Inspection
-              </label>
-              <input
-                type="date"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                value={formData.next_annual_inspection}
-                onChange={(e) =>
-                  handleInputChange("next_annual_inspection", e.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Next Type of Inspection
-              </label>
-              <input
-                type="text"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter Type"
-                value={formData.next_type_of_inspection}
-                onChange={(e) =>
-                  handleInputChange("next_type_of_inspection", e.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">
-                Airframe Cycles (optional)
-              </label>
-              <input
-                type="number"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter Cycles"
-                value={formData.airframe_cycles}
-                onChange={(e) =>
-                  handleInputChange("airframe_cycles", e.target.value)
-                }
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">Landings</label>
-              <input
-                type="number"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter"
-                value={formData.landings}
-                onChange={(e) => handleInputChange("landings", e.target.value)}
-              />
-            </div>
           </div>
         </section>
 
-        {/* Engine */}
-        <section>
-          <div className="flex items-center gap-4 mb-4">
-            <h2 className="text-xs font-bold text-[#7FD5FF] uppercase">
-              Engine
-            </h2>
+        {/* Tabs */}
+        <div className="flex items-center gap-6 border-b border-[#0A4D66]/40">
+          {[
+            { key: "airframe" as const, label: "Airframe" },
+            { key: "engine" as const, label: "Engines" },
+            { key: "avionics" as const, label: "Avionics" },
+            { key: "discrepancy" as const, label: "Discrepancy" },
+            { key: "documentations" as const, label: "Documentations" },
+          ].map((tab) => (
             <button
-              onClick={() =>
-                addItem(setEngines, engines, {
-                  position_id: 1,
-                  serial_number: "",
-                  model: "",
-                  installation_date: "",
-                  time_since_new: "",
-                  time_since_overhaul: "",
-                  service_life_limit: "",
-                  overhaul_limit: "",
-                })
-              }
-              className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={[
+                "pb-3 text-sm font-medium transition-colors",
+                activeTab === tab.key
+                  ? "text-white border-b-2 border-[#7FD5FF]"
+                  : "text-gray-400 hover:text-gray-200",
+              ].join(" ")}
             >
-              <Icon icon="mdi:plus" className="w-3 h-3" />
-              Add Engine
+              {tab.label}
             </button>
-          </div>
+          ))}
+        </div>
 
-          <div className="space-y-4">
-            {engines.map((engine, idx) => (
-              <div
-                key={idx}
-                className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 relative"
-              >
+        {activeTab === "airframe" && (
+          <section className="space-y-6">
+            <div className="flex items-center gap-4 text-xs text-gray-300">
+              <span className="text-xs font-semibold text-white">Track By</span>
+              {[
+                { key: "hours" as const, label: "Hours" },
+                { key: "cycles" as const, label: "Cycles" },
+                { key: "both" as const, label: "Hours & Cycles" },
+              ].map((option) => (
                 <button
-                  onClick={() => removeItem(setEngines, engines, idx)}
-                  className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
+                  key={option.key}
+                  type="button"
+                  onClick={() => setAirframeTrackBy(option.key)}
+                  className="inline-flex items-center gap-2"
                 >
-                  <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                </button>
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4">
-                  Engine {idx + 1}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Position</label>
-                    <select
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={engine.position_id}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "position_id",
-                          e.target.value,
-                        )
-                      }
-                    >
-                      {POSITIONS.map((p, i) => (
-                        <option key={i} value={i + 1}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Serial Number
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={engine.serial_number}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "serial_number",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Model</label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Model"
-                      value={engine.model}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "model",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Installation Date(optional)
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={engine.installation_date}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "installation_date",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Time Since New
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={engine.time_since_new}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "time_since_new",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Time Since Overhaul
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={engine.time_since_overhaul}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "time_since_overhaul",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Service Life Limit hrs
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={engine.service_life_limit}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "service_life_limit",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Overhaul Limit
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={engine.overhaul_limit}
-                      onChange={(e) =>
-                        updateItem(
-                          setEngines,
-                          engines,
-                          idx,
-                          "overhaul_limit",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Component */}
-        <section>
-          <div className="flex items-center gap-4 mb-4">
-            <h2 className="text-xs font-bold text-[#7FD5FF] uppercase">
-              Component
-            </h2>
-            <button
-              onClick={() =>
-                addItem(setComponents, components, {
-                  part_number: "",
-                  serial_number: "",
-                  life_limit_hours: "",
-                  time_since_overhaul: "",
-                  time_since_new: "",
-                  overhaul_limit: "",
-                  hours_used: "",
-                  installed_at: "",
-                })
-              }
-              className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
-            >
-              <Icon icon="mdi:plus" className="w-3 h-3" />
-              Add Component
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {components.map((comp, idx) => (
-              <div
-                key={idx}
-                className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 relative"
-              >
-                <button
-                  onClick={() => removeItem(setComponents, components, idx)}
-                  className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
-                >
-                  <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                </button>
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4">
-                  Component {idx + 1}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Component</label>
-                    <select className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]">
-                      <option value="">Select Type</option>
-                      {COMPONENT_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Serial Number
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Serial Number"
-                      value={comp.serial_number}
-                      onChange={(e) =>
-                        updateItem(
-                          setComponents,
-                          components,
-                          idx,
-                          "serial_number",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Part Number</label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Part number"
-                      value={comp.part_number}
-                      onChange={(e) =>
-                        updateItem(
-                          setComponents,
-                          components,
-                          idx,
-                          "part_number",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Installation Date(optional)
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={comp.installed_at}
-                      onChange={(e) =>
-                        updateItem(
-                          setComponents,
-                          components,
-                          idx,
-                          "installed_at",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Time Since New
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={comp.time_since_new}
-                      onChange={(e) =>
-                        updateItem(
-                          setComponents,
-                          components,
-                          idx,
-                          "time_since_new",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Time Since Overhaul
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={comp.time_since_overhaul}
-                      onChange={(e) =>
-                        updateItem(
-                          setComponents,
-                          components,
-                          idx,
-                          "time_since_overhaul",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Service Life Limit hrs
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={comp.life_limit_hours}
-                      onChange={(e) =>
-                        updateItem(
-                          setComponents,
-                          components,
-                          idx,
-                          "life_limit_hours",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Overhaul Limit
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={comp.overhaul_limit}
-                      onChange={(e) =>
-                        updateItem(
-                          setComponents,
-                          components,
-                          idx,
-                          "overhaul_limit",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Defects */}
-        <section>
-          <div className="flex items-center gap-4 mb-4">
-            <h2 className="text-xs font-bold text-[#7FD5FF] uppercase">
-              Defects
-            </h2>
-            <button
-              onClick={() =>
-                addItem(setDefects, defects, {
-                  defect_reported: "",
-                  date_of_defect: "",
-                  pilots_involved: "",
-                  location: "",
-                  defect_description: "",
-                  remark: "",
-                  rectified: false,
-                  rectification_details: "",
-                  work_done: "",
-                  certifying_engineer: "",
-                })
-              }
-              className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
-            >
-              <Icon icon="mdi:plus" className="w-3 h-3" />
-              Add Defect
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {defects.map((defect, idx) => (
-              <div
-                key={idx}
-                className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 relative"
-              >
-                <button
-                  onClick={() => removeItem(setDefects, defects, idx)}
-                  className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
-                >
-                  <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                </button>
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4">
-                  Defect {idx + 1}
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Defect Reported
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Defect"
-                      value={defect.defect_reported}
-                      onChange={(e) =>
-                        updateItem(
-                          setDefects,
-                          defects,
-                          idx,
-                          "defect_reported",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Date of defect
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={defect.date_of_defect}
-                      onChange={(e) =>
-                        updateItem(
-                          setDefects,
-                          defects,
-                          idx,
-                          "date_of_defect",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Pilots Involved
-                    </label>
-                    <select
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={defect.pilots_involved}
-                      onChange={(e) =>
-                        updateItem(
-                          setDefects,
-                          defects,
-                          idx,
-                          "pilots_involved",
-                          e.target.value,
-                        )
-                      }
-                    >
-                      <option value="">Select Pilots</option>
-                      <option value="1">Pilot A</option>
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Location</label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Location"
-                      value={defect.location}
-                      onChange={(e) =>
-                        updateItem(
-                          setDefects,
-                          defects,
-                          idx,
-                          "location",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Defect Description
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Remark"
-                      value={defect.defect_description}
-                      onChange={(e) =>
-                        updateItem(
-                          setDefects,
-                          defects,
-                          idx,
-                          "defect_description",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Remark</label>
-                    <input
-                      type="text"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Remark"
-                      value={defect.remark}
-                      onChange={(e) =>
-                        updateItem(
-                          setDefects,
-                          defects,
-                          idx,
-                          "remark",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-4 mb-4">
-                  <span className="text-xs font-bold text-white">
-                    Rectified?
+                  <span
+                    className={[
+                      "w-3.5 h-3.5 rounded-full border",
+                      airframeTrackBy === option.key
+                        ? "border-[#7FD5FF] bg-[#7FD5FF]"
+                        : "border-gray-500 bg-transparent",
+                    ].join(" ")}
+                  />
+                  <span
+                    className={
+                      airframeTrackBy === option.key
+                        ? "text-white"
+                        : "text-gray-400"
+                    }
+                  >
+                    {option.label}
                   </span>
-                  <label className="flex items-center gap-2 text-sm text-gray-400">
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 space-y-4">
+              {(airframeTrackBy === "hours" || airframeTrackBy === "both") && (
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Total Flight Hrs
+                    </label>
                     <input
-                      type="radio"
-                      name={`rectified-${idx}`}
-                      checked={defect.rectified}
-                      onChange={() =>
-                        updateItem(setDefects, defects, idx, "rectified", true)
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter Hrs"
+                      value={formData.total_airframe_hours}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "total_airframe_hours",
+                          e.target.value,
+                        )
                       }
-                      className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                     />
-                    Yes
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-400">
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Service Life Limit hrs
+                    </label>
                     <input
-                      type="radio"
-                      name={`rectified-${idx}`}
-                      checked={!defect.rectified}
-                      onChange={() =>
-                        updateItem(setDefects, defects, idx, "rectified", false)
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter Hrs"
+                      value={formData.service_life_limit}
+                      onChange={(e) =>
+                        handleInputChange("service_life_limit", e.target.value)
                       }
-                      className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                     />
-                    No
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Life Remaining
+                    </label>
+                    <div className="text-2xl font-bold text-white">
+                      {airframeLifeRemainingHours}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Last Inspection hrs
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter Hrs"
+                      value={formData.last_major_inspection_hours}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "last_major_inspection_hours",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Inspection Interval
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter Hrs"
+                      value={formData.inspection_interval}
+                      onChange={(e) =>
+                        handleInputChange("inspection_interval", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      next inspection due
+                    </label>
+                    <div className="text-2xl font-bold text-white">
+                      {nextInspectionDueHours}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(airframeTrackBy === "cycles" || airframeTrackBy === "both") && (
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Total Cycles
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter cyc"
+                      value={formData.airframe_cycles}
+                      onChange={(e) =>
+                        handleInputChange("airframe_cycles", e.target.value)
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">Cycle Limit</label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter cyc"
+                      value={formData.service_life_limit_cycles}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "service_life_limit_cycles",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Life Remaining
+                    </label>
+                    <div className="text-2xl font-bold text-white">
+                      {airframeLifeRemainingCycles}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Last Inspection Cycles
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter cyc"
+                      value={formData.last_inspection_cycles}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "last_inspection_cycles",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      Inspection Interval(Cycles)
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      placeholder="Enter cyc"
+                      value={formData.inspection_interval_cycles}
+                      onChange={(e) =>
+                        handleInputChange(
+                          "inspection_interval_cycles",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-gray-400">
+                      next inspection due
+                    </label>
+                    <div className="text-2xl font-bold text-white">
+                      {nextInspectionDueCycles}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">
+                    Last Major Inspection Date
                   </label>
+                  <input
+                    type="date"
+                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                    value={formData.last_major_inspection_date}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "last_major_inspection_date",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">
+                    Next Type of inspection
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                    placeholder="Enter Type of inspection"
+                    value={formData.next_type_of_inspection}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "next_type_of_inspection",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">
+                    Next Annual Inspection
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                    value={formData.next_annual_inspection}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "next_annual_inspection",
+                        e.target.value,
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-gray-400">Landings</label>
+                  <input
+                    type="number"
+                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                    placeholder="Enter"
+                    value={formData.landings}
+                    onChange={(e) =>
+                      handleInputChange("landings", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-xs font-bold text-[#7FD5FF] uppercase">
+                  Airframe Component
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    addItem(setComponents, components, {
+                      component_type: "",
+                      track_by: "hours",
+                      part_number: "",
+                      serial_number: "",
+                      life_limit_hours: "",
+                      time_since_overhaul: "",
+                      time_since_new: "",
+                      overhaul_limit: "",
+                      hours_used: "",
+                      installed_at: "",
+                    })
+                  }
+                  className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+                >
+                  <Icon icon="mdi:plus" className="w-3 h-3" />
+                  Add Component
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {components.map((comp, idx) => {
+                  const remainingLife = (() => {
+                    const used = Number(comp.time_since_new);
+                    const limit = Number(comp.life_limit_hours);
+                    if (!limit || Number.isNaN(limit)) return "00 hrs";
+                    const remaining = limit - (Number.isNaN(used) ? 0 : used);
+                    return `${Math.max(0, remaining)} hrs`;
+                  })();
+
+                  const nextOverhaulDue = (() => {
+                    const used = Number(comp.time_since_overhaul);
+                    const limit = Number(comp.overhaul_limit);
+                    if (!limit || Number.isNaN(limit)) return "00 hrs";
+                    const remaining = limit - (Number.isNaN(used) ? 0 : used);
+                    return `${Math.max(0, remaining)} hrs`;
+                  })();
+
+                  return (
+                    <div
+                      key={idx}
+                      className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 relative"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-[#001825] border border-[#0A4D66]/40 flex items-center justify-center text-xs text-gray-200">
+                            {idx + 1}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeItem(setComponents, components, idx)
+                          }
+                          className="text-gray-500 hover:text-red-400"
+                        >
+                          <Icon
+                            icon="mdi:trash-can-outline"
+                            className="w-4 h-4"
+                          />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs text-gray-300 mb-4">
+                        <span className="text-xs font-semibold text-white">
+                          Track By
+                        </span>
+                        {[
+                          { key: "hours" as const, label: "Hours" },
+                          { key: "cycles" as const, label: "Cycles" },
+                          { key: "both" as const, label: "Hours & Cycles" },
+                        ].map((option) => (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "track_by",
+                                option.key,
+                              )
+                            }
+                            className="inline-flex items-center gap-2"
+                          >
+                            <span
+                              className={[
+                                "w-3.5 h-3.5 rounded-full border",
+                                comp.track_by === option.key
+                                  ? "border-[#7FD5FF] bg-[#7FD5FF]"
+                                  : "border-gray-500 bg-transparent",
+                              ].join(" ")}
+                            />
+                            <span
+                              className={
+                                comp.track_by === option.key
+                                  ? "text-white"
+                                  : "text-gray-400"
+                              }
+                            >
+                              {option.label}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">
+                            Component Type
+                          </label>
+                          <select
+                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                            value={comp.component_type}
+                            onChange={(e) =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "component_type",
+                                e.target.value,
+                              )
+                            }
+                          >
+                            <option value="">Select Type</option>
+                            {COMPONENT_TYPES.map((t) => (
+                              <option key={t} value={t}>
+                                {t}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">
+                            Serial Number
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                            placeholder="Enter Serial Number"
+                            value={comp.serial_number}
+                            onChange={(e) =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "serial_number",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">
+                            Part Number
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                            placeholder="Enter Part number"
+                            value={comp.part_number}
+                            onChange={(e) =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "part_number",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">
+                            Installation Date(optional)
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                            value={comp.installed_at}
+                            onChange={(e) =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "installed_at",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+
+                        {(comp.track_by === "hours" ||
+                          comp.track_by === "both") && (
+                          <>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">
+                                Total Service Hrs
+                              </label>
+                              <input
+                                type="number"
+                                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                placeholder="Enter Hrs"
+                                value={comp.time_since_new}
+                                onChange={(e) =>
+                                  updateItem(
+                                    setComponents,
+                                    components,
+                                    idx,
+                                    "time_since_new",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">
+                                Service Life Limit hrs
+                              </label>
+                              <input
+                                type="number"
+                                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                placeholder="Enter Hrs"
+                                value={comp.life_limit_hours}
+                                onChange={(e) =>
+                                  updateItem(
+                                    setComponents,
+                                    components,
+                                    idx,
+                                    "life_limit_hours",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">
+                                Life Remaining
+                              </label>
+                              <div className="text-2xl font-bold text-white">
+                                {remainingLife}
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">
+                                Last Overhaul hrs
+                              </label>
+                              <input
+                                type="number"
+                                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                placeholder="Enter Hrs"
+                                value={comp.time_since_overhaul}
+                                onChange={(e) =>
+                                  updateItem(
+                                    setComponents,
+                                    components,
+                                    idx,
+                                    "time_since_overhaul",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">
+                                Overhaul Limit
+                              </label>
+                              <input
+                                type="number"
+                                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                placeholder="Enter Hrs"
+                                value={comp.overhaul_limit}
+                                onChange={(e) =>
+                                  updateItem(
+                                    setComponents,
+                                    components,
+                                    idx,
+                                    "overhaul_limit",
+                                    e.target.value,
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">
+                                next Overhaul due
+                              </label>
+                              <div className="text-2xl font-bold text-white">
+                                {nextOverhaulDue}
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {activeTab === "engine" && (
+          <section className="space-y-6">
+            <div className="flex flex-wrap items-center gap-2">
+              {engines.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveEngineIndex(idx)}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1 rounded-md text-xs font-bold border transition-colors",
+                    activeEngineIndex === idx
+                      ? "bg-[#001825] text-white border-[#7FD5FF]"
+                      : "bg-transparent text-gray-400 border-[#0A4D66]/40 hover:text-white",
+                  )}
+                >
+                  <span>Engine {idx + 1}</span>
+                  {engines.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeEngine(idx);
+                      }}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <Icon icon="mdi:close" className="w-3 h-3" />
+                    </button>
+                  ) : null}
+                </button>
+              ))}
+
+              <button
+                type="button"
+                onClick={addEngine}
+                className="flex items-center gap-1 text-xs font-bold text-[#7FD5FF] hover:text-white"
+              >
+                <Icon icon="mdi:plus-circle-outline" className="w-4 h-4" />
+                Add Engine
+              </button>
+            </div>
+
+            {engines[activeEngineIndex] ? (
+              <>
+                <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
+                  <div className="mb-4">
+                    <label className="text-xs text-gray-400 mb-2 block">
+                      Track By
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="radio"
+                          name="engineTrackBy"
+                          value="hours"
+                          checked={
+                            engines[activeEngineIndex].track_by === "hours"
+                          }
+                          onChange={() =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "track_by",
+                              "hours",
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Hours
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="radio"
+                          name="engineTrackBy"
+                          value="cycles"
+                          checked={
+                            engines[activeEngineIndex].track_by === "cycles"
+                          }
+                          onChange={() =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "track_by",
+                              "cycles",
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Cycles
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="radio"
+                          name="engineTrackBy"
+                          value="both"
+                          checked={
+                            engines[activeEngineIndex].track_by === "both"
+                          }
+                          onChange={() =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "track_by",
+                              "both",
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Hours &amp; Cycles
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Position</label>
+                      <select
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={engines[activeEngineIndex].position_id}
+                        onChange={(e) =>
+                          updateItem(
+                            setEngines,
+                            engines,
+                            activeEngineIndex,
+                            "position_id",
+                            e.target.value,
+                          )
+                        }
+                      >
+                        {POSITIONS.map((p, i) => (
+                          <option key={i} value={i + 1}>
+                            {p}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Serial Number
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Serial Number"
+                        value={engines[activeEngineIndex].serial_number}
+                        onChange={(e) =>
+                          updateItem(
+                            setEngines,
+                            engines,
+                            activeEngineIndex,
+                            "serial_number",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Model</label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Model"
+                        value={engines[activeEngineIndex].model}
+                        onChange={(e) =>
+                          updateItem(
+                            setEngines,
+                            engines,
+                            activeEngineIndex,
+                            "model",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Installation Date(optional)
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={engines[activeEngineIndex].installation_date}
+                        onChange={(e) =>
+                          updateItem(
+                            setEngines,
+                            engines,
+                            activeEngineIndex,
+                            "installation_date",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {(engines[activeEngineIndex].track_by === "hours" ||
+                    engines[activeEngineIndex].track_by === "both") && (
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Total Service Hrs
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={engines[activeEngineIndex].time_since_new}
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "time_since_new",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Service Life Limit hrs
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={engines[activeEngineIndex].service_life_limit}
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "service_life_limit",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Life Remaining
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const total = Number(
+                              engines[activeEngineIndex].time_since_new,
+                            );
+                            const limit = Number(
+                              engines[activeEngineIndex].service_life_limit,
+                            );
+                            if (!limit || Number.isNaN(limit)) return "00 hrs";
+                            const remaining =
+                              limit - (Number.isNaN(total) ? 0 : total);
+                            return `${Math.max(0, remaining)} hrs`;
+                          })()}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Last Overhaul hrs
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={engines[activeEngineIndex].time_since_overhaul}
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "time_since_overhaul",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Overhaul Limit
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={engines[activeEngineIndex].overhaul_limit}
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "overhaul_limit",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          next Overhaul due
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const used = Number(
+                              engines[activeEngineIndex].time_since_overhaul,
+                            );
+                            const limit = Number(
+                              engines[activeEngineIndex].overhaul_limit,
+                            );
+                            if (!limit || Number.isNaN(limit)) return "00 hrs";
+                            const remaining =
+                              limit - (Number.isNaN(used) ? 0 : used);
+                            return `${Math.max(0, remaining)} hrs`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(engines[activeEngineIndex].track_by === "cycles" ||
+                    engines[activeEngineIndex].track_by === "both") && (
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Total Cycles
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={engines[activeEngineIndex].cycles_since_new}
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "cycles_since_new",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Cycle Limit
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={
+                            engines[activeEngineIndex].service_life_limit_cycles
+                          }
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "service_life_limit_cycles",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Life Remaining
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const total = Number(
+                              engines[activeEngineIndex].cycles_since_new,
+                            );
+                            const limit = Number(
+                              engines[activeEngineIndex]
+                                .service_life_limit_cycles,
+                            );
+                            if (!limit || Number.isNaN(limit)) return "00 Cyc";
+                            const remaining =
+                              limit - (Number.isNaN(total) ? 0 : total);
+                            return `${Math.max(0, remaining)} Cyc`;
+                          })()}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Last Overhaul Cycles
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={
+                            engines[activeEngineIndex].cycles_since_overhaul
+                          }
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "cycles_since_overhaul",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Overhaul Limit
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={
+                            engines[activeEngineIndex].overhaul_limit_cycles
+                          }
+                          onChange={(e) =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "overhaul_limit_cycles",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          next Overhaul due
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const used = Number(
+                              engines[activeEngineIndex].cycles_since_overhaul,
+                            );
+                            const limit = Number(
+                              engines[activeEngineIndex].overhaul_limit_cycles,
+                            );
+                            if (!limit || Number.isNaN(limit)) return "00 Cyc";
+                            const remaining =
+                              limit - (Number.isNaN(used) ? 0 : used);
+                            return `${Math.max(0, remaining)} Cyc`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {defect.rectified && (
+                <div>
+                  <div className="flex items-center gap-4 mb-4">
+                    <h3 className="text-xs font-bold text-[#7FD5FF] uppercase">
+                      Engine Component
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={addEngineComponent}
+                      className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+                    >
+                      <Icon icon="mdi:plus" className="w-3 h-3" />
+                      Add Component
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {(engineComponentsByEngine[activeEngineIndex] ?? []).map(
+                      (comp, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 relative"
+                        >
+                          <div className="absolute left-4 top-4 flex items-center gap-3">
+                            <div className="w-6 h-6 rounded-full bg-[#001825] border border-[#0A4D66]/40 flex items-center justify-center text-xs font-bold text-white">
+                              {idx + 1}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeEngineComponent(idx)}
+                              className="text-gray-500 hover:text-red-500"
+                            >
+                              <Icon
+                                icon="mdi:trash-can-outline"
+                                className="w-4 h-4"
+                              />
+                            </button>
+                          </div>
+
+                          <div className="pt-10">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="col-span-1 md:col-span-4">
+                                <label className="text-xs text-gray-400 mb-2 block">
+                                  Track By
+                                </label>
+                                <div className="flex gap-4">
+                                  <label className="flex items-center gap-2 text-sm text-gray-400">
+                                    <input
+                                      type="radio"
+                                      name={`engineComponentTrackBy-${idx}`}
+                                      value="hours"
+                                      checked={comp.track_by === "hours"}
+                                      onChange={() =>
+                                        setEngineComponentsByEngine((prev) =>
+                                          prev.map((list, i) =>
+                                            i === activeEngineIndex
+                                              ? list.map((c, j) =>
+                                                  j === idx
+                                                    ? {
+                                                        ...c,
+                                                        track_by: "hours",
+                                                      }
+                                                    : c,
+                                                )
+                                              : list,
+                                          ),
+                                        )
+                                      }
+                                      className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                                    />
+                                    Hours
+                                  </label>
+                                  <label className="flex items-center gap-2 text-sm text-gray-400">
+                                    <input
+                                      type="radio"
+                                      name={`engineComponentTrackBy-${idx}`}
+                                      value="cycles"
+                                      checked={comp.track_by === "cycles"}
+                                      onChange={() =>
+                                        setEngineComponentsByEngine((prev) =>
+                                          prev.map((list, i) =>
+                                            i === activeEngineIndex
+                                              ? list.map((c, j) =>
+                                                  j === idx
+                                                    ? {
+                                                        ...c,
+                                                        track_by: "cycles",
+                                                      }
+                                                    : c,
+                                                )
+                                              : list,
+                                          ),
+                                        )
+                                      }
+                                      className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                                    />
+                                    Cycles
+                                  </label>
+                                  <label className="flex items-center gap-2 text-sm text-gray-400">
+                                    <input
+                                      type="radio"
+                                      name={`engineComponentTrackBy-${idx}`}
+                                      value="both"
+                                      checked={comp.track_by === "both"}
+                                      onChange={() =>
+                                        setEngineComponentsByEngine((prev) =>
+                                          prev.map((list, i) =>
+                                            i === activeEngineIndex
+                                              ? list.map((c, j) =>
+                                                  j === idx
+                                                    ? { ...c, track_by: "both" }
+                                                    : c,
+                                                )
+                                              : list,
+                                          ),
+                                        )
+                                      }
+                                      className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                                    />
+                                    Hours &amp; Cycles
+                                  </label>
+                                </div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <label className="text-xs text-gray-400">
+                                  Component Type
+                                </label>
+                                <select
+                                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                  value={comp.component_type}
+                                  onChange={(e) =>
+                                    setEngineComponentsByEngine((prev) =>
+                                      prev.map((list, i) =>
+                                        i === activeEngineIndex
+                                          ? list.map((c, j) =>
+                                              j === idx
+                                                ? {
+                                                    ...c,
+                                                    component_type:
+                                                      e.target.value,
+                                                  }
+                                                : c,
+                                            )
+                                          : list,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  <option value="">Select Type</option>
+                                  {COMPONENT_TYPES.map((t) => (
+                                    <option key={t} value={t}>
+                                      {t}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs text-gray-400">
+                                  Serial Number
+                                </label>
+                                <input
+                                  type="text"
+                                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                  placeholder="Enter Serial Number"
+                                  value={comp.serial_number}
+                                  onChange={(e) =>
+                                    setEngineComponentsByEngine((prev) =>
+                                      prev.map((list, i) =>
+                                        i === activeEngineIndex
+                                          ? list.map((c, j) =>
+                                              j === idx
+                                                ? {
+                                                    ...c,
+                                                    serial_number:
+                                                      e.target.value,
+                                                  }
+                                                : c,
+                                            )
+                                          : list,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs text-gray-400">
+                                  Part Number
+                                </label>
+                                <input
+                                  type="text"
+                                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                  placeholder="Enter Part number"
+                                  value={comp.part_number}
+                                  onChange={(e) =>
+                                    setEngineComponentsByEngine((prev) =>
+                                      prev.map((list, i) =>
+                                        i === activeEngineIndex
+                                          ? list.map((c, j) =>
+                                              j === idx
+                                                ? {
+                                                    ...c,
+                                                    part_number: e.target.value,
+                                                  }
+                                                : c,
+                                            )
+                                          : list,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs text-gray-400">
+                                  Installation Date(optional)
+                                </label>
+                                <input
+                                  type="date"
+                                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                  value={comp.installed_at}
+                                  onChange={(e) =>
+                                    setEngineComponentsByEngine((prev) =>
+                                      prev.map((list, i) =>
+                                        i === activeEngineIndex
+                                          ? list.map((c, j) =>
+                                              j === idx
+                                                ? {
+                                                    ...c,
+                                                    installed_at:
+                                                      e.target.value,
+                                                  }
+                                                : c,
+                                            )
+                                          : list,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                            </div>
+
+                            {(comp.track_by === "hours" ||
+                              comp.track_by === "both") && (
+                              <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Total Service Hrs
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Hrs"
+                                    value={comp.time_since_new}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      time_since_new:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Service Life Limit hrs
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Hrs"
+                                    value={comp.life_limit_hours}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      life_limit_hours:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Life Remaining
+                                  </label>
+                                  <div className="text-2xl font-bold text-white">
+                                    {(() => {
+                                      const total = Number(comp.time_since_new);
+                                      const limit = Number(
+                                        comp.life_limit_hours,
+                                      );
+                                      if (!limit || Number.isNaN(limit))
+                                        return "00 hrs";
+                                      const remaining =
+                                        limit -
+                                        (Number.isNaN(total) ? 0 : total);
+                                      return `${Math.max(0, remaining)} hrs`;
+                                    })()}
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Last Overhaul hrs
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Hrs"
+                                    value={comp.time_since_overhaul}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      time_since_overhaul:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Overhaul Limit
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Hrs"
+                                    value={comp.overhaul_limit}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      overhaul_limit:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    next Overhaul due
+                                  </label>
+                                  <div className="text-2xl font-bold text-white">
+                                    {(() => {
+                                      const used = Number(
+                                        comp.time_since_overhaul,
+                                      );
+                                      const limit = Number(comp.overhaul_limit);
+                                      if (!limit || Number.isNaN(limit))
+                                        return "00 hrs";
+                                      const remaining =
+                                        limit - (Number.isNaN(used) ? 0 : used);
+                                      return `${Math.max(0, remaining)} hrs`;
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {(comp.track_by === "cycles" ||
+                              comp.track_by === "both") && (
+                              <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Total Cycles
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Cyc"
+                                    value={comp.cycles_since_new}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      cycles_since_new:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Cycle Limit
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Cyc"
+                                    value={comp.service_life_limit_cycles}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      service_life_limit_cycles:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Life Remaining
+                                  </label>
+                                  <div className="text-2xl font-bold text-white">
+                                    {(() => {
+                                      const total = Number(
+                                        comp.cycles_since_new,
+                                      );
+                                      const limit = Number(
+                                        comp.service_life_limit_cycles,
+                                      );
+                                      if (!limit || Number.isNaN(limit))
+                                        return "00 Cyc";
+                                      const remaining =
+                                        limit -
+                                        (Number.isNaN(total) ? 0 : total);
+                                      return `${Math.max(0, remaining)} Cyc`;
+                                    })()}
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Last Overhaul Cycles
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Cyc"
+                                    value={comp.cycles_since_overhaul}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      cycles_since_overhaul:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    Overhaul Limit
+                                  </label>
+                                  <input
+                                    type="number"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    placeholder="Enter Cyc"
+                                    value={comp.overhaul_limit_cycles}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx
+                                                  ? {
+                                                      ...c,
+                                                      overhaul_limit_cycles:
+                                                        e.target.value,
+                                                    }
+                                                  : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">
+                                    next Overhaul due
+                                  </label>
+                                  <div className="text-2xl font-bold text-white">
+                                    {(() => {
+                                      const used = Number(
+                                        comp.cycles_since_overhaul,
+                                      );
+                                      const limit = Number(
+                                        comp.overhaul_limit_cycles,
+                                      );
+                                      if (!limit || Number.isNaN(limit))
+                                        return "00 Cyc";
+                                      const remaining =
+                                        limit - (Number.isNaN(used) ? 0 : used);
+                                      return `${Math.max(0, remaining)} Cyc`;
+                                    })()}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </section>
+        )}
+
+        {activeTab === "avionics" && (
+          <section className="space-y-6">
+            <div className="flex items-center gap-3">
+              <h3 className="text-xs font-bold text-[#7FD5FF] uppercase">
+                Avionics Component
+              </h3>
+              <button
+                type="button"
+                onClick={() =>
+                  addItem(setAvionicsComponents, avionicsComponents, {
+                    component_type: "",
+                    track_by: "hours",
+                    part_number: "",
+                    serial_number: "",
+                    life_limit_hours: "",
+                    time_since_overhaul: "",
+                    time_since_new: "",
+                    overhaul_limit: "",
+                    hours_used: "",
+                    installed_at: "",
+                    cycles_since_new: "",
+                    service_life_limit_cycles: "",
+                    cycles_since_overhaul: "",
+                    overhaul_limit_cycles: "",
+                  })
+                }
+                className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+              >
+                <Icon icon="mdi:plus" className="w-3 h-3" />
+                Add
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {avionicsComponents.map((comp, idx) => (
+                <div
+                  key={idx}
+                  className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-6 h-6 rounded-full bg-[#001825] border border-[#0A4D66]/40 flex items-center justify-center text-xs font-bold text-white">
+                      {idx + 1}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeItem(
+                          setAvionicsComponents,
+                          avionicsComponents,
+                          idx,
+                        )
+                      }
+                      className="text-gray-500 hover:text-red-500"
+                    >
+                      <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="text-xs text-gray-400 mb-2 block">
+                      Track By
+                    </label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="radio"
+                          name={`avionicsTrackBy-${idx}`}
+                          value="hours"
+                          checked={comp.track_by === "hours"}
+                          onChange={() =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "track_by",
+                              "hours",
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Hours
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="radio"
+                          name={`avionicsTrackBy-${idx}`}
+                          value="cycles"
+                          checked={comp.track_by === "cycles"}
+                          onChange={() =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "track_by",
+                              "cycles",
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Cycles
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="radio"
+                          name={`avionicsTrackBy-${idx}`}
+                          value="both"
+                          checked={comp.track_by === "both"}
+                          onChange={() =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "track_by",
+                              "both",
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Hours &amp; Cycles
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Component Type
+                      </label>
+                      <select
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={comp.component_type}
+                        onChange={(e) =>
+                          updateItem(
+                            setAvionicsComponents,
+                            avionicsComponents,
+                            idx,
+                            "component_type",
+                            e.target.value,
+                          )
+                        }
+                      >
+                        <option value="">Select Type</option>
+                        {COMPONENT_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Serial Number
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Serial Number"
+                        value={comp.serial_number}
+                        onChange={(e) =>
+                          updateItem(
+                            setAvionicsComponents,
+                            avionicsComponents,
+                            idx,
+                            "serial_number",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Part Number
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Part number"
+                        value={comp.part_number}
+                        onChange={(e) =>
+                          updateItem(
+                            setAvionicsComponents,
+                            avionicsComponents,
+                            idx,
+                            "part_number",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Installation Date(optional)
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={comp.installed_at}
+                        onChange={(e) =>
+                          updateItem(
+                            setAvionicsComponents,
+                            avionicsComponents,
+                            idx,
+                            "installed_at",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {(comp.track_by === "hours" || comp.track_by === "both") && (
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Total Service Hrs
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={comp.time_since_new}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "time_since_new",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Service Life Limit hrs
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={comp.life_limit_hours}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "life_limit_hours",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Life Remaining
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const total = Number(comp.time_since_new);
+                            const limit = Number(comp.life_limit_hours);
+                            if (!limit || Number.isNaN(limit)) return "00 hrs";
+                            const remaining =
+                              limit - (Number.isNaN(total) ? 0 : total);
+                            return `${Math.max(0, remaining)} hrs`;
+                          })()}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Last Overhaul hrs
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={comp.time_since_overhaul}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "time_since_overhaul",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Overhaul Limit
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Hrs"
+                          value={comp.overhaul_limit}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "overhaul_limit",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          next Overhaul due
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const used = Number(comp.time_since_overhaul);
+                            const limit = Number(comp.overhaul_limit);
+                            if (!limit || Number.isNaN(limit)) return "00 hrs";
+                            const remaining =
+                              limit - (Number.isNaN(used) ? 0 : used);
+                            return `${Math.max(0, remaining)} hrs`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {(comp.track_by === "cycles" || comp.track_by === "both") && (
+                    <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Total Cycles
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={comp.cycles_since_new}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "cycles_since_new",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Cycle Limit
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={comp.service_life_limit_cycles}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "service_life_limit_cycles",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Life Remaining
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const total = Number(comp.cycles_since_new);
+                            const limit = Number(
+                              comp.service_life_limit_cycles,
+                            );
+                            if (!limit || Number.isNaN(limit)) return "00 Cyc";
+                            const remaining =
+                              limit - (Number.isNaN(total) ? 0 : total);
+                            return `${Math.max(0, remaining)} Cyc`;
+                          })()}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Last Overhaul Cycles
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={comp.cycles_since_overhaul}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "cycles_since_overhaul",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          Overhaul Limit
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          placeholder="Enter Cyc"
+                          value={comp.overhaul_limit_cycles}
+                          onChange={(e) =>
+                            updateItem(
+                              setAvionicsComponents,
+                              avionicsComponents,
+                              idx,
+                              "overhaul_limit_cycles",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">
+                          next Overhaul due
+                        </label>
+                        <div className="text-2xl font-bold text-white">
+                          {(() => {
+                            const used = Number(comp.cycles_since_overhaul);
+                            const limit = Number(comp.overhaul_limit_cycles);
+                            if (!limit || Number.isNaN(limit)) return "00 Cyc";
+                            const remaining =
+                              limit - (Number.isNaN(used) ? 0 : used);
+                            return `${Math.max(0, remaining)} Cyc`;
+                          })()}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {activeTab === "discrepancy" && (
+          <section>
+            <div className="flex items-center gap-4 mb-4">
+              <h2 className="text-xs font-bold text-[#7FD5FF] uppercase">
+                Defects/Snags
+              </h2>
+              <button
+                type="button"
+                onClick={() =>
+                  addItem(setDefects, defects, {
+                    defect_reported: "",
+                    date_of_defect: "",
+                    pilots_involved: "",
+                    location: "",
+                    defect_description: "",
+                    remark: "",
+                    rectified: false,
+                    rectification_details: "",
+                    work_done: "",
+                    certifying_engineer: "",
+                  })
+                }
+                className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+              >
+                <Icon icon="mdi:plus" className="w-3 h-3" />
+                Add Snag
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {defects.map((defect, idx) => (
+                <div
+                  key={idx}
+                  className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-6 h-6 rounded-full bg-[#001825] border border-[#0A4D66]/40 flex items-center justify-center text-xs font-bold text-white">
+                      {idx + 1}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(setDefects, defects, idx)}
+                      className="text-gray-500 hover:text-red-500"
+                    >
+                      <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Defect Reported
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Defect"
+                        value={defect.defect_reported}
+                        onChange={(e) =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "defect_reported",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Date of defect
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={defect.date_of_defect}
+                        onChange={(e) =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "date_of_defect",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Pilots Involved
+                      </label>
+                      <select
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={defect.pilots_involved}
+                        onChange={(e) =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "pilots_involved",
+                            e.target.value,
+                          )
+                        }
+                      >
+                        <option value="">Select Pilots</option>
+                        <option value="1">Pilot A</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Location</label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Location"
+                        value={defect.location}
+                        onChange={(e) =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "location",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Defect Description
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Remark"
+                        value={defect.defect_description}
+                        onChange={(e) =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "defect_description",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Remark</label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Remark"
+                        value={defect.remark}
+                        onChange={(e) =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "remark",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 mb-4">
+                    <span className="text-xs font-bold text-white">
+                      Rectified?
+                    </span>
+                    <label className="flex items-center gap-2 text-sm text-gray-400">
+                      <input
+                        type="radio"
+                        name={`rectified-${idx}`}
+                        checked={defect.rectified}
+                        onChange={() =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "rectified",
+                            true,
+                          )
+                        }
+                        className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                      />
+                      Yes
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-gray-400">
+                      <input
+                        type="radio"
+                        name={`rectified-${idx}`}
+                        checked={!defect.rectified}
+                        onChange={() =>
+                          updateItem(
+                            setDefects,
+                            defects,
+                            idx,
+                            "rectified",
+                            false,
+                          )
+                        }
+                        className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                      />
+                      No
+                    </label>
+                  </div>
+
                   <div className="space-y-4">
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">
@@ -1266,126 +2977,136 @@ export const AddAssetPage = () => {
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
-        {/* Documentation */}
-        <section>
-          <div className="flex items-center gap-4 mb-4">
-            <h2 className="text-xs font-bold text-[#7FD5FF] uppercase">
-              Documentation
-            </h2>
-            <button
-              onClick={() =>
-                addItem(setDocuments, documents, {
-                  document_type: "",
-                  file: "",
-                  issue_date: "",
-                  expiry_date: "",
-                })
-              }
-              className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
-            >
-              <Icon icon="mdi:plus" className="w-3 h-3" />
-              Add Document
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {documents.map((doc, idx) => (
-              <div
-                key={idx}
-                className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 relative"
+        {activeTab === "documentations" && (
+          <section>
+            <div className="flex items-center gap-4 mb-4">
+              <h2 className="text-xs font-bold text-[#7FD5FF] uppercase">
+                Documentation
+              </h2>
+              <button
+                type="button"
+                onClick={() =>
+                  addItem(setDocuments, documents, {
+                    document_type: "",
+                    file: "",
+                    issue_date: "",
+                    expiry_date: "",
+                  })
+                }
+                className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
               >
-                <button
-                  onClick={() => removeItem(setDocuments, documents, idx)}
-                  className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
+                <Icon icon="mdi:plus" className="w-3 h-3" />
+                Add Document
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {documents.map((doc, idx) => (
+                <div
+                  key={idx}
+                  className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 relative"
                 >
-                  <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                </button>
-                <h3 className="text-xs font-bold text-gray-400 uppercase mb-4">
-                  Document {idx + 1}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Document Type
-                    </label>
-                    <select
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={doc.document_type}
-                      onChange={(e) =>
-                        updateItem(
-                          setDocuments,
-                          documents,
-                          idx,
-                          "document_type",
-                          e.target.value,
-                        )
-                      }
-                    >
-                      <option value="">Select Type</option>
-                      {DOCUMENT_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Document</label>
-                    <div className="flex items-center gap-2">
-                      <button className="flex items-center gap-2 bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white w-full hover:bg-[#0A4D66]/20">
-                        <Icon
-                          icon="mdi:upload"
-                          className="w-4 h-4 text-[#7FD5FF]"
-                        />
-                        <span>Upload Document</span>
-                      </button>
+                  <button
+                    type="button"
+                    onClick={() => removeItem(setDocuments, documents, idx)}
+                    className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
+                  >
+                    <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                  </button>
+                  <h3 className="text-xs font-bold text-gray-400 uppercase mb-4">
+                    Document {idx + 1}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Document Type
+                      </label>
+                      <select
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={doc.document_type}
+                        onChange={(e) =>
+                          updateItem(
+                            setDocuments,
+                            documents,
+                            idx,
+                            "document_type",
+                            e.target.value,
+                          )
+                        }
+                      >
+                        <option value="">Select Type</option>
+                        {DOCUMENT_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Document</label>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="flex items-center gap-2 bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white w-full hover:bg-[#0A4D66]/20"
+                        >
+                          <Icon
+                            icon="mdi:upload"
+                            className="w-4 h-4 text-[#7FD5FF]"
+                          />
+                          <span>Upload Document</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Issue date
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={doc.issue_date}
+                        onChange={(e) =>
+                          updateItem(
+                            setDocuments,
+                            documents,
+                            idx,
+                            "issue_date",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Expiry Date
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={doc.expiry_date}
+                        onChange={(e) =>
+                          updateItem(
+                            setDocuments,
+                            documents,
+                            idx,
+                            "expiry_date",
+                            e.target.value,
+                          )
+                        }
+                      />
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Issue date</label>
-                    <input
-                      type="date"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={doc.issue_date}
-                      onChange={(e) =>
-                        updateItem(
-                          setDocuments,
-                          documents,
-                          idx,
-                          "issue_date",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Expiry Date</label>
-                    <input
-                      type="date"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      value={doc.expiry_date}
-                      onChange={(e) =>
-                        updateItem(
-                          setDocuments,
-                          documents,
-                          idx,
-                          "expiry_date",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Footer Actions */}
         <div className="flex justify-end pt-8">

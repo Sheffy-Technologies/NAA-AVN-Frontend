@@ -253,13 +253,7 @@ export const AddPersonnelPage = () => {
   };
 
   const aircraftOptions: MultiSelectOption[] = useMemo(() => {
-<<<<<<< HEAD
     if (isLoadingAircrafts) return [];
-=======
-    if (isLoadingAircrafts) {
-      return [];
-    }
->>>>>>> 43c2b0b4eff46974f156ac4a7ec018ee96dc2bd7
 
     return (
       aircrafts?.map((a) => ({

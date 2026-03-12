@@ -7,11 +7,9 @@ import {
   useGetBudgetsQuery,
   useGetExpenseCategoriesQuery,
   useGetExpenseTypesQuery,
-  useGetAircraftQuery,
   type FinanceBudget,
   type FinanceExpenseCategory,
   type FinanceExpenseType,
-  type FinanceAircraft,
 } from "@/features/finance/api";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 
@@ -23,10 +21,11 @@ type FinanceFormValues = {
   aircraft_id: number | "";
   part_number: string;
   part_name: string;
+  vendor_supplier: string;
+  remark: string;
   work_order: string;
   quantity: string;
   unit_cost: string;
-  total_cost: string;
 };
 
 const emptyFormValues: FinanceFormValues = {
@@ -37,10 +36,11 @@ const emptyFormValues: FinanceFormValues = {
   aircraft_id: "",
   part_number: "",
   part_name: "",
+  vendor_supplier: "",
+  remark: "",
   work_order: "",
   quantity: "",
   unit_cost: "",
-  total_cost: "",
 };
 
 export const FinanceFormPage = () => {
@@ -50,7 +50,6 @@ export const FinanceFormPage = () => {
   const { data: unitsData } = useGetUnitsQuery();
   const { data: categoriesData } = useGetExpenseCategoriesQuery();
   const { data: expenseTypesData } = useGetExpenseTypesQuery();
-  const { data: aircraftData } = useGetAircraftQuery();
 
   const [values, setValues] = useState<FinanceFormValues>(emptyFormValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -61,18 +60,14 @@ export const FinanceFormPage = () => {
   const units = (unitsData ?? []) as Unit[];
   const categories = (categoriesData ?? []) as FinanceExpenseCategory[];
   const expenseTypes = (expenseTypesData ?? []) as FinanceExpenseType[];
-  const aircraftList = (aircraftData ?? []) as FinanceAircraft[];
 
-  const selectedBudget: FinanceBudget | undefined = useMemo(
-    () => {
-      const list = (budgetsData ?? []) as FinanceBudget[];
-      const selectedId =
-        typeof values.budget_id === "number" ? values.budget_id : -1;
+  const selectedBudget: FinanceBudget | undefined = useMemo(() => {
+    const list = (budgetsData ?? []) as FinanceBudget[];
+    const selectedId =
+      typeof values.budget_id === "number" ? values.budget_id : -1;
 
-      return list.find((budget) => budget.id === selectedId);
-    },
-    [budgetsData, values.budget_id],
-  );
+    return list.find((budget) => budget.id === selectedId);
+  }, [budgetsData, values.budget_id]);
 
   const parsedQuantity =
     values.quantity.trim().length > 0 ? Number(values.quantity) : 0;
@@ -83,11 +78,6 @@ export const FinanceFormPage = () => {
     !Number.isNaN(parsedQuantity) && !Number.isNaN(parsedUnitCost)
       ? parsedQuantity * parsedUnitCost
       : 0;
-
-  const displayTotalCost =
-    values.total_cost.trim().length > 0
-      ? Number(values.total_cost)
-      : computedTotalCost;
 
   const handleChange =
     (field: keyof FinanceFormValues) =>
@@ -106,6 +96,23 @@ export const FinanceFormPage = () => {
               ? ""
               : Number(value)
             : value,
+        ...(field === "budget_id"
+          ? (() => {
+              const budgetId = value === "" ? "" : Number(value);
+              const budget =
+                typeof budgetId === "number"
+                  ? budgets.find((item) => item.id === budgetId)
+                  : undefined;
+
+              return budget
+                ? {
+                    unit_id: budget.unit_id,
+                    expense_category_id: budget.expense_category_id,
+                    aircraft_id: budget.aircraft_id,
+                  }
+                : {};
+            })()
+          : {}),
       }));
       setSubmitError(null);
     };
@@ -122,22 +129,33 @@ export const FinanceFormPage = () => {
       return;
     }
 
-    if (
-      values.expense_category_id === "" ||
-      values.expense_type_id === "" ||
-      values.aircraft_id === ""
-    ) {
-      setSubmitError("Select category, aircraft and expense type.");
+    if (values.expense_category_id === "") {
+      setSubmitError("Select a category.");
       return;
     }
+
+    const selectedExpenseTypeId =
+      typeof values.expense_type_id === "number"
+        ? values.expense_type_id
+        : expenseTypes[0]?.id;
+
+    if (typeof selectedExpenseTypeId !== "number") {
+      setSubmitError("No expense types available.");
+      return;
+    }
+
+    const selectedAircraftId =
+      typeof values.aircraft_id === "number"
+        ? values.aircraft_id
+        : selectedBudget.aircraft_id;
 
     if (!values.part_number.trim() || !values.part_name.trim()) {
-      setSubmitError("Enter both part number and part name.");
+      setSubmitError("Enter item description and units/measurement.");
       return;
     }
 
-    if (!values.work_order.trim()) {
-      setSubmitError("Enter a work order.");
+    if (!values.vendor_supplier.trim()) {
+      setSubmitError("Enter vendor/supplier.");
       return;
     }
 
@@ -151,16 +169,18 @@ export const FinanceFormPage = () => {
       return;
     }
 
-    const totalCost =
-      displayTotalCost && !Number.isNaN(displayTotalCost)
-        ? displayTotalCost
-        : computedTotalCost;
+    const derivedWorkOrder = [
+      values.vendor_supplier.trim(),
+      values.remark.trim(),
+    ]
+      .filter(Boolean)
+      .join(" | ");
 
     try {
       await createExpense({
         expense_category_id: values.expense_category_id as number,
-        expense_type_id: values.expense_type_id as number,
-        aircraft_id: values.aircraft_id as number,
+        expense_type_id: selectedExpenseTypeId,
+        aircraft_id: selectedAircraftId,
         unit_id:
           typeof values.unit_id === "number" && values.unit_id > 0
             ? values.unit_id
@@ -168,10 +188,10 @@ export const FinanceFormPage = () => {
         budget_id: selectedBudget.id,
         part_number: values.part_number.trim(),
         part_name: values.part_name.trim(),
-        work_order: values.work_order.trim(),
+        work_order: derivedWorkOrder,
         quantity: parsedQuantity,
         unit_cost: parsedUnitCost,
-        total_cost: totalCost,
+        total_cost: computedTotalCost,
       }).unwrap();
 
       navigate("/dashboard/finance");
@@ -184,7 +204,7 @@ export const FinanceFormPage = () => {
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          Add Finance
+          ADD FINANCE
         </h1>
         <button
           type="button"
@@ -198,188 +218,145 @@ export const FinanceFormPage = () => {
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 sm:p-6">
         <div className="mb-4 text-[11px] sm:text-xs text-gray-400">
-          <span className="font-semibold text-white">FINANCE ID:{` `}</span>
+          <span className="font-semibold text-white">EXPENSE ID:{` `}</span>
           <span>Auto-generated</span>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Part No.
-            </label>
-            <input
-              type="text"
-              value={values.part_number}
-              onChange={handleChange("part_number")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-              placeholder="Enter Part No."
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Part Name
-            </label>
-            <input
-              type="text"
-              value={values.part_name}
-              onChange={handleChange("part_name")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-              placeholder="Enter Part Name"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Category
-            </label>
-            <select
-              value={
-                values.expense_category_id === ""
-                  ? ""
-                  : String(values.expense_category_id)
-              }
-              onChange={handleChange("expense_category_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-            >
-              <option value="">Select Category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Aircraft
-            </label>
-            <select
-              value={
-                values.aircraft_id === "" ? "" : String(values.aircraft_id)
-              }
-              onChange={handleChange("aircraft_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-            >
-              <option value="">Select Aircraft</option>
-              {aircraftList.map((aircraft) => (
-                <option key={aircraft.id} value={aircraft.id}>
-                  {aircraft.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Work Order
-            </label>
-            <input
-              type="text"
-              value={values.work_order}
-              onChange={handleChange("work_order")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-              placeholder="Enter Work Order"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Quantity
-            </label>
-            <input
-              type="number"
-              min={1}
-              value={values.quantity}
-              onChange={handleChange("quantity")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-              placeholder="Enter Quantity"
-            />
+        <div className="grid gap-4">
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">
+                Item Description
+              </label>
+              <input
+                type="text"
+                value={values.part_name}
+                onChange={handleChange("part_name")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder="Enter Item Description"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Category</label>
+              <select
+                value={
+                  values.expense_category_id === ""
+                    ? ""
+                    : String(values.expense_category_id)
+                }
+                onChange={handleChange("expense_category_id")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              >
+                <option value="">Select Category</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">
+                Vendor/Supplier
+              </label>
+              <input
+                type="text"
+                value={values.vendor_supplier}
+                onChange={handleChange("vendor_supplier")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder="Enter Vendor/Supplier"
+              />
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Expense Type
-            </label>
-            <select
-              value={
-                values.expense_type_id === ""
-                  ? ""
-                  : String(values.expense_type_id)
-              }
-              onChange={handleChange("expense_type_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-            >
-              <option value="">Select Expense Type</option>
-              {expenseTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Unit Cost (₦)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={values.unit_cost}
-              onChange={handleChange("unit_cost")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-              placeholder="Enter Unit Cost"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Total Cost (₦)
-            </label>
-            <input
-              type="number"
-              min={0}
-              value={
-                values.total_cost.trim().length
-                  ? values.total_cost
-                  : computedTotalCost
-                    ? String(computedTotalCost)
-                    : ""
-              }
-              onChange={handleChange("total_cost")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-              placeholder="Enter Total Cost"
-            />
+          <div className="grid gap-4 lg:grid-cols-4">
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">
+                Units/Measurement
+              </label>
+              <input
+                type="text"
+                value={values.part_number}
+                onChange={handleChange("part_number")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder="Enter Units/Measurement"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Current Stock</label>
+              <input
+                type="number"
+                min={1}
+                value={values.quantity}
+                onChange={handleChange("quantity")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder="Enter Quantity"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Unit Cost</label>
+              <input
+                type="number"
+                min={0}
+                value={values.unit_cost}
+                onChange={handleChange("unit_cost")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder="Enter Unit Cost"
+              />
+            </div>
+            <div className="space-y-1 flex flex-col">
+              <label className="text-[11px] text-gray-400">Total Cost</label>
+              <div className="flex-1 flex items-center justify-end text-2xl sm:text-3xl font-semibold text-white">
+                {computedTotalCost > 0
+                  ? computedTotalCost.toLocaleString()
+                  : "00"}
+              </div>
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">Unit</label>
-            <select
-              value={values.unit_id === "" ? "" : String(values.unit_id)}
-              onChange={handleChange("unit_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-            >
-              <option value="">Select Unit</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Unit</label>
+              <select
+                value={values.unit_id === "" ? "" : String(values.unit_id)}
+                onChange={handleChange("unit_id")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              >
+                <option value="">Select Unit</option>
+                {units.map((unit) => (
+                  <option key={unit.id} value={unit.id}>
+                    {unit.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Budget
-            </label>
-            <select
-              value={values.budget_id === "" ? "" : String(values.budget_id)}
-              onChange={handleChange("budget_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-            >
-              <option value="">Select Budget</option>
-              {budgets.map((budget) => (
-                <option key={budget.id} value={budget.id}>
-                  {budget.name}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Budget</label>
+              <select
+                value={values.budget_id === "" ? "" : String(values.budget_id)}
+                onChange={handleChange("budget_id")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              >
+                <option value="">Select Budget</option>
+                {budgets.map((budget) => (
+                  <option key={budget.id} value={budget.id}>
+                    {budget.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Remark</label>
+              <input
+                type="text"
+                value={values.remark}
+                onChange={handleChange("remark")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder="Enter Remark"
+              />
+            </div>
           </div>
         </div>
 
@@ -392,7 +369,7 @@ export const FinanceFormPage = () => {
             type="button"
             onClick={handleSubmit}
             className={cn(
-              "px-6 sm:px-10 py-2 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
+              "w-full sm:w-90 px-6 sm:px-10 py-2.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
               isLoading && "opacity-70 cursor-not-allowed",
             )}
             disabled={isLoading}

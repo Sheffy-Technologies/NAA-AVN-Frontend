@@ -622,9 +622,10 @@ export const AfterActionReportForm = ({
                         newResources[index] = {
                           ...newResources[index],
                           inventory_id: selectedId,
-                          item_description: selectedItem
-                            ? selectedItem.part_name
-                            : "",
+                          item_description:
+                            selectedItem?.part_name ??
+                            selectedItem?.description ??
+                            "",
                         };
                         setResources(newResources);
                       }}

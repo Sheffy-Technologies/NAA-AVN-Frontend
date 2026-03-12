@@ -6,28 +6,35 @@ import {
   useGetFinanceDashboardQuery,
   useGetExpensesQuery,
   useGetBudgetsQuery,
+  useGetExpenseCategoriesQuery,
   type FinanceExpense,
   type FinanceBudget,
+  type FinanceExpenseCategory,
 } from "@/features/finance/api";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 
 type FinanceTabKey = "expenses" | "budgets";
 type FinanceViewMode = "table" | "grid";
+type PeriodFilterKey = "all" | "month" | "quarter" | "year";
 
 type ExpenseRow = {
   id: number;
   expenseId: string;
   date: string;
+  createdAt: string;
   category: string;
+  categoryId: number;
   partName: string;
   partNumber: string;
   aircraft: string;
   workOrder: string;
   quantity: number;
   unit: string;
+  unitId: number;
   expenseType: string;
   unitCost: number;
   totalCost: number;
+  budgetId: number;
 };
 
 type BudgetRow = {
@@ -57,12 +64,17 @@ export const FinancePage = () => {
     isLoading: isBudgetsLoading,
     isError: isBudgetsError,
   } = useGetBudgetsQuery();
+  const { data: expenseCategoriesData } = useGetExpenseCategoriesQuery();
 
   const [activeTab, setActiveTab] = useState<FinanceTabKey>("expenses");
   const [expensesViewMode, setExpensesViewMode] =
     useState<FinanceViewMode>("table");
   const [budgetsViewMode, setBudgetsViewMode] =
     useState<FinanceViewMode>("table");
+  const [filterCategoryId, setFilterCategoryId] = useState<number | "">("");
+  const [filterUnitId, setFilterUnitId] = useState<number | "">("");
+  const [filterBudgetId, setFilterBudgetId] = useState<number | "">("");
+  const [filterPeriod, setFilterPeriod] = useState<PeriodFilterKey>("all");
   const [openExpenseDetailId, setOpenExpenseDetailId] = useState<number | null>(
     null,
   );
@@ -115,16 +127,20 @@ export const FinancePage = () => {
         month: "short",
         year: "numeric",
       }),
+      createdAt: expense.created_at,
       category: expense.expense_category?.name ?? "-",
+      categoryId: expense.expense_category_id,
       partName: expense.part_name,
       partNumber: expense.part_number,
       aircraft: expense.aircraft?.name ?? "-",
       workOrder: expense.work_order,
       quantity: expense.quantity,
       unit: expense.unit?.name ?? "-",
+      unitId: expense.unit_id,
       expenseType: expense.expense_type?.name ?? "-",
       unitCost: expense.unit_cost,
       totalCost: expense.total_cost,
+      budgetId: expense.budget_id,
     }));
   }, [expensesData]);
 
@@ -141,6 +157,76 @@ export const FinancePage = () => {
       period: `${budget.start_date ?? ""} - ${budget.end_date ?? ""}`,
     }));
   }, [budgetsData]);
+
+  const expenseCategories = (expenseCategoriesData ?? []) as
+    | FinanceExpenseCategory[]
+    | [];
+
+  const unitOptions = useMemo(() => {
+    const seen = new Map<number, string>();
+
+    (expensesData ?? []).forEach((expense) => {
+      if (typeof expense.unit_id === "number" && expense.unit_id > 0) {
+        const name = expense.unit?.name ?? `Unit ${expense.unit_id}`;
+        seen.set(expense.unit_id, name);
+      }
+    });
+
+    (budgetsData ?? []).forEach((budget) => {
+      if (typeof budget.unit_id === "number" && budget.unit_id > 0) {
+        const name = budget.unit?.name ?? `Unit ${budget.unit_id}`;
+        seen.set(budget.unit_id, name);
+      }
+    });
+
+    return Array.from(seen.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [budgetsData, expensesData]);
+
+  const filteredExpenses = useMemo(() => {
+    const now = new Date();
+    const nowMonth = now.getMonth();
+    const nowYear = now.getFullYear();
+    const nowQuarter = Math.floor(nowMonth / 3);
+
+    return expenses.filter((row) => {
+      if (filterCategoryId !== "" && row.categoryId !== filterCategoryId) {
+        return false;
+      }
+
+      if (filterUnitId !== "" && row.unitId !== filterUnitId) {
+        return false;
+      }
+
+      if (filterBudgetId !== "" && row.budgetId !== filterBudgetId) {
+        return false;
+      }
+
+      if (filterPeriod !== "all") {
+        const rowDate = new Date(row.createdAt);
+        const rowMonth = rowDate.getMonth();
+        const rowYear = rowDate.getFullYear();
+        const rowQuarter = Math.floor(rowMonth / 3);
+
+        if (filterPeriod === "month") {
+          if (rowYear !== nowYear || rowMonth !== nowMonth) return false;
+        } else if (filterPeriod === "quarter") {
+          if (rowYear !== nowYear || rowQuarter !== nowQuarter) return false;
+        } else if (filterPeriod === "year") {
+          if (rowYear !== nowYear) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [expenses, filterBudgetId, filterCategoryId, filterPeriod, filterUnitId]);
+
+  const hasExpenseFilters =
+    filterCategoryId !== "" ||
+    filterUnitId !== "" ||
+    filterBudgetId !== "" ||
+    filterPeriod !== "all";
 
   const isSummaryError = isDashboardError;
 
@@ -215,7 +301,7 @@ export const FinancePage = () => {
             ))}
       </section>
 
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-visible min-h-[360px]">
+      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-visible min-h-90">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
@@ -285,8 +371,105 @@ export const FinancePage = () => {
               type="button"
               className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200"
             >
-              {activeTab === "expenses" ? expenses.length : budgets.length}
+              {activeTab === "expenses"
+                ? filteredExpenses.length
+                : budgets.length}
             </button>
+
+            {activeTab === "expenses" && (
+              <div className="hidden lg:flex items-center gap-2">
+                <div className="relative">
+                  <select
+                    value={
+                      filterCategoryId === "" ? "" : String(filterCategoryId)
+                    }
+                    onChange={(e) =>
+                      setFilterCategoryId(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                  >
+                    <option value="">All Category</option>
+                    {expenseCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={filterUnitId === "" ? "" : String(filterUnitId)}
+                    onChange={(e) =>
+                      setFilterUnitId(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                  >
+                    <option value="">All Units</option>
+                    {unitOptions.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={filterBudgetId === "" ? "" : String(filterBudgetId)}
+                    onChange={(e) =>
+                      setFilterBudgetId(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                  >
+                    <option value="">All Budget</option>
+                    {budgets.map((budget) => (
+                      <option key={budget.id} value={budget.id}>
+                        {budget.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={filterPeriod}
+                    onChange={(e) =>
+                      setFilterPeriod(e.target.value as PeriodFilterKey)
+                    }
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                  >
+                    <option value="all">Period</option>
+                    <option value="month">This Month</option>
+                    <option value="quarter">This Quarter</option>
+                    <option value="year">This Year</option>
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                </div>
+              </div>
+            )}
+
             <button
               type="button"
               className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
@@ -329,19 +512,21 @@ export const FinancePage = () => {
                       </div>
                     </td>
                   </tr>
-                ) : expenses.length === 0 ? (
+                ) : filteredExpenses.length === 0 ? (
                   <tr>
                     <td
                       colSpan={9}
                       className="px-4 sm:px-6 py-6 text-center text-gray-400"
                     >
-                      {isExpensesError
+                      {isExpensesError && expenses.length === 0
                         ? "Failed to load expenses."
-                        : "No expenses recorded yet."}
+                        : hasExpenseFilters
+                          ? "No expenses match filters."
+                          : "No expenses recorded yet."}
                     </td>
                   </tr>
                 ) : (
-                  expenses.map((row, index) => (
+                  filteredExpenses.map((row, index) => (
                     <tr
                       key={row.id}
                       className={cn(
@@ -524,7 +709,7 @@ export const FinancePage = () => {
                     <div className="h-3 w-24 bg-[#021a27] rounded-full animate-pulse" />
                   </div>
                 ))
-              : expenses.map((row) => (
+              : filteredExpenses.map((row) => (
                   <div
                     key={row.id}
                     className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200"
@@ -552,11 +737,13 @@ export const FinancePage = () => {
                     <p className="text-[11px] text-gray-500">{row.date}</p>
                   </div>
                 ))}
-            {expenses.length === 0 &&
+            {filteredExpenses.length === 0 &&
               !isExpensesLoading &&
               !isExpensesError && (
                 <div className="col-span-full text-center text-gray-400 text-xs sm:text-sm py-6">
-                  No expenses recorded yet.
+                  {hasExpenseFilters
+                    ? "No expenses match filters."
+                    : "No expenses recorded yet."}
                 </div>
               )}
             {isExpensesError && !isExpensesLoading && (

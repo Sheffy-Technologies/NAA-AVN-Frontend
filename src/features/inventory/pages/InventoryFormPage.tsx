@@ -42,7 +42,7 @@ const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => ({
   expense_category_id: item.expense_category_id,
   unit_id: item.unit_id,
   part_number: item.part_number,
-  part_name: item.part_name,
+  part_name: item.part_name ?? "",
   nsn_number: item.nsn_number ?? "",
   ata_chapter: item.ata_chapter ?? "",
   re_order_level: String(item.re_order_level ?? ""),
