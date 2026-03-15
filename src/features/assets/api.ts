@@ -49,6 +49,31 @@ export type Document = {
   updated_at?: string;
 };
 
+export type Avionics = {
+  id?: number;
+  asset_id?: number;
+  serial_number: string;
+  model: string;
+  installed_at: string;
+  removed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type Defect = {
+  id?: number;
+  asset_id?: number;
+  operation_id: number;
+  title: string;
+  description: string;
+  reported_at: string;
+  status: "open" | "resolved" | "in_progress";
+  severity: string;
+  personnel: number[];
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type MaintenanceEvent = {
   id?: number;
   asset_id?: number;
@@ -60,6 +85,7 @@ export type MaintenanceEvent = {
   completed_at?: string;
   hours_logged?: number | string;
   status?: string;
+  aircraft_airworthiness?: string;
   remarks?: string;
   created_at?: string;
   updated_at?: string;
@@ -76,6 +102,67 @@ export type MaintenanceEvent = {
   certifying_engineer?: number;
 };
 
+export type EnginePosition = {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ComponentType = {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EngineCategory = {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AvionicCategory = {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DocumentType = {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateDocumentRequest = {
+  asset_id: number | null;
+  maintenance_event_id: number | null;
+  document_type_id: number | null;
+  file: File | null;
+  issue_date: string | null;
+  expiry_date: string | null;
+};
+
+export type DocumentUpload = {
+  id: number;
+  asset_id: number | null;
+  maintenance_event_id: number | null;
+  document_type_id: number | null;
+  file: string;
+  issue_date: string | null;
+  expiry_date: string | null;
+  created_at: string;
+  updated_at: string;
+  file_url: string;
+};
+
 export type CreateAssetPayload = {
   type: "aircraft" | "vehicle" | "airbase" | "equipment";
   unit_id: number;
@@ -89,13 +176,28 @@ export type CreateAssetPayload = {
     | "grounded"
     | "medical";
   tail_number: string;
-  used_hours: number; // Payload uses used_hours, distinct from total_airframe_hours in Asset?
   manufacturer: string;
   purchase_date: string;
+  used_hours?: number;
+  total_airframe_hours?: number;
+  service_life_limit?: number;
+  total_cycles?: number;
+  cycle_limit?: number;
+  last_inspection_cycles?: number;
+  inspection_interval_cycle?: number;
+  last_inspection_hours?: number;
+  inspection_interval?: number;
+  next_annual_inspection_date?: number;
+  next_type_of_inspection?: string;
+  last_inspection_date?: string;
+  landings?: string;
+  operation_status?: string;
   engines?: Engine[];
   components?: Component[];
   documents?: Document[];
   maintenance_events?: MaintenanceEvent[];
+  avionics?: Avionics[];
+  defects?: Defect[];
 };
 
 export type Asset = {
@@ -140,8 +242,85 @@ export type AssetDetail = Asset & {
 export const assetsApi = createApi({
   reducerPath: "assetsApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Assets"],
+  tagTypes: [
+    "Assets",
+    "EnginePositions",
+    "ComponentTypes",
+    "EngineCategories",
+    "AvionicCategories",
+    "DocumentTypes",
+    "Documents",
+  ],
   endpoints: (builder) => ({
+    getEnginePositions: builder.query<EnginePosition[], void>({
+      query: () => ({
+        url: "/engine-positions",
+        method: "GET",
+      }),
+      providesTags: ["EnginePositions"],
+    }),
+    getComponentTypes: builder.query<ComponentType[], void>({
+      query: () => ({
+        url: "/component-types",
+        method: "GET",
+      }),
+      providesTags: ["ComponentTypes"],
+    }),
+    getEngineCategories: builder.query<EngineCategory[], void>({
+      query: () => ({
+        url: "/engine-categories",
+        method: "GET",
+      }),
+      providesTags: ["EngineCategories"],
+    }),
+    getAvionicCategories: builder.query<AvionicCategory[], void>({
+      query: () => ({
+        url: "/avionic-categories",
+        method: "GET",
+      }),
+      providesTags: ["AvionicCategories"],
+    }),
+    getDocumentTypes: builder.query<DocumentType[], void>({
+      query: () => ({
+        url: "/document-types",
+        method: "GET",
+      }),
+      providesTags: ["DocumentTypes"],
+    }),
+    createDocument: builder.mutation<DocumentUpload, CreateDocumentRequest>({
+      query: (body) => {
+        const formData = new FormData();
+
+        formData.append(
+          "asset_id",
+          body.asset_id === null ? "" : String(body.asset_id),
+        );
+        formData.append(
+          "maintenance_event_id",
+          body.maintenance_event_id === null
+            ? ""
+            : String(body.maintenance_event_id),
+        );
+        formData.append(
+          "document_type_id",
+          body.document_type_id === null ? "" : String(body.document_type_id),
+        );
+        formData.append("issue_date", body.issue_date ?? "");
+        formData.append("expiry_date", body.expiry_date ?? "");
+
+        if (body.file) {
+          formData.append("file", body.file);
+        }
+
+        return {
+          url: "/documents",
+          method: "POST",
+          data: formData,
+          headers: { "Content-Type": "multipart/form-data" },
+        };
+      },
+      invalidatesTags: ["Documents"],
+    }),
     getAssets: builder.query<Asset[], { type?: string } | void>({
       query: (params) => ({
         url: "/assets",
@@ -197,6 +376,12 @@ export const assetsApi = createApi({
 });
 
 export const {
+  useGetEnginePositionsQuery,
+  useGetComponentTypesQuery,
+  useGetEngineCategoriesQuery,
+  useGetAvionicCategoriesQuery,
+  useGetDocumentTypesQuery,
+  useCreateDocumentMutation,
   useGetAssetsQuery,
   useGetAssetByIdQuery,
   useCreateAssetMutation,

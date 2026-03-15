@@ -1,22 +1,31 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
-import { useCreateAssetMutation, type CreateAssetPayload } from "../api";
+import { useGetPersonnelQuery } from "@/features/personnel/api";
+import { useGetOperationsQuery } from "@/features/operations/api";
+import {
+  useCreateAssetMutation,
+  useCreateDocumentMutation,
+  useGetAvionicCategoriesQuery,
+  useGetComponentTypesQuery,
+  useGetDocumentTypesQuery,
+  useGetEngineCategoriesQuery,
+  useGetEnginePositionsQuery,
+  type CreateAssetPayload,
+} from "../api";
 
-// Mock data for dropdowns
 const AIRCRAFT_TYPES = [
   "Bell UH-1H",
   "Magnus Fusion 212",
   "MD530F Cayuse Warrior",
 ];
-const POSITIONS = ["Engine 1", "Engine 2", "Main Rotor", "Tail Rotor"];
-const COMPONENT_TYPES = ["Avionics", "Landing Gear", "Weapon System"];
-const DOCUMENT_TYPES = [
-  "Airworthiness Certificate",
-  "Insurance",
-  "Registration",
+const FALLBACK_ENGINE_POSITIONS = [
+  "Engine 1",
+  "Engine 2",
+  "Main Rotor",
+  "Tail Rotor",
 ];
 
 type AircraftTabKey =
@@ -31,10 +40,27 @@ type TrackByKey = "hours" | "cycles" | "both";
 export const AddAssetPage = () => {
   const navigate = useNavigate();
   const [createAsset, { isLoading }] = useCreateAssetMutation();
+  const [createDocument, { isLoading: isUploadingDocument }] =
+    useCreateDocumentMutation();
   const { data: units = [] } = useGetUnitsQuery();
+  const { data: enginePositions = [] } = useGetEnginePositionsQuery();
+  const { data: componentTypes = [] } = useGetComponentTypesQuery();
+  const { data: engineCategories = [] } = useGetEngineCategoriesQuery();
+  const { data: avionicCategories = [] } = useGetAvionicCategoriesQuery();
+  const { data: documentTypes = [] } = useGetDocumentTypesQuery();
+  const { data: operations = [] } = useGetOperationsQuery();
+  const { data: engineers = [] } = useGetPersonnelQuery({
+    branches: [3],
+    units: [],
+    ranks: [],
+    corps: [],
+    specialties: [],
+    status: [],
+  });
 
   const [activeTab, setActiveTab] = useState<AircraftTabKey>("airframe");
   const [airframeTrackBy, setAirframeTrackBy] = useState<TrackByKey>("both");
+  const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   // Form State
   const [formData, setFormData] = useState({
@@ -44,11 +70,11 @@ export const AddAssetPage = () => {
     tail_number: "",
     serial_number: "",
     model: "",
-    aircraft_id: "", // UI only?
-    internal_id: "", // UI only?
-    military_registration: "", // UI only?
-    date_inducted: "", // UI only?
-    date_into_service: "", // UI only?
+    aircraft_id: "",
+    internal_id: "",
+    military_registration: "",
+    date_inducted: "",
+    date_into_service: "",
     unit_id: "",
     operation_status: "serviceable",
 
@@ -136,12 +162,14 @@ export const AddAssetPage = () => {
       track_by: "hours" as TrackByKey,
       part_number: "",
       serial_number: "",
+      model: "",
       life_limit_hours: "",
       time_since_overhaul: "",
       time_since_new: "",
       overhaul_limit: "",
       hours_used: "",
       installed_at: "",
+      removed_at: "",
       cycles_since_new: "",
       service_life_limit_cycles: "",
       cycles_since_overhaul: "",
@@ -153,7 +181,7 @@ export const AddAssetPage = () => {
     {
       defect_reported: "",
       date_of_defect: "",
-      pilots_involved: "",
+      operation_id: "",
       location: "",
       defect_description: "",
       remark: "",
@@ -168,6 +196,7 @@ export const AddAssetPage = () => {
     {
       document_type: "",
       file: "",
+      file_url: "",
       issue_date: "",
       expiry_date: "",
     },
@@ -357,7 +386,6 @@ export const AddAssetPage = () => {
       const allComponents = [
         ...components,
         ...engineComponentsByEngine.flatMap((list) => list),
-        ...avionicsComponents,
       ];
 
       const payload: CreateAssetPayload = {
@@ -376,74 +404,159 @@ export const AddAssetPage = () => {
           | "grounded"
           | "medical",
         tail_number: formData.tail_number,
-        used_hours: Number(formData.total_airframe_hours) || 0,
+        total_airframe_hours: Number(formData.total_airframe_hours) || 0,
+        service_life_limit: Number(formData.service_life_limit) || 0,
+        total_cycles: Number(formData.airframe_cycles) || 0,
+        cycle_limit: Number(formData.service_life_limit_cycles) || 0,
+        last_inspection_cycles: Number(formData.last_inspection_cycles) || 0,
+        inspection_interval_cycle:
+          Number(formData.inspection_interval_cycles) || 0,
+        last_inspection_hours:
+          Number(formData.last_major_inspection_hours) || 0,
+        inspection_interval: Number(formData.inspection_interval) || 0,
+        next_annual_inspection_date:
+          Number(formData.next_annual_inspection) || 0,
+        next_type_of_inspection: formData.next_type_of_inspection,
+        last_inspection_date: formData.last_major_inspection_date,
+        landings: formData.landings,
+        operation_status: "operational",
         manufacturer: formData.manufacturer,
         purchase_date: formData.purchase_date,
 
-        engines: engines.map(
-          ({
-            position_id,
-            serial_number,
-            model,
-            installation_date,
-            time_since_new,
-            time_since_overhaul,
-            service_life_limit,
-            overhaul_limit,
-          }) => ({
-            position_id: Number(position_id) || 1,
-            serial_number,
-            model,
-            installation_date,
-            time_since_new: Number(time_since_new) || 0,
-            time_since_overhaul: Number(time_since_overhaul) || 0,
-            service_life_limit: Number(service_life_limit) || 0,
-            overhaul_limit: Number(overhaul_limit) || 0,
-          }),
-        ),
+        engines: engines
+          .filter(
+            (engine) =>
+              engine.serial_number || engine.model || engine.installation_date,
+          )
+          .map(
+            ({
+              position_id,
+              serial_number,
+              model,
+              installation_date,
+              time_since_new,
+              time_since_overhaul,
+              service_life_limit,
+              overhaul_limit,
+            }) => ({
+              position_id: Number(position_id) || 1,
+              serial_number,
+              model,
+              installation_date,
+              time_since_new: Number(time_since_new) || 0,
+              time_since_overhaul: Number(time_since_overhaul) || 0,
+              service_life_limit: Number(service_life_limit) || 0,
+              overhaul_limit: Number(overhaul_limit) || 0,
+            }),
+          ),
 
-        components: allComponents.map(
-          ({
-            part_number,
-            serial_number,
-            life_limit_hours,
-            time_since_overhaul,
-            time_since_new,
-            overhaul_limit,
-            hours_used,
-            installed_at,
-          }) => ({
-            part_number,
-            serial_number,
-            life_limit_hours: Number(life_limit_hours) || 0,
-            time_since_overhaul: Number(time_since_overhaul) || 0,
-            time_since_new: Number(time_since_new) || 0,
-            overhaul_limit: Number(overhaul_limit) || 0,
-            hours_used: Number(hours_used) || Number(time_since_new) || 0,
-            installed_at,
-          }),
-        ),
+        components: allComponents
+          .filter(
+            (component) => component.part_number || component.serial_number,
+          )
+          .map(
+            ({
+              part_number,
+              serial_number,
+              life_limit_hours,
+              time_since_overhaul,
+              time_since_new,
+              overhaul_limit,
+              hours_used,
+              installed_at,
+            }) => ({
+              part_number,
+              serial_number,
+              life_limit_hours: Number(life_limit_hours) || 0,
+              time_since_overhaul: Number(time_since_overhaul) || 0,
+              time_since_new: Number(time_since_new) || 0,
+              overhaul_limit: Number(overhaul_limit) || 0,
+              hours_used: Number(hours_used) || Number(time_since_new) || 0,
+              installed_at,
+              removed_at: null,
+            }),
+          ),
 
-        documents: documents.map((d) => ({
-          ...d,
-        })),
+        documents: documents
+          .filter(
+            (d) => d.document_type || d.file || d.issue_date || d.expiry_date,
+          )
+          .map((d) => ({
+            document_type: d.document_type,
+            file: d.file,
+            issue_date: d.issue_date,
+            expiry_date: d.expiry_date,
+          })),
 
-        maintenance_events: defects.map(
-          ({ pilots_involved, certifying_engineer, ...d }) => ({
-            event_type: "Defect",
-            description: d.defect_description,
-            status: d.rectified ? "under_maintenance" : "serviceable",
-            pilots_involved: Number(pilots_involved) || undefined,
-            certifying_engineer: Number(certifying_engineer) || undefined,
-            ...d,
+        avionics: avionicsComponents
+          .filter(
+            (item) =>
+              item.serial_number ||
+              item.part_number ||
+              item.model ||
+              item.installed_at ||
+              item.removed_at,
+          )
+          .map((item) => ({
+            serial_number: item.serial_number,
+            model: item.model || item.part_number,
+            installed_at: item.installed_at,
+            removed_at: item.removed_at || null,
+          })),
+
+        defects: defects
+          .filter(
+            (d) =>
+              (d.defect_description || d.defect_reported) &&
+              Boolean(d.operation_id),
+          )
+          .map((d) => {
+            const engineerId = Number(d.certifying_engineer);
+            const personnel =
+              Number.isFinite(engineerId) && engineerId > 0 ? [engineerId] : [];
+
+            return {
+              operation_id: Number(d.operation_id),
+              title: d.defect_reported || d.defect_description,
+              description: d.defect_description || d.defect_reported,
+              reported_at: d.date_of_defect,
+              status: d.rectified ? "resolved" : "open",
+              severity: "low",
+              personnel,
+            };
           }),
-        ),
+
+        maintenance_events: [],
       };
 
       await createAsset(payload).unwrap();
       navigate("/dashboard/assets");
     } catch (error) {
       console.error("Failed to create asset:", error);
+    }
+  };
+
+  const uploadDocumentForIndex = async (index: number, file: File) => {
+    const doc = documents[index];
+    if (!doc) return;
+
+    const documentTypeId =
+      documentTypes.find((t) => t.name === doc.document_type)?.id ?? null;
+
+    try {
+      const uploaded = await createDocument({
+        asset_id: null,
+        maintenance_event_id: null,
+        document_type_id: documentTypeId,
+        file,
+        issue_date: doc.issue_date ? `${doc.issue_date}T00:00:00Z` : null,
+        expiry_date: doc.expiry_date ? `${doc.expiry_date}T00:00:00Z` : null,
+      }).unwrap();
+
+      updateItem(setDocuments, documents, index, "file", uploaded.file);
+      updateItem(setDocuments, documents, index, "file_url", uploaded.file_url);
+    } catch (error) {
+      console.error("Failed to upload document:", error);
     }
   };
 
@@ -1059,9 +1172,9 @@ export const AddAssetPage = () => {
                             }
                           >
                             <option value="">Select Type</option>
-                            {COMPONENT_TYPES.map((t) => (
-                              <option key={t} value={t}>
-                                {t}
+                            {componentTypes.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
                               </option>
                             ))}
                           </select>
@@ -1367,9 +1480,18 @@ export const AddAssetPage = () => {
                           )
                         }
                       >
-                        {POSITIONS.map((p, i) => (
-                          <option key={i} value={i + 1}>
-                            {p}
+                        {(enginePositions.length
+                          ? enginePositions.map((pos) => ({
+                              id: pos.id,
+                              name: pos.name,
+                            }))
+                          : FALLBACK_ENGINE_POSITIONS.map((name, index) => ({
+                              id: index + 1,
+                              name,
+                            }))
+                        ).map((pos) => (
+                          <option key={pos.id} value={pos.id}>
+                            {pos.name}
                           </option>
                         ))}
                       </select>
@@ -1838,9 +1960,9 @@ export const AddAssetPage = () => {
                                   }
                                 >
                                   <option value="">Select Type</option>
-                                  {COMPONENT_TYPES.map((t) => (
-                                    <option key={t} value={t}>
-                                      {t}
+                                  {engineCategories.map((t) => (
+                                    <option key={t.id} value={t.id}>
+                                      {t.name}
                                     </option>
                                   ))}
                                 </select>
@@ -2267,12 +2389,14 @@ export const AddAssetPage = () => {
                     track_by: "hours",
                     part_number: "",
                     serial_number: "",
+                    model: "",
                     life_limit_hours: "",
                     time_since_overhaul: "",
                     time_since_new: "",
                     overhaul_limit: "",
                     hours_used: "",
                     installed_at: "",
+                    removed_at: "",
                     cycles_since_new: "",
                     service_life_limit_cycles: "",
                     cycles_since_overhaul: "",
@@ -2395,9 +2519,9 @@ export const AddAssetPage = () => {
                         }
                       >
                         <option value="">Select Type</option>
-                        {COMPONENT_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
+                        {avionicCategories.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name}
                           </option>
                         ))}
                       </select>
@@ -2456,6 +2580,46 @@ export const AddAssetPage = () => {
                             avionicsComponents,
                             idx,
                             "installed_at",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Model</label>
+                      <input
+                        type="text"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        placeholder="Enter Model"
+                        value={comp.model}
+                        onChange={(e) =>
+                          updateItem(
+                            setAvionicsComponents,
+                            avionicsComponents,
+                            idx,
+                            "model",
+                            e.target.value,
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        Removed At(optional)
+                      </label>
+                      <input
+                        type="date"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={comp.removed_at}
+                        onChange={(e) =>
+                          updateItem(
+                            setAvionicsComponents,
+                            avionicsComponents,
+                            idx,
+                            "removed_at",
                             e.target.value,
                           )
                         }
@@ -2712,7 +2876,7 @@ export const AddAssetPage = () => {
                   addItem(setDefects, defects, {
                     defect_reported: "",
                     date_of_defect: "",
-                    pilots_involved: "",
+                    operation_id: "",
                     location: "",
                     defect_description: "",
                     remark: "",
@@ -2789,24 +2953,26 @@ export const AddAssetPage = () => {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs text-gray-400">
-                        Pilots Involved
-                      </label>
+                      <label className="text-xs text-gray-400">Operation</label>
                       <select
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                        value={defect.pilots_involved}
+                        value={defect.operation_id}
                         onChange={(e) =>
                           updateItem(
                             setDefects,
                             defects,
                             idx,
-                            "pilots_involved",
+                            "operation_id",
                             e.target.value,
                           )
                         }
                       >
-                        <option value="">Select Pilots</option>
-                        <option value="1">Pilot A</option>
+                        <option value="">Select Operation</option>
+                        {operations.map((op) => (
+                          <option key={op.id} value={op.id}>
+                            {op.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div className="space-y-1">
@@ -2972,7 +3138,12 @@ export const AddAssetPage = () => {
                           }
                         >
                           <option value="">Select Engineers</option>
-                          <option value="1">Eng A</option>
+                          {engineers.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.rank?.name ? `${p.rank.name} ` : ""}
+                              {p.firstname} {p.lastname}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -2995,6 +3166,7 @@ export const AddAssetPage = () => {
                   addItem(setDocuments, documents, {
                     document_type: "",
                     file: "",
+                    file_url: "",
                     issue_date: "",
                     expiry_date: "",
                   })
@@ -3041,9 +3213,9 @@ export const AddAssetPage = () => {
                         }
                       >
                         <option value="">Select Type</option>
-                        {DOCUMENT_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
+                        {documentTypes.map((t) => (
+                          <option key={t.id} value={t.name}>
+                            {t.name}
                           </option>
                         ))}
                       </select>
@@ -3051,15 +3223,34 @@ export const AddAssetPage = () => {
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">Document</label>
                       <div className="flex items-center gap-2">
+                        <input
+                          ref={(el) => {
+                            fileInputRefs.current[idx] = el;
+                          }}
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const selectedFile = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!selectedFile) return;
+                            void uploadDocumentForIndex(idx, selectedFile);
+                          }}
+                        />
                         <button
                           type="button"
+                          onClick={() => fileInputRefs.current[idx]?.click()}
+                          disabled={isUploadingDocument}
                           className="flex items-center gap-2 bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white w-full hover:bg-[#0A4D66]/20"
                         >
                           <Icon
                             icon="mdi:upload"
                             className="w-4 h-4 text-[#7FD5FF]"
                           />
-                          <span>Upload Document</span>
+                          <span>
+                            {doc.file_url || doc.file
+                              ? "Uploaded"
+                              : "Upload Document"}
+                          </span>
                         </button>
                       </div>
                     </div>

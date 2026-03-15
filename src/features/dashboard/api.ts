@@ -109,6 +109,167 @@ export type DashboardHomeResponse = {
   recent_flight_programs: DashboardHomeFlightProgram[];
 };
 
+export type DashboardOperationsRecentOperation = {
+  id?: number;
+  name?: string;
+  status?: string;
+  priority?: string;
+  date?: string;
+  time?: string;
+  start_date_time?: string;
+  end_date_time?: string;
+  created_at?: string;
+  unit?: {
+    id?: number;
+    name?: string;
+  };
+  operation_type?: {
+    id?: number;
+    name?: string;
+  } | null;
+};
+
+export type DashboardOperationsResponse = {
+  total_operations: number;
+  planned: number;
+  completed: number;
+  ongoing: number;
+  aborted: number;
+  recent_operations: DashboardOperationsRecentOperation[];
+};
+
+export type DashboardMaintenanceRecentAircraft = {
+  id: number;
+  type: string;
+  unit_id: number;
+  asset_type_id: number;
+  name: string;
+  serial_number: string;
+  model: string;
+  configuration: Array<unknown> | null;
+  serviceability_status: string;
+  tail_number: string;
+  total_airframe_hours: string;
+  service_life_limit: string;
+  total_cycles: string;
+  cycle_limit: string;
+  last_inspection_cycles: string;
+  inspection_interval_cycle: string;
+  last_inspection_hours: string;
+  inspection_interval: string;
+  next_annual_inspection_date: string;
+  next_type_of_inspection: string;
+  last_inspection_date: string;
+  landings: string;
+  operation_status: string;
+  manufacturer: string;
+  purchase_date: string;
+  created_at: string;
+  updated_at: string;
+  operations_total_hours: string;
+  operations_total_hours_label: string;
+};
+
+export type DashboardMaintenanceResponse = {
+  total_aircraft: number;
+  total_vehicles: number;
+  total_airbases: number;
+  total_equipments: number;
+  recent_aircrafts: DashboardMaintenanceRecentAircraft[];
+  maintenance_events: {
+    serviceable: number;
+    under_maintenance: number;
+    grounded: number;
+  };
+};
+
+export type DashboardFinanceResponse = {
+  total_expense: number;
+  current_month_expense: number;
+  current_quarter_expense: number;
+  sum_amount: number;
+  budget: number;
+};
+
+export type DashboardInventoryRecentItem = {
+  id: number;
+  type: string;
+  asset_id: number;
+  expense_category_id: number;
+  unit_id: number;
+  serial_number: string;
+  part_number: string;
+  current_stock: number;
+  re_order_level: number;
+  unit_cost: string;
+  measurement_unit: string;
+  vendor: string;
+  expiry_date: string | null;
+  remark: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  stock_level: string;
+  expense_category?: {
+    id: number;
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+  };
+  expenseCategory?: {
+    id: number;
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+  };
+  unit?: {
+    id: number;
+    name: string;
+    description: string;
+    created_at: string;
+    updated_at: string;
+  };
+  stocks?: Array<{
+    id: number;
+    inventory_id: number;
+    stock_type: string;
+    quantity: number;
+    created_at: string;
+    updated_at: string;
+  }>;
+};
+
+export type DashboardInventoriesResponse = {
+  total_stock: number | string;
+  low_stock: number;
+  expired_items: number;
+  critical_stock: number;
+  recent_inventories: DashboardInventoryRecentItem[];
+};
+
+export type DashboardPersonnelRecent = {
+  id: number;
+  status: string;
+  image: string | null;
+  firstname: string;
+  lastname: string;
+  othernames: string;
+  full_name: string;
+  rank?: { id: number; name: string; abbreviation: string; order: number };
+  unit?: { id: number; name: string; description: string | null };
+  branch?: { id: number; name: string; description: string | null };
+};
+
+export type DashboardPersonnelResponse = {
+  total_personnel: number;
+  active: number;
+  medical: number;
+  grounded: number;
+  recent_personnel: DashboardPersonnelRecent[];
+};
+
 export const dashboardApi = createApi({
   reducerPath: "dashboardApi",
   baseQuery: axiosBaseQuery(),
@@ -116,6 +277,36 @@ export const dashboardApi = createApi({
     getDashboardHome: builder.query<DashboardHomeResponse, void>({
       query: () => ({
         url: "/dashboard/home",
+        method: "GET",
+      }),
+    }),
+    getDashboardOperations: builder.query<DashboardOperationsResponse, void>({
+      query: () => ({
+        url: "/dashboard/operations",
+        method: "GET",
+      }),
+    }),
+    getDashboardMaintenance: builder.query<DashboardMaintenanceResponse, void>({
+      query: () => ({
+        url: "/dashboard/maintenance",
+        method: "GET",
+      }),
+    }),
+    getDashboardFinance: builder.query<DashboardFinanceResponse, void>({
+      query: () => ({
+        url: "/dashboard/finance",
+        method: "GET",
+      }),
+    }),
+    getDashboardInventories: builder.query<DashboardInventoriesResponse, void>({
+      query: () => ({
+        url: "/dashboard/inventories",
+        method: "GET",
+      }),
+    }),
+    getDashboardPersonnel: builder.query<DashboardPersonnelResponse, void>({
+      query: () => ({
+        url: "/dashboard/personnel",
         method: "GET",
       }),
     }),
@@ -128,5 +319,12 @@ export const dashboardApi = createApi({
   }),
 });
 
-export const { useGetDashboardHomeQuery, useGetFlightProgramsQuery } =
-  dashboardApi;
+export const {
+  useGetDashboardHomeQuery,
+  useGetDashboardOperationsQuery,
+  useGetDashboardMaintenanceQuery,
+  useGetDashboardFinanceQuery,
+  useGetDashboardInventoriesQuery,
+  useGetDashboardPersonnelQuery,
+  useGetFlightProgramsQuery,
+} = dashboardApi;

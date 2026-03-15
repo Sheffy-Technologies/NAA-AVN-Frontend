@@ -1,27 +1,47 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { useGetOperationsQuery } from "@/features/operations/api";
+import { useGetExpensesQuery } from "@/features/finance/api";
+import { cn } from "@/shared/utils/cn";
 import {
-  useGetPersonnelQuery,
-  type PersonnelFilters,
-} from "@/features/personnel/api";
-import { useGetFinanceDashboardQuery } from "@/features/finance/api";
-import { useGetInventoryDashboardQuery } from "@/features/inventory/api";
-import { useGetAssetsQuery } from "@/features/assets/api";
+  useGetDashboardFinanceQuery,
+  useGetDashboardInventoriesQuery,
+  useGetDashboardMaintenanceQuery,
+  useGetDashboardOperationsQuery,
+  useGetDashboardPersonnelQuery,
+  type DashboardOperationsRecentOperation,
+} from "../api";
 
 type Card = {
   label: string;
   value: string | number;
   icon?: string;
   bgClass?: string;
+  iconClass?: string;
 };
 
-const CardItem = ({ card, onClick }: { card: Card; onClick?: () => void }) => (
+type DashboardTabId =
+  | "operations"
+  | "maintenance"
+  | "finances"
+  | "inventory"
+  | "personnel";
+
+const TABS: Array<{ id: DashboardTabId; label: string }> = [
+  { id: "operations", label: "Operations" },
+  { id: "maintenance", label: "Maintenance tracking" },
+  { id: "finances", label: "Finances" },
+  { id: "inventory", label: "Inventory" },
+  { id: "personnel", label: "Personnel" },
+];
+
+const CardItem = ({ card }: { card: Card }) => (
   <button
     type="button"
-    onClick={onClick}
-    className={`w-full text-left rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between transition-colors ${card.bgClass || "bg-[#001219]"} ${onClick ? "cursor-pointer hover:bg-[#001825] hover:border-[#7FD5FF]/40" : ""}`}
+    className={cn(
+      "w-full text-left rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between transition-colors cursor-default",
+      card.bgClass || "bg-[#001219]",
+    )}
   >
     <div>
       <p className="text-[11px] uppercase tracking-wide text-gray-400">
@@ -30,96 +50,125 @@ const CardItem = ({ card, onClick }: { card: Card; onClick?: () => void }) => (
       <p className="text-2xl font-semibold text-white">{card.value}</p>
     </div>
     {card.icon && (
-      <div className="w-9 h-9 rounded bg-[#021a27] flex items-center justify-center">
-        <Icon icon={card.icon} className="w-5 h-5 text-cyan-300" />
+      <div
+        className={cn(
+          "w-9 h-9 rounded flex items-center justify-center",
+          card.iconClass || "bg-[#021a27]",
+        )}
+      >
+        <Icon icon={card.icon} className="w-5 h-5 text-white/90" />
       </div>
     )}
   </button>
 );
 
-const Section = ({
+const TableShell = ({
   title,
-  cards,
-  onNavigate,
+  left,
+  right,
+  children,
 }: {
   title: string;
-  cards: Card[];
-  onNavigate?: () => void;
+  left?: React.ReactNode;
+  right?: React.ReactNode;
+  children: React.ReactNode;
 }) => (
-  <section className="space-y-3">
+  <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
+    <div className="px-4 py-3 border-b border-[#0A4D66]/40 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
+          {title}
+        </div>
+        {left}
+      </div>
+      <div className="flex items-center gap-2">{right}</div>
+    </div>
+    {children}
+  </div>
+);
+
+const TableToolbar = ({ resetCount }: { resetCount?: number | string }) => (
+  <div className="flex items-center gap-3">
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
+      >
+        <Icon icon="mdi:view-list" className="w-5 h-5" />
+      </button>
+      <button
+        type="button"
+        className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
+      >
+        <Icon icon="mdi:view-grid" className="w-5 h-5" />
+      </button>
+    </div>
     <button
       type="button"
-      onClick={onNavigate}
-      className={`text-left text-xs font-bold tracking-wide ${onNavigate ? "text-gray-200 hover:text-white" : "text-gray-300"}`}
+      className="inline-flex items-center gap-2 text-xs text-[#7FD5FF] hover:text-[#b3e6ff] transition-colors"
     >
-      {title}
+      <span className="w-5 h-5 rounded-full bg-[#0A4D66]/50 text-white text-[10px] flex items-center justify-center">
+        {resetCount ?? 0}
+      </span>
+      Reset Filter
     </button>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-      {cards.map((c, i) => (
-        <CardItem key={`${title}-${i}`} card={c} onClick={onNavigate} />
-      ))}
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 px-3 py-2 rounded bg-[#00090D] border border-[#0A4D66]/50 text-xs text-gray-200 hover:border-[#7FD5FF]/60 transition-colors"
+      >
+        <span>All Units</span>
+        <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" />
+      </button>
+      <button
+        type="button"
+        className="inline-flex items-center gap-2 px-3 py-2 rounded bg-[#00090D] border border-[#0A4D66]/50 text-xs text-gray-200 hover:border-[#7FD5FF]/60 transition-colors"
+      >
+        <span>All Priority</span>
+        <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" />
+      </button>
+      <button
+        type="button"
+        className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
+      >
+        <Icon icon="mdi:download" className="w-5 h-5" />
+      </button>
     </div>
-  </section>
+  </div>
 );
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
-  const { data: operations = [] } = useGetOperationsQuery();
-  const { data: finance } = useGetFinanceDashboardQuery();
-  const { data: inventory } = useGetInventoryDashboardQuery();
-  const { data: assets = [] } = useGetAssetsQuery();
+  const [activeTab, setActiveTab] = useState<DashboardTabId>("operations");
 
-  const defaultFilters: PersonnelFilters = {
-    branches: [],
-    units: [],
-    ranks: [],
-    corps: [],
-    specialties: [],
-    status: [],
-  };
-  const { data: personnel = [] } = useGetPersonnelQuery(defaultFilters);
+  const { data: operations, isFetching: isFetchingOps } =
+    useGetDashboardOperationsQuery(undefined, {
+      skip: activeTab !== "operations",
+    });
 
-  const opStats = useMemo(() => {
-    return {
-      planned: operations.filter((o) => o.status === "planned").length,
-      completed: operations.filter((o) => o.status === "completed").length,
-      ongoing: operations.filter((o) => o.status === "active").length,
-      aborted: operations.filter((o) => o.status === "aborted").length,
-    };
-  }, [operations]);
+  const { data: maintenance, isFetching: isFetchingMaintenance } =
+    useGetDashboardMaintenanceQuery(undefined, {
+      skip: activeTab !== "maintenance",
+    });
 
-  const personnelStats = useMemo(() => {
-    const normalize = (s: string) => s?.toLowerCase?.() || "";
-    const active = personnel.filter(
-      (p) => normalize(p.status) === "active",
-    ).length;
-    const grounded = personnel.filter(
-      (p) => normalize(p.status) === "grounded",
-    ).length;
-    const medical = personnel.filter(
-      (p) => normalize(p.status) === "medical",
-    ).length;
-    return { total: personnel.length, active, grounded, medical };
-  }, [personnel]);
+  const { data: finance, isFetching: isFetchingFinance } =
+    useGetDashboardFinanceQuery(undefined, {
+      skip: activeTab !== "finances",
+    });
 
-  const aircraftStats = useMemo(() => {
-    const aircrafts = assets.filter((a) => a.type === "aircraft");
-    const serviceable = aircrafts.filter(
-      (a) => a.serviceability_status === "serviceable",
-    ).length;
-    const underMaintenance = aircrafts.filter(
-      (a) => a.serviceability_status === "under_maintenance",
-    ).length;
-    const grounded = aircrafts.filter(
-      (a) => a.serviceability_status === "grounded",
-    ).length;
-    return {
-      total: aircrafts.length,
-      serviceable,
-      underMaintenance,
-      grounded,
-    };
-  }, [assets]);
+  const { data: inventories, isFetching: isFetchingInventory } =
+    useGetDashboardInventoriesQuery(undefined, {
+      skip: activeTab !== "inventory",
+    });
+
+  const { data: personnel, isFetching: isFetchingPersonnel } =
+    useGetDashboardPersonnelQuery(undefined, {
+      skip: activeTab !== "personnel",
+    });
+
+  const { data: expenses = [] } = useGetExpensesQuery(undefined, {
+    skip: activeTab !== "finances",
+  });
 
   const financeCards: Card[] = useMemo(() => {
     const total = finance?.total_expense ?? 0;
@@ -134,21 +183,29 @@ export const DashboardPage = () => {
         label: "Total Expense",
         value: `₦${total.toLocaleString()}`,
         icon: "mdi:cash-fast",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Monthly",
         value: `₦${monthly.toLocaleString()}`,
         icon: "mdi:calendar-month",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Quarterly",
         value: `₦${quarterly.toLocaleString()}`,
         icon: "mdi:calendar-range",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Budget",
         value: `₦${budget.toLocaleString()}${pct !== undefined ? `  ${pct}%` : ""}`,
         icon: "mdi:account-cash",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
       },
     ];
   }, [finance]);
@@ -157,118 +214,633 @@ export const DashboardPage = () => {
     return [
       {
         label: "Total In Stock",
-        value: inventory?.total_stock ?? 0,
+        value: inventories?.total_stock ?? 0,
         icon: "mdi:warehouse",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Low Stock Items",
-        value: inventory?.low_stock ?? 0,
+        value: inventories?.low_stock ?? 0,
         icon: "mdi:alert",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#6b4b00]/60",
       },
       {
         label: "Expired Items",
-        value: inventory?.expired_items ?? 0,
+        value: inventories?.expired_items ?? 0,
         icon: "mdi:alert-octagon",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#5a0a0a]/60",
       },
       {
         label: "Critical",
-        value: inventory?.critical_stock ?? 0,
+        value: inventories?.critical_stock ?? 0,
         icon: "mdi:alert-decagram",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#7a0000]/60",
       },
     ];
-  }, [inventory]);
+  }, [inventories]);
 
-  const operationsCards: Card[] = [
-    { label: "Planned", value: opStats.planned, icon: "mdi:database" },
-    {
-      label: "Completed",
-      value: opStats.completed,
-      icon: "mdi:database-check",
-    },
-    { label: "Ongoing", value: opStats.ongoing, icon: "mdi:database-sync" },
-    { label: "Aborted", value: opStats.aborted, icon: "mdi:database-off" },
-  ];
+  const operationsCards: Card[] = useMemo(() => {
+    return [
+      {
+        label: "Planned",
+        value: operations?.planned ?? 0,
+        icon: "mdi:database",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
+      },
+      {
+        label: "Completed",
+        value: operations?.completed ?? 0,
+        icon: "mdi:database-check",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        iconClass: "bg-emerald-700/50",
+      },
+      {
+        label: "Ongoing",
+        value: operations?.ongoing ?? 0,
+        icon: "mdi:database-sync",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#241e00]",
+        iconClass: "bg-amber-600/50",
+      },
+      {
+        label: "Aborted",
+        value: operations?.aborted ?? 0,
+        icon: "mdi:database-off",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#240000]",
+        iconClass: "bg-red-700/50",
+      },
+    ];
+  }, [operations]);
 
-  const personnelCards: Card[] = [
-    { label: "Total", value: personnelStats.total, icon: "mdi:account-group" },
-    {
-      label: "Active",
-      value: personnelStats.active,
-      icon: "mdi:account-check",
-    },
-    { label: "Medical", value: personnelStats.medical, icon: "mdi:hospital" },
-    { label: "Grounded", value: personnelStats.grounded, icon: "mdi:alert" },
-  ];
+  const maintenanceCards: Card[] = useMemo(() => {
+    return [
+      {
+        label: "Total",
+        value: maintenance?.total_aircraft ?? 0,
+        icon: "mdi:airplane",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
+      },
+      {
+        label: "Serviceable",
+        value: maintenance?.maintenance_events?.serviceable ?? 0,
+        icon: "mdi:airplane-check",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        iconClass: "bg-emerald-700/50",
+      },
+      {
+        label: "Under Maintenance",
+        value: maintenance?.maintenance_events?.under_maintenance ?? 0,
+        icon: "mdi:toolbox",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#241e00]",
+        iconClass: "bg-amber-600/50",
+      },
+      {
+        label: "Grounded",
+        value: maintenance?.maintenance_events?.grounded ?? 0,
+        icon: "mdi:airplane-off",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#240000]",
+        iconClass: "bg-red-700/50",
+      },
+    ];
+  }, [maintenance]);
 
-  const aircraftCards: Card[] = [
-    { label: "Total", value: aircraftStats.total, icon: "mdi:airplane" },
-    {
-      label: "Serviceable",
-      value: aircraftStats.serviceable,
-      icon: "mdi:airplane-check",
-    },
-    {
-      label: "Under Maintenance",
-      value: aircraftStats.underMaintenance,
-      icon: "mdi:toolbox",
-    },
-    {
-      label: "Grounded",
-      value: aircraftStats.grounded,
-      icon: "mdi:airplane-off",
-    },
-  ];
-
-  const weatherCards: Card[] = [
-    { label: "Temperature", value: "31°C", icon: "mdi:thermometer" },
-    {
-      label: "High Density Altitude",
-      value: "31°C • 1,870 ft",
-      icon: "mdi:chart-line",
-    },
-    { label: "Crosswind RW19", value: "12KT", icon: "mdi:weather-windy" },
-    { label: "Visibility", value: "8KM", icon: "mdi:eye" },
-    {
-      label: "Ceiling",
-      value: "2,500 ft • Watch",
-      icon: "mdi:weather-cloudy-alert",
-    },
-    { label: "QNH", value: "Watch", icon: "mdi:gauge" },
-    { label: "Humidity", value: "82% • Moderate", icon: "mdi:water-percent" },
-  ];
+  const personnelCards: Card[] = useMemo(() => {
+    return [
+      {
+        label: "Total",
+        value: personnel?.total_personnel ?? 0,
+        icon: "mdi:account-group",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        iconClass: "bg-[#0A4D66]/60",
+      },
+      {
+        label: "Active",
+        value: personnel?.active ?? 0,
+        icon: "mdi:account-check",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        iconClass: "bg-emerald-700/50",
+      },
+      {
+        label: "Medical",
+        value: personnel?.medical ?? 0,
+        icon: "mdi:hospital",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#241e00]",
+        iconClass: "bg-amber-600/50",
+      },
+      {
+        label: "Grounded",
+        value: personnel?.grounded ?? 0,
+        icon: "mdi:alert",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#240000]",
+        iconClass: "bg-red-700/50",
+      },
+    ];
+  }, [personnel]);
 
   return (
-    <div className="space-y-6">
-      <Section
-        title="OPERATIONS"
-        cards={operationsCards}
-        onNavigate={() => navigate("/dashboard/operations")}
-      />
-      <Section
-        title="PERSONNEL"
-        cards={personnelCards}
-        onNavigate={() => navigate("/dashboard/personnel")}
-      />
-      <Section
-        title="FINANCES"
-        cards={financeCards}
-        onNavigate={() => navigate("/dashboard/finance")}
-      />
-      <Section
-        title="AIRCRAFT"
-        cards={aircraftCards}
-        onNavigate={() => navigate("/dashboard/assets")}
-      />
-      <Section
-        title="INVENTORY"
-        cards={inventoryCards}
-        onNavigate={() => navigate("/dashboard/inventory")}
-      />
-      <Section
-        title="WEATHER OVERVIEW"
-        cards={weatherCards}
-        onNavigate={() => navigate("/dashboard/weather")}
-      />
+    <div className="space-y-5">
+      <div className="flex items-center gap-8 border-b border-[#0A4D66]/40">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={cn(
+              "py-3 text-sm font-medium transition-colors",
+              activeTab === tab.id
+                ? "text-white border-b-2 border-[#7FD5FF]"
+                : "text-gray-400 hover:text-white",
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "operations" && (
+        <div className="space-y-4">
+          <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
+            Operations
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {operationsCards.map((c) => (
+              <CardItem key={c.label} card={c} />
+            ))}
+          </div>
+
+          <TableShell
+            title="Upcoming Operations"
+            right={
+              <TableToolbar resetCount={operations?.total_operations ?? 0} />
+            }
+          >
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-400">
+                  <tr className="border-b border-[#0A4D66]/30">
+                    <th className="px-4 py-3 text-left">Operation</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Unit</th>
+                    <th className="px-4 py-3 text-left">Priority</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {isFetchingOps && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!isFetchingOps &&
+                    (operations?.recent_operations?.length ?? 0) === 0 && (
+                      <tr>
+                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                          No upcoming operations
+                        </td>
+                      </tr>
+                    )}
+                  {(operations?.recent_operations ?? []).map(
+                    (op: DashboardOperationsRecentOperation) => (
+                      <tr
+                        key={
+                          op.id ??
+                          `${op.name ?? "operation"}-${op.created_at ?? ""}`
+                        }
+                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium text-white">
+                          {op.name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {op.operation_type?.name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {op.unit?.name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {op.priority || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {op.status || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              op.id
+                                ? navigate(`/dashboard/operations/${op.id}`)
+                                : undefined
+                            }
+                            className={cn(
+                              "inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors",
+                              op.id
+                                ? "text-gray-200"
+                                : "text-gray-500 cursor-not-allowed",
+                            )}
+                            disabled={!op.id}
+                          >
+                            <Icon
+                              icon="mdi:dots-horizontal"
+                              className="w-5 h-5"
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    ),
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </TableShell>
+        </div>
+      )}
+
+      {activeTab === "maintenance" && (
+        <div className="space-y-4">
+          <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
+            Aircrafts
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {maintenanceCards.map((c) => (
+              <CardItem key={c.label} card={c} />
+            ))}
+          </div>
+
+          <TableShell
+            title="Maintenance tracking"
+            left={
+              <div className="hidden md:flex items-center gap-5">
+                {["All", "Airframe", "Engine", "Avionics"].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={cn(
+                      "text-xs font-medium transition-colors",
+                      t === "All"
+                        ? "text-[#7FD5FF]"
+                        : "text-gray-400 hover:text-white",
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            }
+            right={
+              <TableToolbar resetCount={maintenance?.total_aircraft ?? 0} />
+            }
+          >
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-400">
+                  <tr className="border-b border-[#0A4D66]/30">
+                    <th className="px-4 py-3 text-left">Tail No</th>
+                    <th className="px-4 py-3 text-left">Aircraft</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Total hrs</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {isFetchingMaintenance && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!isFetchingMaintenance &&
+                    (maintenance?.recent_aircrafts?.length ?? 0) === 0 && (
+                      <tr>
+                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                          No recent aircrafts
+                        </td>
+                      </tr>
+                    )}
+                  {(maintenance?.recent_aircrafts ?? []).map((a) => (
+                    <tr
+                      key={a.id}
+                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                    >
+                      <td className="px-4 py-3 text-gray-300">
+                        {a.tail_number || "—"}
+                      </td>
+                      <td className="px-4 py-3 font-medium text-white">
+                        {a.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {a.type || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {a.operations_total_hours_label ||
+                          a.total_airframe_hours ||
+                          "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {a.serviceability_status || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/dashboard/assets/${a.id}`)}
+                          className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                        >
+                          <Icon
+                            icon="mdi:dots-horizontal"
+                            className="w-5 h-5"
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TableShell>
+        </div>
+      )}
+
+      {activeTab === "finances" && (
+        <div className="space-y-4">
+          <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
+            Finances
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {financeCards.map((c) => (
+              <CardItem key={c.label} card={c} />
+            ))}
+          </div>
+
+          <TableShell
+            title="Recent finance log"
+            right={<TableToolbar resetCount={expenses.length} />}
+          >
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-400">
+                  <tr className="border-b border-[#0A4D66]/30">
+                    <th className="px-4 py-3 text-left">Item Description</th>
+                    <th className="px-4 py-3 text-left">Category</th>
+                    <th className="px-4 py-3 text-left">Quantity</th>
+                    <th className="px-4 py-3 text-left">Unit Cost</th>
+                    <th className="px-4 py-3 text-left">Total Cost</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {isFetchingFinance && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!isFetchingFinance && expenses.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        No recent finance logs
+                      </td>
+                    </tr>
+                  )}
+                  {expenses.slice(0, 7).map((e) => (
+                    <tr
+                      key={e.id}
+                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-white">
+                        {e.part_name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {e.expense_category?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {e.quantity ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {typeof e.unit_cost === "number"
+                          ? `₦${e.unit_cost.toLocaleString()}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {typeof e.total_cost === "number"
+                          ? `₦${e.total_cost.toLocaleString()}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/dashboard/finance")}
+                          className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                        >
+                          <Icon
+                            icon="mdi:dots-horizontal"
+                            className="w-5 h-5"
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TableShell>
+        </div>
+      )}
+
+      {activeTab === "inventory" && (
+        <div className="space-y-4">
+          <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
+            Inventory
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {inventoryCards.map((c) => (
+              <CardItem key={c.label} card={c} />
+            ))}
+          </div>
+
+          <TableShell
+            title="Recent inventories"
+            right={
+              <TableToolbar
+                resetCount={inventories?.recent_inventories?.length ?? 0}
+              />
+            }
+          >
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-400">
+                  <tr className="border-b border-[#0A4D66]/30">
+                    <th className="px-4 py-3 text-left">Description</th>
+                    <th className="px-4 py-3 text-left">Part No</th>
+                    <th className="px-4 py-3 text-left">Current Stock</th>
+                    <th className="px-4 py-3 text-left">Unit</th>
+                    <th className="px-4 py-3 text-left">Expiry</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {isFetchingInventory && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!isFetchingInventory &&
+                    (inventories?.recent_inventories?.length ?? 0) === 0 && (
+                      <tr>
+                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                          No recent inventories
+                        </td>
+                      </tr>
+                    )}
+                  {(inventories?.recent_inventories ?? [])
+                    .slice(0, 7)
+                    .map((i) => (
+                      <tr
+                        key={i.id}
+                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium text-white">
+                          {i.description || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {i.part_number || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {typeof i.current_stock === "number"
+                            ? i.current_stock
+                            : "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {i.unit?.name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {i.expiry_date || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(`/dashboard/inventory/${i.id}`)
+                            }
+                            className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                          >
+                            <Icon
+                              icon="mdi:dots-horizontal"
+                              className="w-5 h-5"
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </TableShell>
+        </div>
+      )}
+
+      {activeTab === "personnel" && (
+        <div className="space-y-4">
+          <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
+            Personnel
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {personnelCards.map((c) => (
+              <CardItem key={c.label} card={c} />
+            ))}
+          </div>
+
+          <TableShell
+            title="Recent personnel"
+            right={
+              <TableToolbar
+                resetCount={personnel?.recent_personnel?.length ?? 0}
+              />
+            }
+          >
+            <div className="w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-400">
+                  <tr className="border-b border-[#0A4D66]/30">
+                    <th className="px-4 py-3 text-left">Name</th>
+                    <th className="px-4 py-3 text-left">Rank</th>
+                    <th className="px-4 py-3 text-left">Unit</th>
+                    <th className="px-4 py-3 text-left">Branch</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {isFetchingPersonnel && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!isFetchingPersonnel &&
+                    (personnel?.recent_personnel?.length ?? 0) === 0 && (
+                      <tr>
+                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                          No recent personnel
+                        </td>
+                      </tr>
+                    )}
+                  {(personnel?.recent_personnel ?? []).slice(0, 7).map((p) => (
+                    <tr
+                      key={p.id}
+                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-white">
+                        {p.full_name ||
+                          `${p.firstname ?? ""} ${p.lastname ?? ""}`.trim() ||
+                          "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {p.rank?.abbreviation || p.rank?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {p.unit?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {p.branch?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {p.status || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/dashboard/personnel/${p.id}`)
+                          }
+                          className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                        >
+                          <Icon
+                            icon="mdi:dots-horizontal"
+                            className="w-5 h-5"
+                          />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TableShell>
+        </div>
+      )}
     </div>
   );
 };
