@@ -69,15 +69,20 @@ export type InventoryFilters = {
 };
 
 export type CreateInventoryPayload = {
+  type: "aircraft" | "ground_support" | "oem" | "others" | string;
+  asset_id: number | null;
   expense_category_id: number;
   unit_id: number;
+  serial_number: string;
   part_number: string;
-  part_name: string;
-  nsn_number: string | null;
-  ata_chapter: string | null;
+  current_stock: number;
   re_order_level: number;
+  unit_cost: number;
   measurement_unit: string;
+  vendor: string;
   expiry_date: string | null;
+  remark: string;
+  description: string;
   quantity: number;
 };
 
@@ -87,6 +92,64 @@ export type InventoryStockUpdatePayload = {
   inventory_id: number;
   stock_type: "in_stock" | "out_of_stock";
   quantity: number;
+};
+
+export type InventoryRequisitionStatus =
+  | "approved"
+  | "under_review"
+  | "rejected"
+  | "received"
+  | "pending";
+
+export type InventoryRequisition = {
+  id: number;
+  requesting_unit_id: number | null;
+  total_cost: number | string | null;
+  status: InventoryRequisitionStatus | string;
+  created_at: string;
+  updated_at: string;
+  requesting_unit?: InventoryUnit;
+  last_updated_by?: { id: number; name: string } | string | null;
+};
+
+export type InventoryRequisitionFilters = {
+  period?: "all" | "month" | "quarter" | "year";
+  unit_id?: number;
+};
+
+export type CreateInventoryRequisitionItem = {
+  inventory_id: number;
+  quantity: number;
+};
+
+export type CreateInventoryRequisitionPayload = {
+  requesting_unit_id?: number | null;
+  items: CreateInventoryRequisitionItem[];
+};
+
+export type InventoryRequisitionLine = {
+  id: number;
+  inventory_id: number;
+  requested_quantity: number | null;
+  approved_quantity: number | null;
+  available_quantity: number | null;
+  approved_cost: number | string | null;
+  unit_cost: number | string | null;
+  inventory?: InventoryItem;
+};
+
+export type InventoryRequisitionDetail = InventoryRequisition & {
+  remark?: string | null;
+  items?: InventoryRequisitionLine[];
+};
+
+export type UpdateInventoryRequisitionPayload = {
+  remark?: string | null;
+  items?: Array<{
+    id?: number;
+    inventory_id: number;
+    approved_quantity: number;
+  }>;
 };
 
 export const inventoryApi = createApi({
@@ -145,6 +208,45 @@ export const inventoryApi = createApi({
         data: body,
       }),
     }),
+    getInventoryRequisitions: builder.query<
+      InventoryRequisition[],
+      InventoryRequisitionFilters | void
+    >({
+      query: (params) => ({
+        url: "/inventory-requisitions",
+        method: "GET",
+        params: params || undefined,
+      }),
+    }),
+    createInventoryRequisition: builder.mutation<
+      InventoryRequisition,
+      CreateInventoryRequisitionPayload
+    >({
+      query: (body) => ({
+        url: "/inventory-requisitions",
+        method: "POST",
+        data: body,
+      }),
+    }),
+    getInventoryRequisitionById: builder.query<
+      InventoryRequisitionDetail,
+      number | string
+    >({
+      query: (id) => ({
+        url: `/inventory-requisitions/${id}`,
+        method: "GET",
+      }),
+    }),
+    updateInventoryRequisition: builder.mutation<
+      InventoryRequisitionDetail,
+      { id: number | string; body: UpdateInventoryRequisitionPayload }
+    >({
+      query: ({ id, body }) => ({
+        url: `/inventory-requisitions/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+    }),
   }),
 });
 
@@ -156,4 +258,8 @@ export const {
   useCreateInventoryMutation,
   useUpdateInventoryMutation,
   useUpdateInventoryStockMutation,
+  useGetInventoryRequisitionsQuery,
+  useCreateInventoryRequisitionMutation,
+  useGetInventoryRequisitionByIdQuery,
+  useUpdateInventoryRequisitionMutation,
 } = inventoryApi;

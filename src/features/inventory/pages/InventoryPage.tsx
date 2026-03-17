@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
@@ -7,6 +7,7 @@ import {
   useGetInventoriesQuery,
   useGetExpenseCategoriesQuery,
   useUpdateInventoryStockMutation,
+  useGetInventoryRequisitionsQuery,
 } from "@/features/inventory/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
@@ -73,6 +74,80 @@ const mapStockLevel = (value: string | undefined): InventoryStatusLevel => {
   if (normalized === "low") return "Low";
   if (normalized === "critical") return "Critical";
   return "Unknown";
+};
+
+type RequisitionStatusLabel =
+  | "Approved"
+  | "Under Review"
+  | "Rejected"
+  | "Received"
+  | "Pending"
+  | "Unknown";
+
+const normalizeRequisitionStatus = (status: string | null | undefined) => {
+  const value = (status ?? "").trim().toLowerCase();
+  if (value === "approved") return "Approved";
+  if (
+    value === "under_review" ||
+    value === "under review" ||
+    value === "review"
+  )
+    return "Under Review";
+  if (value === "rejected") return "Rejected";
+  if (value === "received") return "Received";
+  if (value === "pending") return "Pending";
+  if (value.length === 0) return "Unknown";
+  return "Unknown";
+};
+
+const requisitionStatusColor: Record<RequisitionStatusLabel, string> = {
+  Approved: "text-emerald-400",
+  "Under Review": "text-amber-400",
+  Rejected: "text-red-400",
+  Received: "text-sky-400",
+  Pending: "text-gray-300",
+  Unknown: "text-gray-400",
+};
+
+const requisitionStatusDotColor: Record<RequisitionStatusLabel, string> = {
+  Approved: "bg-emerald-400",
+  "Under Review": "bg-amber-400",
+  Rejected: "bg-red-400",
+  Received: "bg-sky-400",
+  Pending: "bg-gray-400",
+  Unknown: "bg-gray-500",
+};
+
+const formatDateShort = (isoString: string | null | undefined) => {
+  if (!isoString) return "-";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatTimeShort = (isoString: string | null | undefined) => {
+  if (!isoString) return "-";
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+const formatNaira = (value: number | string | null | undefined) => {
+  if (value === null || value === undefined || value === "") return "-";
+  const numeric =
+    typeof value === "number"
+      ? value
+      : Number.parseFloat(String(value).replace(/[₦,]/g, ""));
+  if (Number.isNaN(numeric)) return String(value);
+  return `₦${numeric.toLocaleString()}`;
 };
 
 type UpdateStockAdjustmentType = "add" | "remove" | "audit";
@@ -286,8 +361,21 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
 };
 
 export const InventoryPage = () => {
+  const location = useLocation();
+  const initialTab = useMemo(() => {
+    const nextTab = (location.state as { inventoryTab?: unknown } | null)
+      ?.inventoryTab;
+    if (
+      typeof nextTab === "string" &&
+      INVENTORY_TABS.some((tab) => tab.id === nextTab)
+    ) {
+      return nextTab;
+    }
+    return "Stocks";
+  }, [location.state]);
+
   // State for Tabs and Filters
-  const [activeTab, setActiveTab] = useState("Stocks");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [activeSubTab, setActiveSubTab] = useState("Aircraft");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [openActionId, setOpenActionId] = useState<number | null>(null);
@@ -297,6 +385,10 @@ export const InventoryPage = () => {
   const [openFilterMenu, setOpenFilterMenu] = useState<
     "units" | "categories" | "aircraft" | null
   >(null);
+  const [requisitionPeriod, setRequisitionPeriod] = useState<
+    "all" | "month" | "quarter" | "year"
+  >("all");
+  const [requisitionUnitId, setRequisitionUnitId] = useState<number | "">("");
 
   const navigate = useNavigate();
 
@@ -348,6 +440,18 @@ export const InventoryPage = () => {
     isLoading: isInventoriesLoading,
     refetch: refetchInventories,
   } = useGetInventoriesQuery(apiFilters, { skip: activeTab !== "Stocks" });
+
+  const requisitionFilters = useMemo(() => {
+    return {
+      period: requisitionPeriod === "all" ? undefined : requisitionPeriod,
+      unit_id: requisitionUnitId === "" ? undefined : requisitionUnitId,
+    };
+  }, [requisitionPeriod, requisitionUnitId]);
+
+  const { data: requisitionsData, isLoading: isRequisitionsLoading } =
+    useGetInventoryRequisitionsQuery(requisitionFilters, {
+      skip: activeTab !== "Requisitions",
+    });
 
   // Handlers
   const handleToggleAll =
@@ -441,6 +545,28 @@ export const InventoryPage = () => {
     },
   ];
 
+  const requisitionStats = useMemo(() => {
+    const initial = {
+      total: 0,
+      approved: 0,
+      underReview: 0,
+      rejected: 0,
+      received: 0,
+    };
+
+    if (!requisitionsData) return initial;
+
+    return requisitionsData.reduce((acc, requisition) => {
+      acc.total++;
+      const statusLabel = normalizeRequisitionStatus(requisition.status);
+      if (statusLabel === "Approved") acc.approved++;
+      else if (statusLabel === "Under Review") acc.underReview++;
+      else if (statusLabel === "Rejected") acc.rejected++;
+      else if (statusLabel === "Received") acc.received++;
+      return acc;
+    }, initial);
+  }, [requisitionsData]);
+
   const selectedFilterCount =
     (unitFilter.all ? 0 : unitFilter.selected.length) +
     (categoryFilter.all ? 0 : categoryFilter.selected.length) +
@@ -475,7 +601,11 @@ export const InventoryPage = () => {
           {INVENTORY_TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setOpenActionId(null);
+                setOpenFilterMenu(null);
+              }}
               className={cn(
                 "flex items-center space-x-2 pb-4 text-sm font-medium transition-colors relative",
                 activeTab === tab.id
@@ -549,7 +679,7 @@ export const InventoryPage = () => {
                 <div className="flex-1" />
 
                 <div
-                  className="flex items-center gap-2 overflow-x-auto max-w-full"
+                  className="flex flex-wrap items-center gap-2 max-w-full"
                   ref={filtersRef}
                 >
                   <button
@@ -581,13 +711,13 @@ export const InventoryPage = () => {
                     >
                       <span>
                         {unitFilter.all
-                          ? "All Locations"
-                          : `${unitFilter.selected.length} Locations`}
+                          ? "All Units"
+                          : `${unitFilter.selected.length} Units`}
                       </span>
                       <Icon icon="mdi:chevron-down" className="w-3 h-3" />
                     </button>
                     {openFilterMenu === "units" && (
-                      <div className="absolute top-full mt-1 left-0 z-20 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                      <div className="absolute top-full mt-1 left-0 z-40 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
                         <div className="mb-2">
                           <Checkbox
                             checked={unitFilter.all}
@@ -597,7 +727,7 @@ export const InventoryPage = () => {
                             label="All Locations"
                           />
                         </div>
-                        <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                        <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
                           {units.map((unit) => (
                             <Checkbox
                               key={unit.id}
@@ -638,7 +768,7 @@ export const InventoryPage = () => {
                       <Icon icon="mdi:chevron-down" className="w-3 h-3" />
                     </button>
                     {openFilterMenu === "categories" && (
-                      <div className="absolute top-full mt-1 left-0 z-20 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                      <div className="absolute top-full mt-1 left-0 z-40 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
                         <div className="mb-2">
                           <Checkbox
                             checked={categoryFilter.all}
@@ -650,7 +780,7 @@ export const InventoryPage = () => {
                             label="All Categories"
                           />
                         </div>
-                        <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                        <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
                           {categories.map((cat) => (
                             <Checkbox
                               key={cat.id}
@@ -691,7 +821,7 @@ export const InventoryPage = () => {
                       <Icon icon="mdi:chevron-down" className="w-3 h-3" />
                     </button>
                     {openFilterMenu === "aircraft" && (
-                      <div className="absolute top-full mt-1 left-0 z-20 w-64 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                      <div className="absolute top-full mt-1 left-0 z-40 w-64 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
                         <div className="mb-2">
                           <Checkbox
                             checked={aircraftTypeFilter.all}
@@ -703,7 +833,7 @@ export const InventoryPage = () => {
                             label="All Aircraft Types"
                           />
                         </div>
-                        <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+                        <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
                           {aircraftAssets.map((asset) => (
                             <Checkbox
                               key={asset.id}
@@ -1107,6 +1237,320 @@ export const InventoryPage = () => {
                       </div>
                     </div>
                   ))
+                )}
+              </div>
+            )}
+          </>
+        ) : activeTab === "Requisitions" ? (
+          <>
+            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                    Requisitions
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    className={cn(
+                      "p-1.5 rounded transition-colors",
+                      viewMode === "table"
+                        ? "bg-[#0A4D66] text-white"
+                        : "text-gray-400 hover:text-white",
+                    )}
+                  >
+                    <Icon icon="mdi:table" className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    className={cn(
+                      "p-1.5 rounded transition-colors",
+                      viewMode === "grid"
+                        ? "bg-[#0A4D66] text-white"
+                        : "text-gray-400 hover:text-white",
+                    )}
+                  >
+                    <Icon icon="mdi:view-grid" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex-1" />
+
+                <div className="flex flex-wrap items-center gap-2 max-w-full">
+                  <select
+                    value={requisitionPeriod}
+                    onChange={(e) =>
+                      setRequisitionPeriod(
+                        e.target.value as "all" | "month" | "quarter" | "year",
+                      )
+                    }
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="month">This Month</option>
+                    <option value="quarter">This Quarter</option>
+                    <option value="year">This Year</option>
+                  </select>
+
+                  <select
+                    value={requisitionUnitId}
+                    onChange={(e) =>
+                      setRequisitionUnitId(
+                        e.target.value ? Number(e.target.value) : "",
+                      )
+                    }
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF] min-w-44"
+                  >
+                    <option value="">All Locations</option>
+                    {units.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <Link
+                  to="/dashboard/inventory/requisitions/add"
+                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  <span>Add Request</span>
+                </Link>
+              </div>
+
+              <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
+                {[
+                  {
+                    label: "Total Requests",
+                    value: requisitionStats.total,
+                    color: "bg-[#7FD5FF]",
+                  },
+                  {
+                    label: "Approved",
+                    value: requisitionStats.approved,
+                    color: requisitionStatusDotColor.Approved,
+                  },
+                  {
+                    label: "Under Review",
+                    value: requisitionStats.underReview,
+                    color: requisitionStatusDotColor["Under Review"],
+                  },
+                  {
+                    label: "Rejected",
+                    value: requisitionStats.rejected,
+                    color: requisitionStatusDotColor.Rejected,
+                  },
+                  {
+                    label: "Received",
+                    value: requisitionStats.received,
+                    color: requisitionStatusDotColor.Received,
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex items-center space-x-2 whitespace-nowrap"
+                  >
+                    <div className={cn("w-2 h-2 rounded-full", stat.color)} />
+                    <span className="text-gray-400">{stat.label}:</span>
+                    <span className="text-white font-bold">{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {viewMode === "table" ? (
+              <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[1000px]">
+                  <thead>
+                    <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                      <th className="px-6 py-4 font-medium">Date</th>
+                      <th className="px-6 py-4 font-medium">Time</th>
+                      <th className="px-6 py-4 font-medium">
+                        Requesting Location
+                      </th>
+                      <th className="px-6 py-4 font-medium text-right">
+                        Total Cost
+                      </th>
+                      <th className="px-6 py-4 font-medium">Status</th>
+                      <th className="px-6 py-4 font-medium">Last Updated By</th>
+                      <th className="px-6 py-4 font-medium text-right">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                    {isRequisitionsLoading ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          Loading requisitions...
+                        </td>
+                      </tr>
+                    ) : (requisitionsData?.length ?? 0) === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          No requisitions found.
+                        </td>
+                      </tr>
+                    ) : (
+                      requisitionsData?.map((requisition, idx) => {
+                        const statusLabel = normalizeRequisitionStatus(
+                          requisition.status,
+                        );
+                        const lastUpdatedBy =
+                          typeof requisition.last_updated_by === "string"
+                            ? requisition.last_updated_by
+                            : (requisition.last_updated_by?.name ?? "-");
+                        const requestingLocation =
+                          requisition.requesting_unit?.name ??
+                          (requisition.requesting_unit_id
+                            ? `Unit #${requisition.requesting_unit_id}`
+                            : "-");
+
+                        return (
+                          <tr
+                            key={requisition.id}
+                            className={cn(
+                              "hover:bg-[#0A4D66]/20 transition-colors",
+                              idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                            )}
+                          >
+                            <td className="px-6 py-4 text-gray-300">
+                              {formatDateShort(requisition.created_at)}
+                            </td>
+                            <td className="px-6 py-4 text-gray-300">
+                              {formatTimeShort(requisition.created_at)}
+                            </td>
+                            <td className="px-6 py-4 text-gray-200">
+                              {requestingLocation}
+                            </td>
+                            <td className="px-6 py-4 text-right font-mono text-white">
+                              {formatNaira(requisition.total_cost)}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={cn(
+                                  "font-medium",
+                                  requisitionStatusColor[statusLabel],
+                                )}
+                              >
+                                {statusLabel}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-gray-300">
+                              {lastUpdatedBy}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  navigate(
+                                    `/dashboard/inventory/requisitions/${requisition.id}`,
+                                  )
+                                }
+                                className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
+                              >
+                                <Icon icon="mdi:eye" className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {isRequisitionsLoading ? (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    Loading requisitions...
+                  </div>
+                ) : (requisitionsData?.length ?? 0) === 0 ? (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    No requisitions found.
+                  </div>
+                ) : (
+                  requisitionsData?.map((requisition) => {
+                    const statusLabel = normalizeRequisitionStatus(
+                      requisition.status,
+                    );
+                    const requestingLocation =
+                      requisition.requesting_unit?.name ??
+                      (requisition.requesting_unit_id
+                        ? `Unit #${requisition.requesting_unit_id}`
+                        : "-");
+
+                    return (
+                      <button
+                        key={requisition.id}
+                        type="button"
+                        onClick={() =>
+                          navigate(
+                            `/dashboard/inventory/requisitions/${requisition.id}`,
+                          )
+                        }
+                        className="text-left bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 hover:border-[#7FD5FF]/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-white font-semibold">
+                              Request #{requisition.id}
+                            </div>
+                            <div className="mt-1 text-xs text-gray-400">
+                              {formatDateShort(requisition.created_at)} •{" "}
+                              {formatTimeShort(requisition.created_at)}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={cn(
+                                "w-2 h-2 rounded-full",
+                                requisitionStatusDotColor[statusLabel],
+                              )}
+                            />
+                            <span
+                              className={cn(
+                                "text-xs font-medium",
+                                requisitionStatusColor[statusLabel],
+                              )}
+                            >
+                              {statusLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
+                          <div>
+                            <span className="text-gray-500 block mb-1">
+                              Location
+                            </span>
+                            <span className="text-white font-medium">
+                              {requestingLocation}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-gray-500 block mb-1">
+                              Total Cost
+                            </span>
+                            <span className="text-white font-medium font-mono">
+                              {formatNaira(requisition.total_cost)}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             )}

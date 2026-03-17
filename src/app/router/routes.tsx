@@ -42,6 +42,20 @@ const InventoryFormPage = lazy(() =>
     default: module.InventoryFormPage,
   })),
 );
+const InventoryRequisitionFormPage = lazy(() =>
+  import("@/features/inventory/pages/InventoryRequisitionFormPage").then(
+    (module) => ({
+      default: module.InventoryRequisitionFormPage,
+    }),
+  ),
+);
+const InventoryRequisitionDetailsPage = lazy(() =>
+  import("@/features/inventory/pages/InventoryRequisitionDetailsPage").then(
+    (module) => ({
+      default: module.InventoryRequisitionDetailsPage,
+    }),
+  ),
+);
 const InventoryInfoPage = lazy(() =>
   import("@/features/inventory/pages/InventoryInfoPage").then((module) => ({
     default: module.InventoryInfoPage,
@@ -308,6 +322,22 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <InventoryFormPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "inventory/requisitions/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <InventoryRequisitionFormPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "inventory/requisitions/:id",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <InventoryRequisitionDetailsPage />
           </Suspense>
         ),
       },

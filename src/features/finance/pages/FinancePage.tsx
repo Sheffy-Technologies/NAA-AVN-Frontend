@@ -12,6 +12,7 @@ import {
   type FinanceExpenseCategory,
 } from "@/features/finance/api";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 
 type FinanceTabKey = "expenses" | "budgets";
 type FinanceViewMode = "table" | "grid";
@@ -41,10 +42,13 @@ type BudgetRow = {
   id: number;
   name: string;
   category: string;
+  categoryId: number;
   aircraft: string;
   unit: string;
+  unitId: number;
   amount: number;
   period: string;
+  startDate: string;
 };
 
 export const FinancePage = () => {
@@ -65,6 +69,7 @@ export const FinancePage = () => {
     isError: isBudgetsError,
   } = useGetBudgetsQuery();
   const { data: expenseCategoriesData } = useGetExpenseCategoriesQuery();
+  const { data: unitsData } = useGetUnitsQuery();
 
   const [activeTab, setActiveTab] = useState<FinanceTabKey>("expenses");
   const [expensesViewMode, setExpensesViewMode] =
@@ -151,10 +156,13 @@ export const FinancePage = () => {
       id: budget.id,
       name: budget.name,
       category: budget.expense_category?.name ?? "-",
+      categoryId: budget.expense_category_id,
       aircraft: budget.aircraft?.name ?? "-",
       unit: budget.unit?.name ?? "-",
+      unitId: budget.unit_id,
       amount: budget.amount,
       period: `${budget.start_date ?? ""} - ${budget.end_date ?? ""}`,
+      startDate: budget.start_date,
     }));
   }, [budgetsData]);
 
@@ -162,27 +170,7 @@ export const FinancePage = () => {
     | FinanceExpenseCategory[]
     | [];
 
-  const unitOptions = useMemo(() => {
-    const seen = new Map<number, string>();
-
-    (expensesData ?? []).forEach((expense) => {
-      if (typeof expense.unit_id === "number" && expense.unit_id > 0) {
-        const name = expense.unit?.name ?? `Unit ${expense.unit_id}`;
-        seen.set(expense.unit_id, name);
-      }
-    });
-
-    (budgetsData ?? []).forEach((budget) => {
-      if (typeof budget.unit_id === "number" && budget.unit_id > 0) {
-        const name = budget.unit?.name ?? `Unit ${budget.unit_id}`;
-        seen.set(budget.unit_id, name);
-      }
-    });
-
-    return Array.from(seen.entries())
-      .map(([id, name]) => ({ id, name }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [budgetsData, expensesData]);
+  const unitOptions = (unitsData ?? []) as Unit[];
 
   const filteredExpenses = useMemo(() => {
     const now = new Date();
@@ -227,6 +215,43 @@ export const FinancePage = () => {
     filterUnitId !== "" ||
     filterBudgetId !== "" ||
     filterPeriod !== "all";
+
+  const filteredBudgets = useMemo(() => {
+    const now = new Date();
+    const nowMonth = now.getMonth();
+    const nowYear = now.getFullYear();
+    const nowQuarter = Math.floor(nowMonth / 3);
+
+    return budgets.filter((row) => {
+      if (filterCategoryId !== "" && row.categoryId !== filterCategoryId) {
+        return false;
+      }
+
+      if (filterUnitId !== "" && row.unitId !== filterUnitId) {
+        return false;
+      }
+
+      if (filterPeriod !== "all") {
+        const rowDate = new Date(row.startDate);
+        const rowMonth = rowDate.getMonth();
+        const rowYear = rowDate.getFullYear();
+        const rowQuarter = Math.floor(rowMonth / 3);
+
+        if (filterPeriod === "month") {
+          if (rowYear !== nowYear || rowMonth !== nowMonth) return false;
+        } else if (filterPeriod === "quarter") {
+          if (rowYear !== nowYear || rowQuarter !== nowQuarter) return false;
+        } else if (filterPeriod === "year") {
+          if (rowYear !== nowYear) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [budgets, filterCategoryId, filterPeriod, filterUnitId]);
+
+  const hasBudgetFilters =
+    filterCategoryId !== "" || filterUnitId !== "" || filterPeriod !== "all";
 
   const isSummaryError = isDashboardError;
 
@@ -373,7 +398,7 @@ export const FinancePage = () => {
             >
               {activeTab === "expenses"
                 ? filteredExpenses.length
-                : budgets.length}
+                : filteredBudgets.length}
             </button>
 
             {activeTab === "expenses" && (
@@ -469,6 +494,84 @@ export const FinancePage = () => {
                 </div>
               </div>
             )}
+
+            {activeTab === "budgets" && (
+              <div className="hidden lg:flex items-center gap-2">
+                <div className="relative">
+                  <select
+                    value={
+                      filterCategoryId === "" ? "" : String(filterCategoryId)
+                    }
+                    onChange={(e) =>
+                      setFilterCategoryId(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                  >
+                    <option value="">All Category</option>
+                    {expenseCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={filterUnitId === "" ? "" : String(filterUnitId)}
+                    onChange={(e) =>
+                      setFilterUnitId(
+                        e.target.value === "" ? "" : Number(e.target.value),
+                      )
+                    }
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                  >
+                    <option value="">All Units</option>
+                    {unitOptions.map((unit) => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                </div>
+
+                <div className="relative">
+                  <select
+                    value={filterPeriod}
+                    onChange={(e) =>
+                      setFilterPeriod(e.target.value as PeriodFilterKey)
+                    }
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                  >
+                    <option value="all">Period</option>
+                    <option value="month">This Month</option>
+                    <option value="quarter">This Quarter</option>
+                    <option value="year">This Year</option>
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-gray-300"
+            >
+              <Icon icon="mdi:download-outline" className="w-4 h-4" />
+            </button>
 
             <button
               type="button"
@@ -568,115 +671,41 @@ export const FinancePage = () => {
                         </button>
 
                         {openExpenseDetailId === row.id && (
-                          <div className="absolute right-4 top-10 z-20 w-72 sm:w-80 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl text-xs sm:text-sm text-gray-200">
-                            <div className="px-4 py-3 border-b border-[#0A4D66]/40 flex items-center justify-between gap-2">
-                              <div>
-                                <p className="text-[11px] text-gray-400">
-                                  Expense ID {row.expenseId}
-                                </p>
-                                <p className="text-sm font-semibold text-white">
-                                  {row.partName}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-1 text-gray-300">
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-[#021a27]"
-                                >
-                                  <Icon
-                                    icon="mdi:download-outline"
-                                    className="w-4 h-4"
-                                  />
-                                </button>
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-[#021a27]"
-                                >
-                                  <Icon
-                                    icon="mdi:printer-outline"
-                                    className="w-4 h-4"
-                                  />
-                                </button>
-                              </div>
-                            </div>
-                            <div className="px-4 py-3 space-y-1">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-gray-400">Date:</span>
-                                <span className="font-semibold">
-                                  {row.date}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-gray-400">Category:</span>
-                                <span className="font-semibold">
-                                  {row.category}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-gray-400">
-                                  Work Order:
-                                </span>
-                                <span className="font-semibold">
-                                  {row.workOrder}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-gray-400">Quantity:</span>
-                                <span className="font-semibold">
-                                  {row.quantity} {row.unit}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-gray-400">
-                                  Expense Type:
-                                </span>
-                                <span className="font-semibold">
-                                  {row.expenseType}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-gray-400">
-                                  Unit Cost:
-                                </span>
-                                <span className="font-semibold">
-                                  ₦{row.unitCost.toLocaleString()}
-                                </span>
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-gray-400">
-                                  Total Cost:
-                                </span>
-                                <span className="font-semibold">
-                                  ₦{row.totalCost.toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="px-4 py-2 border-t border-[#0A4D66]/40 flex items-center justify-between text-[11px]">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-1 text-gray-200 hover:text-white"
-                                >
-                                  <Icon
-                                    icon="mdi:eye-outline"
-                                    className="w-4 h-4"
-                                  />
-                                  <span>View</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="inline-flex items-center gap-1 text-gray-200 hover:text-white"
-                                >
-                                  <Icon
-                                    icon="mdi:pencil-outline"
-                                    className="w-4 h-4"
-                                  />
-                                  <span>Edit</span>
-                                </button>
-                              </div>
+                          <div className="absolute right-4 top-10 z-20 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
+                            <div className="py-1 text-xs text-gray-200">
                               <button
                                 type="button"
-                                className="inline-flex items-center gap-1 text-red-400 hover:text-red-300"
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                              >
+                                <Icon
+                                  icon="mdi:eye-outline"
+                                  className="w-4 h-4 text-gray-300"
+                                />
+                                <span>View</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                              >
+                                <Icon
+                                  icon="mdi:pencil-outline"
+                                  className="w-4 h-4 text-gray-300"
+                                />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                              >
+                                <Icon
+                                  icon="mdi:download-outline"
+                                  className="w-4 h-4 text-gray-300"
+                                />
+                                <span>Download</span>
+                              </button>
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
                               >
                                 <Icon
                                   icon="mdi:trash-can-outline"
@@ -782,19 +811,21 @@ export const FinancePage = () => {
                       </div>
                     </td>
                   </tr>
-                ) : budgets.length === 0 ? (
+                ) : filteredBudgets.length === 0 ? (
                   <tr>
                     <td
                       colSpan={8}
                       className="px-4 sm:px-6 py-6 text-center text-gray-400"
                     >
-                      {isBudgetsError
+                      {isBudgetsError && budgets.length === 0
                         ? "Failed to load budgets."
-                        : "No budgets found."}
+                        : hasBudgetFilters
+                          ? "No budgets match filters."
+                          : "No budgets found."}
                     </td>
                   </tr>
                 ) : (
-                  budgets.map((budget, index) => (
+                  filteredBudgets.map((budget, index) => (
                     <tr
                       key={budget.id}
                       className={cn(
@@ -901,7 +932,7 @@ export const FinancePage = () => {
                     <div className="h-3 w-24 bg-[#021a27] rounded-full animate-pulse" />
                   </div>
                 ))
-              : budgets.map((budget) => (
+              : filteredBudgets.map((budget) => (
                   <div
                     key={budget.id}
                     className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200"
@@ -928,9 +959,11 @@ export const FinancePage = () => {
                     <p className="text-[11px] text-gray-400">{budget.period}</p>
                   </div>
                 ))}
-            {budgets.length === 0 && !isBudgetsLoading && !isBudgetsError && (
+            {filteredBudgets.length === 0 &&
+              !isBudgetsLoading &&
+              !isBudgetsError && (
               <div className="col-span-full text-center text-gray-400 text-xs sm:text-sm py-6">
-                No budgets found.
+                {hasBudgetFilters ? "No budgets match filters." : "No budgets found."}
               </div>
             )}
             {isBudgetsError && !isBudgetsLoading && (
