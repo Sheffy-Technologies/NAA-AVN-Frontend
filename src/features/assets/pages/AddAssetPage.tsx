@@ -1,26 +1,25 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { useAppDispatch } from "@/app/store";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import { useGetOperationsQuery } from "@/features/operations/api";
+import { showToast } from "@/shared/store/toastSlice";
 import {
   useCreateAssetMutation,
   useCreateDocumentMutation,
+  useGetAssetTypesQuery,
   useGetAvionicCategoriesQuery,
   useGetComponentTypesQuery,
   useGetDocumentTypesQuery,
   useGetEngineCategoriesQuery,
   useGetEnginePositionsQuery,
+  useUploadAssetImageMutation,
   type CreateAssetPayload,
 } from "../api";
 
-const AIRCRAFT_TYPES = [
-  "Bell UH-1H",
-  "Magnus Fusion 212",
-  "MD530F Cayuse Warrior",
-];
 const FALLBACK_ENGINE_POSITIONS = [
   "Engine 1",
   "Engine 2",
@@ -37,12 +36,77 @@ type AircraftTabKey =
 
 type TrackByKey = "hours" | "cycles" | "both";
 
+type ApiErrorPayload = {
+  message?: unknown;
+  errors?: unknown;
+};
+
+type ApiError = {
+  data?: unknown;
+  status?: number;
+};
+
+const toIsoDateTime = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (trimmed.includes("T")) return trimmed;
+  return `${trimmed}T00:00:00Z`;
+};
+
+const extractApiErrorMessage = (error: unknown): string => {
+  const e = error as ApiError;
+  const data = e && typeof e === "object" ? e.data : undefined;
+
+  if (typeof data === "string" && data.trim()) return data;
+
+  if (data && typeof data === "object") {
+    const payload = data as ApiErrorPayload;
+    const message =
+      typeof payload.message === "string" ? payload.message.trim() : "";
+
+    const errors =
+      payload.errors && typeof payload.errors === "object"
+        ? (payload.errors as Record<string, unknown>)
+        : null;
+
+    const flattened =
+      errors == null
+        ? []
+        : Object.values(errors)
+            .flatMap((value) =>
+              Array.isArray(value)
+                ? value.filter((x): x is string => typeof x === "string")
+                : typeof value === "string"
+                  ? [value]
+                  : [],
+            )
+            .map((x) => x.trim())
+            .filter(Boolean);
+
+    if (flattened.length) {
+      const head = flattened.slice(0, 3);
+      const suffix =
+        flattened.length > 3 ? ` (+${flattened.length - 3} more)` : "";
+      return `${head.join("; ")}${suffix}`;
+    }
+
+    if (message) return message;
+  }
+
+  if (error instanceof Error && error.message) return error.message;
+  return "Failed to save aircraft";
+};
+
 export const AddAssetPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [createAsset, { isLoading }] = useCreateAssetMutation();
   const [createDocument, { isLoading: isUploadingDocument }] =
     useCreateDocumentMutation();
+  const [uploadAssetImage, { isLoading: isUploadingPhoto }] =
+    useUploadAssetImageMutation();
   const { data: units = [] } = useGetUnitsQuery();
+  const { data: assetTypes = [] } = useGetAssetTypesQuery();
   const { data: enginePositions = [] } = useGetEnginePositionsQuery();
   const { data: componentTypes = [] } = useGetComponentTypesQuery();
   const { data: engineCategories = [] } = useGetEngineCategoriesQuery();
@@ -61,6 +125,16 @@ export const AddAssetPage = () => {
   const [activeTab, setActiveTab] = useState<AircraftTabKey>("airframe");
   const [airframeTrackBy, setAirframeTrackBy] = useState<TrackByKey>("both");
   const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState("");
+  const [photoError, setPhotoError] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    };
+  }, [photoPreviewUrl]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -69,6 +143,7 @@ export const AddAssetPage = () => {
     name: "",
     tail_number: "",
     serial_number: "",
+    asset_type_id: "",
     model: "",
     aircraft_id: "",
     internal_id: "",
@@ -391,13 +466,14 @@ export const AddAssetPage = () => {
       const payload: CreateAssetPayload = {
         type: "aircraft",
         unit_id: Number(formData.unit_id) || 1, // Default to 1 if not selected
+        asset_type_id: Number(formData.asset_type_id) || 0,
         name: formData.name,
         serial_number: formData.serial_number,
         model: formData.model,
-        configuration: {
-          role: formData.role,
-          seats: Number(formData.seats),
-        },
+        configuration: [
+          `role:${formData.role}`,
+          `seats:${Number(formData.seats) || 0}`,
+        ],
         serviceability_status: formData.operation_status as
           | "serviceable"
           | "under_maintenance"
@@ -414,14 +490,17 @@ export const AddAssetPage = () => {
         last_inspection_hours:
           Number(formData.last_major_inspection_hours) || 0,
         inspection_interval: Number(formData.inspection_interval) || 0,
-        next_annual_inspection_date:
-          Number(formData.next_annual_inspection) || 0,
+        next_annual_inspection_date: toIsoDateTime(
+          formData.next_annual_inspection,
+        ),
         next_type_of_inspection: formData.next_type_of_inspection,
-        last_inspection_date: formData.last_major_inspection_date,
+        last_inspection_date: toIsoDateTime(
+          formData.last_major_inspection_date,
+        ),
         landings: formData.landings,
         operation_status: "operational",
         manufacturer: formData.manufacturer,
-        purchase_date: formData.purchase_date,
+        purchase_date: toIsoDateTime(formData.purchase_date),
 
         engines: engines
           .filter(
@@ -442,7 +521,7 @@ export const AddAssetPage = () => {
               position_id: Number(position_id) || 1,
               serial_number,
               model,
-              installation_date,
+              installation_date: toIsoDateTime(installation_date),
               time_since_new: Number(time_since_new) || 0,
               time_since_overhaul: Number(time_since_overhaul) || 0,
               service_life_limit: Number(service_life_limit) || 0,
@@ -456,6 +535,7 @@ export const AddAssetPage = () => {
           )
           .map(
             ({
+              component_type,
               part_number,
               serial_number,
               life_limit_hours,
@@ -465,28 +545,37 @@ export const AddAssetPage = () => {
               hours_used,
               installed_at,
             }) => ({
+              component_type_id: Number(component_type) || 0,
               part_number,
               serial_number,
-              life_limit_hours: Number(life_limit_hours) || 0,
-              time_since_overhaul: Number(time_since_overhaul) || 0,
-              time_since_new: Number(time_since_new) || 0,
+              total_service_hours:
+                Number(hours_used) || Number(time_since_new) || 0,
+              service_life_limit_hours: Number(life_limit_hours) || 0,
+              last_overhaul_hours: Number(time_since_overhaul) || 0,
               overhaul_limit: Number(overhaul_limit) || 0,
-              hours_used: Number(hours_used) || Number(time_since_new) || 0,
-              installed_at,
+              installed_at: toIsoDateTime(installed_at),
               removed_at: null,
             }),
-          ),
+          )
+          .filter((c) => c.component_type_id > 0),
 
         documents: documents
-          .filter(
-            (d) => d.document_type || d.file || d.issue_date || d.expiry_date,
-          )
-          .map((d) => ({
-            document_type: d.document_type,
-            file: d.file,
-            issue_date: d.issue_date,
-            expiry_date: d.expiry_date,
-          })),
+          .map((d) => {
+            const rawType = String(d.document_type || "").trim();
+            const numericTypeId = Number(rawType);
+            const documentTypeId =
+              Number.isFinite(numericTypeId) && numericTypeId > 0
+                ? numericTypeId
+                : (documentTypes.find((t) => t.name === rawType)?.id ?? 0);
+
+            return {
+              document_type_id: documentTypeId,
+              file: d.file || d.file_url,
+              issue_date: d.issue_date ? toIsoDateTime(d.issue_date) : null,
+              expiry_date: d.expiry_date ? toIsoDateTime(d.expiry_date) : null,
+            };
+          })
+          .filter((d) => d.document_type_id > 0 && Boolean(d.file)),
 
         avionics: avionicsComponents
           .filter(
@@ -498,11 +587,18 @@ export const AddAssetPage = () => {
               item.removed_at,
           )
           .map((item) => ({
+            component_type_id: Number(item.component_type) || 0,
             serial_number: item.serial_number,
             model: item.model || item.part_number,
-            installed_at: item.installed_at,
-            removed_at: item.removed_at || null,
-          })),
+            total_service_hours:
+              Number(item.hours_used) || Number(item.time_since_new) || 0,
+            service_life_limit: Number(item.life_limit_hours) || 0,
+            last_overhaul_hours: Number(item.time_since_overhaul) || 0,
+            overhaul_limit: Number(item.overhaul_limit) || 0,
+            installed_at: toIsoDateTime(item.installed_at),
+            removed_at: item.removed_at ? toIsoDateTime(item.removed_at) : null,
+          }))
+          .filter((a) => a.component_type_id > 0),
 
         defects: defects
           .filter(
@@ -519,7 +615,7 @@ export const AddAssetPage = () => {
               operation_id: Number(d.operation_id),
               title: d.defect_reported || d.defect_description,
               description: d.defect_description || d.defect_reported,
-              reported_at: d.date_of_defect,
+              reported_at: toIsoDateTime(d.date_of_defect),
               status: d.rectified ? "resolved" : "open",
               severity: "low",
               personnel,
@@ -533,6 +629,12 @@ export const AddAssetPage = () => {
       navigate("/dashboard/assets");
     } catch (error) {
       console.error("Failed to create asset:", error);
+      dispatch(
+        showToast({
+          message: extractApiErrorMessage(error),
+          type: "error",
+        }),
+      );
     }
   };
 
@@ -540,8 +642,12 @@ export const AddAssetPage = () => {
     const doc = documents[index];
     if (!doc) return;
 
+    const rawType = String(doc.document_type || "").trim();
+    const numericTypeId = Number(rawType);
     const documentTypeId =
-      documentTypes.find((t) => t.name === doc.document_type)?.id ?? null;
+      Number.isFinite(numericTypeId) && numericTypeId > 0
+        ? numericTypeId
+        : (documentTypes.find((t) => t.name === rawType)?.id ?? null);
 
     try {
       const uploaded = await createDocument({
@@ -553,7 +659,8 @@ export const AddAssetPage = () => {
         expiry_date: doc.expiry_date ? `${doc.expiry_date}T00:00:00Z` : null,
       }).unwrap();
 
-      updateItem(setDocuments, documents, index, "file", uploaded.file);
+      const fileValue = uploaded.file || uploaded.file_url;
+      updateItem(setDocuments, documents, index, "file", fileValue);
       updateItem(setDocuments, documents, index, "file_url", uploaded.file_url);
     } catch (error) {
       console.error("Failed to upload document:", error);
@@ -588,13 +695,23 @@ export const AddAssetPage = () => {
               <label className="text-xs text-gray-400">Aircraft Type</label>
               <select
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                value={formData.model}
-                onChange={(e) => handleInputChange("model", e.target.value)}
+                value={formData.asset_type_id}
+                onChange={(e) => {
+                  const nextId = e.target.value;
+                  const selected = assetTypes.find(
+                    (t) => String(t.id) === nextId,
+                  );
+                  setFormData((prev) => ({
+                    ...prev,
+                    asset_type_id: nextId,
+                    model: selected?.name || prev.model,
+                  }));
+                }}
               >
                 <option value="">Select Type</option>
-                {AIRCRAFT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {assetTypes.map((t) => (
+                  <option key={t.id} value={String(t.id)}>
+                    {t.name}
                   </option>
                 ))}
               </select>
@@ -637,16 +754,80 @@ export const AddAssetPage = () => {
             </div>
 
             {/* Second Row */}
-            <div className="col-span-1 md:col-span-1 row-span-2 flex items-center justify-center border-2 border-dashed border-[#0A4D66] rounded-lg bg-[#001825]/50 hover:bg-[#001825] transition-colors cursor-pointer group">
-              <div className="text-center p-4">
-                <Icon
-                  icon="mdi:helicopter"
-                  className="w-12 h-12 text-[#0A4D66] group-hover:text-[#7FD5FF] mx-auto mb-2 transition-colors"
-                />
-                <span className="text-xs text-gray-400 group-hover:text-white">
-                  Upload Photo
-                </span>
-              </div>
+            <div className="col-span-1 md:col-span-1 row-span-2 flex items-center justify-center border-2 border-dashed border-[#0A4D66] rounded-lg bg-[#001825]/50 hover:bg-[#001825] transition-colors cursor-pointer group overflow-hidden">
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  e.target.value = "";
+                  if (!file) return;
+
+                  setPhotoError("");
+                  setUploadedPhotoUrl("");
+                  setPhotoPreviewUrl(URL.createObjectURL(file));
+
+                  try {
+                    const result = await uploadAssetImage(file).unwrap();
+                    const url =
+                      result.image_url ||
+                      result.file_url ||
+                      result.image ||
+                      result.file ||
+                      result.data ||
+                      "";
+                    setUploadedPhotoUrl(url);
+                  } catch {
+                    setPhotoError("Failed to upload photo");
+                  }
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                className="w-full h-full"
+              >
+                {photoPreviewUrl ? (
+                  <div className="relative w-full h-full">
+                    <img
+                      src={photoPreviewUrl}
+                      alt="Aircraft"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 px-2 py-1 text-[11px] text-white bg-black/50 flex items-center justify-between">
+                      <span>
+                        {isUploadingPhoto ? "Uploading..." : "Change Photo"}
+                      </span>
+                      <span className="text-gray-200">
+                        {uploadedPhotoUrl ? "Uploaded" : ""}
+                      </span>
+                    </div>
+                    {photoError ? (
+                      <div className="absolute inset-x-0 top-0 px-2 py-1 text-[11px] bg-red-600/80 text-white">
+                        {photoError}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="text-center p-4">
+                    <Icon
+                      icon="mdi:helicopter"
+                      className="w-12 h-12 text-[#0A4D66] group-hover:text-[#7FD5FF] mx-auto mb-2 transition-colors"
+                    />
+                    <span className="text-xs text-gray-400 group-hover:text-white">
+                      {isUploadingPhoto ? "Uploading..." : "Upload Photo"}
+                    </span>
+                    {photoError ? (
+                      <div className="mt-2 text-xs text-red-400">
+                        {photoError}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </button>
             </div>
 
             <div className="space-y-1">

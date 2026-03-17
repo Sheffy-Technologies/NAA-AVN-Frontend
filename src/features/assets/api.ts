@@ -2,10 +2,7 @@ import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
 import { type Operation } from "@/features/operations/api";
 
-export type AssetConfiguration = {
-  role: string;
-  seats: number;
-};
+export type AssetConfiguration = string[];
 
 export type Engine = {
   id?: number;
@@ -133,12 +130,28 @@ export type AvionicCategory = {
   updated_at: string;
 };
 
+export type AssetType = {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type DocumentType = {
   id: number;
   name: string;
   description: string;
   created_at: string;
   updated_at: string;
+};
+
+export type AssetImageUploadResponse = {
+  image_url?: string;
+  file_url?: string;
+  image?: string;
+  file?: string;
+  data?: string;
 };
 
 export type CreateDocumentRequest = {
@@ -163,9 +176,42 @@ export type DocumentUpload = {
   file_url: string;
 };
 
+export type CreateAssetComponentPayload = {
+  asset_id?: number;
+  component_type_id: number;
+  part_number: string;
+  serial_number: string;
+  total_service_hours: number;
+  service_life_limit_hours: number;
+  last_overhaul_hours: number;
+  overhaul_limit: number;
+  installed_at: string;
+  removed_at: string | null;
+};
+
+export type CreateAssetAvionicsPayload = {
+  component_type_id: number;
+  serial_number: string;
+  model: string;
+  total_service_hours: number;
+  service_life_limit: number;
+  last_overhaul_hours: number;
+  overhaul_limit: number;
+  installed_at: string;
+  removed_at: string | null;
+};
+
+export type CreateAssetDocumentPayload = {
+  document_type_id: number;
+  file: string;
+  issue_date: string | null;
+  expiry_date: string | null;
+};
+
 export type CreateAssetPayload = {
   type: "aircraft" | "vehicle" | "airbase" | "equipment";
   unit_id: number;
+  asset_type_id: number;
   name: string;
   serial_number: string;
   model: string;
@@ -178,26 +224,52 @@ export type CreateAssetPayload = {
   tail_number: string;
   manufacturer: string;
   purchase_date: string;
-  used_hours?: number;
-  total_airframe_hours?: number;
-  service_life_limit?: number;
-  total_cycles?: number;
-  cycle_limit?: number;
-  last_inspection_cycles?: number;
-  inspection_interval_cycle?: number;
-  last_inspection_hours?: number;
-  inspection_interval?: number;
-  next_annual_inspection_date?: number;
-  next_type_of_inspection?: string;
-  last_inspection_date?: string;
-  landings?: string;
-  operation_status?: string;
-  engines?: Engine[];
-  components?: Component[];
-  documents?: Document[];
-  maintenance_events?: MaintenanceEvent[];
-  avionics?: Avionics[];
-  defects?: Defect[];
+  total_airframe_hours: number;
+  service_life_limit: number;
+  total_cycles: number;
+  cycle_limit: number;
+  last_inspection_cycles: number;
+  inspection_interval_cycle: number;
+  last_inspection_hours: number;
+  inspection_interval: number;
+  next_annual_inspection_date: string;
+  next_type_of_inspection: string;
+  last_inspection_date: string;
+  landings: string;
+  operation_status: string;
+  engines: Array<{
+    position_id: number;
+    serial_number: string;
+    model: string;
+    installation_date: string;
+    time_since_new: number;
+    time_since_overhaul: number;
+    service_life_limit: number;
+    overhaul_limit: number;
+  }>;
+  components: CreateAssetComponentPayload[];
+  documents: CreateAssetDocumentPayload[];
+  maintenance_events: Array<{
+    component_id: number;
+    performed_by: number;
+    event_type: string;
+    description: string;
+    started_at: string;
+    completed_at: string;
+    hours_logged: number;
+    status: string;
+    aircraft_airworthiness: string;
+  }>;
+  avionics: CreateAssetAvionicsPayload[];
+  defects: Array<{
+    operation_id: number;
+    title: string;
+    description: string;
+    reported_at: string;
+    status: string;
+    severity: string;
+    personnel: number[];
+  }>;
 };
 
 export type Asset = {
@@ -244,6 +316,7 @@ export const assetsApi = createApi({
   baseQuery: axiosBaseQuery(),
   tagTypes: [
     "Assets",
+    "AssetTypes",
     "EnginePositions",
     "ComponentTypes",
     "EngineCategories",
@@ -252,6 +325,26 @@ export const assetsApi = createApi({
     "Documents",
   ],
   endpoints: (builder) => ({
+    getAssetTypes: builder.query<AssetType[], void>({
+      query: () => ({
+        url: "/asset-types",
+        method: "GET",
+      }),
+      providesTags: ["AssetTypes"],
+    }),
+    uploadAssetImage: builder.mutation<AssetImageUploadResponse, File>({
+      query: (image) => {
+        const formData = new FormData();
+        formData.append("image", image);
+
+        return {
+          url: "/assets/image",
+          method: "POST",
+          data: formData,
+          headers: { "Content-Type": "multipart/form-data" },
+        };
+      },
+    }),
     getEnginePositions: builder.query<EnginePosition[], void>({
       query: () => ({
         url: "/engine-positions",
@@ -376,6 +469,8 @@ export const assetsApi = createApi({
 });
 
 export const {
+  useGetAssetTypesQuery,
+  useUploadAssetImageMutation,
   useGetEnginePositionsQuery,
   useGetComponentTypesQuery,
   useGetEngineCategoriesQuery,
