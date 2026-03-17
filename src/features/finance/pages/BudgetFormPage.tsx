@@ -5,15 +5,12 @@ import { cn } from "@/shared/utils/cn";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import {
   useGetExpenseCategoriesQuery,
-  useGetAircraftQuery,
   type FinanceExpenseCategory,
-  type FinanceAircraft,
 } from "@/features/finance/api";
 
 type BudgetFormValues = {
   name: string;
   expense_category_id: number | "";
-  aircraft_id: number | "";
   amount: string;
   start_date: string;
   end_date: string;
@@ -23,7 +20,6 @@ type BudgetFormValues = {
 const emptyBudgetValues: BudgetFormValues = {
   name: "",
   expense_category_id: "",
-  aircraft_id: "",
   amount: "",
   start_date: "",
   end_date: "",
@@ -38,11 +34,9 @@ export const BudgetFormPage = () => {
 
   const { data: unitsData } = useGetUnitsQuery();
   const { data: categoriesData } = useGetExpenseCategoriesQuery();
-  const { data: aircraftData } = useGetAircraftQuery();
 
   const units = (unitsData ?? []) as Unit[];
   const categories = (categoriesData ?? []) as FinanceExpenseCategory[];
-  const aircraftList = (aircraftData ?? []) as FinanceAircraft[];
 
   const handleChange =
     (field: keyof BudgetFormValues) =>
@@ -52,9 +46,7 @@ export const BudgetFormPage = () => {
       setValues((prev) => ({
         ...prev,
         [field]:
-          field === "expense_category_id" ||
-          field === "aircraft_id" ||
-          field === "unit_id"
+          field === "expense_category_id" || field === "unit_id"
             ? value === ""
               ? ""
               : Number(value)
@@ -129,26 +121,6 @@ export const BudgetFormPage = () => {
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">
-              Aircraft
-            </label>
-            <select
-              value={
-                values.aircraft_id === "" ? "" : String(values.aircraft_id)
-              }
-              onChange={handleChange("aircraft_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-            >
-              <option value="">Select Aircraft</option>
-              {aircraftList.map((aircraft) => (
-                <option key={aircraft.id} value={aircraft.id}>
-                  {aircraft.name}
                 </option>
               ))}
             </select>
