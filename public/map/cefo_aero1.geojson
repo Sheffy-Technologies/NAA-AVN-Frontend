@@ -1,0 +1,670 @@
+{
+  "type": "FeatureCollection",
+  "name": "CEFO_AERO1",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:OGC:1.3:CRS84"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Army Division HQ",
+        "Facility": "7 Division Nigerian Army HQ",
+        "State_or_Area": "Borno",
+        "Latitude": 11.8369,
+        "Longitude": 13.152
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.152, 11.8369]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Army Division HQ",
+        "Facility": "3 Armoured Division HQ",
+        "State_or_Area": "Plateau",
+        "Latitude": 9.8965,
+        "Longitude": 8.8583
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [8.8583, 9.8965]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "Guards Brigade HQ",
+        "State_or_Area": "FCT",
+        "Latitude": 9.0633,
+        "Longitude": 7.493
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [7.493, 9.0633]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "21 Armoured Brigade",
+        "State_or_Area": "Borno (Bama)",
+        "Latitude": 11.522,
+        "Longitude": 13.689
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.689, 11.522]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "23 Brigade",
+        "State_or_Area": "Adamawa (Yola)",
+        "Latitude": 9.2272,
+        "Longitude": 12.4183
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.4183, 9.2272]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "25 Task Force Brigade",
+        "State_or_Area": "Borno (Damboa)",
+        "Latitude": 11.156,
+        "Longitude": 12.757
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.757, 11.156]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "26 Task Force Brigade",
+        "State_or_Area": "Borno (Gwoza)",
+        "Latitude": 11.083,
+        "Longitude": 13.695
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.695, 11.083]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "28 Task Force Brigade",
+        "State_or_Area": "Adamawa (Mubi)",
+        "Latitude": 10.269,
+        "Longitude": 13.268
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.268, 10.269]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "29 Task Force Brigade",
+        "State_or_Area": "Yobe (Benisheikh)",
+        "Latitude": 12.474,
+        "Longitude": 12.003
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.003, 12.474]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Air Force Base",
+        "Facility": "NAF Base Maiduguri",
+        "State_or_Area": "Borno",
+        "Latitude": 11.8553,
+        "Longitude": 13.0813
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.0813, 11.8553]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Air Force Base",
+        "Facility": "NAF Base Yola",
+        "State_or_Area": "Adamawa",
+        "Latitude": 9.2576,
+        "Longitude": 12.4304
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.4304, 9.2576]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Air Force Base",
+        "Facility": "NAF Base Abuja",
+        "State_or_Area": "FCT",
+        "Latitude": 8.9732,
+        "Longitude": 7.2627
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [7.2627, 8.9732]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Air Force Base",
+        "Facility": "NAF Base Minna (Maikunkele)",
+        "State_or_Area": "Niger",
+        "Latitude": 9.6831,
+        "Longitude": 6.4861
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.4861, 9.6831]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Maimalari Cantonment",
+        "State_or_Area": "Borno",
+        "Latitude": 11.8315,
+        "Longitude": 13.1549
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.1549, 11.8315]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Giwa Barracks",
+        "State_or_Area": "Borno",
+        "Latitude": 11.8466,
+        "Longitude": 13.1572
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.1572, 11.8466]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Sambisa Barracks",
+        "State_or_Area": "Yobe",
+        "Latitude": 11.746,
+        "Longitude": 11.968
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [11.968, 11.746]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Obienu Barracks",
+        "State_or_Area": "Bauchi",
+        "Latitude": 10.312,
+        "Longitude": 9.846
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [9.846, 10.312]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "33 Artillery Brigade Barracks",
+        "State_or_Area": "Bauchi",
+        "Latitude": 10.3125,
+        "Longitude": 9.842
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [9.842, 10.3125]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Fort Nagwamatse Barracks",
+        "State_or_Area": "Niger (Kontagora)",
+        "Latitude": 10.4052,
+        "Longitude": 5.469
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [5.469, 10.4052]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Minna Artillery Barracks",
+        "State_or_Area": "Niger",
+        "Latitude": 9.616,
+        "Longitude": 6.556
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.556, 9.616]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Mogadishu Cantonment",
+        "State_or_Area": "FCT",
+        "Latitude": 9.067,
+        "Longitude": 7.48
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [7.48, 9.067]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Aguiyi-Ironsi Cantonment",
+        "State_or_Area": "FCT",
+        "Latitude": 9.0466,
+        "Longitude": 7.505
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [7.505, 9.0466]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Yakubu Gowon Barracks",
+        "State_or_Area": "FCT",
+        "Latitude": 9.068,
+        "Longitude": 7.496
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [7.496, 9.068]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Baga",
+        "State_or_Area": "Borno",
+        "Latitude": 13.099,
+        "Longitude": 13.737
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.737, 13.099]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Monguno",
+        "State_or_Area": "Borno",
+        "Latitude": 12.676,
+        "Longitude": 13.612
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.612, 12.676]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Dikwa",
+        "State_or_Area": "Borno",
+        "Latitude": 12.042,
+        "Longitude": 13.916
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.916, 12.042]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Marte",
+        "State_or_Area": "Borno",
+        "Latitude": 12.364,
+        "Longitude": 13.827
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.827, 12.364]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Bama",
+        "State_or_Area": "Borno",
+        "Latitude": 11.522,
+        "Longitude": 13.689
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.689, 11.522]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Gwoza",
+        "State_or_Area": "Borno",
+        "Latitude": 11.083,
+        "Longitude": 13.695
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.695, 11.083]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Damboa",
+        "State_or_Area": "Borno",
+        "Latitude": 11.156,
+        "Longitude": 12.757
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.757, 11.156]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Kukawa",
+        "State_or_Area": "Borno",
+        "Latitude": 12.924,
+        "Longitude": 13.568
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.568, 12.924]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Ngala",
+        "State_or_Area": "Borno",
+        "Latitude": 12.338,
+        "Longitude": 14.181
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [14.181, 12.338]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Damasak",
+        "State_or_Area": "Borno",
+        "Latitude": 13.106,
+        "Longitude": 12.508
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.508, 13.106]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Duji",
+        "State_or_Area": "Borno",
+        "Latitude": 11.6,
+        "Longitude": 13.3
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.3, 11.6]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Forward Operating Base",
+        "Facility": "FOB Kekeno",
+        "State_or_Area": "Borno",
+        "Latitude": 11.8,
+        "Longitude": 13.6
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.6, 11.8]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Military Airstrip",
+        "Facility": "Bama Airstrip",
+        "State_or_Area": "Borno",
+        "Latitude": 11.523,
+        "Longitude": 13.69
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.69, 11.523]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Military Airstrip",
+        "Facility": "Gwoza Airstrip",
+        "State_or_Area": "Borno",
+        "Latitude": 11.081,
+        "Longitude": 13.694
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.694, 11.081]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Military Airstrip",
+        "Facility": "Damasak Airstrip",
+        "State_or_Area": "Borno",
+        "Latitude": 13.105,
+        "Longitude": 12.508
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.508, 13.105]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Military Airstrip",
+        "Facility": "Monguno Airstrip",
+        "State_or_Area": "Borno",
+        "Latitude": 12.677,
+        "Longitude": 13.608
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.608, 12.677]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Military Airstrip",
+        "Facility": "Baga Airstrip",
+        "State_or_Area": "Borno",
+        "Latitude": 13.097,
+        "Longitude": 13.74
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [13.74, 13.097]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Training Facility",
+        "Facility": "Army Training & Doctrine Command",
+        "State_or_Area": "Niger (Minna)",
+        "Latitude": 9.61,
+        "Longitude": 6.556
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [6.556, 9.61]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Training Facility",
+        "Facility": "Armed Forces Command & Staff College",
+        "State_or_Area": "Kaduna (Jaji)",
+        "Latitude": 10.009,
+        "Longitude": 7.43
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [7.43, 10.009]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Brigade HQ",
+        "Facility": "6 Brigade Nigeria Army",
+        "State_or_Area": "Taraba",
+        "Latitude": 8.8926,
+        "Longitude": 11.3608
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [11.3608, 8.8926]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Battalion",
+        "Facility": "114 Battalion (Jimilari)",
+        "State_or_Area": "Taraba",
+        "Latitude": 9.08,
+        "Longitude": 11.3
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [11.3, 9.08]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "20 Battalion Barracks (Gashaka)",
+        "State_or_Area": "Taraba",
+        "Latitude": 7.51775,
+        "Longitude": 11.37339
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [11.37339, 7.51775]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Airport",
+        "Facility": "Danbaba Suntai Airpot",
+        "State_or_Area": "Taraba",
+        "Latitude": 8.902778,
+        "Longitude": 11.286111
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [11.286111, 8.902778]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "Category": "Barracks",
+        "Facility": "Abogo Largema Military Cantonment",
+        "State_or_Area": "Biu, Borno",
+        "Latitude": 10.59537,
+        "Longitude": 12.19065
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [12.19065, 10.59537]
+      }
+    }
+  ]
+}

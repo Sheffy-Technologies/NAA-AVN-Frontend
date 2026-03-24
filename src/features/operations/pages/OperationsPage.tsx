@@ -1,36 +1,11 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { GoogleMap, LoadScript } from "@react-google-maps/api";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useGetOperationsQuery } from "../api";
+import { OperationsMapView } from "../components/OperationsMapView";
 
 type ViewMode = "table" | "grid" | "map" | "schedule";
-
-const mapContainerStyle = {
-  width: "100%",
-  height: "100%",
-};
-
-const mapOptions: google.maps.MapOptions = {
-  disableDefaultUI: true,
-  zoomControl: true,
-  styles: [
-    { elementType: "geometry", stylers: [{ color: "#021019" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#6b8ca8" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#01070c" }] },
-    {
-      featureType: "road",
-      elementType: "geometry",
-      stylers: [{ color: "#052333" }],
-    },
-    {
-      featureType: "water",
-      elementType: "geometry",
-      stylers: [{ color: "#052333" }],
-    },
-  ],
-};
 
 const statusDotColor: Record<string, string> = {
   planned: "bg-blue-400",
@@ -45,27 +20,10 @@ const priorityTextColor: Record<string, string> = {
   high: "text-red-400",
 };
 
-const priorityDotColor: Record<string, string> = {
-  low: "#2ecc71",
-  medium: "#f1c40f",
-  high: "#ff4d4f",
-};
-
 export const OperationsPage = () => {
   const navigate = useNavigate();
   const { data: operations = [], isLoading } = useGetOperationsQuery();
   const [viewMode, setViewMode] = useState<ViewMode>("map");
-
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
-  const infoWindowRef = useRef<google.maps.InfoWindow | null>(null);
-  const hoverTimeoutRef = useRef<number | null>(null);
-
-  const googleMapsApiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY ||
-    "AIzaSyBIweqHwa_afI3FuUFMcnc8A__SkwzSkiM") as string | undefined;
-  const googleMapsMapId = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID as
-    | string
-    | undefined;
 
   const stats = useMemo(() => {
     return {
@@ -76,119 +34,6 @@ export const OperationsPage = () => {
     };
   }, [operations]);
 
-  const mapCenter = useMemo(() => ({ lat: 9.0765, lng: 7.3986 }), []);
-
-  const handleMapLoad = async (map: google.maps.Map) => {
-    mapRef.current = map;
-    const { AdvancedMarkerElement } = (await google.maps.importLibrary(
-      "marker",
-    )) as google.maps.MarkerLibrary;
-
-    markersRef.current.forEach((marker) => {
-      marker.map = null;
-    });
-    markersRef.current = [];
-
-    if (!infoWindowRef.current) {
-      infoWindowRef.current = new google.maps.InfoWindow();
-    }
-
-    operations.forEach((op) => {
-      if (!op.location) return;
-
-      const markerContent = document.createElement("div");
-      markerContent.className =
-        "inline-flex items-center gap-2 text-[11px] text-white";
-      const dotColor = priorityDotColor[op.priority] || "#fff";
-
-      markerContent.innerHTML = `
-        <div class="flex items-center gap-2">
-          <div class="w-6 h-6 rounded-sm overflow-hidden bg-[#111827]"></div>
-          <span class="font-medium whitespace-nowrap">${op.name}</span>
-          <span class="ml-2 flex items-center justify-center rounded-full" style="width: 18px; height: 18px; border: 2px solid #000000; background-color: transparent;">
-            <span class="rounded-full" style="width: 10px; height: 10px; background-color: ${dotColor};"></span>
-          </span>
-        </div>
-      `;
-
-      const marker = new AdvancedMarkerElement({
-        map,
-        position: op.location,
-        title: op.name,
-        content: markerContent,
-      });
-
-      const showInfo = () => {
-        if (hoverTimeoutRef.current !== null) {
-          window.clearTimeout(hoverTimeoutRef.current);
-          hoverTimeoutRef.current = null;
-        }
-
-        if (!infoWindowRef.current) return;
-
-        const container = document.createElement("div");
-        container.className =
-          "bg-[#001219] text-white p-3 rounded-lg shadow-lg border border-[#0A4D66]/60 min-w-[220px]";
-        container.innerHTML = `
-          <div class="flex items-center justify-between mb-2">
-            <p class="font-semibold text-sm">${op.name}</p>
-            <span class="text-xs px-2 py-0.5 rounded-full border border-current ${priorityTextColor[op.priority] || "text-gray-400"}">
-              Priority: ${op.priority}
-            </span>
-          </div>
-          <p class="text-xs text-gray-300 mb-1">${op.unit.name}</p>
-          <p class="text-xs text-gray-400 mb-1">${new Date(op.start_date_time).toLocaleDateString()} • ${new Date(op.start_date_time).toLocaleTimeString()}</p>
-          <p class="text-xs flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full ${statusDotColor[op.status] || "bg-gray-400"}"></span>
-            Status: ${op.status}
-          </p>
-        `;
-
-        infoWindowRef.current.setContent(container);
-        infoWindowRef.current.open({ map, anchor: marker });
-      };
-
-      const hideInfo = () => {
-        if (!infoWindowRef.current) return;
-        hoverTimeoutRef.current = window.setTimeout(() => {
-          infoWindowRef.current?.close();
-        }, 150);
-      };
-
-      markerContent.addEventListener("mouseenter", showInfo);
-      markerContent.addEventListener("mouseleave", hideInfo);
-      markerContent.addEventListener("click", () => navigate(String(op.id)));
-      markerContent.style.cursor = "pointer";
-      markersRef.current.push(marker);
-    });
-  };
-
-  const renderMapView = () => {
-    if (!googleMapsApiKey) {
-      return (
-        <div className="h-[600px] flex items-center justify-center text-gray-400 border border-[#0A4D66]/40 rounded-xl bg-[#001219]">
-          Configure VITE_GOOGLE_MAPS_API_KEY to view the operations map.
-        </div>
-      );
-    }
-    return (
-      <div className="h-[600px] rounded-xl overflow-hidden border border-[#0A4D66]/40 bg-[#001219]">
-        <LoadScript googleMapsApiKey={googleMapsApiKey} libraries={["marker"]}>
-          <GoogleMap
-            mapContainerStyle={mapContainerStyle}
-            center={mapCenter}
-            zoom={6}
-            options={
-              googleMapsMapId
-                ? { ...mapOptions, mapId: googleMapsMapId }
-                : mapOptions
-            }
-            onLoad={handleMapLoad}
-          />
-        </LoadScript>
-      </div>
-    );
-  };
 
   const renderScheduleView = () => {
     const timelineHours = Array.from({ length: 13 }, (_, i) => 6 + i); // 06:00 - 18:00
@@ -494,7 +339,12 @@ export const OperationsPage = () => {
           </div>
         ) : (
           <>
-            {viewMode === "map" && renderMapView()}
+            {viewMode === "map" && (
+              <OperationsMapView
+                operations={operations}
+                onSelectOperation={(id) => navigate(String(id))}
+              />
+            )}
             {viewMode === "schedule" && renderScheduleView()}
             {viewMode === "table" && renderTableView()}
             {viewMode === "grid" && renderGridView()}
