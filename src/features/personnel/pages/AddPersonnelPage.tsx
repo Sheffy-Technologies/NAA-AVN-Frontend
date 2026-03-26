@@ -7,7 +7,6 @@ import {
   useGetPersonnelSpecialtiesQuery,
   useGetPersonnelBranchesQuery,
   useGetPersonnelCorpsQuery,
-  useGetAircraftsQuery,
   useCreatePersonnelMutation,
   useUploadPersonnelImageMutation,
   type CreatePersonnelRequest,
@@ -19,6 +18,7 @@ import {
   MultiSelect,
   type MultiSelectOption,
 } from "@/shared/ui/multi-select/MultiSelect";
+import { useGetAssetsQuery } from "@/features/assets/api";
 
 interface ApiError {
   data?: {
@@ -55,8 +55,8 @@ export const AddPersonnelPage = () => {
   const { data: branches } = useGetPersonnelBranchesQuery();
   const { data: corps } = useGetPersonnelCorpsQuery();
   const { data: units } = useGetUnitsQuery();
-  const { data: aircrafts, isLoading: isLoadingAircrafts } =
-    useGetAircraftsQuery();
+  const { data: aircraftAssets = [], isLoading: isLoadingAircraftAssets } =
+    useGetAssetsQuery({ type: "aircraft" });
 
   // Form State
   const [formData, setFormData] = useState<CreatePersonnelRequest>({
@@ -188,7 +188,7 @@ export const AddPersonnelPage = () => {
       // in the CreatePersonnelRequest as per the current API definition.
 
       const aircraftNames = selectedAircraftIds
-        .map((id) => aircrafts?.find((a) => a.id === id)?.name)
+        .map((id) => aircraftAssets.find((a) => a.id === id)?.name)
         .filter(Boolean) as string[];
 
       const payload: CreatePersonnelRequest = {
@@ -253,15 +253,13 @@ export const AddPersonnelPage = () => {
   };
 
   const aircraftOptions: MultiSelectOption[] = useMemo(() => {
-    if (isLoadingAircrafts) return [];
+    if (isLoadingAircraftAssets) return [];
 
-    return (
-      aircrafts?.map((a) => ({
-        label: `${a.name} (${a.type})`,
-        value: a.id,
-      })) || []
-    );
-  }, [aircrafts, isLoadingAircrafts]);
+    return aircraftAssets.map((a) => ({
+      label: `${a.name}${a.tail_number ? ` (${a.tail_number})` : ""}`,
+      value: a.id,
+    }));
+  }, [aircraftAssets, isLoadingAircraftAssets]);
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -460,7 +458,7 @@ export const AddPersonnelPage = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {selectedAircraftIds.map((aircraftId) => {
-                const aircraft = aircrafts?.find((a) => a.id === aircraftId);
+                const aircraft = aircraftAssets.find((a) => a.id === aircraftId);
                 return (
                   <InputField
                     key={aircraftId}

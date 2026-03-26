@@ -27,3 +27,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #5dbced;
 }
+
+input[type="date"] {
+  color-scheme: light;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.2);
+  opacity: 1;
+}

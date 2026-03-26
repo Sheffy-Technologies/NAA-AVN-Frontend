@@ -33,8 +33,7 @@ type InventoryRow = {
   description: string;
   remark: string;
   serialNumber: string;
-  unitCost: string;
-  totalCost: string;
+  lastUpdated: string;
   aircraftType: string;
   measurementUnit: string;
 };
@@ -488,9 +487,6 @@ export const InventoryPage = () => {
   const inventoryRows: InventoryRow[] = useMemo(() => {
     if (!inventoriesData) return [];
     return inventoriesData.map((item) => {
-      const unitCostValue = Number.parseFloat(item.unit_cost) || 0;
-      const totalCostValue = unitCostValue * item.current_stock;
-
       return {
         id: item.id,
         inventoryId: `INV-${item.id.toString().padStart(4, "0")}`,
@@ -508,8 +504,7 @@ export const InventoryPage = () => {
         description: item.description,
         remark: item.remark,
         serialNumber: item.serial_number || "-",
-        unitCost: `₦${unitCostValue.toLocaleString()}`,
-        totalCost: `₦${totalCostValue.toLocaleString()}`,
+        lastUpdated: item.updated_at,
         aircraftType:
           aircraftAssets.find((a) => a.id === item.asset_id)?.name || "-",
         measurementUnit: item.measurement_unit || "Units",
@@ -880,7 +875,7 @@ export const InventoryPage = () => {
 
             {viewMode === "table" ? (
               <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1100px]">
+                <table className="w-full text-left border-collapse min-w-[1000px]">
                   <thead>
                     <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
                       <th className="px-6 py-4 font-medium">
@@ -893,12 +888,7 @@ export const InventoryPage = () => {
                       <th className="px-6 py-4 font-medium text-right">
                         Current Stock
                       </th>
-                      <th className="px-6 py-4 font-medium text-right">
-                        Unit Cost
-                      </th>
-                      <th className="px-6 py-4 font-medium text-right">
-                        Total Cost
-                      </th>
+                      <th className="px-6 py-4 font-medium">Last Updated</th>
                       <th className="px-6 py-4 font-medium text-right">
                         Action
                       </th>
@@ -908,7 +898,7 @@ export const InventoryPage = () => {
                     {isInventoriesLoading ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={8}
                           className="px-6 py-8 text-center text-gray-500"
                         >
                           Loading inventory...
@@ -917,7 +907,7 @@ export const InventoryPage = () => {
                     ) : inventoryRows.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={9}
+                          colSpan={8}
                           className="px-6 py-8 text-center text-gray-500"
                         >
                           No inventory items found.
@@ -962,11 +952,11 @@ export const InventoryPage = () => {
                           <td className="px-6 py-4 text-right font-mono text-white">
                             {row.currentStock}
                           </td>
-                          <td className="px-6 py-4 text-right font-mono text-gray-400">
-                            {row.unitCost}
-                          </td>
-                          <td className="px-6 py-4 text-right font-mono text-white">
-                            {row.totalCost}
+                          <td className="px-6 py-4 text-gray-300">
+                            <div>{formatDateShort(row.lastUpdated)}</div>
+                            <div className="text-xs text-gray-500">
+                              {formatTimeShort(row.lastUpdated)}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div
