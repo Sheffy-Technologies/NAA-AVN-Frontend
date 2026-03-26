@@ -9,6 +9,7 @@ import { inventoryApi } from "@/features/inventory/api";
 import { financeApi } from "@/features/finance/api";
 import { operationsApi } from "@/features/operations/api";
 import { assetsApi } from "@/features/assets/api";
+import { securityApi } from "@/features/security/api";
 import { unitsApi } from "@/shared/api/units";
 import toastReducer from "@/shared/store/toastSlice";
 
@@ -43,6 +44,7 @@ export const store = configureStore({
     [financeApi.reducerPath]: financeApi.reducer,
     [operationsApi.reducerPath]: operationsApi.reducer,
     [assetsApi.reducerPath]: assetsApi.reducer,
+    [securityApi.reducerPath]: securityApi.reducer,
     [unitsApi.reducerPath]: unitsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
@@ -53,6 +55,7 @@ export const store = configureStore({
       financeApi.middleware,
       operationsApi.middleware,
       assetsApi.middleware,
+      securityApi.middleware,
       unitsApi.middleware,
     ),
   preloadedState: persistedAuthState ? { auth: persistedAuthState } : undefined,

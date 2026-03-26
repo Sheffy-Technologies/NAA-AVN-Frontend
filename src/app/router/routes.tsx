@@ -158,6 +158,11 @@ const ComingSoonPage = lazy(() =>
     default: module.ComingSoonPage,
   })),
 );
+const SecurityPage = lazy(() =>
+  import("@/features/security/pages/SecurityPage").then((module) => ({
+    default: module.SecurityPage,
+  })),
+);
 
 const loadingElement = (
   <div className="h-screen w-full flex items-center justify-center bg-[#00090D] text-primary-med">
@@ -418,6 +423,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <OperationDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "security",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <SecurityPage />
           </Suspense>
         ),
       },
