@@ -14,13 +14,14 @@ const TABS = [
   { id: "aircraft", label: "Aircrafts", icon: "mdi:airplane" },
   { id: "vehicle", label: "Vehicles", icon: "mdi:car" },
   { id: "airbase", label: "Airbases", icon: "mdi:airport" },
+  { id: "facility", label: "Facilities", icon: "mdi:office-building" },
   { id: "equipment", label: "Equipments", icon: "mdi:tools" },
 ];
 
 export const AssetsPage = () => {
   const [activeTab, setActiveTab] = useState("aircraft");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
-  const { data: assets, isLoading } = useGetAssetsQuery();
+  const { data: assets, isLoading } = useGetAssetsQuery({ type: activeTab });
   const { data: units } = useGetUnitsQuery();
   const [updateAsset] = useUpdateAssetMutation();
 
@@ -88,7 +89,9 @@ export const AssetsPage = () => {
     (a) => a.serviceability_status === "grounded",
   ).length;
 
-  const formatStatus = (status: string) => {
+  const formatStatus = (status?: string | null) => {
+    if (!status) return "-";
+
     return status
       .split("_")
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
