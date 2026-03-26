@@ -163,6 +163,16 @@ const SecurityPage = lazy(() =>
     default: module.SecurityPage,
   })),
 );
+const UserDetailsPage = lazy(() =>
+  import("@/features/users/pages/UserDetailsPage").then((module) => ({
+    default: module.UserDetailsPage,
+  })),
+);
+const AddUserPage = lazy(() =>
+  import("@/features/users/pages/AddUserPage").then((module) => ({
+    default: module.AddUserPage,
+  })),
+);
 
 const loadingElement = (
   <div className="h-screen w-full flex items-center justify-center bg-[#00090D] text-primary-med">
@@ -431,6 +441,22 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <SecurityPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "users",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <UserDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "users/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddUserPage />
           </Suspense>
         ),
       },
