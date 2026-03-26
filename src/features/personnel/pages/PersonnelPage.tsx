@@ -209,7 +209,7 @@ export const PersonnelPage = () => {
         else if (p.status === "Medical") acc.medical++;
         return acc;
       },
-      { active: 0, grounded: 0, medical: 0 },
+      { total: filteredPersonnel.length, active: 0, grounded: 0, medical: 0 },
     );
   }, [filteredPersonnel]);
 
@@ -619,6 +619,11 @@ export const PersonnelPage = () => {
 
         {/* Stats Row */}
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 px-4 sm:px-6 py-3 bg-[#001219] border-b border-[#0A4D66]/40 text-xs sm:text-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#7FD5FF]" />
+            <span className="text-gray-300">Total:</span>
+            <span className="font-bold text-white">{stats.total}</span>
+          </div>
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
             <span className="text-gray-300">Active:</span>

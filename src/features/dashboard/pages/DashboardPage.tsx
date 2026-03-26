@@ -27,6 +27,54 @@ type DashboardTabId =
   | "inventory"
   | "personnel";
 
+const formatMetric = (
+  raw: string | number | undefined,
+  unit: string,
+  { space = true }: { space?: boolean } = {},
+) => {
+  if (raw === undefined || raw === null) return "—";
+  const value = typeof raw === "number" ? raw : Number(raw);
+  if (!value || Number.isNaN(value)) return "—";
+  const normalized =
+    Math.round(value) === value ? value.toString() : value.toFixed(1);
+  return `${normalized}${space ? " " : ""}${unit}`;
+};
+
+const formatRemainingMetric = (
+  remaining: number,
+  unit: string,
+  {
+    warnThreshold = 10,
+    space = true,
+  }: { warnThreshold?: number; space?: boolean } = {},
+) => {
+  const absValue = Math.abs(remaining);
+  const normalized =
+    Math.round(absValue) === absValue
+      ? absValue.toString()
+      : absValue.toFixed(1);
+  const suffix = `${normalized}${space ? " " : ""}${unit}`;
+
+  if (remaining < 0) {
+    return {
+      text: `${suffix} Overdue`,
+      className: "text-red-400",
+    };
+  }
+
+  if (remaining <= warnThreshold) {
+    return {
+      text: suffix,
+      className: "text-amber-400",
+    };
+  }
+
+  return {
+    text: suffix,
+    className: "text-emerald-400",
+  };
+};
+
 const TABS: Array<{ id: DashboardTabId; label: string }> = [
   { id: "operations", label: "Operations" },
   { id: "maintenance", label: "Maintenance tracking" },
@@ -476,24 +524,6 @@ export const DashboardPage = () => {
 
           <TableShell
             title="Maintenance tracking"
-            left={
-              <div className="hidden md:flex items-center gap-5">
-                {["All", "Airframe", "Engine", "Avionics"].map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    className={cn(
-                      "text-xs font-medium transition-colors",
-                      t === "All"
-                        ? "text-[#7FD5FF]"
-                        : "text-gray-400 hover:text-white",
-                    )}
-                  >
-                    {t}
-                  </button>
-                ))}
-              </div>
-            }
             right={
               <TableToolbar resetCount={maintenance?.total_aircraft ?? 0} />
             }
@@ -502,18 +532,21 @@ export const DashboardPage = () => {
               <table className="w-full text-sm">
                 <thead className="text-gray-400">
                   <tr className="border-b border-[#0A4D66]/30">
-                    <th className="px-4 py-3 text-left">Tail No</th>
-                    <th className="px-4 py-3 text-left">Aircraft</th>
-                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Tail No.</th>
+                    <th className="px-4 py-3 text-left">Aircraft Name</th>
+                    <th className="px-4 py-3 text-left">Insp Type (Hrs)</th>
+                    <th className="px-4 py-3 text-left">Insp Type (Cyc)</th>
+                    <th className="px-4 py-3 text-left">Remaining (Hrs)</th>
+                    <th className="px-4 py-3 text-left">Remaining (Cyc)</th>
                     <th className="px-4 py-3 text-left">Total hrs</th>
-                    <th className="px-4 py-3 text-left">Status</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                    <th className="px-4 py-3 text-left">Total Cyc</th>
+                    <th className="px-4 py-3 text-left">Last Insp</th>
                   </tr>
                 </thead>
                 <tbody className="text-gray-200">
                   {isFetchingMaintenance && (
                     <tr>
-                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                      <td className="px-4 py-6 text-gray-400" colSpan={9}>
                         Loading…
                       </td>
                     </tr>
@@ -521,47 +554,113 @@ export const DashboardPage = () => {
                   {!isFetchingMaintenance &&
                     (maintenance?.recent_aircrafts?.length ?? 0) === 0 && (
                       <tr>
-                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        <td className="px-4 py-6 text-gray-400" colSpan={9}>
                           No recent aircrafts
                         </td>
                       </tr>
                     )}
-                  {(maintenance?.recent_aircrafts ?? []).map((a) => (
-                    <tr
-                      key={a.id}
-                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
-                    >
-                      <td className="px-4 py-3 text-gray-300">
-                        {a.tail_number || "—"}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-white">
-                        {a.name || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-300">
-                        {a.type || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-300">
-                        {a.operations_total_hours_label ||
-                          a.total_airframe_hours ||
-                          "—"}
-                      </td>
-                      <td className="px-4 py-3 text-gray-300">
-                        {a.serviceability_status || "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/dashboard/assets/${a.id}`)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                  {(maintenance?.recent_aircrafts ?? []).map((a) => {
+                    const totalHours = Number(a.total_airframe_hours);
+                    const totalCycles = Number(a.total_cycles);
+                    const lastInspectionHours = Number(a.last_inspection_hours);
+                    const lastInspectionCycles = Number(
+                      a.last_inspection_cycles,
+                    );
+                    const intervalHours = Number(a.inspection_interval);
+                    const intervalCycles = Number(a.inspection_interval_cycle);
+
+                    const hasHourInterval =
+                      intervalHours && !Number.isNaN(intervalHours);
+                    const hasCycleInterval =
+                      intervalCycles && !Number.isNaN(intervalCycles);
+
+                    const remainingHours = hasHourInterval
+                      ? (Number.isNaN(lastInspectionHours)
+                          ? 0
+                          : lastInspectionHours) +
+                        intervalHours -
+                        (Number.isNaN(totalHours) ? 0 : totalHours)
+                      : null;
+
+                    const remainingCycles = hasCycleInterval
+                      ? (Number.isNaN(lastInspectionCycles)
+                          ? 0
+                          : lastInspectionCycles) +
+                        intervalCycles -
+                        (Number.isNaN(totalCycles) ? 0 : totalCycles)
+                      : null;
+
+                    const remainingHoursDisplay =
+                      typeof remainingHours === "number"
+                        ? formatRemainingMetric(remainingHours, "hrs", {
+                            warnThreshold: 10,
+                          })
+                        : { text: "—", className: "text-gray-400" };
+
+                    const remainingCyclesDisplay =
+                      typeof remainingCycles === "number"
+                        ? formatRemainingMetric(remainingCycles, "cyc", {
+                            warnThreshold: 10,
+                          })
+                        : { text: "—", className: "text-gray-400" };
+
+                    return (
+                      <tr
+                        key={a.id}
+                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                      >
+                        <td className="px-4 py-3 text-gray-300">
+                          {a.tail_number || "—"}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-white">
+                          <div className="flex items-center gap-3">
+                            <span className="w-9 h-7 rounded bg-[#021a27] border border-[#0A4D66]/40 flex items-center justify-center">
+                              <Icon
+                                icon="mdi:airplane"
+                                className="w-5 h-5 text-gray-200"
+                              />
+                            </span>
+                            <span>{a.name || "—"}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {formatMetric(a.inspection_interval, "hrs", {
+                            space: false,
+                          })}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {formatMetric(a.inspection_interval_cycle, "cyc")}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-4 py-3",
+                            remainingHoursDisplay.className,
+                          )}
                         >
-                          <Icon
-                            icon="mdi:dots-horizontal"
-                            className="w-5 h-5"
-                          />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          {remainingHoursDisplay.text}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-4 py-3",
+                            remainingCyclesDisplay.className,
+                          )}
+                        >
+                          {remainingCyclesDisplay.text}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {formatMetric(a.total_airframe_hours, "hrs", {
+                            space: false,
+                          })}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {formatMetric(a.total_cycles, "cyc")}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {formatMetric(a.last_inspection_hours, "hrs")}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

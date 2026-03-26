@@ -27,8 +27,6 @@ type ExpenseRow = {
   categoryId: number;
   partName: string;
   partNumber: string;
-  aircraft: string;
-  workOrder: string;
   quantity: number;
   unit: string;
   unitId: number;
@@ -36,6 +34,7 @@ type ExpenseRow = {
   unitCost: number;
   totalCost: number;
   budgetId: number;
+  budgetName: string;
 };
 
 type BudgetRow = {
@@ -49,6 +48,8 @@ type BudgetRow = {
   amount: number;
   period: string;
   startDate: string;
+  endDate: string;
+  createdAt: string;
 };
 
 export const FinancePage = () => {
@@ -137,8 +138,6 @@ export const FinancePage = () => {
       categoryId: expense.expense_category_id,
       partName: expense.part_name,
       partNumber: expense.part_number,
-      aircraft: expense.aircraft?.name ?? "-",
-      workOrder: expense.work_order,
       quantity: expense.quantity,
       unit: expense.unit?.name ?? "-",
       unitId: expense.unit_id,
@@ -146,6 +145,7 @@ export const FinancePage = () => {
       unitCost: expense.unit_cost,
       totalCost: expense.total_cost,
       budgetId: expense.budget_id,
+      budgetName: expense.budget?.name ?? "-",
     }));
   }, [expensesData]);
 
@@ -163,6 +163,8 @@ export const FinancePage = () => {
       amount: budget.amount,
       period: `${budget.start_date ?? ""} - ${budget.end_date ?? ""}`,
       startDate: budget.start_date,
+      endDate: budget.end_date,
+      createdAt: budget.created_at,
     }));
   }, [budgetsData]);
 
@@ -591,14 +593,16 @@ export const FinancePage = () => {
             <table className="min-w-full text-xs sm:text-sm text-gray-200">
               <thead>
                 <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
-                  <th className="px-4 sm:px-6 py-3 text-left">Expense ID</th>
-                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 sm:px-6 py-3 text-left">
+                    Item Description
+                  </th>
+                  <th className="px-4 py-3 text-left">Expense ID</th>
                   <th className="px-4 py-3 text-left">Category</th>
-                  <th className="px-4 py-3 text-left">Part Name</th>
-                  <th className="px-4 py-3 text-left">Part No.</th>
-                  <th className="px-4 py-3 text-left">Aircraft</th>
-                  <th className="px-4 py-3 text-left">Work Order</th>
+                  <th className="px-4 py-3 text-left">Quantity</th>
+                  <th className="px-4 py-3 text-left">Unit Cost</th>
                   <th className="px-4 py-3 text-right">Total Cost</th>
+                  <th className="px-4 py-3 text-left">Budget</th>
+                  <th className="px-4 py-3 text-left">Date</th>
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -638,28 +642,28 @@ export const FinancePage = () => {
                       )}
                     >
                       <td className="px-4 sm:px-6 py-3 align-middle text-gray-100">
-                        {row.expenseId}
+                        {row.partName}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.date}
+                      <td className="px-4 sm:px-6 py-3 align-middle text-gray-100">
+                        {row.expenseId}
                       </td>
                       <td className="px-4 py-3 align-middle text-gray-100">
                         {row.category}
                       </td>
                       <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.partName}
+                        {row.quantity}
                       </td>
                       <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.partNumber}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.aircraft}
-                      </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
-                        {row.workOrder}
+                        ₦{row.unitCost.toLocaleString()}
                       </td>
                       <td className="px-4 sm:px-6 py-3 align-middle text-right text-gray-100">
                         ₦{row.totalCost.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 align-middle text-gray-100">
+                        {row.budgetName}
+                      </td>
+                      <td className="px-4 py-3 align-middle text-gray-100">
+                        {row.date}
                       </td>
                       <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
                         <button
@@ -760,9 +764,9 @@ export const FinancePage = () => {
                       </div>
                     </div>
                     <p className="text-[11px] text-gray-400">
-                      {row.category} • {row.aircraft}
+                      {row.category} • {row.budgetName}
                     </p>
-                    <p className="text-[11px] text-gray-400">{row.workOrder}</p>
+                    <p className="text-[11px] text-gray-400">{row.expenseId}</p>
                     <p className="text-[11px] text-gray-500">{row.date}</p>
                   </div>
                 ))}
@@ -795,6 +799,8 @@ export const FinancePage = () => {
                   <th className="px-4 py-3 text-left">Remaining Amount</th>
                   <th className="px-4 py-3 text-left">Status</th>
                   <th className="px-4 py-3 text-left">Start Date</th>
+                  <th className="px-4 py-3 text-left">End Date</th>
+                  <th className="px-4 py-3 text-left">Date Created</th>
                   <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
@@ -802,7 +808,7 @@ export const FinancePage = () => {
                 {isBudgetsLoading && budgets.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={10}
                       className="px-4 sm:px-6 py-6 text-center text-gray-400"
                     >
                       <div className="inline-flex items-center gap-2">
@@ -814,7 +820,7 @@ export const FinancePage = () => {
                 ) : filteredBudgets.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={10}
                       className="px-4 sm:px-6 py-6 text-center text-gray-400"
                     >
                       {isBudgetsError && budgets.length === 0
@@ -852,7 +858,31 @@ export const FinancePage = () => {
                         Active
                       </td>
                       <td className="px-4 py-3 align-middle text-gray-100">
-                        {budget.period.split(" - ")[0]}
+                        {new Date(budget.startDate).toLocaleDateString(
+                          "en-GB",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
+                      </td>
+                      <td className="px-4 py-3 align-middle text-gray-100">
+                        {new Date(budget.endDate).toLocaleDateString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </td>
+                      <td className="px-4 py-3 align-middle text-gray-100">
+                        {new Date(budget.createdAt).toLocaleDateString(
+                          "en-GB",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
                       </td>
                       <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
                         <button
@@ -962,10 +992,12 @@ export const FinancePage = () => {
             {filteredBudgets.length === 0 &&
               !isBudgetsLoading &&
               !isBudgetsError && (
-              <div className="col-span-full text-center text-gray-400 text-xs sm:text-sm py-6">
-                {hasBudgetFilters ? "No budgets match filters." : "No budgets found."}
-              </div>
-            )}
+                <div className="col-span-full text-center text-gray-400 text-xs sm:text-sm py-6">
+                  {hasBudgetFilters
+                    ? "No budgets match filters."
+                    : "No budgets found."}
+                </div>
+              )}
             {isBudgetsError && !isBudgetsLoading && (
               <div className="col-span-full text-center text-gray-400 text-xs sm:text-sm py-6">
                 Failed to load budgets.

@@ -149,7 +149,12 @@ const InventoryFormContent = ({
       quantityNumeric,
       unitCostNumeric,
     };
-  }, [values.current_stock, values.quantity, values.re_order_level, values.unit_cost]);
+  }, [
+    values.current_stock,
+    values.quantity,
+    values.re_order_level,
+    values.unit_cost,
+  ]);
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof InventoryFormValues, string>> = {};
@@ -161,12 +166,10 @@ const InventoryFormContent = ({
       newErrors.measurement_unit = "Required";
     if (!values.vendor.trim()) newErrors.vendor = "Required";
     if (!values.current_stock.trim()) newErrors.current_stock = "Required";
-    if (!values.quantity.trim()) newErrors.quantity = "Required";
-    if (!values.unit_cost.trim()) newErrors.unit_cost = "Required";
     if (!values.re_order_level.trim()) newErrors.re_order_level = "Required";
     if (!values.unit_id) newErrors.unit_id = "Required";
     if (!values.expense_category_id) newErrors.expense_category_id = "Required";
-    if (values.type !== "others" && !values.asset_id)
+    if (values.type === "aircraft" && !values.asset_id)
       newErrors.asset_id = "Required";
 
     if (
@@ -185,22 +188,6 @@ const InventoryFormContent = ({
       newErrors.current_stock = "Must be a number";
     }
 
-    if (
-      values.quantity.trim() &&
-      (Number.isNaN(parsedPayload.quantityNumeric) ||
-        parsedPayload.quantityNumeric === undefined)
-    ) {
-      newErrors.quantity = "Must be a number";
-    }
-
-    if (
-      values.unit_cost.trim() &&
-      (Number.isNaN(parsedPayload.unitCostNumeric) ||
-        parsedPayload.unitCostNumeric === undefined)
-    ) {
-      newErrors.unit_cost = "Must be a number";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -216,14 +203,18 @@ const InventoryFormContent = ({
       unitCostNumeric,
     } = parsedPayload;
 
+    const computedAssetId =
+      values.type === "aircraft"
+        ? typeof values.asset_id === "number"
+          ? values.asset_id
+          : Number(values.asset_id)
+        : mode === "edit" && inventory
+          ? (inventory.asset_id ?? null)
+          : null;
+
     const basePayload = {
       type: values.type,
-      asset_id:
-        values.type === "others"
-          ? null
-          : typeof values.asset_id === "number"
-            ? values.asset_id
-            : Number(values.asset_id),
+      asset_id: computedAssetId,
       expense_category_id:
         typeof values.expense_category_id === "number"
           ? values.expense_category_id
@@ -342,10 +333,10 @@ const InventoryFormContent = ({
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            {values.type !== "others" && (
+            {values.type === "aircraft" && (
               <div className="space-y-1">
                 <label className="text-[11px] uppercase text-gray-400">
-                  {values.type === "aircraft" ? "Aircraft Type" : "Equipment"}
+                  Aircraft Type
                 </label>
                 <div className="relative">
                   <select
@@ -502,35 +493,11 @@ const InventoryFormContent = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Quantity
-              </label>
-              <input
-                type="number"
-                value={values.quantity}
-                onChange={handleChange("quantity")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-                placeholder="Enter Quantity"
-              />
-              {errors.quantity && (
-                <p className="text-[11px] text-red-400">{errors.quantity}</p>
-              )}
+              <label className="text-[11px] uppercase text-gray-400"></label>
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Unit Cost
-              </label>
-              <input
-                type="number"
-                value={values.unit_cost}
-                onChange={handleChange("unit_cost")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-                placeholder="Enter Unit Cost"
-              />
-              {errors.unit_cost && (
-                <p className="text-[11px] text-red-400">{errors.unit_cost}</p>
-              )}
+              <label className="text-[11px] uppercase text-gray-400"></label>
             </div>
 
             <div className="space-y-1">
