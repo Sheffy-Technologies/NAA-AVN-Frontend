@@ -46,13 +46,6 @@ type ApiError = {
   status?: number;
 };
 
-const toIsoDateTime = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  if (trimmed.includes("T")) return trimmed;
-  return `${trimmed}T00:00:00Z`;
-};
-
 const toDateOnly = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return "";
@@ -677,13 +670,11 @@ export const AddAssetPage = () => {
           formData.next_annual_inspection,
         ),
         next_type_of_inspection: formData.next_type_of_inspection,
-        last_inspection_date: toIsoDateTime(
-          formData.last_major_inspection_date,
-        ),
+        last_inspection_date: toDateOnly(formData.last_major_inspection_date),
         landings: formData.landings,
         operation_status: "operational",
         manufacturer: formData.manufacturer,
-        purchase_date: toIsoDateTime(formData.purchase_date),
+        purchase_date: toDateOnly(formData.purchase_date),
 
         engines: engines
           .filter(
@@ -704,11 +695,12 @@ export const AddAssetPage = () => {
               position_id: Number(position_id) || 1,
               serial_number,
               model,
-              installation_date: toIsoDateTime(installation_date),
+              installation_date: toDateOnly(installation_date),
               time_since_new: Number(time_since_new) || 0,
               time_since_overhaul: Number(time_since_overhaul) || 0,
               service_life_limit: Number(service_life_limit) || 0,
               overhaul_limit: Number(overhaul_limit) || 0,
+              category_id: 1, // to be reviewed
             }),
           ),
 
@@ -736,7 +728,7 @@ export const AddAssetPage = () => {
               service_life_limit_hours: Number(life_limit_hours) || 0,
               last_overhaul_hours: Number(time_since_overhaul) || 0,
               overhaul_limit: Number(overhaul_limit) || 0,
-              installed_at: toIsoDateTime(installed_at),
+              installed_at: toDateOnly(installed_at),
               removed_at: null,
             }),
           )
@@ -754,8 +746,8 @@ export const AddAssetPage = () => {
             return {
               document_type_id: documentTypeId,
               file: d.file || d.file_url,
-              issue_date: d.issue_date ? toIsoDateTime(d.issue_date) : null,
-              expiry_date: d.expiry_date ? toIsoDateTime(d.expiry_date) : null,
+              issue_date: d.issue_date ? toDateOnly(d.issue_date) : null,
+              expiry_date: d.expiry_date ? toDateOnly(d.expiry_date) : null,
             };
           })
           .filter((d) => d.document_type_id > 0 && Boolean(d.file)),
@@ -770,6 +762,8 @@ export const AddAssetPage = () => {
               item.removed_at,
           )
           .map((item) => ({
+            // avionic_category_id: 1, // to be reviewed
+            avionic_category_id: Number(item.component_type) || 0,
             component_type_id: Number(item.component_type) || 0,
             serial_number: item.serial_number,
             model: item.model || item.part_number,
@@ -778,8 +772,8 @@ export const AddAssetPage = () => {
             service_life_limit: Number(item.life_limit_hours) || 0,
             last_overhaul_hours: Number(item.time_since_overhaul) || 0,
             overhaul_limit: Number(item.overhaul_limit) || 0,
-            installed_at: toIsoDateTime(item.installed_at),
-            removed_at: item.removed_at ? toIsoDateTime(item.removed_at) : null,
+            installed_at: toDateOnly(item.installed_at),
+            removed_at: item.removed_at ? toDateOnly(item.removed_at) : null,
           }))
           .filter((a) => a.component_type_id > 0),
 
@@ -798,7 +792,7 @@ export const AddAssetPage = () => {
               operation_id: Number(d.operation_id),
               title: d.defect_reported || d.defect_description,
               description: d.defect_description || d.defect_reported,
-              reported_at: toIsoDateTime(d.date_of_defect),
+              reported_at: toDateOnly(d.date_of_defect),
               status: d.rectified ? "resolved" : "open",
               severity: "low",
               personnel,
