@@ -49,63 +49,64 @@ export const AddUserPage = () => {
     }
   };
 
+  const inputClassName =
+    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors";
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Add User</h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4 max-w-lg">
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-5 max-w-3xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <input
             name="firstname"
             value={form.firstname}
             onChange={handleChange}
             placeholder="First name"
-            className="bg-[#00131A] border border-[#2B2B2B] rounded px-3 py-2 text-sm text-white"
+            className={inputClassName}
           />
           <input
             name="lastname"
             value={form.lastname}
             onChange={handleChange}
             placeholder="Last name"
-            className="bg-[#00131A] border border-[#2B2B2B] rounded px-3 py-2 text-sm text-white"
+            className={inputClassName}
           />
-        </div>
 
-        <input
-          name="username"
-          value={form.username}
-          onChange={handleChange}
-          placeholder="Username"
-          className="w-full bg-[#00131A] border border-[#2B2B2B] rounded px-3 py-2 text-sm text-white"
-        />
+          <input
+            name="username"
+            value={form.username}
+            onChange={handleChange}
+            placeholder="Username"
+            className={inputClassName}
+          />
 
-        <input
-          name="phone_number"
-          value={form.phone_number}
-          onChange={handleChange}
-          placeholder="Phone number"
-          className="w-full bg-[#00131A] border border-[#2B2B2B] rounded px-3 py-2 text-sm text-white"
-        />
+          <input
+            name="phone_number"
+            value={form.phone_number}
+            onChange={handleChange}
+            placeholder="Phone number"
+            className={inputClassName}
+          />
 
-        <input
-          name="email"
-          value={form.email}
-          onChange={handleChange}
-          placeholder="Email"
-          type="email"
-          className="w-full bg-[#00131A] border border-[#2B2B2B] rounded px-3 py-2 text-sm text-white"
-        />
+          <input
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            placeholder="Email"
+            type="email"
+            className={`md:col-span-2 ${inputClassName}`}
+          />
 
-        <div className="grid grid-cols-2 gap-4">
           <input
             name="password"
             value={form.password}
             onChange={handleChange}
             placeholder="Password"
             type="password"
-            className="bg-[#00131A] border border-[#2B2B2B] rounded px-3 py-2 text-sm text-white"
+            className={inputClassName}
           />
           <input
             name="passwordConfirm"
@@ -113,10 +114,12 @@ export const AddUserPage = () => {
             onChange={handleChange}
             placeholder="Confirm password"
             type="password"
-            className="bg-[#00131A] border border-[#2B2B2B] rounded px-3 py-2 text-sm text-white"
+            className={inputClassName}
           />
+          <p className="text-xs text-gray-300 md:col-span-2">
+            Minimum characters for password is 6
+          </p>
         </div>
-        <p className="text-xs text-gray-300">Minimum characters for password is 6</p>
 
         <div className="flex items-center gap-3">
           <button

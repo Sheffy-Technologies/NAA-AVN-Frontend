@@ -5,19 +5,35 @@ export type Unit = {
   id: number;
   name: string;
   description: string | null;
+  location_id: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type UnitDetails = Unit & {
+  assets_count: number;
+  operations_count: number;
+  personnel_count: number;
+  inventory_count: number;
+  finances_count: number;
+  total_stock: number;
+  low_stock: number;
+  expired_stock: number;
+  critical_stock: number;
 };
 
 export type CreateUnitPayload = {
   name: string;
   description?: string;
+  location_id?: number | null;
+  asset_id?: number | null;
 };
 
 export type UpdateUnitPayload = {
   id: number;
   name: string;
   description: string;
+  location_id?: number | null;
 };
 
 export const unitsApi = createApi({
@@ -30,7 +46,20 @@ export const unitsApi = createApi({
         url: "/units",
         method: "GET",
       }),
-      providesTags: ["Units"],
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "Units" as const, id })),
+              { type: "Units", id: "LIST" },
+            ]
+          : [{ type: "Units", id: "LIST" }],
+    }),
+    getUnitById: builder.query<UnitDetails, string | number>({
+      query: (id) => ({
+        url: `/units/${id}`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, id) => [{ type: "Units", id }],
     }),
     createUnit: builder.mutation<Unit, CreateUnitPayload>({
       query: (body) => ({
@@ -38,7 +67,7 @@ export const unitsApi = createApi({
         method: "POST",
         data: body,
       }),
-      invalidatesTags: ["Units"],
+      invalidatesTags: [{ type: "Units", id: "LIST" }],
     }),
     updateUnit: builder.mutation<Unit, UpdateUnitPayload>({
       query: ({ id, ...body }) => ({
@@ -46,20 +75,27 @@ export const unitsApi = createApi({
         method: "PUT",
         data: body,
       }),
-      invalidatesTags: ["Units"],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Units", id },
+        { type: "Units", id: "LIST" },
+      ],
     }),
     deleteUnit: builder.mutation<void, number>({
       query: (id) => ({
         url: `/units/${id}`,
         method: "DELETE",
       }),
-      invalidatesTags: ["Units"],
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Units", id },
+        { type: "Units", id: "LIST" },
+      ],
     }),
   }),
 });
 
 export const {
   useGetUnitsQuery,
+  useGetUnitByIdQuery,
   useCreateUnitMutation,
   useUpdateUnitMutation,
   useDeleteUnitMutation,

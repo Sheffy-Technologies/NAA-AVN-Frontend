@@ -5,10 +5,10 @@ import { cn } from "@/shared/utils/cn";
 import {
   useCreateExpenseMutation,
   useGetBudgetsQuery,
-  useGetExpenseCategoriesQuery,
+  // useGetExpenseCategoriesQuery,
   useGetExpenseTypesQuery,
   type FinanceBudget,
-  type FinanceExpenseCategory,
+  // type FinanceExpenseCategory,
   type FinanceExpenseType,
 } from "@/features/finance/api";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
@@ -48,7 +48,7 @@ export const FinanceFormPage = () => {
 
   const { data: budgetsData } = useGetBudgetsQuery();
   const { data: unitsData } = useGetUnitsQuery();
-  const { data: categoriesData } = useGetExpenseCategoriesQuery();
+  // const { data: categoriesData } = useGetExpenseCategoriesQuery();
   const { data: expenseTypesData } = useGetExpenseTypesQuery();
 
   const [values, setValues] = useState<FinanceFormValues>(emptyFormValues);
@@ -58,7 +58,7 @@ export const FinanceFormPage = () => {
 
   const budgets = (budgetsData ?? []) as FinanceBudget[];
   const units = (unitsData ?? []) as Unit[];
-  const categories = (categoriesData ?? []) as FinanceExpenseCategory[];
+  // const categories = (categoriesData ?? []) as FinanceExpenseCategory[];
   const expenseTypes = (expenseTypesData ?? []) as FinanceExpenseType[];
 
   const selectedBudget: FinanceBudget | undefined = useMemo(() => {
@@ -225,6 +225,22 @@ export const FinanceFormPage = () => {
         <div className="grid gap-4">
           <div className="grid gap-4 lg:grid-cols-3">
             <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Budget</label>
+              <select
+                value={values.budget_id === "" ? "" : String(values.budget_id)}
+                onChange={handleChange("budget_id")}
+                aria-label="Select Budget"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              >
+                <option value="">Select Budget</option>
+                {budgets.map((budget) => (
+                  <option key={budget.id} value={budget.id}>
+                    {budget.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
               <label className="text-[11px] text-gray-400">
                 Item Description
               </label>
@@ -236,7 +252,7 @@ export const FinanceFormPage = () => {
                 placeholder="Enter Item Description"
               />
             </div>
-            <div className="space-y-1">
+            {/* <div className="space-y-1">
               <label className="text-[11px] text-gray-400">Category</label>
               <select
                 value={
@@ -254,7 +270,7 @@ export const FinanceFormPage = () => {
                   </option>
                 ))}
               </select>
-            </div>
+            </div> */}
             <div className="space-y-1">
               <label className="text-[11px] text-gray-400">
                 Vendor/Supplier
@@ -314,34 +330,19 @@ export const FinanceFormPage = () => {
             </div>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-1">
               <label className="text-[11px] text-gray-400">Unit</label>
               <select
                 value={values.unit_id === "" ? "" : String(values.unit_id)}
                 onChange={handleChange("unit_id")}
+                aria-label="Select Unit"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
               >
                 <option value="">Select Unit</option>
                 {units.map((unit) => (
                   <option key={unit.id} value={unit.id}>
                     {unit.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] text-gray-400">Budget</label>
-              <select
-                value={values.budget_id === "" ? "" : String(values.budget_id)}
-                onChange={handleChange("budget_id")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-              >
-                <option value="">Select Budget</option>
-                {budgets.map((budget) => (
-                  <option key={budget.id} value={budget.id}>
-                    {budget.name}
                   </option>
                 ))}
               </select>
