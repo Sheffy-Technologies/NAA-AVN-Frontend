@@ -388,22 +388,30 @@ export const PersonnelDetailPage = () => {
                     </div>
                   </div>
 
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200">
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Rank:</span>
+                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 grid gap-2 text-xs sm:text-sm text-gray-200 lg:grid-cols-2">
+                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
+                      <span className="text-gray-400 whitespace-nowrap">
+                        Rank:
+                      </span>
                       <span>{person.rank}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Blood Group:</span>
+                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
+                      <span className="text-gray-400 whitespace-nowrap">
+                        Blood Group:
+                      </span>
                       <span>{person.bloodGroup}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Call Sign:</span>
+                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
+                      <span className="text-gray-400 whitespace-nowrap">
+                        Call Sign:
+                      </span>
                       <span>{person.callSign}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Type of Rating:</span>
-                      <span className="text-right">{person.rating}</span>
+                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
+                      <span className="text-gray-400 whitespace-nowrap">
+                        Rating:
+                      </span>
+                      <span>{person.rating}</span>
                     </div>
                   </div>
 
@@ -434,23 +442,23 @@ export const PersonnelDetailPage = () => {
                       Personnel Identification
                     </div>
                     <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="flex justify-between gap-2">
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
                         <span className="text-gray-400">Service No.:</span>
                         <span className="font-semibold">
                           {person.serviceNo}
                         </span>
                       </div>
-                      <div className="flex justify-between gap-2">
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
                         <span className="text-gray-400">First Name:</span>
                         <span className="font-semibold">
                           {person.firstName}
                         </span>
                       </div>
-                      <div className="flex justify-between gap-2">
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
                         <span className="text-gray-400">Last Name:</span>
                         <span className="font-semibold">{person.lastName}</span>
                       </div>
-                      <div className="flex justify-between gap-2">
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
                         <span className="text-gray-400">Middle Name:</span>
                         <span className="font-semibold">
                           {person.middleName || "-"}
@@ -508,21 +516,29 @@ export const PersonnelDetailPage = () => {
                     <div className="text-[11px] uppercase text-gray-400 mb-3">
                       Service Details
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-400">Branch:</span>
+                    <div className="grid gap-2 lg:grid-cols-2">
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Branch:
+                        </span>
                         <span>{person.branch}</span>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-400">Corps:</span>
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Corps:
+                        </span>
                         <span>{person.corps}</span>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-400">Specialty:</span>
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Specialty:
+                        </span>
                         <span>{person.specialty}</span>
                       </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-gray-400">Status:</span>
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Status:
+                        </span>
                         <span className="flex items-center gap-2">
                           <span className="text-emerald-400">
                             {person.status}
@@ -542,18 +558,24 @@ export const PersonnelDetailPage = () => {
                     <div className="text-[11px] uppercase text-gray-400 mb-3">
                       Contact Information
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-400">Email:</span>
+                    <div className="grid gap-2 lg:grid-cols-2">
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Email:
+                        </span>
                         <span className="truncate">{person.email}</span>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-400">Phone No.:</span>
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Phone No.:
+                        </span>
                         <span>{person.phone}</span>
                       </div>
-                      <div className="flex justify-between gap-2">
-                        <span className="text-gray-400">Address:</span>
-                        <span className="text-right">{person.address}</span>
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0 lg:col-span-2">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Address:
+                        </span>
+                        <span>{person.address}</span>
                       </div>
                     </div>
                   </div>

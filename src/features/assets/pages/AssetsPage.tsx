@@ -13,7 +13,7 @@ import { useClickOutside } from "@/shared/hooks/useClickOutside";
 const TABS = [
   { id: "aircraft", label: "Aircrafts", icon: "mdi:airplane" },
   { id: "vehicle", label: "Vehicles", icon: "mdi:car" },
-  { id: "airbase", label: "Airbases", icon: "mdi:airport" },
+  // { id: "airbase", label: "Airbases", icon: "mdi:airport" },
   { id: "facility", label: "Facilities", icon: "mdi:office-building" },
   { id: "equipment", label: "Equipments", icon: "mdi:tools" },
 ];

@@ -69,7 +69,11 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
     });
   }, [notifications]);
 
-  useClickOutside(notificationsRef, () => setIsNotificationsOpen(false), isNotificationsOpen);
+  useClickOutside(
+    notificationsRef,
+    () => setIsNotificationsOpen(false),
+    isNotificationsOpen,
+  );
 
   return (
     <header className="h-16 bg-[#001219] border-b border-[#0A4D66]/30 px-4 md:px-6 flex items-center justify-between">
@@ -112,7 +116,10 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
             aria-label="Messages"
             title="Messages"
           >
-            <Icon icon="mdi:email-outline" className="w-5 h-5" />
+            <Icon
+              icon="material-symbols:e911-emergency-outline"
+              className="w-5 h-5"
+            />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
           <div className="relative" ref={notificationsRef}>
