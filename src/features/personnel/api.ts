@@ -18,6 +18,15 @@ export type PersonnelBasicEntity = {
   updated_at: string;
 };
 
+export type PersonnelRating = {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+};
+
 export type Deployment = {
   id: number;
   personnel_id: number;
@@ -84,24 +93,33 @@ export type PersonnelFilters = {
 
 export type CreatePersonnelRequest = {
   service_number: string;
+  rank_id: string | number;
+  unit_id: string | number;
+  branch_id: string | number;
+  corp_id: string | number;
+  specialty_id: string | number;
   firstname: string;
   lastname: string;
   othernames?: string;
   phone_number: string;
   email: string;
-  rank_id: number;
-  unit_id: number;
-  branch_id: number;
-  specialty_id: number;
-  corp_id: number;
   address: string;
   blood_group: string;
   call_sign: string;
-  rating_type: string;
+  rating_type?: string;
   image?: string;
+  ratings?: {
+    rating_id: number;
+    expiry_date: string;
+  }[];
+  flight_experiences?: {
+    asset_id: number;
+    flight_hours: number;
+    notes: string;
+  }[];
   deployments?: {
-    from_unit_id: string;
-    to_unit_id: string;
+    from_unit_id: string | number;
+    to_unit_id: string | number;
     start_date: string;
     end_date: string;
   }[];
@@ -193,6 +211,12 @@ export const personnelApi = createApi({
         method: "GET",
       }),
     }),
+    getPersonnelRatings: builder.query<PersonnelRating[], void>({
+      query: () => ({
+        url: "/ratings",
+        method: "GET",
+      }),
+    }),
     getAircrafts: builder.query<Aircraft[], void>({
       query: () => ({
         url: "/aircraft",
@@ -209,6 +233,7 @@ export const {
   useGetPersonnelSpecialtiesQuery,
   useGetPersonnelBranchesQuery,
   useGetPersonnelCorpsQuery,
+  useGetPersonnelRatingsQuery,
   useGetAircraftsQuery,
   useCreatePersonnelMutation,
   useUploadPersonnelImageMutation,

@@ -263,7 +263,7 @@ export const AddAssetPage = () => {
       location: "",
       defect_description: "",
       remark: "",
-      rectified: false,
+      rectified: true,
       rectification_details: "",
       work_done: "",
       certifying_engineer: "",
@@ -527,6 +527,21 @@ export const AddAssetPage = () => {
 
   const addItem = <T,>(setter: (val: T[]) => void, list: T[], item: T) => {
     setter([...list, item]);
+  };
+
+  const handleRectifiedChange = (index: number, rectified: boolean) => {
+    const newDefects = [...defects];
+    const currentDefect = newDefects[index];
+
+    newDefects[index] = {
+      ...currentDefect,
+      rectified,
+      rectification_details: rectified ? "" : currentDefect.rectification_details,
+      work_done: rectified ? "" : currentDefect.work_done,
+      certifying_engineer: rectified ? "" : currentDefect.certifying_engineer,
+    };
+
+    setDefects(newDefects);
   };
 
   const removeItem = <T,>(
@@ -3551,7 +3566,7 @@ export const AddAssetPage = () => {
                     location: "",
                     defect_description: "",
                     remark: "",
-                    rectified: false,
+                    rectified: true,
                     rectification_details: "",
                     work_done: "",
                     certifying_engineer: "",
@@ -3716,15 +3731,7 @@ export const AddAssetPage = () => {
                         type="radio"
                         name={`rectified-${idx}`}
                         checked={defect.rectified}
-                        onChange={() =>
-                          updateItem(
-                            setDefects,
-                            defects,
-                            idx,
-                            "rectified",
-                            true,
-                          )
-                        }
+                        onChange={() => handleRectifiedChange(idx, true)}
                         className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                       />
                       Yes
@@ -3734,15 +3741,7 @@ export const AddAssetPage = () => {
                         type="radio"
                         name={`rectified-${idx}`}
                         checked={!defect.rectified}
-                        onChange={() =>
-                          updateItem(
-                            setDefects,
-                            defects,
-                            idx,
-                            "rectified",
-                            false,
-                          )
-                        }
+                        onChange={() => handleRectifiedChange(idx, false)}
                         className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                       />
                       No

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
@@ -16,6 +16,23 @@ const parseApiDateTime = (value: string): Date | null => {
   const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed;
+};
+
+const parseDateOnly = (value: string): Date | null => {
+  const trimmed = String(value || "").trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(monthIndex) ||
+    !Number.isFinite(day)
+  ) {
+    return null;
+  }
+  return new Date(year, monthIndex, day);
 };
 
 const startOfLocalDay = (date: Date): Date =>
@@ -47,9 +64,8 @@ export const OperationsPage = () => {
   const [scheduleDate, setScheduleDate] = useState<Date>(() =>
     startOfLocalDay(new Date()),
   );
-  const scheduleHeaderScrollRef = useRef<HTMLDivElement | null>(null);
-  const scheduleBodyScrollRef = useRef<HTMLDivElement | null>(null);
-  const scheduleScrollSyncRef = useRef<"header" | "body" | null>(null);
+  const [scheduleDateInput, setScheduleDateInput] =
+    useState<HTMLInputElement | null>(null);
 
   const stats = useMemo(() => {
     return {
@@ -64,6 +80,12 @@ export const OperationsPage = () => {
     const timelineHours = Array.from({ length: 24 }, (_, i) => i);
     const dayStart = startOfLocalDay(scheduleDate);
     const dayEnd = addLocalDays(dayStart, 1);
+    const today = startOfLocalDay(new Date());
+    const isToday = dayStart.getTime() === today.getTime();
+    const timelineColumnWidth = 128;
+    const timelineGridStyle = {
+      gridTemplateColumns: `repeat(24, ${timelineColumnWidth}px)`,
+    };
 
     const scheduleOperations = operations
       .map((op) => {
@@ -87,6 +109,8 @@ export const OperationsPage = () => {
       .format(dayStart)
       .toUpperCase();
 
+    const scheduleDateValue = `${dayStart.getFullYear()}-${String(dayStart.getMonth() + 1).padStart(2, "0")}-${String(dayStart.getDate()).padStart(2, "0")}`;
+
     const formatTime = (date: Date) =>
       new Intl.DateTimeFormat("en-GB", {
         hour: "2-digit",
@@ -94,170 +118,233 @@ export const OperationsPage = () => {
         hour12: false,
       }).format(date);
 
-    const handleHeaderScroll = () => {
-      const header = scheduleHeaderScrollRef.current;
-      const body = scheduleBodyScrollRef.current;
-      if (!header || !body) return;
-      if (scheduleScrollSyncRef.current === "body") return;
-      scheduleScrollSyncRef.current = "header";
-      body.scrollLeft = header.scrollLeft;
-      window.requestAnimationFrame(() => {
-        if (scheduleScrollSyncRef.current === "header") {
-          scheduleScrollSyncRef.current = null;
-        }
-      });
-    };
-
-    const handleBodyScroll = () => {
-      const header = scheduleHeaderScrollRef.current;
-      const body = scheduleBodyScrollRef.current;
-      if (!header || !body) return;
-      if (scheduleScrollSyncRef.current === "header") return;
-      scheduleScrollSyncRef.current = "body";
-      header.scrollLeft = body.scrollLeft;
-      window.requestAnimationFrame(() => {
-        if (scheduleScrollSyncRef.current === "body") {
-          scheduleScrollSyncRef.current = null;
-        }
-      });
-    };
-
     return (
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#0A4D66]/40">
-          <div
-            ref={scheduleHeaderScrollRef}
-            onScroll={handleHeaderScroll}
-            className="overflow-x-auto"
-          >
-            <div className="w-max flex">
-              <div className="w-50 shrink-0 sticky left-0 z-10 bg-[#001219] flex items-center gap-2 pr-3">
-                <Icon
-                  icon="mdi:calendar-today"
-                  className="w-5 h-5 text-gray-400"
-                />
-                <span className="text-sm font-medium text-white whitespace-nowrap">
-                  {headerLabel}
-                </span>
-                <div className="flex gap-1 ml-3">
-                  <button
-                    type="button"
-                    onClick={() => setScheduleDate((d) => addLocalDays(d, -1))}
-                    className="p-1 rounded hover:bg-[#0A4D66]/40 text-gray-400"
-                  >
-                    <Icon icon="mdi:chevron-left" className="w-5 h-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScheduleDate((d) => addLocalDays(d, 1))}
-                    className="p-1 rounded hover:bg-[#0A4D66]/40 text-gray-400"
-                  >
-                    <Icon icon="mdi:chevron-right" className="w-5 h-5" />
-                  </button>
+      <div className="bg-[#00121a] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
+        <input
+          ref={setScheduleDateInput}
+          type="date"
+          value={scheduleDateValue}
+          onChange={(e) => {
+            const parsed = parseDateOnly(e.target.value);
+            if (!parsed) return;
+            setScheduleDate(startOfLocalDay(parsed));
+          }}
+          className="absolute opacity-0 w-0 h-0 pointer-events-none"
+          tabIndex={-1}
+          aria-hidden="true"
+        />
+
+        <div
+          className="relative overflow-x-auto overscroll-x-contain scroll-smooth"
+          style={{
+            background:
+              "linear-gradient(to right, #001722 0rem, #001722 17rem, transparent 17rem)",
+          }}
+        >
+          <div className="w-max min-w-full">
+            <div className="flex border-b border-[#0A4D66]/40">
+              <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001722] p-3">
+                <div className="space-y-2">
+                  <div className="flex items-stretch border border-[#0A4D66]/50 bg-[#021420] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!scheduleDateInput) return;
+                        const anyInput =
+                          scheduleDateInput as HTMLInputElement & {
+                            showPicker?: () => void;
+                          };
+                        if (typeof anyInput.showPicker === "function") {
+                          anyInput.showPicker();
+                        } else {
+                          scheduleDateInput.click();
+                        }
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-3 bg-[#021420] px-4 text-left hover:bg-[#08283a] transition-colors"
+                    >
+                      <Icon
+                        icon="mdi:calendar-blank-outline"
+                        className="w-4 h-4 shrink-0 text-[#B7E6FF]"
+                      />
+                      <span className="truncate text-sm font-semibold uppercase tracking-wide text-white">
+                        {headerLabel}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setScheduleDate((d) => addLocalDays(d, -1))
+                      }
+                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#08283a] text-[#B7E6FF] hover:bg-[#0d3951] transition-colors"
+                      aria-label="Previous day"
+                    >
+                      <Icon icon="mdi:chevron-left" className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleDate((d) => addLocalDays(d, 1))}
+                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#08283a] text-[#B7E6FF] hover:bg-[#0d3951] transition-colors"
+                      aria-label="Next day"
+                    >
+                      <Icon icon="mdi:chevron-right" className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-xs uppercase tracking-wide text-[#9DDCFF]">
+                      Selected Date
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleDate(today)}
+                      disabled={isToday}
+                      className={cn(
+                        "rounded border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors",
+                        isToday
+                          ? "border-[#0A4D66]/30 text-gray-500 cursor-default"
+                          : "border-[#0A4D66]/50 text-[#B7E6FF] hover:bg-[#08283a]",
+                      )}
+                    >
+                      Today
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="min-w-240 grid grid-cols-24 text-center text-xs text-gray-400 font-medium">
+              <div className="grid bg-[#001722]" style={timelineGridStyle}>
                 {timelineHours.map((h) => (
-                  <div key={h}>{h.toString().padStart(2, "0")}:00</div>
+                  <div
+                    key={h}
+                    className="flex h-16 items-center justify-center border-l border-[#0A4D66]/40 bg-[#0d4d6b] px-3 text-xs font-medium tracking-wide text-[#D9F3FF]"
+                  >
+                    {h.toString().padStart(2, "0")}:00
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="min-h-100 relative">
-          {scheduleOperations.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-gray-400">
-              No operations scheduled for this date.
-            </div>
-          ) : (
-            <div
-              ref={scheduleBodyScrollRef}
-              onScroll={handleBodyScroll}
-              className="overflow-x-auto"
-            >
-              <div className="relative w-max">
-                <div className="absolute inset-y-0 left-50 pointer-events-none">
-                  <div className="min-w-240 h-full grid grid-cols-24">
-                    {timelineHours.map((h) => (
-                      <div
-                        key={h}
-                        className="border-l border-[#0A4D66]/20 h-full"
-                      />
-                    ))}
-                  </div>
+            <div className="min-h-100 relative bg-[#001722]">
+              {scheduleOperations.length === 0 ? (
+                <div className="px-4 py-8 text-center text-sm text-gray-400">
+                  No operations scheduled for this date.
                 </div>
+              ) : (
+                <>
+                  <div className="absolute inset-y-0 left-68 pointer-events-none">
+                    <div className="grid h-full" style={timelineGridStyle}>
+                      {timelineHours.map((h) => (
+                        <div
+                          key={h}
+                          className="h-full border-l border-[#0A4D66]/30 bg-[#00273a]/35"
+                        />
+                      ))}
+                    </div>
+                  </div>
 
-                <div className="divide-y divide-[#0A4D66]/30">
-                  {scheduleOperations.map(({ op, start, end }) => {
-                    const safeStart = start!;
-                    const safeEnd = end!;
-                    const visibleStart =
-                      safeStart < dayStart ? dayStart : safeStart;
-                    const visibleEnd = safeEnd > dayEnd ? dayEnd : safeEnd;
-                    const startMinutes = clamp(
-                      Math.round(
-                        (visibleStart.getTime() - dayStart.getTime()) / 60000,
-                      ),
-                      0,
-                      1440,
-                    );
-                    const endMinutes = clamp(
-                      Math.round(
-                        (visibleEnd.getTime() - dayStart.getTime()) / 60000,
-                      ),
-                      0,
-                      1440,
-                    );
-                    const leftPct = (startMinutes / 1440) * 100;
-                    const widthPct = Math.max(
-                      ((endMinutes - startMinutes) / 1440) * 100,
-                      0.5,
-                    );
-                    const barLabel = `${op.name} • ${formatTime(safeStart)} - ${formatTime(safeEnd)}`;
+                  <div className="relative z-10 min-h-100 divide-y divide-[#0A4D66]/30">
+                    {scheduleOperations.map(({ op, start, end }) => {
+                      const safeStart = start!;
+                      const safeEnd = end!;
+                      const visibleStart =
+                        safeStart < dayStart ? dayStart : safeStart;
+                      const visibleEnd = safeEnd > dayEnd ? dayEnd : safeEnd;
+                      const startMinutes = clamp(
+                        Math.round(
+                          (visibleStart.getTime() - dayStart.getTime()) / 60000,
+                        ),
+                        0,
+                        1440,
+                      );
+                      const endMinutes = clamp(
+                        Math.round(
+                          (visibleEnd.getTime() - dayStart.getTime()) / 60000,
+                        ),
+                        0,
+                        1440,
+                      );
+                      const leftPct = (startMinutes / 1440) * 100;
+                      const widthPct = Math.max(
+                        ((endMinutes - startMinutes) / 1440) * 100,
+                        0.5,
+                      );
+                      const barLabel = `${op.name} • ${formatTime(safeStart)} - ${formatTime(safeEnd)}`;
 
-                    return (
-                      <div
-                        key={op.id}
-                        className="flex h-16 group hover:bg-[#0A4D66]/10 relative"
-                      >
-                        <div className="w-50 shrink-0 sticky left-0 z-10 border-r border-[#0A4D66]/40 bg-[#001219] group-hover:bg-[#0A4D66]/10 p-3">
-                          <p className="text-sm font-medium text-white truncate">
-                            {op.unit.name}
-                          </p>
-                          <p className="text-xs text-gray-400 truncate">
-                            {op.name}
-                          </p>
-                        </div>
-                        <div className="min-w-240 h-full relative">
+                      return (
+                        <div
+                          key={op.id}
+                          className="flex h-[78px] group relative"
+                        >
+                          <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001722] p-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-[#14506d] text-[#B7E6FF]">
+                                <Icon
+                                  icon={
+                                    op.is_flight
+                                      ? "mdi:helicopter"
+                                      : "mdi:briefcase-outline"
+                                  }
+                                  className="w-7 h-7"
+                                />
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[13px] font-bold uppercase leading-5 text-white">
+                                  {op.unit.name}
+                                </p>
+                                <p className="truncate text-sm font-semibold text-[#9DDCFF]">
+                                  {op.name}
+                                </p>
+                                <div className="mt-1 flex items-center gap-2 text-sm text-white/90">
+                                  <span
+                                    className={cn(
+                                      "h-2.5 w-2.5 rounded-full",
+                                      statusDotColor[op.status] ||
+                                        "bg-gray-400",
+                                    )}
+                                  />
+                                  <span className="capitalize">
+                                    {op.status}
+                                  </span>
+                                  <span className="text-white/45">•</span>
+                                  <span>{op.duration_label}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
                           <div
-                            className={cn(
-                              "absolute top-3 bottom-3 rounded px-2 flex items-center text-xs font-medium text-black truncate",
-                              op.status === "completed"
-                                ? "bg-emerald-400"
-                                : op.status === "planned"
-                                  ? "bg-blue-400"
-                                  : op.status === "aborted"
-                                    ? "bg-red-400"
-                                    : "bg-amber-400",
-                            )}
-                            style={{
-                              left: `${leftPct}%`,
-                              width: `${widthPct}%`,
-                            }}
-                            title={barLabel}
+                            className="h-full relative border-b border-[#0A4D66]/20"
+                            style={{ width: `${timelineColumnWidth * 24}px` }}
                           >
-                            {barLabel}
+                            <div
+                              className={cn(
+                                "absolute left-0 top-1/2 flex h-12 -translate-y-1/2 items-center rounded-sm px-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04)]",
+                                op.status === "completed"
+                                  ? "bg-emerald-500"
+                                  : op.status === "planned"
+                                    ? "bg-blue-500"
+                                    : op.status === "aborted"
+                                      ? "bg-red-500"
+                                      : "bg-amber-500",
+                              )}
+                              style={{
+                                left: `${leftPct}%`,
+                                width: `${widthPct}%`,
+                              }}
+                              title={barLabel}
+                            >
+                              <span className="truncate">{barLabel}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
     );
