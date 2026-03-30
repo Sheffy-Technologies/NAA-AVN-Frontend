@@ -659,6 +659,8 @@ export const AddAssetPage = () => {
         unit_id: Number(formData.unit_id) || 1, // Default to 1 if not selected
         asset_type_id: Number(formData.asset_type_id) || 0,
         name: formData.name,
+        image: uploadedPhotoUrl || undefined,
+        image_url: uploadedPhotoUrl || undefined,
         serial_number: formData.serial_number,
         model: formData.model,
         configuration: [
@@ -879,11 +881,13 @@ export const AddAssetPage = () => {
           )}
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isLoading || isUploadingPhoto}
             className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-6 py-2 rounded text-sm font-bold transition-colors"
           >
             <Icon icon="mdi:check" className="w-5 h-5" />
-            <span>{isLoading ? "Saving..." : "Save & Exit"}</span>
+            <span>
+              {isLoading ? "Saving..." : isUploadingPhoto ? "Uploading..." : "Save & Exit"}
+            </span>
           </button>
         </div>
       </div>
@@ -3975,10 +3979,10 @@ export const AddAssetPage = () => {
         <div className="flex justify-end pt-8">
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isLoading || isUploadingPhoto}
             className="w-full md:w-auto bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-8 py-3 rounded text-sm font-bold transition-colors uppercase tracking-widest"
           >
-            {isLoading ? "Saving..." : "Save"}
+            {isLoading ? "Saving..." : isUploadingPhoto ? "Uploading..." : "Save"}
           </button>
         </div>
       </div>

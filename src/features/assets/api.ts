@@ -213,6 +213,8 @@ export type CreateAssetPayload = {
   unit_id: number;
   asset_type_id: number;
   name: string;
+  image?: string;
+  image_url?: string;
   serial_number: string;
   model: string;
   configuration: AssetConfiguration;
@@ -277,6 +279,8 @@ export type Asset = {
   type: "aircraft" | "vehicle" | "airbase" | "equipment";
   unit_id: number;
   name: string;
+  image?: string | null;
+  image_url?: string | null;
   serial_number: string;
   model: string;
   configuration: AssetConfiguration;

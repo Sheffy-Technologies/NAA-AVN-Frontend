@@ -38,6 +38,8 @@ export const AssetDetailsPage = () => {
       .join(" ");
   };
 
+  const assetImageUrl = asset.image_url || asset.image || "";
+
   return (
     <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
       {/* Header */}
@@ -105,11 +107,19 @@ export const AssetDetailsPage = () => {
             {/* Top Stats Section */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               {/* Image Card */}
-              <div className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40 flex items-center justify-center min-h-[200px]">
-                <Icon
-                  icon="mdi:helicopter"
-                  className="w-32 h-32 text-gray-600"
-                />
+              <div className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40 flex items-center justify-center min-h-[200px] overflow-hidden">
+                {assetImageUrl ? (
+                  <img
+                    src={assetImageUrl}
+                    alt={asset.name}
+                    className="w-full h-full max-h-[240px] object-contain"
+                  />
+                ) : (
+                  <Icon
+                    icon="mdi:helicopter"
+                    className="w-32 h-32 text-gray-600"
+                  />
+                )}
               </div>
 
               {/* Stats Cards */}
