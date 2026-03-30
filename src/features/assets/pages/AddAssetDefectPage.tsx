@@ -1,17 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAppDispatch } from "@/app/store";
 import { useGetOperationsQuery } from "@/features/operations/api";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import { showToast } from "@/shared/store/toastSlice";
-import { useGetAssetByIdQuery, useUpdateAssetMutation } from "../api";
-
-const toDateOnly = (value: string): string => {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  return trimmed.split("T")[0];
-};
+import {
+  MultiSelect,
+  type MultiSelectOption,
+} from "@/shared/ui/multi-select/MultiSelect";
+import {
+  useCreateDefectMutation,
+  useGetAssetByIdQuery,
+} from "../api";
 
 export const AddAssetDefectPage = () => {
   const navigate = useNavigate();
@@ -23,16 +24,25 @@ export const AddAssetDefectPage = () => {
   const { data: asset, isLoading } = useGetAssetByIdQuery(assetId, {
     skip: !canLoad,
   });
-  const [updateAsset, { isLoading: isSaving }] = useUpdateAssetMutation();
+  const [createDefect, { isLoading: isSaving }] = useCreateDefectMutation();
   const { data: operations = [] } = useGetOperationsQuery();
   const { data: engineers = [] } = useGetPersonnelQuery({
-    branches: [3],
+    branches: [],
     units: [],
     ranks: [],
     corps: [],
     specialties: [],
     status: [],
   });
+
+  const engineerOptions: MultiSelectOption[] = useMemo(
+    () =>
+      engineers.map((p) => ({
+        value: p.id,
+        label: `${p.rank?.name ? `${p.rank.name} ` : ""}${p.firstname} ${p.lastname}`.trim(),
+      })),
+    [engineers],
+  );
 
   const [defect, setDefect] = useState({
     defect_reported: "",
@@ -43,8 +53,9 @@ export const AddAssetDefectPage = () => {
     remark: "",
     rectified: false,
     rectification_details: "",
+    inspection_name: "",
     work_done: "",
-    certifying_engineer: "",
+    certifying_engineers: [] as number[],
   });
 
   const handleSubmit = async () => {
@@ -60,26 +71,29 @@ export const AddAssetDefectPage = () => {
       return;
     }
 
-    const engineerId = Number(defect.certifying_engineer);
-    const personnel =
-      Number.isFinite(engineerId) && engineerId > 0 ? [engineerId] : [];
+    const personnel = defect.certifying_engineers
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value > 0);
+
+    const maintenanceEvents = defect.rectified
+      ? [
+          {
+            inspection_name:
+              defect.inspection_name || defect.rectification_details || "Rectification",
+            work_done: defect.work_done || defect.rectification_details,
+          },
+        ]
+      : undefined;
 
     try {
-      await updateAsset({
-        id: assetId,
-        data: {
-          defects: [
-            {
-              operation_id: Number(defect.operation_id),
-              title: defect.defect_reported || defect.defect_description,
-              description: defect.defect_description || defect.defect_reported,
-              reported_at: toDateOnly(defect.date_of_defect || new Date().toISOString()),
-              status: defect.rectified ? "resolved" : "open",
-              severity: "low",
-              personnel,
-            },
-          ],
-        },
+      await createDefect({
+        asset_id: assetId,
+        title: defect.defect_reported || defect.defect_description,
+        description: defect.defect_description || defect.defect_reported,
+        remarks: defect.remark,
+        operation_id: Number(defect.operation_id),
+        personnel_ids: personnel,
+        maintenance_events: maintenanceEvents,
       }).unwrap();
 
       dispatch(
@@ -234,7 +248,7 @@ export const AddAssetDefectPage = () => {
             </label>
           </div>
 
-          {!defect.rectified && (
+          {defect.rectified && (
             <div className="space-y-4">
               <div className="space-y-1">
                 <label className="text-xs text-gray-400">Rectification Details</label>
@@ -247,6 +261,21 @@ export const AddAssetDefectPage = () => {
                     setDefect((prev) => ({
                       ...prev,
                       rectification_details: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">Inspection Name</label>
+                <input
+                  type="text"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                  placeholder="Enter Inspection Name"
+                  value={defect.inspection_name}
+                  onChange={(e) =>
+                    setDefect((prev) => ({
+                      ...prev,
+                      inspection_name: e.target.value,
                     }))
                   }
                 />
@@ -265,26 +294,20 @@ export const AddAssetDefectPage = () => {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-gray-400">Certifying Engineer</label>
-                  <select
-                    title="Certifying Engineer"
-                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                    value={defect.certifying_engineer}
-                    onChange={(e) =>
+                  <MultiSelect
+                    label="Certifying Engineers"
+                    placeholder="Select Engineers"
+                    options={engineerOptions}
+                    selectedValues={defect.certifying_engineers}
+                    onChange={(selected) =>
                       setDefect((prev) => ({
                         ...prev,
-                        certifying_engineer: e.target.value,
+                        certifying_engineers: selected
+                          .map((value) => Number(value))
+                          .filter((value) => Number.isFinite(value) && value > 0),
                       }))
                     }
-                  >
-                    <option value="">Select Engineers</option>
-                    {engineers.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.rank?.name ? `${p.rank.name} ` : ""}
-                        {p.firstname} {p.lastname}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
             </div>
