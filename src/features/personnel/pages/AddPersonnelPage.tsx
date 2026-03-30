@@ -7,6 +7,7 @@ import {
   useGetPersonnelSpecialtiesQuery,
   useGetPersonnelBranchesQuery,
   useGetPersonnelCorpsQuery,
+  useGetPersonnelRatingsQuery,
   useCreatePersonnelMutation,
   useUploadPersonnelImageMutation,
   type CreatePersonnelRequest,
@@ -26,20 +27,23 @@ interface ApiError {
   };
 }
 
-const RATING_OPTIONS: MultiSelectOption[] = [
-  { label: "PPL", value: "PPL" },
-  { label: "CPL", value: "CPL" },
-  { label: "ATPL", value: "ATPL" },
-  { label: "IR", value: "IR" },
-  { label: "ME", value: "ME" },
-  { label: "NVG", value: "NVG" },
-  { label: "Tactical", value: "Tactical" },
-  { label: "QFI", value: "QFI" },
-  { label: "Cat A", value: "Cat A" },
-  { label: "B1", value: "B1" },
-  { label: "B2", value: "B2" },
-  { label: "C", value: "C" },
-];
+type AddPersonnelFormData = {
+  service_number: string;
+  firstname: string;
+  lastname: string;
+  othernames: string;
+  phone_number: string;
+  email: string;
+  address: string;
+  blood_group: string;
+  call_sign: string;
+  rating_type: string;
+  rank_id: number;
+  unit_id: number;
+  branch_id: number;
+  specialty_id: number;
+  corp_id: number;
+};
 
 export const AddPersonnelPage = () => {
   const navigate = useNavigate();
@@ -54,12 +58,14 @@ export const AddPersonnelPage = () => {
   const { data: specialties } = useGetPersonnelSpecialtiesQuery();
   const { data: branches } = useGetPersonnelBranchesQuery();
   const { data: corps } = useGetPersonnelCorpsQuery();
+  const { data: ratings = [], isLoading: isLoadingRatings } =
+    useGetPersonnelRatingsQuery();
   const { data: units } = useGetUnitsQuery();
   const { data: aircraftAssets = [], isLoading: isLoadingAircraftAssets } =
     useGetAssetsQuery({ type: "aircraft" });
 
   // Form State
-  const [formData, setFormData] = useState<CreatePersonnelRequest>({
+  const [formData, setFormData] = useState<AddPersonnelFormData>({
     service_number: "",
     firstname: "",
     lastname: "",
@@ -81,9 +87,9 @@ export const AddPersonnelPage = () => {
   const [selectedAircraftIds, setSelectedAircraftIds] = useState<number[]>([]);
   const [flightHours, setFlightHours] = useState<Record<number, string>>({});
 
-  const [selectedRatings, setSelectedRatings] = useState<string[]>([]);
+  const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
   const [ratingExpiryDates, setRatingExpiryDates] = useState<
-    Record<string, string>
+    Record<number, string>
   >({});
 
   // Image Upload State
@@ -158,49 +164,54 @@ export const AddPersonnelPage = () => {
   };
 
   const handleRatingChange = (selected: (string | number)[]) => {
-    const ratings = selected as string[];
+    const ratings = selected as number[];
     setSelectedRatings(ratings);
 
-    // Clean up expiry dates for deselected ratings
     setRatingExpiryDates((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((key) => {
-        if (!ratings.includes(key)) {
-          delete next[key];
+        const ratingId = Number(key);
+        if (!ratings.includes(ratingId)) {
+          delete next[ratingId];
         }
       });
       return next;
     });
   };
 
-  const handleRatingExpiryChange = (rating: string, value: string) => {
+  const handleRatingExpiryChange = (ratingId: number, value: string) => {
     setRatingExpiryDates((prev) => ({
       ...prev,
-      [rating]: value,
+      [ratingId]: value,
     }));
+  };
+
+  const formatDateToIsoString = (value: string, endOfDay: boolean = false) => {
+    if (!value) return "";
+    const time = endOfDay ? "T23:59:59.000Z" : "T00:00:00.000Z";
+    return new Date(`${value}${time}`).toISOString();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Prepare the payload strictly according to the user's request body
-      // Note: flightHours, selectedAircraftIds, ratingExpiryDates are collected but not sent
-      // in the CreatePersonnelRequest as per the current API definition.
-
-      const aircraftNames = selectedAircraftIds
-        .map((id) => aircraftAssets.find((a) => a.id === id)?.name)
-        .filter(Boolean) as string[];
-
       const payload: CreatePersonnelRequest = {
         ...formData,
-        rating_type: [...selectedRatings, ...aircraftNames].join(","), // Join selected ratings and aircraft names
-        // Ensure numeric fields are numbers
-        rank_id: Number(formData.rank_id),
-        unit_id: Number(formData.unit_id),
-        branch_id: Number(formData.branch_id),
-        specialty_id: Number(formData.specialty_id),
-        corp_id: Number(formData.corp_id),
+        rank_id: String(formData.rank_id),
+        unit_id: String(formData.unit_id),
+        branch_id: String(formData.branch_id),
+        specialty_id: String(formData.specialty_id),
+        corp_id: String(formData.corp_id),
         image: imageUrl || undefined,
+        ratings: selectedRatings.map((ratingId) => ({
+          rating_id: ratingId,
+          expiry_date: formatDateToIsoString(ratingExpiryDates[ratingId]),
+        })),
+        flight_experiences: selectedAircraftIds.map((assetId) => ({
+          asset_id: assetId,
+          flight_hours: Number(flightHours[assetId] || 0),
+          notes: "",
+        })),
         deployments:
           currentDeploymentUnitId &&
           lastDeploymentUnitId &&
@@ -208,10 +219,10 @@ export const AddPersonnelPage = () => {
           lastDeploymentDate
             ? [
                 {
-                  from_unit_id: String(lastDeploymentUnitId),
-                  to_unit_id: String(currentDeploymentUnitId),
-                  start_date: lastDeploymentDate,
-                  end_date: currentDeploymentDate,
+                  from_unit_id: Number(lastDeploymentUnitId),
+                  to_unit_id: Number(currentDeploymentUnitId),
+                  start_date: formatDateToIsoString(lastDeploymentDate),
+                  end_date: formatDateToIsoString(currentDeploymentDate, true),
                 },
               ]
             : [],
@@ -260,6 +271,23 @@ export const AddPersonnelPage = () => {
       value: a.id,
     }));
   }, [aircraftAssets, isLoadingAircraftAssets]);
+
+  const ratingOptions: MultiSelectOption[] = useMemo(
+    () =>
+      ratings.map((rating) => ({
+        label: rating.name,
+        value: rating.id,
+      })),
+    [ratings],
+  );
+
+  const ratingLabelById = useMemo(
+    () =>
+      new Map(
+        ratingOptions.map((option) => [Number(option.value), option.label]),
+      ),
+    [ratingOptions],
+  );
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -413,9 +441,10 @@ export const AddPersonnelPage = () => {
             <MultiSelect
               label="Type of Rating"
               placeholder="Select Type of rating"
-              options={RATING_OPTIONS}
+              options={ratingOptions}
               selectedValues={selectedRatings}
               onChange={handleRatingChange}
+              disabled={isLoadingRatings}
             />
             <MultiSelect
               label="Aircraft Rated On"
@@ -437,13 +466,14 @@ export const AddPersonnelPage = () => {
               {selectedRatings.map((rating) => (
                 <InputField
                   key={rating}
-                  label={`${rating} Expiry Date`}
+                  label={`${ratingLabelById.get(rating) || "Rating"} Expiry Date`}
                   type="date"
                   value={ratingExpiryDates[rating] || ""}
                   onChange={(e) =>
                     handleRatingExpiryChange(rating, e.target.value)
                   }
                   placeholder="00/00/0000"
+                  required
                 />
               ))}
             </div>
@@ -458,17 +488,22 @@ export const AddPersonnelPage = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {selectedAircraftIds.map((aircraftId) => {
-                const aircraft = aircraftAssets.find((a) => a.id === aircraftId);
+                const aircraft = aircraftAssets.find(
+                  (a) => a.id === aircraftId,
+                );
                 return (
                   <InputField
                     key={aircraftId}
                     label={aircraft?.name || "Unknown Aircraft"}
-                    type="text"
+                    type="number"
                     value={flightHours[aircraftId] || ""}
                     onChange={(e) =>
                       handleFlightHourChange(aircraftId, e.target.value)
                     }
                     placeholder="Enter Total Flight Hours"
+                    min="0"
+                    step="0.1"
+                    required
                   />
                 );
               })}

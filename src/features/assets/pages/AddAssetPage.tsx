@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAppDispatch } from "@/app/store";
 import { useGetUnitsQuery } from "@/shared/api/units";
@@ -10,13 +10,16 @@ import { showToast } from "@/shared/store/toastSlice";
 import {
   useCreateAssetMutation,
   useCreateDocumentMutation,
+  useGetAssetByIdQuery,
   useGetAssetTypesQuery,
   useGetAvionicCategoriesQuery,
   useGetComponentTypesQuery,
   useGetDocumentTypesQuery,
   useGetEngineCategoriesQuery,
   useGetEnginePositionsQuery,
+  useUpdateAssetMutation,
   useUploadAssetImageMutation,
+  type AssetDetail,
   type CreateAssetPayload,
 } from "../api";
 
@@ -98,8 +101,22 @@ const extractApiErrorMessage = (error: unknown): string => {
 
 export const AddAssetPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { id: routeId } = useParams<{ id: string }>();
+  const isEditRoute = location.pathname.endsWith("/edit");
+  const editAssetId = routeId ? Number(routeId) : NaN;
+  const canEdit =
+    isEditRoute && Number.isFinite(editAssetId) && Number(editAssetId) > 0;
   const dispatch = useAppDispatch();
-  const [createAsset, { isLoading }] = useCreateAssetMutation();
+  const [createAsset, { isLoading: isCreating }] = useCreateAssetMutation();
+  const [updateAsset, { isLoading: isUpdating }] = useUpdateAssetMutation();
+  const {
+    data: editAsset,
+    isFetching: isLoadingEditAsset,
+    isSuccess: isEditAssetLoaded,
+  } = useGetAssetByIdQuery(editAssetId, {
+    skip: !canEdit,
+  });
   const [createDocument, { isLoading: isUploadingDocument }] =
     useCreateDocumentMutation();
   const [uploadAssetImage, { isLoading: isUploadingPhoto }] =
@@ -128,6 +145,8 @@ export const AddAssetPage = () => {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
   const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState("");
   const [photoError, setPhotoError] = useState("");
+  const hasHydratedEditForm = useRef(false);
+  const isSaving = isCreating || isUpdating;
 
   useEffect(() => {
     return () => {
@@ -263,7 +282,7 @@ export const AddAssetPage = () => {
       location: "",
       defect_description: "",
       remark: "",
-      rectified: false,
+      rectified: true,
       rectification_details: "",
       work_done: "",
       certifying_engineer: "",
@@ -279,6 +298,237 @@ export const AddAssetPage = () => {
       expiry_date: "",
     },
   ]);
+
+  useEffect(() => {
+    if (!canEdit || !isEditAssetLoaded || !editAsset || hasHydratedEditForm.current)
+      return;
+
+    const loadedAsset = editAsset as AssetDetail &
+      Partial<CreateAssetPayload> & {
+        asset_type_id?: number | string;
+        total_cycles?: number | string;
+        cycle_limit?: number | string;
+        last_inspection_cycles?: number | string;
+        inspection_interval_cycle?: number | string;
+      };
+
+    const rawConfiguration: unknown = loadedAsset.configuration;
+    const configurationEntries: string[] = Array.isArray(rawConfiguration)
+      ? rawConfiguration.map((entry) => String(entry))
+      : rawConfiguration && typeof rawConfiguration === "object"
+        ? Object.entries(rawConfiguration).map(
+            ([key, value]) => `${key}:${String(value ?? "")}`,
+          )
+        : typeof rawConfiguration === "string"
+          ? rawConfiguration
+              .split(",")
+              .map((entry: string) => entry.trim())
+              .filter(Boolean)
+          : [];
+
+    const configMap = new Map<string, string>(
+      configurationEntries.map((entry: string): [string, string] => {
+        const [key, ...rest] = entry.split(":");
+        return [key, rest.join(":")];
+      }),
+    );
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFormData((prev) => ({
+      ...prev,
+      type: loadedAsset.type || "aircraft",
+      name: loadedAsset.name || "",
+      tail_number: loadedAsset.tail_number || "",
+      serial_number: loadedAsset.serial_number || "",
+      asset_type_id:
+        loadedAsset.asset_type_id != null ? String(loadedAsset.asset_type_id) : "",
+      model: loadedAsset.model || "",
+      unit_id: String(loadedAsset.unit_id || ""),
+      operation_status: loadedAsset.serviceability_status || "serviceable",
+      total_airframe_hours: String(loadedAsset.total_airframe_hours || ""),
+      service_life_limit: String(loadedAsset.service_life_limit || ""),
+      last_major_inspection_date: toDateOnly(loadedAsset.last_inspection_date || ""),
+      last_major_inspection_hours: String(loadedAsset.last_inspection_hours || ""),
+      inspection_interval: String(loadedAsset.inspection_interval || ""),
+      next_annual_inspection: toDateOnly(
+        loadedAsset.next_annual_inspection_date || "",
+      ),
+      next_type_of_inspection: loadedAsset.next_type_of_inspection || "",
+      airframe_cycles: String(loadedAsset.total_cycles || ""),
+      service_life_limit_cycles: String(loadedAsset.cycle_limit || ""),
+      last_inspection_cycles: String(loadedAsset.last_inspection_cycles || ""),
+      inspection_interval_cycles: String(loadedAsset.inspection_interval_cycle || ""),
+      landings: String(loadedAsset.landings || ""),
+      role: configMap.get("role") ?? prev.role,
+      seats: Number(configMap.get("seats")) || prev.seats,
+      manufacturer: loadedAsset.manufacturer || "",
+      purchase_date: toDateOnly(loadedAsset.purchase_date || ""),
+    }));
+
+    setUploadedPhotoUrl(loadedAsset.image_url || loadedAsset.image || "");
+
+    const mappedEngines = (loadedAsset.engines || []).map((engine) => ({
+      position_id: Number(engine.position_id) || 1,
+      track_by: "hours" as TrackByKey,
+      serial_number: engine.serial_number || "",
+      model: engine.model || "",
+      installation_date: toDateOnly(engine.installation_date || ""),
+      time_since_new: String(engine.time_since_new || ""),
+      time_since_overhaul: String(engine.time_since_overhaul || ""),
+      service_life_limit: String(engine.service_life_limit || ""),
+      overhaul_limit: String(engine.overhaul_limit || ""),
+      cycles_since_new: "",
+      service_life_limit_cycles: "",
+      cycles_since_overhaul: "",
+      overhaul_limit_cycles: "",
+    }));
+
+    setEngines(
+      mappedEngines.length > 0
+        ? mappedEngines
+        : [
+            {
+              position_id: 1,
+              track_by: "hours",
+              serial_number: "",
+              model: "",
+              installation_date: "",
+              time_since_new: "",
+              time_since_overhaul: "",
+              service_life_limit: "",
+              overhaul_limit: "",
+              cycles_since_new: "",
+              service_life_limit_cycles: "",
+              cycles_since_overhaul: "",
+              overhaul_limit_cycles: "",
+            },
+          ],
+    );
+
+    setEngineComponentsByEngine(
+      (mappedEngines.length > 0 ? mappedEngines : [null]).map(() => [
+        {
+          component_type: "",
+          track_by: "hours",
+          part_number: "",
+          serial_number: "",
+          life_limit_hours: "",
+          time_since_overhaul: "",
+          time_since_new: "",
+          overhaul_limit: "",
+          hours_used: "",
+          installed_at: "",
+          cycles_since_new: "",
+          service_life_limit_cycles: "",
+          cycles_since_overhaul: "",
+          overhaul_limit_cycles: "",
+        },
+      ]),
+    );
+    setActiveEngineIndex(0);
+
+    const mappedComponents = (loadedAsset.components || []).map((component) => ({
+      component_type: String(
+        (component as { component_type_id?: number | string }).component_type_id || "",
+      ),
+      track_by: "hours" as TrackByKey,
+      part_number: component.part_number || "",
+      serial_number: component.serial_number || "",
+      life_limit_hours: String(component.life_limit_hours || ""),
+      time_since_overhaul: String(component.time_since_overhaul || ""),
+      time_since_new: String(component.time_since_new || ""),
+      overhaul_limit: String(component.overhaul_limit || ""),
+      hours_used: String(component.hours_used || ""),
+      installed_at: toDateOnly(component.installed_at || ""),
+      cycles_since_new: "",
+      service_life_limit_cycles: "",
+      cycles_since_overhaul: "",
+      overhaul_limit_cycles: "",
+    }));
+
+    setComponents(
+      mappedComponents.length > 0
+        ? mappedComponents
+        : [
+            {
+              component_type: "",
+              track_by: "hours",
+              part_number: "",
+              serial_number: "",
+              life_limit_hours: "",
+              time_since_overhaul: "",
+              time_since_new: "",
+              overhaul_limit: "",
+              hours_used: "",
+              installed_at: "",
+              cycles_since_new: "",
+              service_life_limit_cycles: "",
+              cycles_since_overhaul: "",
+              overhaul_limit_cycles: "",
+            },
+          ],
+    );
+
+    setDocuments(
+      (loadedAsset.documents || []).length > 0
+        ? (loadedAsset.documents || []).map((doc) => ({
+            document_type: String(doc.document_type || ""),
+            file: doc.file || "",
+            file_url: doc.file || "",
+            issue_date: toDateOnly(doc.issue_date || ""),
+            expiry_date: toDateOnly(doc.expiry_date || ""),
+          }))
+        : [
+            {
+              document_type: "",
+              file: "",
+              file_url: "",
+              issue_date: "",
+              expiry_date: "",
+            },
+          ],
+    );
+
+    const mappedDefects = (loadedAsset.maintenance_events || [])
+      .filter((event) =>
+        ["defect", "maintenance", "unscheduled"]
+          .map((x) => x.toLowerCase())
+          .includes(String(event.event_type || "").toLowerCase()),
+      )
+      .map((event) => ({
+        defect_reported: event.defect_reported || event.description || "",
+        date_of_defect: toDateOnly(event.date_of_defect || event.started_at || ""),
+        operation_id: "",
+        location: event.location || "",
+        defect_description: event.description || event.defect_reported || "",
+        remark: event.remarks || "",
+        rectified: Boolean(event.rectified),
+        rectification_details: event.rectification_details || "",
+        work_done: event.work_done || "",
+        certifying_engineer: String(event.certifying_engineer || ""),
+      }));
+
+    setDefects(
+      mappedDefects.length > 0
+        ? mappedDefects
+        : [
+            {
+              defect_reported: "",
+              date_of_defect: "",
+              operation_id: "",
+              location: "",
+              defect_description: "",
+              remark: "",
+              rectified: true,
+              rectification_details: "",
+              work_done: "",
+              certifying_engineer: "",
+            },
+          ],
+    );
+
+    hasHydratedEditForm.current = true;
+  }, [canEdit, editAsset, isEditAssetLoaded]);
 
   const handleFillTestValues = () => {
     const isoDate = new Date().toISOString().slice(0, 10);
@@ -529,6 +779,21 @@ export const AddAssetPage = () => {
     setter([...list, item]);
   };
 
+  const handleRectifiedChange = (index: number, rectified: boolean) => {
+    const newDefects = [...defects];
+    const currentDefect = newDefects[index];
+
+    newDefects[index] = {
+      ...currentDefect,
+      rectified,
+      rectification_details: rectified ? "" : currentDefect.rectification_details,
+      work_done: rectified ? "" : currentDefect.work_done,
+      certifying_engineer: rectified ? "" : currentDefect.certifying_engineer,
+    };
+
+    setDefects(newDefects);
+  };
+
   const removeItem = <T,>(
     setter: (val: T[]) => void,
     list: T[],
@@ -644,6 +909,8 @@ export const AddAssetPage = () => {
         unit_id: Number(formData.unit_id) || 1, // Default to 1 if not selected
         asset_type_id: Number(formData.asset_type_id) || 0,
         name: formData.name,
+        image: uploadedPhotoUrl || undefined,
+        image_url: uploadedPhotoUrl || undefined,
         serial_number: formData.serial_number,
         model: formData.model,
         configuration: [
@@ -802,10 +1069,14 @@ export const AddAssetPage = () => {
         maintenance_events: [],
       };
 
-      await createAsset(payload).unwrap();
+      if (canEdit) {
+        await updateAsset({ id: editAssetId, data: payload }).unwrap();
+      } else {
+        await createAsset(payload).unwrap();
+      }
       navigate("/dashboard/assets");
     } catch (error) {
-      console.error("Failed to create asset:", error);
+      console.error(`Failed to ${canEdit ? "update" : "create"} asset:`, error);
       dispatch(
         showToast({
           message: extractApiErrorMessage(error),
@@ -844,12 +1115,20 @@ export const AddAssetPage = () => {
     }
   };
 
+  if (canEdit && isLoadingEditAsset && !editAsset) {
+    return (
+      <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+        <div className="p-8 text-center text-gray-400">Loading asset details...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-8 border-b border-[#0A4D66]/40 pb-4">
         <h1 className="text-2xl font-bold uppercase tracking-wider text-white">
-          Add Aircraft
+          {isEditRoute ? "Edit Asset" : "Add Aircraft"}
         </h1>
         <div className="flex items-center gap-3">
           {import.meta.env.DEV && (
@@ -864,11 +1143,17 @@ export const AddAssetPage = () => {
           )}
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isSaving || isUploadingPhoto}
             className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-6 py-2 rounded text-sm font-bold transition-colors"
           >
             <Icon icon="mdi:check" className="w-5 h-5" />
-            <span>{isLoading ? "Saving..." : "Save & Exit"}</span>
+            <span>
+              {isSaving
+                ? "Saving..."
+                : isUploadingPhoto
+                  ? "Uploading..."
+                  : "Save & Exit"}
+            </span>
           </button>
         </div>
       </div>
@@ -3551,7 +3836,7 @@ export const AddAssetPage = () => {
                     location: "",
                     defect_description: "",
                     remark: "",
-                    rectified: false,
+                    rectified: true,
                     rectification_details: "",
                     work_done: "",
                     certifying_engineer: "",
@@ -3716,15 +4001,7 @@ export const AddAssetPage = () => {
                         type="radio"
                         name={`rectified-${idx}`}
                         checked={defect.rectified}
-                        onChange={() =>
-                          updateItem(
-                            setDefects,
-                            defects,
-                            idx,
-                            "rectified",
-                            true,
-                          )
-                        }
+                        onChange={() => handleRectifiedChange(idx, true)}
                         className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                       />
                       Yes
@@ -3734,15 +4011,7 @@ export const AddAssetPage = () => {
                         type="radio"
                         name={`rectified-${idx}`}
                         checked={!defect.rectified}
-                        onChange={() =>
-                          updateItem(
-                            setDefects,
-                            defects,
-                            idx,
-                            "rectified",
-                            false,
-                          )
-                        }
+                        onChange={() => handleRectifiedChange(idx, false)}
                         className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                       />
                       No
@@ -3976,10 +4245,10 @@ export const AddAssetPage = () => {
         <div className="flex justify-end pt-8">
           <button
             onClick={handleSubmit}
-            disabled={isLoading}
+            disabled={isSaving || isUploadingPhoto}
             className="w-full md:w-auto bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-8 py-3 rounded text-sm font-bold transition-colors uppercase tracking-widest"
           >
-            {isLoading ? "Saving..." : "Save"}
+            {isSaving ? "Saving..." : isUploadingPhoto ? "Uploading..." : "Save"}
           </button>
         </div>
       </div>

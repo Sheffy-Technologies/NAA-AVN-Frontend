@@ -38,6 +38,8 @@ export const AssetDetailsPage = () => {
       .join(" ");
   };
 
+  const assetImageUrl = asset.image_url || asset.image || "";
+
   return (
     <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
       {/* Header */}
@@ -59,19 +61,32 @@ export const AssetDetailsPage = () => {
             <Icon icon="mdi:refresh" className="w-4 h-4" />
             <span>Update status</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            onClick={() => navigate("/dashboard/operations/add")}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:clock-outline" className="w-4 h-4" />
-            <span>Log Flight hrs</span>
+            <span>Add Operations</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            onClick={() => navigate(`/dashboard/assets/${asset.id}/defects/add`)}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:alert-circle-outline" className="w-4 h-4" />
             <span>Report Defect</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            onClick={() => navigate(`/dashboard/assets/${asset.id}/edit`)}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
             <span>Edit</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            aria-label="Download asset details"
+            title="Download asset details"
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:download" className="w-4 h-4" />
           </button>
         </div>
@@ -105,11 +120,19 @@ export const AssetDetailsPage = () => {
             {/* Top Stats Section */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
               {/* Image Card */}
-              <div className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40 flex items-center justify-center min-h-[200px]">
-                <Icon
-                  icon="mdi:helicopter"
-                  className="w-32 h-32 text-gray-600"
-                />
+              <div className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40 flex items-center justify-center min-h-[200px] overflow-hidden">
+                {assetImageUrl ? (
+                  <img
+                    src={assetImageUrl}
+                    alt={asset.name}
+                    className="w-full h-full max-h-[240px] object-contain"
+                  />
+                ) : (
+                  <Icon
+                    icon="mdi:helicopter"
+                    className="w-32 h-32 text-gray-600"
+                  />
+                )}
               </div>
 
               {/* Stats Cards */}

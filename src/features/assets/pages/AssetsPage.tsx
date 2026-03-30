@@ -13,7 +13,7 @@ import { useClickOutside } from "@/shared/hooks/useClickOutside";
 const TABS = [
   { id: "aircraft", label: "Aircrafts", icon: "mdi:airplane" },
   { id: "vehicle", label: "Vehicles", icon: "mdi:car" },
-  { id: "airbase", label: "Airbases", icon: "mdi:airport" },
+  // { id: "airbase", label: "Airbases", icon: "mdi:airport" },
   { id: "facility", label: "Facilities", icon: "mdi:office-building" },
   { id: "equipment", label: "Equipments", icon: "mdi:tools" },
 ];
@@ -109,6 +109,9 @@ export const AssetsPage = () => {
     const diff = nextVal - currentVal;
     return diff > 0 ? `${diff.toFixed(0)} hrs` : "0 hrs";
   };
+
+  const getAssetImageUrl = (asset: Asset) =>
+    asset.image_url || asset.image || "";
 
   return (
     <div className="space-y-6">
@@ -241,7 +244,7 @@ export const AssetsPage = () => {
         {/* View Content */}
         {viewMode === "table" ? (
           <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-hidden overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1200px]">
+            <table className="w-full text-left border-collapse min-w-[1100px]">
               <thead>
                 <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
                   <th className="px-6 py-4 font-medium">Tail No.</th>
@@ -249,7 +252,6 @@ export const AssetsPage = () => {
                   <th className="px-6 py-4 font-medium">Type</th>
                   <th className="px-6 py-4 font-medium">Unit</th>
                   <th className="px-6 py-4 font-medium">Airframe Hrs</th>
-                  <th className="px-6 py-4 font-medium">Engine Hrs</th>
                   <th className="px-6 py-4 font-medium">
                     Hrs to Limiting Item
                   </th>
@@ -263,7 +265,7 @@ export const AssetsPage = () => {
                 {isLoading ? (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={10}
                       className="px-6 py-8 text-center text-gray-500"
                     >
                       Loading...
@@ -272,7 +274,7 @@ export const AssetsPage = () => {
                 ) : filteredAssets.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={11}
+                      colSpan={10}
                       className="px-6 py-8 text-center text-gray-500"
                     >
                       No assets found
@@ -291,15 +293,23 @@ export const AssetsPage = () => {
                         {asset.tail_number}
                       </td>
                       <td className="px-6 py-4 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded bg-[#0A4D66]/40 flex items-center justify-center">
-                          <Icon
-                            icon={
-                              asset.type === "aircraft"
-                                ? "mdi:helicopter"
-                                : "mdi:cube"
-                            }
-                            className="w-5 h-5 text-[#7FD5FF]"
-                          />
+                        <div className="w-8 h-8 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
+                          {getAssetImageUrl(asset) ? (
+                            <img
+                              src={getAssetImageUrl(asset)}
+                              alt={asset.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Icon
+                              icon={
+                                asset.type === "aircraft"
+                                  ? "mdi:helicopter"
+                                  : "mdi:cube"
+                              }
+                              className="w-5 h-5 text-[#7FD5FF]"
+                            />
+                          )}
                         </div>
                         <span className="font-bold text-white">
                           {asset.name}
@@ -315,7 +325,6 @@ export const AssetsPage = () => {
                         ).toLocaleString()}{" "}
                         hrs
                       </td>
-                      <td className="px-6 py-4 text-gray-300">-</td>
                       <td className="px-6 py-4 text-gray-300">
                         {calculateHoursToLimit(
                           asset.next_annual_inspection_date,
@@ -496,15 +505,23 @@ export const AssetsPage = () => {
                   {/* Header */}
                   <div className="flex items-start justify-between pl-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded bg-[#0A4D66]/40 flex items-center justify-center">
-                        <Icon
-                          icon={
-                            asset.type === "aircraft"
-                              ? "mdi:helicopter"
-                              : "mdi:cube"
-                          }
-                          className="w-8 h-8 text-[#7FD5FF]"
-                        />
+                      <div className="w-12 h-12 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
+                        {getAssetImageUrl(asset) ? (
+                          <img
+                            src={getAssetImageUrl(asset)}
+                            alt={asset.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <Icon
+                            icon={
+                              asset.type === "aircraft"
+                                ? "mdi:helicopter"
+                                : "mdi:cube"
+                            }
+                            className="w-8 h-8 text-[#7FD5FF]"
+                          />
+                        )}
                       </div>
                       <div>
                         <h3 className="text-white font-bold text-lg">
