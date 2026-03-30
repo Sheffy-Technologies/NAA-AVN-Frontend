@@ -107,15 +107,20 @@ export type Operation = {
   arrival_location: string | null;
 };
 
+export type GetOperationsParams = {
+  operations_id?: string;
+};
+
 export const operationsApi = createApi({
   reducerPath: "operationsApi",
   baseQuery: axiosBaseQuery(),
   tagTypes: ["Operations", "OperationTypes", "OperationDetails"],
   endpoints: (builder) => ({
-    getOperations: builder.query<Operation[], void>({
-      query: () => ({
+    getOperations: builder.query<Operation[], GetOperationsParams | void>({
+      query: (params) => ({
         url: "/operations",
         method: "GET",
+        params: params || undefined,
       }),
       providesTags: ["Operations"],
       transformResponse: (response: Operation[]) => {

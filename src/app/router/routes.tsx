@@ -101,6 +101,11 @@ const AssetDetailsPage = lazy(() =>
     default: module.AssetDetailsPage,
   })),
 );
+const AddAssetDefectPage = lazy(() =>
+  import("@/features/assets/pages/AddAssetDefectPage").then((module) => ({
+    default: module.AddAssetDefectPage,
+  })),
+);
 const UnitFormPage = lazy(() =>
   import("@/features/units/pages/UnitFormPage").then((module) => ({
     default: module.UnitFormPage,
@@ -289,6 +294,22 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <AssetDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "assets/:id/defects/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddAssetDefectPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "assets/:id/edit",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddAssetPage />
           </Suspense>
         ),
       },

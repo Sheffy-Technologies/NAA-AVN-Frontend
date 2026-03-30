@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { useGetAssetByIdQuery } from "../api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
+import { useDeleteAssetMutation, useGetAssetByIdQuery } from "../api";
 import { cn } from "@/shared/utils/cn";
 
 const TABS = [
@@ -13,11 +15,48 @@ const TABS = [
   { id: "history", label: "Log History" },
 ];
 
+const statusDotColor: Record<string, string> = {
+  planned: "bg-blue-400",
+  completed: "bg-emerald-400",
+  ongoing: "bg-amber-400",
+  active: "bg-amber-400",
+  aborted: "bg-red-500",
+};
+
 export const AssetDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { data: asset, isLoading } = useGetAssetByIdQuery(id || "");
+  const [deleteAsset, { isLoading: isDeleting }] = useDeleteAssetMutation();
   const [activeTab, setActiveTab] = useState("info");
+
+  const handleDeleteAsset = async () => {
+    if (!asset?.id || isDeleting) return;
+
+    const confirmed = window.confirm(
+      `Delete ${asset.name}? This action cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteAsset(asset.id).unwrap();
+      dispatch(
+        showToast({
+          message: "Asset deleted successfully",
+          type: "success",
+        }),
+      );
+      navigate("/dashboard/assets");
+    } catch {
+      dispatch(
+        showToast({
+          message: "Failed to delete asset",
+          type: "error",
+        }),
+      );
+    }
+  };
 
   if (isLoading) {
     return (
@@ -53,27 +92,44 @@ export const AssetDetailsPage = () => {
         </button>
 
         <div className="flex items-center space-x-2">
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-red-400 transition-colors">
+          <button
+            onClick={handleDeleteAsset}
+            disabled={isDeleting}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-red-400 transition-colors disabled:opacity-60"
+          >
             <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-            <span>Delete</span>
+            <span>{isDeleting ? "Deleting..." : "Delete"}</span>
           </button>
           <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
             <Icon icon="mdi:refresh" className="w-4 h-4" />
             <span>Update status</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            onClick={() => navigate("/dashboard/operations/add")}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:clock-outline" className="w-4 h-4" />
-            <span>Log Flight hrs</span>
+            <span>Add Operations</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            onClick={() => navigate(`/dashboard/assets/${asset.id}/defects/add`)}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:alert-circle-outline" className="w-4 h-4" />
             <span>Report Defect</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            onClick={() => navigate(`/dashboard/assets/${asset.id}/edit`)}
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
             <span>Edit</span>
           </button>
-          <button className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors">
+          <button
+            aria-label="Download asset details"
+            title="Download asset details"
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+          >
             <Icon icon="mdi:download" className="w-4 h-4" />
           </button>
         </div>
@@ -396,44 +452,73 @@ export const AssetDetailsPage = () => {
         )}
 
         {activeTab === "operations" && (
-          <div className="grid grid-cols-1 gap-4">
+          <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm text-gray-200">
+                <thead className="bg-[#021a27] text-gray-400 uppercase text-xs">
+                  <tr>
+                    <th className="text-left px-6 py-3 font-medium">Purpose</th>
+                    <th className="text-left px-4 py-3 font-medium">Type</th>
+                    <th className="text-left px-4 py-3 font-medium">Start</th>
+                    <th className="text-left px-4 py-3 font-medium">End</th>
+                    <th className="text-left px-4 py-3 font-medium">Status</th>
+                    <th className="text-left px-4 py-3 font-medium">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
             {asset.operations.length === 0 ? (
-              <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 text-center text-gray-400">
-                No operations found.
-              </div>
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-6 py-6 text-center text-gray-400 border-t border-[#0A4D66]/40"
+                    >
+                      No operations found.
+                    </td>
+                  </tr>
             ) : (
               asset.operations.map((op, index) => (
-                <div
+                    <tr
                   key={index}
-                  className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40 flex justify-between items-center"
-                >
-                  <div>
-                    <div className="text-[#7FD5FF] font-bold">{op.name}</div>
-                    <div className="text-xs text-gray-400">
-                      {new Date(op.start_date_time).toLocaleDateString()} -{" "}
-                      {new Date(op.end_date_time).toLocaleDateString()}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-sm text-white">
-                      Duration: {op.duration_label}
-                    </div>
-                    <div
+                      onClick={() => navigate(`/dashboard/operations/${op.id}`)}
                       className={cn(
-                        "px-2 py-1 rounded text-xs capitalize",
-                        op.status === "completed"
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : op.status === "active"
-                            ? "bg-amber-500/20 text-amber-400"
-                            : "bg-blue-500/20 text-blue-400",
+                        "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
+                        index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                       )}
-                    >
-                      {op.status}
-                    </div>
-                  </div>
-                </div>
+                >
+                      <td className="px-6 py-3 font-medium text-white">{op.description || op.name}</td>
+                      <td className="px-4 py-3 text-gray-200">{op.name}</td>
+                      <td className="px-4 py-3 text-gray-200 whitespace-nowrap">
+                      {new Date(op.start_date_time).toLocaleDateString()} -{" "}
+                        {new Date(op.start_date_time).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-gray-200 whitespace-nowrap">
+                        {new Date(op.end_date_time).toLocaleDateString()} -{" "}
+                        {new Date(op.end_date_time).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              statusDotColor[op.status] || "bg-gray-400",
+                            )}
+                          />
+                          <span className="capitalize">{op.status}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-200">{op.duration_label}</td>
+                    </tr>
               ))
             )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

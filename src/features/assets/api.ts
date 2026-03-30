@@ -208,6 +208,19 @@ export type CreateAssetDocumentPayload = {
   expiry_date: string | null;
 };
 
+export type CreateDefectPayload = {
+  asset_id: number;
+  title: string;
+  description: string;
+  remarks: string;
+  operation_id: number;
+  personnel_ids: number[];
+  maintenance_events?: Array<{
+    inspection_name: string;
+    work_done: string;
+  }>;
+};
+
 export type CreateAssetPayload = {
   type: "aircraft" | "vehicle" | "airbase" | "equipment";
   unit_id: number;
@@ -469,6 +482,38 @@ export const assetsApi = createApi({
         ];
       },
     }),
+    deleteAsset: builder.mutation<{ message?: string }, number>({
+      query: (id) => ({
+        url: `/assets/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, id) => {
+        void result;
+        void error;
+        return [
+          { type: "Assets", id },
+          { type: "Assets", id: "LIST" },
+        ];
+      },
+    }),
+    createDefect: builder.mutation<
+      Defect,
+      CreateDefectPayload
+    >({
+      query: (body) => ({
+        url: "/defects",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: (result, error, body) => {
+        void result;
+        void error;
+        return [
+          { type: "Assets", id: body.asset_id },
+          { type: "Assets", id: "LIST" },
+        ];
+      },
+    }),
   }),
 });
 
@@ -485,4 +530,6 @@ export const {
   useGetAssetByIdQuery,
   useCreateAssetMutation,
   useUpdateAssetMutation,
+  useDeleteAssetMutation,
+  useCreateDefectMutation,
 } = assetsApi;

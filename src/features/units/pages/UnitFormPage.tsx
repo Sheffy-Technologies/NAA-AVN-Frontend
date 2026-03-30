@@ -7,15 +7,18 @@ import {
   useUpdateUnitMutation,
   useGetUnitsQuery,
 } from "@/shared/api/units";
+import { useGetAssetsQuery } from "@/features/assets/api";
 
 type UnitFormValues = {
   name: string;
   description: string;
+  location_id: string;
 };
 
 const emptyUnitValues: UnitFormValues = {
   name: "",
   description: "",
+  location_id: "",
 };
 
 export const UnitFormPage = () => {
@@ -26,6 +29,9 @@ export const UnitFormPage = () => {
   const { data: units } = useGetUnitsQuery(undefined, {
     skip: !isEditMode,
   });
+
+  const { data: facilities, isLoading: isLoadingFacilities } =
+    useGetAssetsQuery({ type: "facility" });
 
   const [values, setValues] = useState<UnitFormValues>(emptyUnitValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -42,6 +48,7 @@ export const UnitFormPage = () => {
         setValues({
           name: unit.name,
           description: unit.description || "",
+          location_id: unit.location_id != null ? String(unit.location_id) : "",
         });
       }
     }
@@ -56,6 +63,13 @@ export const UnitFormPage = () => {
       setSubmitError(null);
     };
 
+  const handleSelectChange =
+    (field: keyof UnitFormValues) =>
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      setValues((prev) => ({ ...prev, [field]: event.target.value }));
+      setSubmitError(null);
+    };
+
   const handleBack = () => {
     navigate("/dashboard/units");
   };
@@ -67,16 +81,21 @@ export const UnitFormPage = () => {
     }
 
     try {
+      const location_id = values.location_id ? Number(values.location_id) : null;
+      const asset_id = values.location_id ? Number(values.location_id) : null;
+
       if (isEditMode && id) {
         await updateUnit({
           id: Number(id),
           name: values.name.trim(),
           description: values.description.trim(),
+          location_id,
         }).unwrap();
       } else {
         await createUnit({
           name: values.name.trim(),
           description: values.description.trim(),
+          asset_id,
         }).unwrap();
       }
       navigate("/dashboard/units");
@@ -145,6 +164,30 @@ export const UnitFormPage = () => {
                 placeholder="Enter Unit Name"
               />
             </div>
+
+             <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
+                Location
+              </label>
+              <select
+                value={values.location_id}
+                onChange={handleSelectChange("location_id")}
+                disabled={isLoadingFacilities}
+                aria-label="Select Location"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none focus:border-[#7FD5FF]/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <option value="">
+                  {isLoadingFacilities ? "Loading locations..." : "Select Location"}
+                </option>
+                {facilities?.map((facility) => (
+                  <option key={facility.id} value={String(facility.id)}>
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
                 Description
@@ -157,6 +200,7 @@ export const UnitFormPage = () => {
                 placeholder="Enter Description"
               />
             </div>
+           
           </div>
         </div>
       </section>
