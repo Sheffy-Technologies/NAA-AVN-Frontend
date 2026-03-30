@@ -482,6 +482,20 @@ export const assetsApi = createApi({
         ];
       },
     }),
+    deleteAsset: builder.mutation<{ message?: string }, number>({
+      query: (id) => ({
+        url: `/assets/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, id) => {
+        void result;
+        void error;
+        return [
+          { type: "Assets", id },
+          { type: "Assets", id: "LIST" },
+        ];
+      },
+    }),
     createDefect: builder.mutation<
       Defect,
       CreateDefectPayload
@@ -516,5 +530,6 @@ export const {
   useGetAssetByIdQuery,
   useCreateAssetMutation,
   useUpdateAssetMutation,
+  useDeleteAssetMutation,
   useCreateDefectMutation,
 } = assetsApi;
