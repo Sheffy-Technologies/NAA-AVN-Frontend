@@ -299,7 +299,7 @@ export const FinanceFormPage = () => {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[11px] text-gray-400">Current Stock</label>
+              <label className="text-[11px] text-gray-400">QTY </label>
               <input
                 type="number"
                 min={1}
