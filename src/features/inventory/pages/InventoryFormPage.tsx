@@ -534,6 +534,47 @@ const InventoryFormContent = ({
               )}
             </div>
 
+            {/* <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
+                Units/Measurement
+              </label>
+              <input
+                type="text"
+                value={values.measurement_unit}
+                onChange={handleChange("measurement_unit")}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder="Enter Units/Measurement"
+              />
+              {errors.measurement_unit && (
+                <p className="text-[11px] text-red-400">
+                  {errors.measurement_unit}
+                </p>
+              )}
+            </div> */}
+
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400"></label>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400"></label>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
+                Total Cost
+              </label>
+              <div className="h-[38px] sm:h-[42px] flex items-center text-xl font-bold text-gray-300">
+                {(() => {
+                  const qty = parsedPayload.quantityNumeric ?? 0;
+                  const unitCost = parsedPayload.unitCostNumeric ?? 0;
+                  const total = qty * unitCost;
+                  if (!total) return "00";
+                  return total.toLocaleString();
+                })()}
+              </div>
+            </div>
+
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
                 Re-Order Level
