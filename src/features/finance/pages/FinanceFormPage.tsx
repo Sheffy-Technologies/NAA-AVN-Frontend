@@ -84,36 +84,46 @@ export const FinanceFormPage = () => {
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { value } = event.target;
 
-      setValues((prev) => ({
-        ...prev,
-        [field]:
-          field === "budget_id" ||
-          field === "unit_id" ||
-          field === "expense_category_id" ||
-          field === "expense_type_id" ||
-          field === "aircraft_id"
+      setValues((prev) => {
+        const numericFields: Array<keyof FinanceFormValues> = [
+          "budget_id",
+          "unit_id",
+          "expense_category_id",
+          "expense_type_id",
+          "aircraft_id",
+        ];
+
+        const nextValue: FinanceFormValues[keyof FinanceFormValues] =
+          numericFields.includes(field)
             ? value === ""
               ? ""
               : Number(value)
-            : value,
-        ...(field === "budget_id"
-          ? (() => {
-              const budgetId = value === "" ? "" : Number(value);
-              const budget =
-                typeof budgetId === "number"
-                  ? budgets.find((item) => item.id === budgetId)
-                  : undefined;
+            : value;
 
-              return budget
-                ? {
-                    unit_id: budget.unit_id,
-                    expense_category_id: budget.expense_category_id,
-                    aircraft_id: budget.aircraft_id,
-                  }
-                : {};
-            })()
-          : {}),
-      }));
+        const nextValues: FinanceFormValues = {
+          ...prev,
+          [field]: nextValue,
+        } as FinanceFormValues;
+
+        if (field === "budget_id") {
+          const budgetId = value === "" ? "" : Number(value);
+          const budget =
+            typeof budgetId === "number"
+              ? budgets.find((item) => item.id === budgetId)
+              : undefined;
+
+          if (budget) {
+            nextValues.unit_id = budget.unit_id;
+            nextValues.expense_category_id =
+              typeof budget.expense_category_id === "number"
+                ? budget.expense_category_id
+                : "";
+            nextValues.aircraft_id = budget.aircraft_id;
+          }
+        }
+
+        return nextValues;
+      });
       setSubmitError(null);
     };
 
