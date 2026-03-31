@@ -12,6 +12,8 @@ import { assetsApi } from "@/features/assets/api";
 import { notificationsApi } from "@/features/notifications/api";
 import { securityApi } from "@/features/security/api";
 import { usersApi } from "@/features/users/api";
+import { documentsApi } from "@/features/documents/api";
+import { reportsApi } from "@/features/reports/api";
 import { unitsApi } from "@/shared/api/units";
 import toastReducer from "@/shared/store/toastSlice";
 
@@ -49,6 +51,8 @@ export const store = configureStore({
     [notificationsApi.reducerPath]: notificationsApi.reducer,
     [securityApi.reducerPath]: securityApi.reducer,
     [usersApi.reducerPath]: usersApi.reducer,
+    [documentsApi.reducerPath]: documentsApi.reducer,
+    [reportsApi.reducerPath]: reportsApi.reducer,
     [unitsApi.reducerPath]: unitsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
@@ -62,6 +66,8 @@ export const store = configureStore({
       notificationsApi.middleware,
       securityApi.middleware,
       usersApi.middleware,
+      documentsApi.middleware,
+      reportsApi.middleware,
       unitsApi.middleware,
     ),
   preloadedState: persistedAuthState ? { auth: persistedAuthState } : undefined,

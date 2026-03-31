@@ -4,13 +4,14 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import {
-  useGetExpenseCategoriesQuery,
-  type FinanceExpenseCategory,
+  useCreateBudgetMutation,
+  useGetBudgetCategoriesQuery,
+  type FinanceBudgetCategory,
 } from "@/features/finance/api";
 
 type BudgetFormValues = {
   name: string;
-  expense_category_id: number | "";
+  budget_category_id: number | "";
   amount: string;
   start_date: string;
   end_date: string;
@@ -19,7 +20,7 @@ type BudgetFormValues = {
 
 const emptyBudgetValues: BudgetFormValues = {
   name: "",
-  expense_category_id: "",
+  budget_category_id: "",
   amount: "",
   start_date: "",
   end_date: "",
@@ -31,12 +32,13 @@ export const BudgetFormPage = () => {
 
   const [values, setValues] = useState<BudgetFormValues>(emptyBudgetValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createBudget, { isLoading: isSubmitting }] = useCreateBudgetMutation();
 
   const { data: unitsData } = useGetUnitsQuery();
-  const { data: categoriesData } = useGetExpenseCategoriesQuery();
+  const { data: categoriesData } = useGetBudgetCategoriesQuery();
 
   const units = (unitsData ?? []) as Unit[];
-  const categories = (categoriesData ?? []) as FinanceExpenseCategory[];
+  const categories = (categoriesData ?? []) as FinanceBudgetCategory[];
 
   const handleChange =
     (field: keyof BudgetFormValues) =>
@@ -46,7 +48,7 @@ export const BudgetFormPage = () => {
       setValues((prev) => ({
         ...prev,
         [field]:
-          field === "expense_category_id" || field === "unit_id"
+          field === "budget_category_id" || field === "unit_id"
             ? value === ""
               ? ""
               : Number(value)
@@ -59,9 +61,43 @@ export const BudgetFormPage = () => {
     navigate("/dashboard/finance");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!values.name.trim()) {
       setSubmitError("Enter budget name.");
+      return;
+    }
+
+    if (values.budget_category_id === "") {
+      setSubmitError("Select a budget category.");
+      return;
+    }
+
+    if (!values.amount.trim() || Number(values.amount) <= 0) {
+      setSubmitError("Enter a valid amount.");
+      return;
+    }
+
+    if (!values.start_date || !values.end_date) {
+      setSubmitError("Select start and end dates.");
+      return;
+    }
+
+    if (values.unit_id === "") {
+      setSubmitError("Select a unit.");
+      return;
+    }
+
+    try {
+      await createBudget({
+        name: values.name.trim(),
+        budget_category_id: values.budget_category_id,
+        amount: Number(values.amount),
+        start_date: values.start_date,
+        end_date: values.end_date,
+        unit_id: values.unit_id,
+      }).unwrap();
+    } catch {
+      setSubmitError("Failed to save budget. Please try again.");
       return;
     }
 
@@ -109,12 +145,13 @@ export const BudgetFormPage = () => {
               Category
             </label>
             <select
+              aria-label="Budget category"
               value={
-                values.expense_category_id === ""
+                values.budget_category_id === ""
                   ? ""
-                  : String(values.expense_category_id)
+                  : String(values.budget_category_id)
               }
-              onChange={handleChange("expense_category_id")}
+              onChange={handleChange("budget_category_id")}
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
             >
               <option value="">Select Category</option>
@@ -146,6 +183,7 @@ export const BudgetFormPage = () => {
             </label>
             <input
               type="date"
+              aria-label="Budget start date"
               value={values.start_date}
               onChange={handleChange("start_date")}
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none"
@@ -158,6 +196,7 @@ export const BudgetFormPage = () => {
             </label>
             <input
               type="date"
+              aria-label="Budget end date"
               value={values.end_date}
               onChange={handleChange("end_date")}
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none"
@@ -167,6 +206,7 @@ export const BudgetFormPage = () => {
           <div className="space-y-1">
             <label className="text-[11px] uppercase text-gray-400">Unit</label>
             <select
+              aria-label="Budget unit"
               value={values.unit_id === "" ? "" : String(values.unit_id)}
               onChange={handleChange("unit_id")}
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
@@ -189,11 +229,13 @@ export const BudgetFormPage = () => {
           <button
             type="button"
             onClick={handleSubmit}
+            disabled={isSubmitting}
             className={cn(
               "px-6 sm:px-10 py-2 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
+              isSubmitting && "opacity-70 cursor-not-allowed",
             )}
           >
-            Save
+            {isSubmitting ? "Saving..." : "Save"}
           </button>
         </div>
       </section>

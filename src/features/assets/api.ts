@@ -138,6 +138,42 @@ export type AssetType = {
   updated_at: string;
 };
 
+export type VehicleType = {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Vehicle = {
+  id: number;
+  name: string;
+  vehicle_type_id?: number;
+  registration_number?: string | null;
+  serial_number?: string | null;
+  unit_id?: number | null;
+  photo?: string | null;
+  photo_url?: string | null;
+  serviceability_status?: Asset["serviceability_status"] | null;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type Facility = {
+  id: number;
+  name: string;
+  description?: string | null;
+  unit_id?: number | null;
+  image?: string | null;
+  image_url?: string | null;
+  serviceability_status?: Asset["serviceability_status"] | null;
+  status?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
 export type DocumentType = {
   id: number;
   name: string;
@@ -287,9 +323,26 @@ export type CreateAssetPayload = {
   }>;
 };
 
+export type CreateVehiclePayload = {
+  name: string;
+  vehicle_type_id: number;
+  registration_number: string;
+  serial_number: string;
+  unit_id: number;
+  photo?: File | null;
+};
+
+export type CreateFacilityPayload = {
+  name: string;
+  image?: File | null;
+  description: string;
+  longitude: string;
+  latitude: string;
+};
+
 export type Asset = {
   id: number;
-  type: "aircraft" | "vehicle" | "airbase" | "equipment";
+  type: "aircraft" | "vehicle" | "airbase" | "equipment" | "facility";
   unit_id: number;
   name: string;
   image?: string | null;
@@ -345,6 +398,13 @@ export const assetsApi = createApi({
     getAssetTypes: builder.query<AssetType[], void>({
       query: () => ({
         url: "/asset-types",
+        method: "GET",
+      }),
+      providesTags: ["AssetTypes"],
+    }),
+    getVehicleTypes: builder.query<VehicleType[], void>({
+      query: () => ({
+        url: "/vehicle-types",
         method: "GET",
       }),
       providesTags: ["AssetTypes"],
@@ -445,6 +505,32 @@ export const assetsApi = createApi({
             ]
           : [{ type: "Assets", id: "LIST" }],
     }),
+    getVehicles: builder.query<Vehicle[], void>({
+      query: () => ({
+        url: "/vehicles",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "Assets" as const, id })),
+              { type: "Assets", id: "LIST" },
+            ]
+          : [{ type: "Assets", id: "LIST" }],
+    }),
+    getFacilities: builder.query<Facility[], void>({
+      query: () => ({
+        url: "/facilities",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "Assets" as const, id })),
+              { type: "Assets", id: "LIST" },
+            ]
+          : [{ type: "Assets", id: "LIST" }],
+    }),
     getAssetById: builder.query<AssetDetail, number | string>({
       query: (id) => ({
         url: `/assets/${id}`,
@@ -462,6 +548,49 @@ export const assetsApi = createApi({
         method: "POST",
         data: body,
       }),
+      invalidatesTags: [{ type: "Assets", id: "LIST" }],
+    }),
+    createVehicle: builder.mutation<unknown, CreateVehiclePayload>({
+      query: (body) => {
+        const formData = new FormData();
+        formData.append("name", body.name);
+        formData.append("vehicle_type_id", String(body.vehicle_type_id));
+        formData.append("registration_number", body.registration_number);
+        formData.append("serial_number", body.serial_number);
+        formData.append("unit_id", String(body.unit_id));
+
+        if (body.photo) {
+          formData.append("photo", body.photo);
+        }
+
+        return {
+          url: "/vehicles",
+          method: "POST",
+          data: formData,
+          headers: { "Content-Type": "multipart/form-data" },
+        };
+      },
+      invalidatesTags: [{ type: "Assets", id: "LIST" }],
+    }),
+    createFacility: builder.mutation<unknown, CreateFacilityPayload>({
+      query: (body) => {
+        const formData = new FormData();
+        formData.append("name", body.name);
+        formData.append("description", body.description);
+        formData.append("longitude", body.longitude);
+        formData.append("latitude", body.latitude);
+
+        if (body.image) {
+          formData.append("image", body.image);
+        }
+
+        return {
+          url: "/facilities",
+          method: "POST",
+          data: formData,
+          headers: { "Content-Type": "multipart/form-data" },
+        };
+      },
       invalidatesTags: [{ type: "Assets", id: "LIST" }],
     }),
     updateAsset: builder.mutation<
@@ -519,6 +648,7 @@ export const assetsApi = createApi({
 
 export const {
   useGetAssetTypesQuery,
+  useGetVehicleTypesQuery,
   useUploadAssetImageMutation,
   useGetEnginePositionsQuery,
   useGetComponentTypesQuery,
@@ -527,8 +657,12 @@ export const {
   useGetDocumentTypesQuery,
   useCreateDocumentMutation,
   useGetAssetsQuery,
+  useGetVehiclesQuery,
+  useGetFacilitiesQuery,
   useGetAssetByIdQuery,
   useCreateAssetMutation,
+  useCreateVehicleMutation,
+  useCreateFacilityMutation,
   useUpdateAssetMutation,
   useDeleteAssetMutation,
   useCreateDefectMutation,

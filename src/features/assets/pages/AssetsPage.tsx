@@ -3,8 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import {
   useGetAssetsQuery,
+  useGetFacilitiesQuery,
+  useGetVehiclesQuery,
   useUpdateAssetMutation,
   type Asset,
+  type Facility,
+  type Vehicle,
 } from "@/features/assets/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
@@ -21,7 +25,18 @@ const TABS = [
 export const AssetsPage = () => {
   const [activeTab, setActiveTab] = useState("aircraft");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
-  const { data: assets, isLoading } = useGetAssetsQuery({ type: activeTab });
+  const { data: assets, isLoading: isAssetsLoading } = useGetAssetsQuery(
+    { type: activeTab },
+    { skip: activeTab === "vehicle" || activeTab === "facility" },
+  );
+  const { data: vehicles, isLoading: isVehiclesLoading } = useGetVehiclesQuery(
+    undefined,
+    { skip: activeTab !== "vehicle" },
+  );
+  const { data: facilities, isLoading: isFacilitiesLoading } =
+    useGetFacilitiesQuery(undefined, {
+      skip: activeTab !== "facility",
+    });
   const { data: units } = useGetUnitsQuery();
   const [updateAsset] = useUpdateAssetMutation();
 
@@ -73,9 +88,79 @@ export const AssetsPage = () => {
     "grounded",
   ];
 
-  // Filter assets based on active tab
-  const filteredAssets =
-    assets?.filter((asset) => asset.type === activeTab) || [];
+  const isLoading =
+    activeTab === "vehicle"
+      ? isVehiclesLoading
+      : activeTab === "facility"
+        ? isFacilitiesLoading
+        : isAssetsLoading;
+
+  // Filter assets based on active tab. Vehicles use a dedicated endpoint.
+  const filteredAssets: Asset[] =
+    activeTab === "vehicle"
+      ? (vehicles ?? []).map((vehicle: Vehicle) => ({
+          id: vehicle.id,
+          type: "vehicle",
+          unit_id: vehicle.unit_id ?? 0,
+          name: vehicle.name,
+          image: vehicle.photo ?? null,
+          image_url: vehicle.photo_url ?? vehicle.photo ?? null,
+          serial_number: vehicle.serial_number || "-",
+          model: vehicle.registration_number || "-",
+          configuration: [],
+          serviceability_status:
+            vehicle.serviceability_status ||
+            ((vehicle.status as Asset["serviceability_status"]) ?? "serviceable"),
+          tail_number: vehicle.registration_number || "-",
+          total_airframe_hours: "0",
+          service_life_limit: "0",
+          last_inspection_hours: "0",
+          inspection_interval: "0",
+          next_annual_inspection_date: "0",
+          next_type_of_inspection: "-",
+          last_inspection_date: "-",
+          landings: "0",
+          operation_status: vehicle.status || "serviceable",
+          manufacturer: "-",
+          purchase_date: "-",
+          created_at: vehicle.created_at || "",
+          updated_at: vehicle.updated_at || "",
+          operations_total_hours: 0,
+          operations_total_hours_label: "0",
+        }))
+      : activeTab === "facility"
+        ? (facilities ?? []).map((facility: Facility) => ({
+            id: facility.id,
+            type: "facility",
+            unit_id: facility.unit_id ?? 0,
+            name: facility.name,
+            image: facility.image ?? null,
+            image_url: facility.image_url ?? facility.image ?? null,
+            serial_number: "-",
+            model: "Facility",
+            configuration: [],
+            serviceability_status:
+              facility.serviceability_status ||
+              ((facility.status as Asset["serviceability_status"]) ??
+                "serviceable"),
+            tail_number: "-",
+            total_airframe_hours: "0",
+            service_life_limit: "0",
+            last_inspection_hours: "0",
+            inspection_interval: "0",
+            next_annual_inspection_date: "0",
+            next_type_of_inspection: "-",
+            last_inspection_date: "-",
+            landings: "0",
+            operation_status: facility.status || "serviceable",
+            manufacturer: "-",
+            purchase_date: "-",
+            created_at: facility.created_at || "",
+            updated_at: facility.updated_at || "",
+            operations_total_hours: 0,
+            operations_total_hours_label: "0",
+          }))
+      : assets?.filter((asset) => asset.type === activeTab) || [];
 
   // Stats
   const total = filteredAssets.length;
@@ -206,7 +291,13 @@ export const AssetsPage = () => {
 
             {/* Add Button */}
             <Link
-              to="/dashboard/assets/add"
+              to={
+                activeTab === "vehicle"
+                  ? "/dashboard/assets/vehicles/add"
+                  : activeTab === "facility"
+                    ? "/dashboard/assets/facilities/add"
+                  : "/dashboard/assets/add"
+              }
               className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
@@ -248,7 +339,7 @@ export const AssetsPage = () => {
               <thead>
                 <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
                   <th className="px-6 py-4 font-medium">Tail No.</th>
-                  <th className="px-6 py-4 font-medium">Aircraft Name</th>
+                  <th className="px-6 py-4 font-medium"> Name</th>
                   <th className="px-6 py-4 font-medium">Type</th>
                   <th className="px-6 py-4 font-medium">Unit</th>
                   <th className="px-6 py-4 font-medium">Airframe Hrs</th>

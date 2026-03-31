@@ -17,6 +17,14 @@ export type FinanceExpenseCategory = {
   updated_at: string;
 };
 
+export type FinanceBudgetCategory = {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type FinanceExpenseType = {
   id: number;
   name: string;
@@ -49,7 +57,8 @@ export type FinanceUnit = {
 
 export type FinanceBudget = {
   id: number;
-  expense_category_id: number;
+  budget_category_id?: number;
+  expense_category_id?: number;
   aircraft_id: number;
   unit_id: number;
   name: string;
@@ -59,7 +68,8 @@ export type FinanceBudget = {
   description: string;
   created_at: string;
   updated_at: string;
-  expense_category: FinanceExpenseCategory;
+  budget_category?: FinanceBudgetCategory;
+  expense_category?: FinanceExpenseCategory;
   aircraft: FinanceAircraft;
   unit: FinanceUnit;
 };
@@ -100,6 +110,15 @@ export type CreateExpensePayload = {
   total_cost: number;
 };
 
+export type CreateBudgetPayload = {
+  name: string;
+  budget_category_id: number;
+  amount: number;
+  start_date: string;
+  end_date: string;
+  unit_id: number;
+};
+
 export const financeApi = createApi({
   reducerPath: "financeApi",
   baseQuery: axiosBaseQuery(),
@@ -123,6 +142,13 @@ export const financeApi = createApi({
         data: body,
       }),
     }),
+    createBudget: builder.mutation<FinanceBudget, CreateBudgetPayload>({
+      query: (body) => ({
+        url: "/budgets",
+        method: "POST",
+        data: body,
+      }),
+    }),
     getBudgets: builder.query<FinanceBudget[], void>({
       query: () => ({
         url: "/budgets",
@@ -132,6 +158,12 @@ export const financeApi = createApi({
     getExpenseCategories: builder.query<FinanceExpenseCategory[], void>({
       query: () => ({
         url: "/expense-categories",
+        method: "GET",
+      }),
+    }),
+    getBudgetCategories: builder.query<FinanceBudgetCategory[], void>({
+      query: () => ({
+        url: "/budget-categories",
         method: "GET",
       }),
     }),
@@ -154,8 +186,10 @@ export const {
   useGetFinanceDashboardQuery,
   useGetExpensesQuery,
   useCreateExpenseMutation,
+  useCreateBudgetMutation,
   useGetBudgetsQuery,
   useGetExpenseCategoriesQuery,
+  useGetBudgetCategoriesQuery,
   useGetExpenseTypesQuery,
   useGetAircraftQuery,
 } = financeApi;

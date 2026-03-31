@@ -81,6 +81,16 @@ const BudgetInfoPage = lazy(() =>
     default: module.BudgetInfoPage,
   })),
 );
+const DocumentsPage = lazy(() =>
+  import("@/features/documents/pages/DocumentsPage").then((module) => ({
+    default: module.DocumentsPage,
+  })),
+);
+const ReportsPage = lazy(() =>
+  import("@/features/reports/pages/ReportsPage").then((module) => ({
+    default: module.ReportsPage,
+  })),
+);
 const UnitsPage = lazy(() =>
   import("@/features/units/pages/UnitsPage").then((module) => ({
     default: module.UnitsPage,
@@ -94,6 +104,16 @@ const AssetsPage = lazy(() =>
 const AddAssetPage = lazy(() =>
   import("@/features/assets/pages/AddAssetPage").then((module) => ({
     default: module.AddAssetPage,
+  })),
+);
+const AddVehiclePage = lazy(() =>
+  import("@/features/assets/pages/AddVehiclePage").then((module) => ({
+    default: module.AddVehiclePage,
+  })),
+);
+const AddFacilityPage = lazy(() =>
+  import("@/features/assets/pages/AddFacilityPage").then((module) => ({
+    default: module.AddFacilityPage,
   })),
 );
 const AssetDetailsPage = lazy(() =>
@@ -290,6 +310,22 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "assets/vehicles/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddVehiclePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "assets/facilities/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddFacilityPage />
+          </Suspense>
+        ),
+      },
+      {
         path: "assets/:id",
         element: (
           <Suspense fallback={loadingElement}>
@@ -422,6 +458,22 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <BudgetInfoPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "documents",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <DocumentsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "reports",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <ReportsPage />
           </Suspense>
         ),
       },

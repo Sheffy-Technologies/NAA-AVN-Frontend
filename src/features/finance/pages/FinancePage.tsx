@@ -54,6 +54,8 @@ type BudgetRow = {
 
 export const FinancePage = () => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<FinanceTabKey>("expenses");
+
   const {
     data: dashboard,
     isLoading: isDashboardLoading,
@@ -68,11 +70,12 @@ export const FinancePage = () => {
     data: budgetsData,
     isLoading: isBudgetsLoading,
     isError: isBudgetsError,
-  } = useGetBudgetsQuery();
+  } = useGetBudgetsQuery(undefined, {
+    skip: activeTab !== "budgets",
+  });
   const { data: expenseCategoriesData } = useGetExpenseCategoriesQuery();
   const { data: unitsData } = useGetUnitsQuery();
 
-  const [activeTab, setActiveTab] = useState<FinanceTabKey>("expenses");
   const [expensesViewMode, setExpensesViewMode] =
     useState<FinanceViewMode>("table");
   const [budgetsViewMode, setBudgetsViewMode] =
@@ -155,8 +158,8 @@ export const FinancePage = () => {
     return budgetsData.map((budget: FinanceBudget) => ({
       id: budget.id,
       name: budget.name,
-      category: budget.expense_category?.name ?? "-",
-      categoryId: budget.expense_category_id,
+      category: budget.budget_category?.name ?? budget.expense_category?.name ?? "-",
+      categoryId: budget.budget_category_id ?? budget.expense_category_id ?? 0,
       aircraft: budget.aircraft?.name ?? "-",
       unit: budget.unit?.name ?? "-",
       unitId: budget.unit_id,
