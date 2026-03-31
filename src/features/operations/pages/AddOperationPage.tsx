@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useGetUnitsQuery } from "@/shared/api/units";
+import { cn } from "@/shared/utils/cn";
 import {
   useGetAircraftsQuery,
   useGetPersonnelQuery,
@@ -12,6 +13,73 @@ import {
   type CreateOperationRequest,
   type OperationAsset,
 } from "../api";
+
+type OperationAssetForm = OperationAsset & {
+  departure_takeoff: string;
+  departure_landing: string;
+  return_takeoff: string;
+  return_landing: string;
+};
+
+const createEmptyAsset = (): OperationAssetForm => ({
+  aircraft_id: 0,
+  pilot_id: 0,
+  co_pilot_id: 0,
+  departure_takeoff: "00:00",
+  departure_landing: "00:00",
+  return_takeoff: "00:00",
+  return_landing: "00:00",
+});
+
+const toMinutes = (value: string) => {
+  const [hours, minutes] = value.split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return 0;
+  return hours * 60 + minutes;
+};
+
+const getDurationMinutes = (start: string, end: string) => {
+  const startMinutes = toMinutes(start);
+  const endMinutes = toMinutes(end);
+
+  if (endMinutes >= startMinutes) {
+    return endMinutes - startMinutes;
+  }
+
+  return 24 * 60 - startMinutes + endMinutes;
+};
+
+const formatDurationDisplay = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${remainingMinutes
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+const formatDurationHoursLabel = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return `${hours.toString().padStart(2, "0")} hrs`;
+  }
+
+  return `${hours.toString().padStart(2, "0")}h ${remainingMinutes
+    .toString()
+    .padStart(2, "0")}m`;
+};
+
+const buildDateTime = (date: string, time: string) => `${date}T${time}:00`;
+
+const getPersonnelDisplayName = (person: {
+  firstname: string;
+  lastname: string;
+  rank?: { name?: string | null } | null;
+}) => {
+  return `${person.rank?.name ? `${person.rank.name} ` : ""}${person.firstname} ${
+    person.lastname
+  }`.trim();
+};
 
 export const AddOperationPage = () => {
   const navigate = useNavigate();
@@ -41,28 +109,34 @@ export const AddOperationPage = () => {
     operation_type_id: "",
     unit_id: "",
     start_date: "",
-    start_time: "00:00",
-    end_time: "00:00",
     location: "",
     description: "", // Activities
   });
 
-  const [assets, setAssets] = useState<OperationAsset[]>([
-    { aircraft_id: 0, pilot_id: 0, co_pilot_id: 0 },
+  const [assets, setAssets] = useState<OperationAssetForm[]>([
+    createEmptyAsset(),
   ]);
 
   const handleAssetChange = (
     index: number,
-    field: keyof OperationAsset,
+    field: keyof OperationAssetForm,
     value: string,
   ) => {
     const newAssets = [...assets];
-    newAssets[index] = { ...newAssets[index], [field]: Number(value) };
+    if (
+      field === "aircraft_id" ||
+      field === "pilot_id" ||
+      field === "co_pilot_id"
+    ) {
+      newAssets[index] = { ...newAssets[index], [field]: Number(value) };
+    } else {
+      newAssets[index] = { ...newAssets[index], [field]: value };
+    }
     setAssets(newAssets);
   };
 
   const addAsset = () => {
-    setAssets([...assets, { aircraft_id: 0, pilot_id: 0, co_pilot_id: 0 }]);
+    setAssets([...assets, createEmptyAsset()]);
   };
 
   const removeAsset = (index: number) => {
@@ -71,24 +145,69 @@ export const AddOperationPage = () => {
     }
   };
 
+  const assetDurations = useMemo(() => {
+    return assets.map((asset) => {
+      const departureMinutes = getDurationMinutes(
+        asset.departure_takeoff,
+        asset.departure_landing,
+      );
+      const returnMinutes = getDurationMinutes(
+        asset.return_takeoff,
+        asset.return_landing,
+      );
+      const totalMinutes = departureMinutes + returnMinutes;
+
+      return {
+        departureMinutes,
+        returnMinutes,
+        totalMinutes,
+      };
+    });
+  }, [assets]);
+
+  const operationTimes = useMemo(() => {
+    const firstAsset = assets[0];
+    if (!firstAsset) {
+      return {
+        startTime: "00:00",
+        endTime: "00:00",
+      };
+    }
+
+    const hasReturnFlight =
+      firstAsset.return_takeoff !== "00:00" ||
+      firstAsset.return_landing !== "00:00";
+
+    return {
+      startTime: firstAsset.departure_takeoff || "00:00",
+      endTime: hasReturnFlight
+        ? firstAsset.return_landing || firstAsset.departure_landing || "00:00"
+        : firstAsset.departure_landing || "00:00",
+    };
+  }, [assets]);
+
+  const fieldLabelClassName =
+    "text-[11px] sm:text-xs text-gray-400 font-medium";
+  const fieldClassName =
+    "w-full bg-[#002233] border border-[#0A4D66]/30 rounded-md h-14 px-5 text-base text-gray-100 outline-none focus:border-[#7FD5FF] placeholder:text-gray-500";
+  const selectClassName = cn(fieldClassName, "appearance-none pr-12");
+  const timeFieldClassName = cn(fieldClassName, "pl-12 [color-scheme:dark]");
+  const durationCardClassName =
+    "bg-[#001825] border border-[#0A4D66]/25 rounded-md min-h-14 px-5 flex items-center text-2xl font-bold text-gray-100";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Combine date and time
-    const startDateTime = `${formData.start_date}T${formData.start_time}:00`;
-    // End date is assumed to be same day or handled via logic, for now just use same date + end time
-    // Or if end time < start time, assume next day.
-    // For simplicity, let's just use same date for now or we might need an end date field if operations span days.
-    // The UI only shows "Date" once.
-    const endDateTime = `${formData.start_date}T${formData.end_time}:00`;
 
     const payload: CreateOperationRequest = {
       name: formData.name,
       description: formData.description,
       unit_id: Number(formData.unit_id),
       operation_type_id: Number(formData.operation_type_id),
-      start_date_time: startDateTime,
-      end_date_time: endDateTime,
+      start_date_time: buildDateTime(
+        formData.start_date,
+        operationTimes.startTime,
+      ),
+      end_date_time: buildDateTime(formData.start_date, operationTimes.endTime),
       priority: "medium", // Default or add field
       is_flight: 1, // Default to flight since aircrafts are involved
       location: formData.location,
@@ -111,35 +230,33 @@ export const AddOperationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col">
-      {/* Header */}
-      <div className="bg-[#0A4D66] px-6 py-4 flex items-center justify-between shadow-md">
-        <h1 className="text-white font-bold text-lg uppercase tracking-wider">
-          ADD OPERATION
-        </h1>
-        <button
-          onClick={() => navigate("/dashboard/operations")}
-          className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
-        >
-          <Icon icon="mdi:close-circle" className="w-5 h-5" />
-          Save & Exit
-        </button>
-      </div>
+    <div className="min-h-screen bg-[#021019] text-gray-200 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[1600px]">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-white font-bold text-lg uppercase tracking-wider">
+            Add Operation
+          </h1>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/operations")}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#7FD5FF]/20 text-[#7FD5FF] hover:bg-[#7FD5FF]/30 transition-colors"
+          >
+            <Icon icon="mdi:close" className="h-5 w-5" />
+          </button>
+        </div>
 
-      <div className="flex-1 p-6 md:p-8 overflow-y-auto">
-        <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-8">
-          {/* Information Section */}
-          <section>
-            <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider mb-4 border-b border-[#0A4D66]/40 pb-2">
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-none sm:rounded-xl border border-[#0A4D66]/40 bg-[#001219] px-5 py-6 sm:px-6 sm:py-8 lg:px-10"
+        >
+          <section className="space-y-5">
+            <h2 className="text-sm font-medium text-gray-200 uppercase tracking-wide">
               Information
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Purpose */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Purpose
-                </label>
+            <div className="grid gap-5 lg:grid-cols-3">
+              <div className="space-y-2">
+                <label className={fieldLabelClassName}>Purpose</label>
                 <input
                   type="text"
                   placeholder="Enter Purpose"
@@ -147,16 +264,13 @@ export const AddOperationPage = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, name: e.target.value })
                   }
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                  className={fieldClassName}
                   required
                 />
               </div>
 
-              {/* Operation Type */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Operation Type
-                </label>
+              <div className="space-y-2">
+                <label className={fieldLabelClassName}>Operation Type</label>
                 <div className="relative">
                   <select
                     value={formData.operation_type_id}
@@ -166,7 +280,7 @@ export const AddOperationPage = () => {
                         operation_type_id: e.target.value,
                       })
                     }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
+                    className={selectClassName}
                     required
                   >
                     <option value="">Select Type</option>
@@ -175,35 +289,23 @@ export const AddOperationPage = () => {
                         {type.name}
                       </option>
                     ))}
-                    {/* Fallback/Mock options if API is empty */}
-                    {!operationTypes.length && (
-                      <>
-                        <option value="1">Reconnaissance</option>
-                        <option value="2">Transport</option>
-                        <option value="3">Training</option>
-                        <option value="4">Combat</option>
-                      </>
-                    )}
                   </select>
                   <Icon
                     icon="mdi:chevron-down"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
                   />
                 </div>
               </div>
 
-              {/* Unit */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Unit
-                </label>
+              <div className="space-y-2">
+                <label className={fieldLabelClassName}>Unit</label>
                 <div className="relative">
                   <select
                     value={formData.unit_id}
                     onChange={(e) =>
                       setFormData({ ...formData, unit_id: e.target.value })
                     }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
+                    className={selectClassName}
                     required
                   >
                     <option value="">Select Unit</option>
@@ -215,64 +317,17 @@ export const AddOperationPage = () => {
                   </select>
                   <Icon
                     icon="mdi:chevron-down"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
                   />
                 </div>
               </div>
 
-              {/* Departure Time */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Departure Time
-                </label>
+              <div className="space-y-2">
+                <label className={fieldLabelClassName}>Date</label>
                 <div className="relative">
                   <Icon
-                    icon="mdi:clock-outline"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="time"
-                    value={formData.start_time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, start_time: e.target.value })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Return Time */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Return Time
-                </label>
-                <div className="relative">
-                  <Icon
-                    icon="mdi:clock-outline"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, end_time: e.target.value })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Date */}
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Date
-                </label>
-                <div className="relative">
-                  <Icon
-                    icon="mdi:calendar"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    icon="mdi:calendar-month-outline"
+                    className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
                   />
                   <input
                     type="date"
@@ -280,21 +335,18 @@ export const AddOperationPage = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, start_date: e.target.value })
                     }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                    className={cn(timeFieldClassName, "pl-14")}
                     required
                   />
                 </div>
               </div>
 
-              {/* Location */}
-              <div className="flex flex-col gap-2 lg:col-span-1">
-                <label className="text-xs text-gray-400 font-medium">
-                  Location
-                </label>
+              <div className="space-y-2 lg:col-span-2">
+                <label className={fieldLabelClassName}>Location</label>
                 <div className="relative">
                   <Icon
                     icon="mdi:map-marker"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-300"
                   />
                   <input
                     type="text"
@@ -303,16 +355,13 @@ export const AddOperationPage = () => {
                     onChange={(e) =>
                       setFormData({ ...formData, location: e.target.value })
                     }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-500"
+                    className={cn(fieldClassName, "pl-14")}
                   />
                 </div>
               </div>
 
-              {/* Activities */}
-              <div className="flex flex-col gap-2 lg:col-span-3">
-                <label className="text-xs text-gray-400 font-medium">
-                  Activities
-                </label>
+              <div className="space-y-2 lg:col-span-3">
+                <label className={fieldLabelClassName}>Activities</label>
                 <input
                   type="text"
                   placeholder="Enter Code Name"
@@ -320,154 +369,292 @@ export const AddOperationPage = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                  className={fieldClassName}
                 />
               </div>
             </div>
           </section>
 
-          {/* Aircraft Section */}
-          <section>
-            <div className="flex items-center gap-4 mb-4 border-b border-[#0A4D66]/40 pb-2">
-              <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider">
+          <section className="mt-10 space-y-6">
+            <div className="flex flex-wrap items-center gap-4">
+              <h2 className="text-sm font-medium text-gray-200 uppercase tracking-wide">
                 Aircraft
               </h2>
               <button
                 type="button"
                 onClick={addAsset}
-                className="bg-white text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+                className="inline-flex items-center gap-2 rounded-sm bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 transition-colors"
               >
-                <Icon icon="mdi:plus" className="w-4 h-4" /> Add Aircraft
+                <Icon icon="mdi:plus-circle" className="h-4 w-4" />
+                Add Aircraft
               </button>
             </div>
 
-            <div className="space-y-6">
-              {assets.map((asset, index) => (
-                <div
-                  key={index}
-                  className="bg-[#001219]/50 p-4 rounded-lg border border-[#0A4D66]/20"
-                >
-                  <div className="flex items-center gap-2 mb-4">
-                    <h3 className="text-[#7FD5FF] text-xs font-bold uppercase">
-                      AIRCRAFT {index + 1}
-                    </h3>
-                    {assets.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeAsset(index)}
-                        className="text-gray-500 hover:text-red-400 transition-colors"
-                      >
-                        <Icon
-                          icon="mdi:trash-can-outline"
-                          className="w-4 h-4"
-                        />
-                      </button>
-                    )}
+            <div className="space-y-8">
+              {assets.map((asset, index) => {
+                const duration = assetDurations[index] ?? {
+                  departureMinutes: 0,
+                  returnMinutes: 0,
+                  totalMinutes: 0,
+                };
+
+                return (
+                  <div key={index} className="space-y-5">
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-[15px] font-medium uppercase tracking-wide text-gray-200">
+                        Aircraft {index + 1}
+                      </h3>
+                      {assets.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeAsset(index)}
+                          className="text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <Icon
+                            icon="mdi:trash-can-outline"
+                            className="h-5 w-5"
+                          />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid gap-5 lg:grid-cols-3">
+                      <div className="space-y-2">
+                        <label className={fieldLabelClassName}>Aircraft</label>
+                        <div className="relative">
+                          <select
+                            value={asset.aircraft_id}
+                            onChange={(e) =>
+                              handleAssetChange(
+                                index,
+                                "aircraft_id",
+                                e.target.value,
+                              )
+                            }
+                            className={selectClassName}
+                            required
+                          >
+                            <option value="0">Select Aircraft</option>
+                            {aircrafts.map((aircraft) => (
+                              <option key={aircraft.id} value={aircraft.id}>
+                                {aircraft.name} ({aircraft.type})
+                              </option>
+                            ))}
+                          </select>
+                          <Icon
+                            icon="mdi:chevron-down"
+                            className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className={fieldLabelClassName}>
+                          Pilot in Command
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={asset.pilot_id}
+                            onChange={(e) =>
+                              handleAssetChange(
+                                index,
+                                "pilot_id",
+                                e.target.value,
+                              )
+                            }
+                            className={selectClassName}
+                            required
+                          >
+                            <option value="0">Select Pilot</option>
+                            {pilots.map((pilot) => (
+                              <option key={pilot.id} value={pilot.id}>
+                                {getPersonnelDisplayName(pilot)}
+                              </option>
+                            ))}
+                          </select>
+                          <Icon
+                            icon="mdi:chevron-down"
+                            className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className={fieldLabelClassName}>Co-Pilot</label>
+                        <div className="relative">
+                          <select
+                            value={asset.co_pilot_id}
+                            onChange={(e) =>
+                              handleAssetChange(
+                                index,
+                                "co_pilot_id",
+                                e.target.value,
+                              )
+                            }
+                            className={selectClassName}
+                          >
+                            <option value="0">Select Pilots</option>
+                            {pilots.map((pilot) => (
+                              <option key={pilot.id} value={pilot.id}>
+                                {getPersonnelDisplayName(pilot)}
+                              </option>
+                            ))}
+                          </select>
+                          <Icon
+                            icon="mdi:chevron-down"
+                            className="pointer-events-none absolute right-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-8 xl:grid-cols-2">
+                      <div className="space-y-4">
+                        <div className="text-sm font-medium uppercase text-gray-200">
+                          Departure Flight
+                        </div>
+                        <div className="grid gap-5 md:grid-cols-[1fr_1fr_180px]">
+                          <div className="space-y-2">
+                            <label className={fieldLabelClassName}>
+                              Estimated Take Off
+                            </label>
+                            <div className="relative">
+                              <Icon
+                                icon="mdi:clock-outline"
+                                className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-300"
+                              />
+                              <input
+                                type="time"
+                                value={asset.departure_takeoff}
+                                onChange={(e) =>
+                                  handleAssetChange(
+                                    index,
+                                    "departure_takeoff",
+                                    e.target.value,
+                                  )
+                                }
+                                className={timeFieldClassName}
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className={fieldLabelClassName}>
+                              Estimated Landing
+                            </label>
+                            <div className="relative">
+                              <Icon
+                                icon="mdi:clock-outline"
+                                className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-300"
+                              />
+                              <input
+                                type="time"
+                                value={asset.departure_landing}
+                                onChange={(e) =>
+                                  handleAssetChange(
+                                    index,
+                                    "departure_landing",
+                                    e.target.value,
+                                  )
+                                }
+                                className={timeFieldClassName}
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className={fieldLabelClassName}>
+                              Total Duration
+                            </label>
+                            <div className={durationCardClassName}>
+                              {formatDurationDisplay(duration.departureMinutes)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="text-sm font-medium uppercase text-gray-200">
+                          Return Flight
+                        </div>
+                        <div className="grid gap-5 md:grid-cols-[1fr_1fr_180px]">
+                          <div className="space-y-2">
+                            <label className={fieldLabelClassName}>
+                              Estimated Take Off
+                            </label>
+                            <div className="relative">
+                              <Icon
+                                icon="mdi:clock-outline"
+                                className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-300"
+                              />
+                              <input
+                                type="time"
+                                value={asset.return_takeoff}
+                                onChange={(e) =>
+                                  handleAssetChange(
+                                    index,
+                                    "return_takeoff",
+                                    e.target.value,
+                                  )
+                                }
+                                className={timeFieldClassName}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className={fieldLabelClassName}>
+                              Estimated Landing
+                            </label>
+                            <div className="relative">
+                              <Icon
+                                icon="mdi:clock-outline"
+                                className="absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-300"
+                              />
+                              <input
+                                type="time"
+                                value={asset.return_landing}
+                                onChange={(e) =>
+                                  handleAssetChange(
+                                    index,
+                                    "return_landing",
+                                    e.target.value,
+                                  )
+                                }
+                                className={timeFieldClassName}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className={fieldLabelClassName}>
+                              Total Duration
+                            </label>
+                            <div className={durationCardClassName}>
+                              {formatDurationDisplay(duration.returnMinutes)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-2xl sm:text-3xl font-semibold text-gray-100">
+                      Total Flight Hrs:{" "}
+                      {formatDurationHoursLabel(duration.totalMinutes)}
+                    </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Aircraft Select */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-gray-400 font-medium">
-                        Aircraft
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={asset.aircraft_id}
-                          onChange={(e) =>
-                            handleAssetChange(
-                              index,
-                              "aircraft_id",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                          required
-                        >
-                          <option value="0">Select Aircraft</option>
-                          {aircrafts.map((ac) => (
-                            <option key={ac.id} value={ac.id}>
-                              {ac.name} ({ac.type})
-                            </option>
-                          ))}
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Pilot Select */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-gray-400 font-medium">
-                        Pilot in Command
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={asset.pilot_id}
-                          onChange={(e) =>
-                            handleAssetChange(index, "pilot_id", e.target.value)
-                          }
-                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                          required
-                        >
-                          <option value="0">Select Pilot</option>
-                          {pilots.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.rank?.name} {p.firstname} {p.lastname}
-                            </option>
-                          ))}
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Co-Pilot Select */}
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-gray-400 font-medium">
-                        Co-Pilot
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={asset.co_pilot_id}
-                          onChange={(e) =>
-                            handleAssetChange(
-                              index,
-                              "co_pilot_id",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                        >
-                          <option value="0">Select Co-Pilot</option>
-                          {pilots.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.rank?.name} {p.firstname} {p.lastname}
-                            </option>
-                          ))}
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
 
-          {/* Footer */}
-          <div className="flex justify-end pt-4 border-t border-[#0A4D66]/40">
+          <div className="mt-10 flex justify-end border-t border-[#0A4D66]/30 pt-8">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-[#7FD5FF] text-black font-bold py-3 px-12 rounded hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
+              className="h-16 w-full max-w-[520px] bg-[#7FD5FF] text-[#00090D] text-2xl font-semibold rounded-sm hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : "Save"}
             </button>
