@@ -375,7 +375,7 @@ export const InventoryPage = () => {
 
   // State for Tabs and Filters
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [activeSubTab, setActiveSubTab] = useState("Aircraft");
+  const [activeSubTab, setActiveSubTab] = useState("All");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [updateStockRow, setUpdateStockRow] = useState<InventoryRow | null>(
@@ -418,10 +418,12 @@ export const InventoryPage = () => {
   // Memoized filters for API
   const apiFilters = useMemo(() => {
     let typeFilter: string | undefined;
-    if (activeTab === "Stocks") {
-      if (activeSubTab === "Aircraft") typeFilter = "aircraft";
+    if (activeTab === "All") {
+      if (activeSubTab === "Aircraft Spares") typeFilter = "aircraft_spares";
+      else if (activeSubTab === "Consumables") typeFilter = "consumables";
       else if (activeSubTab === "Ground Support") typeFilter = "ground_support";
       else if (activeSubTab === "General") typeFilter = "general";
+      // "All" has no filter (typeFilter remains undefined)
     }
 
     return {
@@ -627,7 +629,7 @@ export const InventoryPage = () => {
                   <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
                     Stocks
                   </button>
-                  {["Aircraft", "Ground Support", "General"].map((subTab) => (
+                  {["All", "Aircraft Spares", "Consumables", "Ground Support", "General"].map((subTab) => (
                     <button
                       key={subTab}
                       type="button"

@@ -19,11 +19,17 @@ export type InventoryUnit = {
 
 export type InventoryStock = {
   id: number;
+  user_id?: number | null;
   inventory_id: number;
   stock_type: string;
   quantity: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
+  user?: {
+    firstname: string | null;
+    lastname: string | null;
+  } | null;
 };
 
 export type InventoryItem = {
