@@ -3,9 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
-  useGetInventoryDashboardQuery,
   useGetInventoriesQuery,
-  useGetExpenseCategoriesQuery,
   useUpdateInventoryStockMutation,
   useGetInventoryRequisitionsQuery,
 } from "@/features/inventory/api";
@@ -13,6 +11,8 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
+import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
+import { DataTable } from "@/shared/ui/table/DataTable";
 
 type InventoryStatusLevel = "High" | "Low" | "Critical" | "Medium" | "Unknown";
 
@@ -34,6 +34,7 @@ type InventoryRow = {
   remark: string;
   serialNumber: string;
   lastUpdated: string;
+  expiryDate: string | null;
   aircraftType: string;
   measurementUnit: string;
 };
@@ -44,10 +45,39 @@ type MultiFilterState<T> = {
 };
 
 const INVENTORY_TABS = [
-  { id: "Stocks", icon: "mdi:cube-outline" },
-  { id: "Requisitions", icon: "mdi:file-document-outline" },
-  { id: "Stock History", icon: "mdi:history" },
+  { id: "Stocks", label: "All", icon: "mdi:cube-outline" },
+  {
+    id: "Requisitions",
+    label: "Requisitions",
+    icon: "mdi:file-document-outline",
+  },
+  { id: "Stock History", label: "Stock History", icon: "mdi:history" },
 ] as const;
+
+const STOCK_SUB_TABS = [
+  { id: "all", label: "All" },
+  { id: "aircraft_spares", label: "Aircraft spares" },
+  { id: "consumables", label: "Consumables" },
+  { id: "ground_support", label: "Ground support" },
+  { id: "general", label: "General(Qm Stores)" },
+] as const;
+
+const STOCK_TABLE_COLUMNS = [
+  { key: "description", header: "Item Description", className: "px-6 py-4" },
+  { key: "serial", header: "Serial No", className: "px-6 py-4" },
+  { key: "aircraft", header: "Aircraft Type", className: "px-6 py-4" },
+  { key: "category", header: "Category", className: "px-6 py-4" },
+  { key: "level", header: "Stock Level", className: "px-6 py-4" },
+  {
+    key: "current",
+    header: "Current Stock",
+    className: "px-6 py-4 text-right",
+  },
+  { key: "updated", header: "Last Updated", className: "px-6 py-4" },
+  { key: "action", header: "Action", className: "px-6 py-4 text-right" },
+] as const;
+
+type StockSubTabId = (typeof STOCK_SUB_TABS)[number]["id"];
 
 const stockLevelColor: Record<InventoryStatusLevel, string> = {
   High: "text-emerald-400",
@@ -147,6 +177,29 @@ const formatNaira = (value: number | string | null | undefined) => {
       : Number.parseFloat(String(value).replace(/[₦,]/g, ""));
   if (Number.isNaN(numeric)) return String(value);
   return `₦${numeric.toLocaleString()}`;
+};
+
+const normalizeInventoryType = (value: string | null | undefined) => {
+  const normalized = (value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (normalized === "aircraft_spares" || normalized === "aircraft") {
+    return "aircraft_spares";
+  }
+  if (normalized === "ground_support") return "ground_support";
+  if (
+    normalized === "oem" ||
+    normalized === "consumable" ||
+    normalized === "consumables"
+  ) {
+    return "consumables";
+  }
+  if (
+    normalized === "general" ||
+    normalized === "others" ||
+    normalized === "other"
+  ) {
+    return "general";
+  }
+  return normalized;
 };
 
 type UpdateStockAdjustmentType = "add" | "remove" | "audit";
@@ -375,15 +428,13 @@ export const InventoryPage = () => {
 
   // State for Tabs and Filters
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [activeSubTab, setActiveSubTab] = useState("All");
+  const [activeSubTab, setActiveSubTab] = useState<StockSubTabId>("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [updateStockRow, setUpdateStockRow] = useState<InventoryRow | null>(
     null,
   );
-  const [openFilterMenu, setOpenFilterMenu] = useState<
-    "units" | "categories" | "aircraft" | null
-  >(null);
+  const [openFilterMenu, setOpenFilterMenu] = useState<"units" | null>(null);
   const [requisitionPeriod, setRequisitionPeriod] = useState<
     "all" | "month" | "quarter" | "year"
   >("all");
@@ -396,45 +447,17 @@ export const InventoryPage = () => {
     all: true,
     selected: [],
   });
-  const [categoryFilter, setCategoryFilter] = useState<
-    MultiFilterState<number>
-  >({
-    all: true,
-    selected: [],
-  });
-  const [aircraftTypeFilter, setAircraftTypeFilter] = useState<
-    MultiFilterState<number>
-  >({
-    all: true,
-    selected: [],
-  });
 
   // Queries
-  const { data: dashboardData } = useGetInventoryDashboardQuery();
   const { data: units = [] } = useGetUnitsQuery();
-  const { data: categories = [] } = useGetExpenseCategoriesQuery();
   const { data: aircraftAssets = [] } = useGetAssetsQuery({ type: "aircraft" });
 
   // Memoized filters for API
   const apiFilters = useMemo(() => {
-    let typeFilter: string | undefined;
-    if (activeTab === "All") {
-      if (activeSubTab === "Aircraft Spares") typeFilter = "aircraft_spares";
-      else if (activeSubTab === "Consumables") typeFilter = "consumables";
-      else if (activeSubTab === "Ground Support") typeFilter = "ground_support";
-      else if (activeSubTab === "General") typeFilter = "general";
-      // "All" has no filter (typeFilter remains undefined)
-    }
-
     return {
       units: unitFilter.all ? undefined : unitFilter.selected,
-      categories: categoryFilter.all ? undefined : categoryFilter.selected,
-      aircraft_types: aircraftTypeFilter.all
-        ? undefined
-        : aircraftTypeFilter.selected,
-      type: typeFilter,
     };
-  }, [unitFilter, categoryFilter, aircraftTypeFilter, activeTab, activeSubTab]);
+  }, [unitFilter]);
 
   const {
     data: inventoriesData,
@@ -482,8 +505,8 @@ export const InventoryPage = () => {
   // Close filters when clicking outside
   const filtersRef = useRef<HTMLDivElement>(null);
   useClickOutside(filtersRef, () => setOpenFilterMenu(null));
-  const actionMenuRef = useRef<HTMLDivElement>(null);
-  useClickOutside(actionMenuRef, () => setOpenActionId(null));
+  const actionButtonRefs = useRef<Record<number, HTMLButtonElement | null>>({});
+  const activeActionButtonRef = useRef<HTMLButtonElement | null>(null);
 
   // Transform data
   const inventoryRows: InventoryRow[] = useMemo(() => {
@@ -507,6 +530,7 @@ export const InventoryPage = () => {
         remark: item.remark,
         serialNumber: item.serial_number || "-",
         lastUpdated: item.updated_at,
+        expiryDate: item.expiry_date,
         aircraftType:
           aircraftAssets.find((a) => a.id === item.asset_id)?.name || "-",
         measurementUnit: item.measurement_unit || "Units",
@@ -514,30 +538,47 @@ export const InventoryPage = () => {
     });
   }, [inventoriesData, aircraftAssets]);
 
+  const filteredInventoryRows = useMemo(() => {
+    if (activeSubTab === "all") return inventoryRows;
+    return inventoryRows.filter(
+      (row) => normalizeInventoryType(row.type) === activeSubTab,
+    );
+  }, [inventoryRows, activeSubTab]);
+
   const stats = [
     {
       label: "Total Items",
-      value: inventoriesData?.length ?? 0,
+      value: filteredInventoryRows.length,
       color: "bg-[#7FD5FF]",
     },
     {
       label: "Total In Stock",
-      value: dashboardData?.total_stock ?? 0,
+      value: filteredInventoryRows.reduce(
+        (total, row) => total + row.currentStock,
+        0,
+      ),
       color: "bg-emerald-400",
     },
     {
       label: "Low In Stock",
-      value: dashboardData?.low_stock ?? 0,
+      value: filteredInventoryRows.filter((row) => row.stockLevel === "Low")
+        .length,
       color: "bg-amber-400",
     },
     {
       label: "Expired",
-      value: dashboardData?.expired_items ?? 0,
+      value: filteredInventoryRows.filter((row) => {
+        if (!row.expiryDate) return false;
+        const expiryDate = new Date(row.expiryDate);
+        return !Number.isNaN(expiryDate.getTime()) && expiryDate < new Date();
+      }).length,
       color: "bg-red-400",
     },
     {
       label: "Critical",
-      value: dashboardData?.critical_stock ?? 0,
+      value: filteredInventoryRows.filter(
+        (row) => row.stockLevel === "Critical",
+      ).length,
       color: "bg-red-600",
     },
   ];
@@ -564,15 +605,10 @@ export const InventoryPage = () => {
     }, initial);
   }, [requisitionsData]);
 
-  const selectedFilterCount =
-    (unitFilter.all ? 0 : unitFilter.selected.length) +
-    (categoryFilter.all ? 0 : categoryFilter.selected.length) +
-    (aircraftTypeFilter.all ? 0 : aircraftTypeFilter.selected.length);
+  const selectedFilterCount = unitFilter.all ? 0 : unitFilter.selected.length;
 
   const resetFilters = () => {
     setUnitFilter({ all: true, selected: [] });
-    setCategoryFilter({ all: true, selected: [] });
-    setAircraftTypeFilter({ all: true, selected: [] });
     setOpenFilterMenu(null);
   };
 
@@ -587,9 +623,69 @@ export const InventoryPage = () => {
   };
 
   const handleToggleActions = (id: number) => {
-    setOpenActionId((current) => (current === id ? null : id));
+    setOpenActionId((current) => {
+      const nextId = current === id ? null : id;
+      activeActionButtonRef.current =
+        nextId === null ? null : actionButtonRefs.current[nextId];
+      return nextId;
+    });
     setOpenFilterMenu(null);
   };
+
+  const openActionRow =
+    activeTab === "Stocks"
+      ? (filteredInventoryRows.find((row) => row.id === openActionId) ?? null)
+      : null;
+
+  const renderInventoryActionMenu = (row: InventoryRow) => (
+    <>
+      <button
+        type="button"
+        onClick={() => handleOpenDetail(row.id)}
+        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+      >
+        <Icon icon="mdi:eye" className="w-3.5 h-3.5 text-blue-400" />
+        View
+      </button>
+      <button
+        type="button"
+        onClick={() => handleOpenEdit(row.id)}
+        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+      >
+        <Icon icon="mdi:pencil" className="w-3.5 h-3.5 text-amber-400" />
+        Edit
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setUpdateStockRow(row);
+          setOpenActionId(null);
+        }}
+        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+      >
+        <Icon
+          icon="mdi:database-edit"
+          className="w-3.5 h-3.5 text-emerald-400"
+        />
+        Update Stock
+      </button>
+      <button
+        type="button"
+        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+      >
+        <Icon icon="mdi:download" className="w-3.5 h-3.5 text-gray-400" />
+        Download
+      </button>
+      <div className="h-px bg-[#0A4D66]/40 my-1" />
+      <button
+        type="button"
+        className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 hover:text-red-300 flex items-center gap-2"
+      >
+        <Icon icon="mdi:delete" className="w-3.5 h-3.5" />
+        Delete
+      </button>
+    </>
+  );
 
   return (
     <div className="space-y-6">
@@ -611,7 +707,7 @@ export const InventoryPage = () => {
               )}
             >
               <Icon icon={tab.icon} className="w-5 h-5" />
-              <span>{tab.id}</span>
+              <span>{tab.label}</span>
               {activeTab === tab.id && (
                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7FD5FF] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
               )}
@@ -626,22 +722,19 @@ export const InventoryPage = () => {
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
-                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
-                    Stocks
-                  </button>
-                  {["All", "Aircraft Spares", "Consumables", "Ground Support", "General"].map((subTab) => (
+                  {STOCK_SUB_TABS.map((subTab) => (
                     <button
-                      key={subTab}
+                      key={subTab.id}
                       type="button"
-                      onClick={() => setActiveSubTab(subTab)}
+                      onClick={() => setActiveSubTab(subTab.id)}
                       className={cn(
                         "px-3 py-1.5 rounded text-xs font-medium transition-colors",
-                        activeSubTab === subTab
+                        activeSubTab === subTab.id
                           ? "bg-[#0A4D66] text-white"
                           : "text-gray-400 hover:text-white",
                       )}
                     >
-                      {subTab}
+                      {subTab.label}
                     </button>
                   ))}
                 </div>
@@ -742,114 +835,6 @@ export const InventoryPage = () => {
                       </div>
                     )}
                   </div>
-
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenFilterMenu(
-                          openFilterMenu === "categories" ? null : "categories",
-                        )
-                      }
-                      className={cn(
-                        "bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF] inline-flex items-center gap-1 whitespace-nowrap",
-                        !categoryFilter.all &&
-                          "border-[#7FD5FF] text-[#7FD5FF]",
-                      )}
-                    >
-                      <span>
-                        {categoryFilter.all
-                          ? "All Categories"
-                          : `${categoryFilter.selected.length} Categories`}
-                      </span>
-                      <Icon icon="mdi:chevron-down" className="w-3 h-3" />
-                    </button>
-                    {openFilterMenu === "categories" && (
-                      <div className="absolute top-full mt-1 left-0 z-40 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
-                        <div className="mb-2">
-                          <Checkbox
-                            checked={categoryFilter.all}
-                            onChange={(e) =>
-                              handleToggleAll(setCategoryFilter)(
-                                e.target.checked,
-                              )
-                            }
-                            label="All Categories"
-                          />
-                        </div>
-                        <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
-                          {categories.map((cat) => (
-                            <Checkbox
-                              key={cat.id}
-                              checked={categoryFilter.selected.includes(cat.id)}
-                              onChange={(e) =>
-                                handleToggleItem(setCategoryFilter)(
-                                  cat.id,
-                                  e.target.checked,
-                                )
-                              }
-                              label={cat.name}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOpenFilterMenu(
-                          openFilterMenu === "aircraft" ? null : "aircraft",
-                        )
-                      }
-                      className={cn(
-                        "bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF] inline-flex items-center gap-1 whitespace-nowrap",
-                        !aircraftTypeFilter.all &&
-                          "border-[#7FD5FF] text-[#7FD5FF]",
-                      )}
-                    >
-                      <span>
-                        {aircraftTypeFilter.all
-                          ? "All Aircraft Types"
-                          : `${aircraftTypeFilter.selected.length} Aircraft Types`}
-                      </span>
-                      <Icon icon="mdi:chevron-down" className="w-3 h-3" />
-                    </button>
-                    {openFilterMenu === "aircraft" && (
-                      <div className="absolute top-full mt-1 left-0 z-40 w-64 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
-                        <div className="mb-2">
-                          <Checkbox
-                            checked={aircraftTypeFilter.all}
-                            onChange={(e) =>
-                              handleToggleAll(setAircraftTypeFilter)(
-                                e.target.checked,
-                              )
-                            }
-                            label="All Aircraft Types"
-                          />
-                        </div>
-                        <div className="space-y-1 max-h-[60vh] overflow-y-auto pr-1">
-                          {aircraftAssets.map((asset) => (
-                            <Checkbox
-                              key={asset.id}
-                              checked={aircraftTypeFilter.selected.includes(
-                                asset.id,
-                              )}
-                              onChange={(e) =>
-                                handleToggleItem(setAircraftTypeFilter)(
-                                  asset.id,
-                                  e.target.checked,
-                                )
-                              }
-                              label={`${asset.name} (${asset.serial_number})`}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
                 </div>
 
                 <Link
@@ -876,190 +861,82 @@ export const InventoryPage = () => {
             </div>
 
             {viewMode === "table" ? (
-              <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1000px]">
-                  <thead>
-                    <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                      <th className="px-6 py-4 font-medium">
-                        Item Description
-                      </th>
-                      <th className="px-6 py-4 font-medium">Serial No</th>
-                      <th className="px-6 py-4 font-medium">Aircraft Type</th>
-                      <th className="px-6 py-4 font-medium">Category</th>
-                      <th className="px-6 py-4 font-medium">Stock Level</th>
-                      <th className="px-6 py-4 font-medium text-right">
-                        Current Stock
-                      </th>
-                      <th className="px-6 py-4 font-medium">Last Updated</th>
-                      <th className="px-6 py-4 font-medium text-right">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                    {isInventoriesLoading ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="px-6 py-8 text-center text-gray-500"
-                        >
-                          Loading inventory...
-                        </td>
-                      </tr>
-                    ) : inventoryRows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={8}
-                          className="px-6 py-8 text-center text-gray-500"
-                        >
-                          No inventory items found.
-                        </td>
-                      </tr>
-                    ) : (
-                      inventoryRows.map((row, idx) => (
-                        <tr
-                          key={row.id}
-                          className={cn(
-                            "hover:bg-[#0A4D66]/20 transition-colors",
-                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
-                          )}
-                        >
-                          <td className="px-6 py-4">
-                            <div className="font-medium text-white">
-                              {row.description || row.partName}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {row.partNumber}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-gray-400">
-                            {row.serialNumber}
-                          </td>
-                          <td className="px-6 py-4 text-gray-400">
-                            {row.aircraftType}
-                          </td>
-                          <td className="px-6 py-4 text-gray-400">
-                            {row.category}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={cn(
-                                "font-medium",
-                                stockLevelColor[row.stockLevel],
-                              )}
-                            >
-                              {row.stockLevel}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right font-mono text-white">
-                            {row.currentStock}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            <div>{formatDateShort(row.lastUpdated)}</div>
-                            <div className="text-xs text-gray-500">
-                              {formatTimeShort(row.lastUpdated)}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div
-                              className="relative inline-block"
-                              ref={
-                                openActionId === row.id
-                                  ? actionMenuRef
-                                  : undefined
-                              }
-                            >
-                              <button
-                                type="button"
-                                onClick={() => handleToggleActions(row.id)}
-                                className="p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
-                              >
-                                <Icon
-                                  icon="mdi:dots-vertical"
-                                  className="w-4 h-4"
-                                />
-                              </button>
-                              {openActionId === row.id && (
-                                <div className="absolute right-0 mt-1 w-40 bg-[#001219] border border-[#0A4D66]/40 rounded shadow-xl z-30 overflow-hidden">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenDetail(row.id)}
-                                    className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                                  >
-                                    <Icon
-                                      icon="mdi:eye"
-                                      className="w-3.5 h-3.5 text-blue-400"
-                                    />
-                                    View
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEdit(row.id)}
-                                    className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                                  >
-                                    <Icon
-                                      icon="mdi:pencil"
-                                      className="w-3.5 h-3.5 text-amber-400"
-                                    />
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setUpdateStockRow(row);
-                                      setOpenActionId(null);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                                  >
-                                    <Icon
-                                      icon="mdi:database-edit"
-                                      className="w-3.5 h-3.5 text-emerald-400"
-                                    />
-                                    Update Stock
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                                  >
-                                    <Icon
-                                      icon="mdi:download"
-                                      className="w-3.5 h-3.5 text-gray-400"
-                                    />
-                                    Download
-                                  </button>
-                                  <div className="h-px bg-[#0A4D66]/40 my-1" />
-                                  <button
-                                    type="button"
-                                    className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 hover:text-red-300 flex items-center gap-2"
-                                  >
-                                    <Icon
-                                      icon="mdi:delete"
-                                      className="w-3.5 h-3.5"
-                                    />
-                                    Delete
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
+              <DataTable
+                columns={STOCK_TABLE_COLUMNS}
+                isLoading={isInventoriesLoading}
+                isEmpty={filteredInventoryRows.length === 0}
+                loadingText="Loading inventory..."
+                emptyText="No inventory items found."
+              >
+                {filteredInventoryRows.map((row, idx) => (
+                  <tr
+                    key={row.id}
+                    className={cn(
+                      "hover:bg-[#0A4D66]/20 transition-colors",
+                      idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                     )}
-                  </tbody>
-                </table>
-              </div>
+                  >
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-white">
+                        {row.description || row.partName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {row.partNumber}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-400">
+                      {row.serialNumber}
+                    </td>
+                    <td className="px-6 py-4 text-gray-400">
+                      {row.aircraftType}
+                    </td>
+                    <td className="px-6 py-4 text-gray-400">{row.category}</td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={cn(
+                          "font-medium",
+                          stockLevelColor[row.stockLevel],
+                        )}
+                      >
+                        {row.stockLevel}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono text-white">
+                      {row.currentStock}
+                    </td>
+                    <td className="px-6 py-4 text-gray-300">
+                      <div>{formatDateShort(row.lastUpdated)}</div>
+                      <div className="text-xs text-gray-500">
+                        {formatTimeShort(row.lastUpdated)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button
+                        ref={(node) => {
+                          actionButtonRefs.current[row.id] = node;
+                        }}
+                        type="button"
+                        onClick={() => handleToggleActions(row.id)}
+                        className="p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
+                      >
+                        <Icon icon="mdi:dots-vertical" className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </DataTable>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {isInventoriesLoading ? (
                   <div className="col-span-full text-center py-8 text-gray-500">
                     Loading inventory...
                   </div>
-                ) : inventoryRows.length === 0 ? (
+                ) : filteredInventoryRows.length === 0 ? (
                   <div className="col-span-full text-center py-8 text-gray-500">
                     No inventory items found.
                   </div>
                 ) : (
-                  inventoryRows.map((row) => (
+                  filteredInventoryRows.map((row) => (
                     <div
                       key={row.id}
                       className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative group hover:border-[#7FD5FF]/50 transition-colors"
@@ -1089,13 +966,11 @@ export const InventoryPage = () => {
                           </div>
                         </div>
 
-                        <div
-                          className="relative"
-                          ref={
-                            openActionId === row.id ? actionMenuRef : undefined
-                          }
-                        >
+                        <div className="relative">
                           <button
+                            ref={(node) => {
+                              actionButtonRefs.current[row.id] = node;
+                            }}
                             type="button"
                             onClick={() => handleToggleActions(row.id)}
                             className="p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
@@ -1105,67 +980,6 @@ export const InventoryPage = () => {
                               className="w-4 h-4"
                             />
                           </button>
-                          {openActionId === row.id && (
-                            <div className="absolute right-0 mt-1 w-40 bg-[#001219] border border-[#0A4D66]/40 rounded shadow-xl z-30 overflow-hidden">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenDetail(row.id)}
-                                className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                              >
-                                <Icon
-                                  icon="mdi:eye"
-                                  className="w-3.5 h-3.5 text-blue-400"
-                                />
-                                View
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEdit(row.id)}
-                                className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                              >
-                                <Icon
-                                  icon="mdi:pencil"
-                                  className="w-3.5 h-3.5 text-amber-400"
-                                />
-                                Edit
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setUpdateStockRow(row);
-                                  setOpenActionId(null);
-                                }}
-                                className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                              >
-                                <Icon
-                                  icon="mdi:database-edit"
-                                  className="w-3.5 h-3.5 text-emerald-400"
-                                />
-                                Update Stock
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
-                              >
-                                <Icon
-                                  icon="mdi:download"
-                                  className="w-3.5 h-3.5 text-gray-400"
-                                />
-                                Download
-                              </button>
-                              <div className="h-px bg-[#0A4D66]/40 my-1" />
-                              <button
-                                type="button"
-                                className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 hover:text-red-300 flex items-center gap-2"
-                              >
-                                <Icon
-                                  icon="mdi:delete"
-                                  className="w-3.5 h-3.5"
-                                />
-                                Delete
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </div>
 
@@ -1560,6 +1374,16 @@ export const InventoryPage = () => {
         )}
       </div>
 
+      {openActionRow && (
+        <FloatingActionMenu
+          open
+          anchorRef={activeActionButtonRef}
+          onClose={() => setOpenActionId(null)}
+        >
+          {renderInventoryActionMenu(openActionRow)}
+        </FloatingActionMenu>
+      )}
+
       {/* Update Stock Modal */}
       {updateStockRow && (
         <UpdateStockModal
@@ -1570,14 +1394,6 @@ export const InventoryPage = () => {
               refetchInventories();
             }
           }}
-        />
-      )}
-
-      {/* Backdrop for closing action menu */}
-      {openActionId !== null && (
-        <div
-          className="fixed inset-0 z-10 bg-transparent"
-          onClick={() => setOpenActionId(null)}
         />
       )}
     </div>

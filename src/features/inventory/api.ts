@@ -75,9 +75,15 @@ export type InventoryFilters = {
 };
 
 export type CreateInventoryPayload = {
-  type: "aircraft" | "ground_support" | "oem" | "others" | string;
+  type:
+    | "aircraft_spares"
+    | "consumables"
+    | "ground_support"
+    | "general"
+    | "others"
+    | string;
   asset_id: number | null;
-  expense_category_id: number;
+  expense_category_id: number | null;
   unit_id: number;
   serial_number: string;
   part_number: string;
