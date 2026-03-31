@@ -14,7 +14,12 @@ import { useGetAssetTypesQuery } from "@/features/assets/api";
 
 type FormMode = "create" | "edit";
 
-type StockType = "aircraft" | "ground_support" | "others";
+type StockType =
+  | "aircraft_spares"
+  | "consumables"
+  | "ground_support"
+  | "general"
+  | "others";
 
 type InventoryFormValues = {
   type: StockType;
@@ -35,7 +40,7 @@ type InventoryFormValues = {
 };
 
 const emptyFormValues: InventoryFormValues = {
-  type: "aircraft",
+  type: "aircraft_spares",
   asset_id: "",
   expense_category_id: "",
   unit_id: "",
@@ -54,11 +59,19 @@ const emptyFormValues: InventoryFormValues = {
 
 const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => ({
   type:
+    item.type === "aircraft_spares" ||
     item.type === "aircraft" ||
+    item.type === "consumables" ||
+    item.type === "oem" ||
     item.type === "ground_support" ||
+    item.type === "general" ||
     item.type === "others"
-      ? item.type
-      : "aircraft",
+      ? item.type === "aircraft"
+        ? "aircraft_spares"
+        : item.type === "oem"
+          ? "consumables"
+          : item.type
+      : "aircraft_spares",
   asset_id: item.asset_id ?? "",
   expense_category_id: item.expense_category_id,
   unit_id: item.unit_id,
@@ -114,6 +127,7 @@ const InventoryFormContent = ({
     Partial<Record<keyof InventoryFormValues, string>>
   >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const isAircraftSpares = values.type === "aircraft_spares";
 
   const pageTitle = mode === "create" ? "Add Stock" : "Edit";
   const primaryButtonLabel = mode === "create" ? "Save" : "Save Changes";
@@ -162,15 +176,13 @@ const InventoryFormContent = ({
     if (!values.description.trim()) newErrors.description = "Required";
     if (!values.serial_number.trim()) newErrors.serial_number = "Required";
     if (!values.part_number.trim()) newErrors.part_number = "Required";
-    if (!values.measurement_unit.trim())
-      newErrors.measurement_unit = "Required";
     if (!values.vendor.trim()) newErrors.vendor = "Required";
     if (!values.current_stock.trim()) newErrors.current_stock = "Required";
     if (!values.re_order_level.trim()) newErrors.re_order_level = "Required";
     if (!values.unit_id) newErrors.unit_id = "Required";
-    if (!values.expense_category_id) newErrors.expense_category_id = "Required";
-    if (values.type === "aircraft" && !values.asset_id)
-      newErrors.asset_id = "Required";
+    if (!isAircraftSpares && !values.expense_category_id)
+      newErrors.expense_category_id = "Required";
+    if (isAircraftSpares && !values.asset_id) newErrors.asset_id = "Required";
 
     if (
       values.re_order_level.trim() &&
@@ -204,7 +216,7 @@ const InventoryFormContent = ({
     } = parsedPayload;
 
     const computedAssetId =
-      values.type === "aircraft"
+      values.type === "aircraft_spares"
         ? typeof values.asset_id === "number"
           ? values.asset_id
           : Number(values.asset_id)
@@ -215,8 +227,9 @@ const InventoryFormContent = ({
     const basePayload = {
       type: values.type,
       asset_id: computedAssetId,
-      expense_category_id:
-        typeof values.expense_category_id === "number"
+      expense_category_id: isAircraftSpares
+        ? (inventory?.expense_category_id ?? null)
+        : typeof values.expense_category_id === "number"
           ? values.expense_category_id
           : Number(values.expense_category_id),
       unit_id:
@@ -227,7 +240,7 @@ const InventoryFormContent = ({
       part_number: values.part_number.trim(),
       current_stock: currentStockNumeric ?? 0,
       re_order_level: reOrderNumeric ?? 0,
-      measurement_unit: values.measurement_unit.trim(),
+      measurement_unit: inventory?.measurement_unit ?? "",
       unit_cost: unitCostNumeric ?? 0,
       vendor: values.vendor.trim(),
       expiry_date: values.expiry_date.trim() || null,
@@ -286,16 +299,32 @@ const InventoryFormContent = ({
                   type="radio"
                   name="stockType"
                   className="form-radio text-[#7FD5FF]"
-                  checked={values.type === "aircraft"}
+                  checked={values.type === "aircraft_spares"}
                   onChange={() =>
                     setValues((prev) => ({
                       ...prev,
-                      type: "aircraft",
+                      type: "aircraft_spares",
                       asset_id: "",
                     }))
                   }
                 />
-                <span>Aircraft</span>
+                <span>Aircraft spares</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="stockType"
+                  className="form-radio text-[#7FD5FF]"
+                  checked={values.type === "consumables"}
+                  onChange={() =>
+                    setValues((prev) => ({
+                      ...prev,
+                      type: "consumables",
+                      asset_id: "",
+                    }))
+                  }
+                />
+                <span>Consumables</span>
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
@@ -311,32 +340,32 @@ const InventoryFormContent = ({
                     }))
                   }
                 />
-                <span>Ground Support Equipment</span>
+                <span>Ground support</span>
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   name="stockType"
                   className="form-radio text-[#7FD5FF]"
-                  checked={values.type === "others"}
+                  checked={values.type === "general"}
                   onChange={() =>
                     setValues((prev) => ({
                       ...prev,
-                      type: "others",
+                      type: "general",
                       asset_id: "",
                     }))
                   }
                 />
-                <span>General (QM Store)</span>
+                <span>General(Qm Stores)</span>
               </label>
             </div>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            {values.type === "aircraft" && (
+            {values.type === "aircraft_spares" && (
               <div className="space-y-1">
                 <label className="text-[11px] uppercase text-gray-400">
-                  Aircraft Type
+                  Aircraft
                 </label>
                 <div className="relative">
                   <select
@@ -402,40 +431,42 @@ const InventoryFormContent = ({
               )}
             </div>
 
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Category
-              </label>
-              <div className="relative">
-                <select
-                  value={values.expense_category_id}
-                  onChange={handleChange("expense_category_id")}
-                  className={cn(
-                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
-                    isCategoriesLoading && "opacity-70 cursor-not-allowed",
-                  )}
-                  disabled={isCategoriesLoading}
-                >
-                  <option value="">
-                    {isCategoriesLoading ? "Loading..." : "Select Category"}
-                  </option>
-                  {categories?.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
+            {!isAircraftSpares && (
+              <div className="space-y-1">
+                <label className="text-[11px] uppercase text-gray-400">
+                  Category
+                </label>
+                <div className="relative">
+                  <select
+                    value={values.expense_category_id}
+                    onChange={handleChange("expense_category_id")}
+                    className={cn(
+                      "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
+                      isCategoriesLoading && "opacity-70 cursor-not-allowed",
+                    )}
+                    disabled={isCategoriesLoading}
+                  >
+                    <option value="">
+                      {isCategoriesLoading ? "Loading..." : "Select Category"}
                     </option>
-                  ))}
-                </select>
-                <Icon
-                  icon="mdi:chevron-down"
-                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                />
+                    {categories?.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  />
+                </div>
+                {errors.expense_category_id && (
+                  <p className="text-[11px] text-red-400">
+                    {errors.expense_category_id}
+                  </p>
+                )}
               </div>
-              {errors.expense_category_id && (
-                <p className="text-[11px] text-red-400">
-                  {errors.expense_category_id}
-                </p>
-              )}
-            </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
@@ -457,6 +488,35 @@ const InventoryFormContent = ({
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
+                Unit
+              </label>
+              <div className="relative">
+                <select
+                  value={values.unit_id}
+                  onChange={handleChange("unit_id")}
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                >
+                  <option value="">
+                    {isUnitsLoading ? "Loading units..." : "Select Unit"}
+                  </option>
+                  {units?.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </option>
+                  ))}
+                </select>
+                <Icon
+                  icon="mdi:chevron-down"
+                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                />
+              </div>
+              {errors.unit_id && (
+                <p className="text-[11px] text-red-400">{errors.unit_id}</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
                 Part No.
               </label>
               <input
@@ -472,47 +532,6 @@ const InventoryFormContent = ({
               {errors.part_number && (
                 <p className="text-[11px] text-red-400">{errors.part_number}</p>
               )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Units/Measurement
-              </label>
-              <input
-                type="text"
-                value={values.measurement_unit}
-                onChange={handleChange("measurement_unit")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-                placeholder="Enter Units/Measurement"
-              />
-              {errors.measurement_unit && (
-                <p className="text-[11px] text-red-400">
-                  {errors.measurement_unit}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400"></label>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400"></label>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Total Cost
-              </label>
-              <div className="h-[38px] sm:h-[42px] flex items-center text-xl font-bold text-gray-300">
-                {(() => {
-                  const qty = parsedPayload.quantityNumeric ?? 0;
-                  const unitCost = parsedPayload.unitCostNumeric ?? 0;
-                  const total = qty * unitCost;
-                  if (!total) return "00";
-                  return total.toLocaleString();
-                })()}
-              </div>
             </div>
 
             <div className="space-y-1">
@@ -572,35 +591,6 @@ const InventoryFormContent = ({
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
                 placeholder="Enter Remark"
               />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Location
-              </label>
-              <div className="relative">
-                <select
-                  value={values.unit_id}
-                  onChange={handleChange("unit_id")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
-                >
-                  <option value="">
-                    {isUnitsLoading ? "Loading units..." : "Select Location"}
-                  </option>
-                  {units?.map((unit) => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </select>
-                <Icon
-                  icon="mdi:chevron-down"
-                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                />
-              </div>
-              {errors.unit_id && (
-                <p className="text-[11px] text-red-400">{errors.unit_id}</p>
-              )}
             </div>
           </div>
 

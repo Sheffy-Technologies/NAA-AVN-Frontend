@@ -8,7 +8,11 @@ import {
 } from "@/features/inventory/api";
 import { useGetAssetsQuery } from "@/features/assets/api";
 
-type StockType = "aircraft" | "ground_support" | "general";
+type StockType =
+  | "aircraft_spares"
+  | "consumables"
+  | "ground_support"
+  | "general";
 
 type RequisitionLine = {
   id: string;
@@ -20,16 +24,17 @@ type RequisitionLine = {
 
 const createEmptyLine = (): RequisitionLine => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  stockType: "aircraft",
+  stockType: "aircraft_spares",
   aircraftAssetId: "",
   inventoryId: "",
   quantity: "",
 });
 
 const stockTypeLabel: Record<StockType, string> = {
-  aircraft: "Aircraft",
-  ground_support: "Ground Support Equipment",
-  general: "General (QM Store)",
+  aircraft_spares: "Aircraft spares",
+  consumables: "Consumables",
+  ground_support: "Ground support",
+  general: "General(Qm Stores)",
 };
 
 export const InventoryRequisitionFormPage = () => {
@@ -49,14 +54,20 @@ export const InventoryRequisitionFormPage = () => {
     return inventories.reduce(
       (acc, item) => {
         const normalized = (item.type ?? "").toLowerCase();
-        if (normalized === "aircraft") acc.aircraft.push(item);
-        else if (normalized === "ground_support")
+        if (normalized === "aircraft_spares" || normalized === "aircraft") {
+          acc.aircraft_spares.push(item);
+        } else if (normalized === "consumables" || normalized === "oem") {
+          acc.consumables.push(item);
+        } else if (normalized === "ground_support") {
           acc.ground_support.push(item);
-        else if (normalized === "general") acc.general.push(item);
+        } else if (normalized === "general" || normalized === "others") {
+          acc.general.push(item);
+        }
         return acc;
       },
       {
-        aircraft: [] as typeof inventories,
+        aircraft_spares: [] as typeof inventories,
+        consumables: [] as typeof inventories,
         ground_support: [] as typeof inventories,
         general: [] as typeof inventories,
       },
@@ -100,7 +111,7 @@ export const InventoryRequisitionFormPage = () => {
     }
 
     for (const line of lines) {
-      if (line.stockType === "aircraft" && line.aircraftAssetId === "") {
+      if (line.stockType === "aircraft_spares" && line.aircraftAssetId === "") {
         setSubmitError("Select aircraft type for all aircraft requests.");
         return false;
       }
@@ -109,11 +120,7 @@ export const InventoryRequisitionFormPage = () => {
         return false;
       }
       const qty = Number(line.quantity);
-      if (
-        line.quantity.trim().length === 0 ||
-        Number.isNaN(qty) ||
-        qty <= 0
-      ) {
+      if (line.quantity.trim().length === 0 || Number.isNaN(qty) || qty <= 0) {
         setSubmitError("Enter valid quantity for all requests.");
         return false;
       }
@@ -175,17 +182,19 @@ export const InventoryRequisitionFormPage = () => {
           <div className="mt-4 space-y-6">
             {lines.map((line, index) => {
               const availableInventories =
-                line.stockType === "aircraft"
-                  ? inventoriesByType.aircraft.filter((inv) =>
+                line.stockType === "aircraft_spares"
+                  ? inventoriesByType.aircraft_spares.filter((inv) =>
                       line.aircraftAssetId === ""
                         ? false
                         : inv.asset_id === line.aircraftAssetId,
                     )
-                  : line.stockType === "ground_support"
-                    ? inventoriesByType.ground_support
-                    : inventoriesByType.general;
+                  : line.stockType === "consumables"
+                    ? inventoriesByType.consumables
+                    : line.stockType === "ground_support"
+                      ? inventoriesByType.ground_support
+                      : inventoriesByType.general;
 
-              const showAircraftType = line.stockType === "aircraft";
+              const showAircraftType = line.stockType === "aircraft_spares";
 
               return (
                 <div key={line.id} className="space-y-3">
@@ -208,7 +217,12 @@ export const InventoryRequisitionFormPage = () => {
                     </div>
                     <div className="flex flex-wrap items-center gap-4 text-xs text-gray-200">
                       {(
-                        ["aircraft", "ground_support", "general"] as const
+                        [
+                          "aircraft_spares",
+                          "consumables",
+                          "ground_support",
+                          "general",
+                        ] as const
                       ).map((type) => (
                         <label
                           key={type}
@@ -299,13 +313,15 @@ export const InventoryRequisitionFormPage = () => {
                           )}
                         >
                           <option value="">
-                            {isInventoriesLoading
-                              ? "Loading..."
-                              : "Select"}
+                            {isInventoriesLoading ? "Loading..." : "Select"}
                           </option>
                           {availableInventories.map((inv) => (
                             <option key={inv.id} value={inv.id}>
-                              {(inv.description || inv.part_name || "Item").trim()}{" "}
+                              {(
+                                inv.description ||
+                                inv.part_name ||
+                                "Item"
+                              ).trim()}{" "}
                               ({inv.part_number})
                             </option>
                           ))}
