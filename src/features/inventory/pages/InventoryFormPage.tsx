@@ -474,7 +474,7 @@ const InventoryFormContent = ({
               )}
             </div>
 
-            <div className="space-y-1">
+            {/* <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
                 Units/Measurement
               </label>
@@ -490,7 +490,7 @@ const InventoryFormContent = ({
                   {errors.measurement_unit}
                 </p>
               )}
-            </div>
+            </div> */}
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400"></label>
