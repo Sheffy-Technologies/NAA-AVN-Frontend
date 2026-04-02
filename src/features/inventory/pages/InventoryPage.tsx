@@ -6,6 +6,7 @@ import {
   useGetInventoriesQuery,
   useUpdateInventoryStockMutation,
   useGetInventoryRequisitionsQuery,
+  useGetSuppliersQuery,
 } from "@/features/inventory/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
@@ -51,7 +52,11 @@ const INVENTORY_TABS = [
     label: "Requisitions",
     icon: "mdi:file-document-outline",
   },
-  { id: "Stock History", label: "Stock History", icon: "mdi:history" },
+  {
+    id: "Suppliers",
+    label: "Suppliers",
+    icon: "mdi:truck-delivery-outline",
+  },
 ] as const;
 
 const STOCK_SUB_TABS = [
@@ -477,6 +482,11 @@ export const InventoryPage = () => {
       skip: activeTab !== "Requisitions",
     });
 
+  const { data: suppliersData = [], isLoading: isSuppliersLoading } =
+    useGetSuppliersQuery(undefined, {
+      skip: activeTab !== "Suppliers",
+    });
+
   // Handlers
   const handleToggleAll =
     <T,>(setState: React.Dispatch<React.SetStateAction<MultiFilterState<T>>>) =>
@@ -606,6 +616,25 @@ export const InventoryPage = () => {
   }, [requisitionsData]);
 
   const selectedFilterCount = unitFilter.all ? 0 : unitFilter.selected.length;
+
+  const supplierStats = useMemo(() => {
+    const withEmail = suppliersData.filter((supplier) =>
+      Boolean(supplier.email?.trim()),
+    ).length;
+    const withContact = suppliersData.filter((supplier) =>
+      Boolean(supplier.contact?.trim()),
+    ).length;
+    const withAddress = suppliersData.filter((supplier) =>
+      Boolean(supplier.address?.trim()),
+    ).length;
+
+    return {
+      total: suppliersData.length,
+      withEmail,
+      withContact,
+      withAddress,
+    };
+  }, [suppliersData]);
 
   const resetFilters = () => {
     setUnitFilter({ all: true, selected: [] });
@@ -1171,7 +1200,7 @@ export const InventoryPage = () => {
 
             {viewMode === "table" ? (
               <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
-                <table className="w-full text-left border-collapse min-w-[1000px]">
+                <table className="w-full text-left border-collapse min-w-250">
                   <thead>
                     <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
                       <th className="px-6 py-4 font-medium">Date</th>
@@ -1357,6 +1386,225 @@ export const InventoryPage = () => {
                       </button>
                     );
                   })
+                )}
+              </div>
+            )}
+          </>
+        ) : activeTab === "Suppliers" ? (
+          <>
+            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                    Suppliers
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    className={cn(
+                      "p-1.5 rounded transition-colors",
+                      viewMode === "table"
+                        ? "bg-[#0A4D66] text-white"
+                        : "text-gray-400 hover:text-white",
+                    )}
+                  >
+                    <Icon icon="mdi:table" className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("grid")}
+                    className={cn(
+                      "p-1.5 rounded transition-colors",
+                      viewMode === "grid"
+                        ? "bg-[#0A4D66] text-white"
+                        : "text-gray-400 hover:text-white",
+                    )}
+                  >
+                    <Icon icon="mdi:view-grid" className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="flex-1" />
+
+                <Link
+                  to="/dashboard/inventory/suppliers/add"
+                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  <span>Add Supplier</span>
+                </Link>
+              </div>
+
+              <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
+                {[
+                  {
+                    label: "Total Suppliers",
+                    value: supplierStats.total,
+                    color: "bg-[#7FD5FF]",
+                  },
+                  {
+                    label: "With Contact",
+                    value: supplierStats.withContact,
+                    color: "bg-emerald-400",
+                  },
+                  {
+                    label: "With Email",
+                    value: supplierStats.withEmail,
+                    color: "bg-amber-400",
+                  },
+                  {
+                    label: "With Address",
+                    value: supplierStats.withAddress,
+                    color: "bg-sky-400",
+                  },
+                ].map((stat) => (
+                  <div
+                    key={stat.label}
+                    className="flex items-center space-x-2 whitespace-nowrap"
+                  >
+                    <div className={cn("w-2 h-2 rounded-full", stat.color)} />
+                    <span className="text-gray-400">{stat.label}:</span>
+                    <span className="text-white font-bold">{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {viewMode === "table" ? (
+              <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-250">
+                  <thead>
+                    <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                      <th className="px-6 py-4 font-medium">Supplier</th>
+                      <th className="px-6 py-4 font-medium">Contact</th>
+                      <th className="px-6 py-4 font-medium">Email</th>
+                      <th className="px-6 py-4 font-medium">Address</th>
+                      <th className="px-6 py-4 font-medium">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                    {isSuppliersLoading ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          Loading suppliers...
+                        </td>
+                      </tr>
+                    ) : suppliersData.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="px-6 py-8 text-center text-gray-500"
+                        >
+                          No suppliers found.
+                        </td>
+                      </tr>
+                    ) : (
+                      suppliersData.map((supplier, idx) => (
+                        <tr
+                          key={supplier.id}
+                          className={cn(
+                            "hover:bg-[#0A4D66]/20 transition-colors",
+                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )}
+                        >
+                          <td className="px-6 py-4 text-gray-200 font-medium">
+                            {supplier.name}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {supplier.contact || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {supplier.email || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300 max-w-90">
+                            <span className="line-clamp-2">
+                              {supplier.address || "-"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {formatDateShort(supplier.created_at)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {isSuppliersLoading ? (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    Loading suppliers...
+                  </div>
+                ) : suppliersData.length === 0 ? (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    No suppliers found.
+                  </div>
+                ) : (
+                  suppliersData.map((supplier) => (
+                    <div
+                      key={supplier.id}
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-3 hover:border-[#7FD5FF]/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded bg-[#0A4D66]/40 flex items-center justify-center">
+                          <Icon
+                            icon="mdi:truck-delivery-outline"
+                            className="w-6 h-6 text-[#7FD5FF]"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-white font-semibold truncate">
+                            {supplier.name}
+                          </h3>
+                          <p className="text-xs text-gray-400">
+                            ID: {supplier.id}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
+                        <div>
+                          <span className="text-gray-500 block mb-0.5">
+                            Contact
+                          </span>
+                          <span className="text-white font-medium">
+                            {supplier.contact || "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block mb-0.5">
+                            Email
+                          </span>
+                          <span className="text-white font-medium break-all">
+                            {supplier.email || "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block mb-0.5">
+                            Address
+                          </span>
+                          <span className="text-white font-medium">
+                            {supplier.address || "-"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500 block mb-0.5">
+                            Created
+                          </span>
+                          <span className="text-white font-medium">
+                            {formatDateShort(supplier.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}

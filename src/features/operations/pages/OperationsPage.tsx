@@ -47,7 +47,7 @@ const clamp = (value: number, min: number, max: number): number =>
 const statusDotColor: Record<string, string> = {
   planned: "bg-blue-400",
   completed: "bg-emerald-400",
-  active: "bg-amber-400",
+  ongoing: "bg-amber-400",
   aborted: "bg-red-500",
 };
 
@@ -71,7 +71,7 @@ export const OperationsPage = () => {
     return {
       planned: operations.filter((op) => op.status === "planned").length,
       completed: operations.filter((op) => op.status === "completed").length,
-      ongoing: operations.filter((op) => op.status === "active").length,
+      ongoing: operations.filter((op) => op.status === "ongoing").length,
       aborted: operations.filter((op) => op.status === "aborted").length,
     };
   }, [operations]);

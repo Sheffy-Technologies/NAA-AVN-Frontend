@@ -205,7 +205,7 @@ export const AddPersonnelPage = () => {
         image: imageUrl || undefined,
         ratings: selectedRatings.map((ratingId) => ({
           rating_id: ratingId,
-          expiry_date: formatDateToIsoString(ratingExpiryDates[ratingId]),
+          expiry_date: ratingExpiryDates[ratingId] || "",
         })),
         flight_experiences: selectedAircraftIds.map((assetId) => ({
           asset_id: assetId,
@@ -426,21 +426,20 @@ export const AddPersonnelPage = () => {
                 name="call_sign"
                 value={formData.call_sign}
                 onChange={handleChange}
-                required
                 placeholder="Enter Call Sign"
               />
-              <InputField
+              {/* <InputField
                 label="Dialogue Box"
                 placeholder="Enter Dialogue Box"
                 disabled // Placeholder as requested in UI but no field in form data yet?
-              />
+              /> */}
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <MultiSelect
-              label="Type of Rating"
-              placeholder="Select Type of rating"
+              label="Type of License"
+              placeholder="Select Type of License"
               options={ratingOptions}
               selectedValues={selectedRatings}
               onChange={handleRatingChange}

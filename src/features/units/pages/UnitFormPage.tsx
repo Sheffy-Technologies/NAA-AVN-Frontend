@@ -7,18 +7,18 @@ import {
   useUpdateUnitMutation,
   useGetUnitsQuery,
 } from "@/shared/api/units";
-import { useGetAssetsQuery } from "@/features/assets/api";
+import { useGetFacilitiesQuery } from "@/features/assets/api";
 
 type UnitFormValues = {
   name: string;
   description: string;
-  location_id: string;
+  facility_id: string;
 };
 
 const emptyUnitValues: UnitFormValues = {
   name: "",
   description: "",
-  location_id: "",
+  facility_id: "",
 };
 
 export const UnitFormPage = () => {
@@ -31,7 +31,7 @@ export const UnitFormPage = () => {
   });
 
   const { data: facilities, isLoading: isLoadingFacilities } =
-    useGetAssetsQuery({ type: "facility" });
+    useGetFacilitiesQuery();
 
   const [values, setValues] = useState<UnitFormValues>(emptyUnitValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export const UnitFormPage = () => {
         setValues({
           name: unit.name,
           description: unit.description || "",
-          location_id: unit.location_id != null ? String(unit.location_id) : "",
+          facility_id: unit.facility_id != null ? String(unit.facility_id) : "",
         });
       }
     }
@@ -81,21 +81,20 @@ export const UnitFormPage = () => {
     }
 
     try {
-      const location_id = values.location_id ? Number(values.location_id) : null;
-      const asset_id = values.location_id ? Number(values.location_id) : null;
+      const facility_id = values.facility_id ? Number(values.facility_id) : null;
 
       if (isEditMode && id) {
         await updateUnit({
           id: Number(id),
           name: values.name.trim(),
           description: values.description.trim(),
-          location_id,
+          facility_id,
         }).unwrap();
       } else {
         await createUnit({
           name: values.name.trim(),
           description: values.description.trim(),
-          asset_id,
+          facility_id,
         }).unwrap();
       }
       navigate("/dashboard/units");
@@ -167,17 +166,17 @@ export const UnitFormPage = () => {
 
              <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
-                Location
+                  Facility
               </label>
               <select
-                value={values.location_id}
-                onChange={handleSelectChange("location_id")}
+                  value={values.facility_id}
+                  onChange={handleSelectChange("facility_id")}
                 disabled={isLoadingFacilities}
-                aria-label="Select Location"
+                  aria-label="Select Facility"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none focus:border-[#7FD5FF]/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">
-                  {isLoadingFacilities ? "Loading locations..." : "Select Location"}
+                    {isLoadingFacilities ? "Loading facilities..." : "Select Facility"}
                 </option>
                 {facilities?.map((facility) => (
                   <option key={facility.id} value={String(facility.id)}>

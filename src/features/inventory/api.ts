@@ -17,6 +17,17 @@ export type InventoryUnit = {
   updated_at: string;
 };
 
+export type InventorySupplier = {
+  id: number;
+  name: string;
+  contact?: string | null;
+  email?: string | null;
+  address?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+};
+
 export type InventoryStock = {
   id: number;
   user_id?: number | null;
@@ -44,8 +55,10 @@ export type InventoryItem = {
   re_order_level: number;
   unit_cost: string;
   measurement_unit: string;
-  vendor: string;
+  supplier_id?: number | null;
+  vendor?: string;
   expiry_date: string | null;
+  date_received: string | null;
   remark: string;
   description: string;
   created_at: string;
@@ -53,6 +66,7 @@ export type InventoryItem = {
   stock_level: string;
   expense_category: InventoryExpenseCategory;
   unit: InventoryUnit;
+  supplier?: InventorySupplier | null;
   stocks: InventoryStock[];
   // Legacy fields that might still be needed or can be removed if verified
   part_name?: string;
@@ -91,14 +105,22 @@ export type CreateInventoryPayload = {
   re_order_level: number;
   unit_cost: number;
   measurement_unit: string;
-  vendor: string;
+  supplier_id: number;
   expiry_date: string | null;
+  date_received: string | null;
   remark: string;
   description: string;
   quantity: number;
 };
 
 export type UpdateInventoryPayload = CreateInventoryPayload;
+
+export type CreateSupplierPayload = {
+  name: string;
+  contact?: string | null;
+  email?: string | null;
+  address?: string | null;
+};
 
 export type InventoryStockUpdatePayload = {
   inventory_id: number;
@@ -178,6 +200,19 @@ export const inventoryApi = createApi({
       query: () => ({
         url: "/expense-categories",
         method: "GET",
+      }),
+    }),
+    getSuppliers: builder.query<InventorySupplier[], void>({
+      query: () => ({
+        url: "/suppliers",
+        method: "GET",
+      }),
+    }),
+    createSupplier: builder.mutation<InventorySupplier, CreateSupplierPayload>({
+      query: (body) => ({
+        url: "/suppliers",
+        method: "POST",
+        data: body,
       }),
     }),
     getInventories: builder.query<InventoryItem[], InventoryFilters | void>({
@@ -265,6 +300,8 @@ export const inventoryApi = createApi({
 export const {
   useGetInventoryDashboardQuery,
   useGetExpenseCategoriesQuery,
+  useGetSuppliersQuery,
+  useCreateSupplierMutation,
   useGetInventoriesQuery,
   useGetInventoryByIdQuery,
   useCreateInventoryMutation,
