@@ -1,8 +1,9 @@
+import { useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
-import { logout } from "@/features/auth/authSlice";
+import { AUTH_STORAGE_KEY, logout } from "@/features/auth/authSlice";
 
 const NAV_ITEMS = [
   { name: "Dashboard", path: "/dashboard", icon: "mdi:view-dashboard" },
@@ -24,15 +25,43 @@ const NAV_ITEMS = [
 
 const BOTTOM_ITEMS = [
   {
-    name: "Configuration",
-    path: "/dashboard/configuration",
-    icon: "mdi:cog-outline",
+    name: "User",
+    path: "/dashboard/users",
+    icon: "mdi:user-outline",
   },
 ];
 
 export const Sidebar = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+
+  const signedInUserName = useMemo(() => {
+    if (typeof window === "undefined") return "User";
+
+    try {
+      const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!stored) return "User";
+
+      const parsed = JSON.parse(stored) as {
+        user?: {
+          firstname?: string | null;
+          lastname?: string | null;
+          name?: string | null;
+        };
+      };
+
+      const firstname = parsed.user?.firstname?.trim() || "";
+      const lastname = parsed.user?.lastname?.trim() || "";
+      const fullName = `${firstname} ${lastname}`.trim();
+
+      if (fullName) return fullName;
+      if (parsed.user?.name?.trim()) return parsed.user.name.trim();
+
+      return "User";
+    } catch {
+      return "User";
+    }
+  }, []);
 
   const handleLogout = () => {
     dispatch(logout());
@@ -114,10 +143,10 @@ export const Sidebar = () => {
 
         {/* User Profile */}
         <div className="mx-2 p-3 rounded-lg bg-[#001219] border border-[#0A4D66]/30 flex items-center gap-3 cursor-pointer hover:bg-[#0A4D66]/30 transition-colors">
-          <div className="w-8 h-8 rounded-full bg-gray-600 flex-shrink-0" />
+          <div className="w-8 h-8 rounded-full bg-gray-600 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
-              Atomize Design
+              {signedInUserName}
             </p>
             <p className="text-xs text-gray-500 truncate">Super Admin</p>
           </div>

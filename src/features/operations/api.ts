@@ -18,22 +18,28 @@ export type OperationType = {
 };
 
 export type OperationAsset = {
-  aircraft_id: number;
-  pilot_id: number;
-  co_pilot_id?: number;
+  asset_id: number;
+  pilot_id: number | null;
+  co_pilot_id?: number | null;
 };
 
 export type CreateOperationRequest = {
-  name: string; // Purpose
-  description: string; // Activities
+  name: string;
   unit_id: number;
-  operation_type_id: number;
-  start_date_time: string;
-  end_date_time: string;
-  priority: "low" | "medium" | "high";
-  is_flight: number;
-  location?: string;
-  assets: OperationAsset[];
+  operation_type_id?: number | null;
+  asset_id?: number | null;
+  start_date_time?: string;
+  end_date_time?: string;
+  departure_longitude?: number | null;
+  departure_latitude?: number | null;
+  arrival_longitude?: number | null;
+  arrival_latitude?: number | null;
+  priority?: string;
+  is_flight?: boolean;
+  status?: 'planned' | 'completed' | 'ongoing' | 'aborted';
+  description?: string | null;
+  asset_ids?: number[];
+  operation_assets?: OperationAsset[];
 };
 
 export type ContactPhoto = {
@@ -89,7 +95,7 @@ export type Operation = {
   priority: "low" | "medium" | "high";
   is_flight: number;
   description: string;
-  status: "active" | "completed" | "planned" | "aborted";
+  status: "ongoing" | "completed" | "planned" | "aborted";
   created_at: string;
   updated_at: string;
   duration_hours: number;

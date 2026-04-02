@@ -6,6 +6,15 @@ import { useGetOperationByIdQuery, type Operation } from "../api";
 import { format } from "date-fns";
 import { AfterActionReportForm } from "../components/AfterActionReportForm";
 
+const formatOperationDate = (value: string | null | undefined) => {
+  if (!value) return "N/A";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
+  return format(date, "dd/MM/yyyy");
+};
+
 const InfoRow = ({
   label,
   value,
@@ -53,7 +62,7 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
                   "w-2 h-2 rounded-full",
                   operation.status === "completed"
                     ? "bg-emerald-400"
-                    : operation.status === "active"
+                    : operation.status === "ongoing"
                       ? "bg-amber-400"
                       : operation.status === "aborted"
                         ? "bg-red-500"
@@ -69,7 +78,7 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
         />
         <InfoRow
           label="Date"
-          value={format(new Date(operation.start_date_time), "dd/MM/yyyy")}
+          value={formatOperationDate(operation.start_date_time)}
         />
       </div>
 

@@ -5,7 +5,7 @@ export type Unit = {
   id: number;
   name: string;
   description: string | null;
-  location_id: number | null;
+  facility_id: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -25,7 +25,7 @@ export type UnitDetails = Unit & {
 export type CreateUnitPayload = {
   name: string;
   description?: string;
-  location_id?: number | null;
+  facility_id?: number | null;
   asset_id?: number | null;
 };
 
@@ -33,7 +33,7 @@ export type UpdateUnitPayload = {
   id: number;
   name: string;
   description: string;
-  location_id?: number | null;
+  facility_id?: number | null;
 };
 
 export const unitsApi = createApi({
