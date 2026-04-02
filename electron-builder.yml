@@ -1,0 +1,28 @@
+appId: com.avn.ddbms
+productName: AVN DDBMS
+publish: null
+directories:
+  buildResources: public/icons
+
+files:
+  - dist/
+  - node_modules/
+  - electron/preload.js
+  - package.json
+
+win:
+  target:
+    - nsis
+    - msi
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AVN DDBMS
+
+msi:
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: AVN DDBMS
