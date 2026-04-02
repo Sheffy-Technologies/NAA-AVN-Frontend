@@ -13,12 +13,22 @@ import {
   type OperationAsset,
 } from "../api";
 
+const getPersonnelDisplayName = (person: {
+  firstname?: string | null;
+  lastname?: string | null;
+  rank?: { name?: string | null } | null;
+}) => {
+  const rankName = person.rank?.name?.trim();
+  const firstName = person.firstname?.trim() ?? "";
+  const lastName = person.lastname?.trim() ?? "";
+  return `${rankName ? `${rankName} ` : ""}${firstName} ${lastName}`.trim();
+};
+
 export const AddOperationPage = () => {
   const navigate = useNavigate();
   const [createOperation, { isLoading: isSubmitting }] =
     useCreateOperationMutation();
 
-  // Data queries
   const { data: units = [] } = useGetUnitsQuery();
   const { data: operationTypes = [] } = useGetOperationTypesQuery();
   const { data: aircrafts = [] } = useGetAircraftsQuery();
@@ -31,11 +41,8 @@ export const AddOperationPage = () => {
     status: [],
   });
 
-  // Filter pilots (assuming rank/specialty logic or just use all for now)
-  // In a real app, we would filter by specialty "Pilot" or similar
   const pilots = personnel;
 
-  // Form State
   const [formData, setFormData] = useState({
     name: "",
     operation_type_id: "",
@@ -63,22 +70,28 @@ export const AddOperationPage = () => {
     field: keyof OperationAsset,
     value: string,
   ) => {
-    const newAssets = [...assets];
-    newAssets[index] = {
-      ...newAssets[index],
-      [field]: value ? Number(value) : null,
-    };
-    setAssets(newAssets);
+    setAssets((prev) => {
+      const next = [...prev];
+      next[index] = {
+        ...next[index],
+        [field]: value ? Number(value) : null,
+      };
+      return next;
+    });
   };
 
   const addAsset = () => {
-    setAssets([...assets, { asset_id: 0, pilot_id: null, co_pilot_id: null }]);
+    setAssets((prev) => [
+      ...prev,
+      { asset_id: 0, pilot_id: null, co_pilot_id: null },
+    ]);
   };
 
   const removeAsset = (index: number) => {
-    if (assets.length > 1) {
-      setAssets(assets.filter((_, i) => i !== index));
-    }
+    setAssets((prev) => {
+      if (prev.length === 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -131,13 +144,11 @@ export const AddOperationPage = () => {
       navigate("/dashboard/operations");
     } catch (error) {
       console.error("Failed to create operation:", error);
-      // Handle error (toast)
     }
   };
 
   return (
     <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col">
-      {/* Header */}
       <div className="bg-[#0A4D66] px-6 py-4 flex items-center justify-between shadow-md">
         <h1 className="text-white font-bold text-lg uppercase tracking-wider">
           ADD OPERATION
@@ -145,6 +156,7 @@ export const AddOperationPage = () => {
         <button
           onClick={() => navigate("/dashboard/operations")}
           className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
+          type="button"
         >
           <Icon icon="mdi:close-circle" className="w-5 h-5" />
           Save & Exit
@@ -153,18 +165,14 @@ export const AddOperationPage = () => {
 
       <div className="flex-1 p-6 md:p-8 overflow-y-auto">
         <form onSubmit={handleSubmit} className="max-w-5xl mx-auto space-y-8">
-          {/* Information Section */}
           <section>
             <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider mb-4 border-b border-[#0A4D66]/40 pb-2">
               Information
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Purpose */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Purpose
-                </label>
+                <label className="text-xs text-gray-400 font-medium">Purpose</label>
                 <input
                   type="text"
                   placeholder="Enter Purpose"
@@ -177,7 +185,6 @@ export const AddOperationPage = () => {
                 />
               </div>
 
-              {/* Operation Type */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-gray-400 font-medium">
                   Operation Type
@@ -200,15 +207,6 @@ export const AddOperationPage = () => {
                         {type.name}
                       </option>
                     ))}
-                    {/* Fallback/Mock options if API is empty */}
-                    {!operationTypes.length && (
-                      <>
-                        <option value="1">Reconnaissance</option>
-                        <option value="2">Transport</option>
-                        <option value="3">Training</option>
-                        <option value="4">Combat</option>
-                      </>
-                    )}
                   </select>
                   <Icon
                     icon="mdi:chevron-down"
@@ -217,11 +215,8 @@ export const AddOperationPage = () => {
                 </div>
               </div>
 
-              {/* Unit */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Unit
-                </label>
+                <label className="text-xs text-gray-400 font-medium">Unit</label>
                 <div className="relative">
                   <select
                     value={formData.unit_id}
@@ -245,151 +240,94 @@ export const AddOperationPage = () => {
                 </div>
               </div>
 
-              {/* Departure Time */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Departure Time
-                </label>
-                <div className="relative">
-                  <Icon
-                    icon="mdi:clock-outline"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="time"
-                    value={formData.start_time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, start_time: e.target.value })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
-                    required
-                  />
-                </div>
+                <label className="text-xs text-gray-400 font-medium">Departure Time</label>
+                <input
+                  type="time"
+                  value={formData.start_time}
+                  onChange={(e) =>
+                    setFormData({ ...formData, start_time: e.target.value })
+                  }
+                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                  required
+                />
               </div>
 
-              {/* Return Time */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Return Time
-                </label>
-                <div className="relative">
-                  <Icon
-                    icon="mdi:clock-outline"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="time"
-                    value={formData.end_time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, end_time: e.target.value })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
-                    required
-                  />
-                </div>
+                <label className="text-xs text-gray-400 font-medium">Return Time</label>
+                <input
+                  type="time"
+                  value={formData.end_time}
+                  onChange={(e) =>
+                    setFormData({ ...formData, end_time: e.target.value })
+                  }
+                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                  required
+                />
               </div>
 
-              {/* Start Date */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Start Date
-                </label>
-                <div className="relative">
-                  <Icon
-                    icon="mdi:calendar"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="date"
-                    value={formData.start_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, start_date: e.target.value })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
-                    required
-                  />
-                </div>
+                <label className="text-xs text-gray-400 font-medium">Start Date</label>
+                <input
+                  type="date"
+                  value={formData.start_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, start_date: e.target.value })
+                  }
+                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                  required
+                />
               </div>
 
-              {/* End Date */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  End Date
-                </label>
-                <div className="relative">
-                  <Icon
-                    icon="mdi:calendar"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  <input
-                    type="date"
-                    value={formData.end_date}
-                    onChange={(e) =>
-                      setFormData({ ...formData, end_date: e.target.value })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
-                  />
-                </div>
+                <label className="text-xs text-gray-400 font-medium">End Date</label>
+                <input
+                  type="date"
+                  value={formData.end_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, end_date: e.target.value })
+                  }
+                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                />
               </div>
 
-              {/* Priority */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Priority
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.priority}
-                    onChange={(e) =>
-                      setFormData({ ...formData, priority: e.target.value })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <label className="text-xs text-gray-400 font-medium">Priority</label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) =>
+                    setFormData({ ...formData, priority: e.target.value })
+                  }
+                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
               </div>
 
-              {/* Status */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Status
-                </label>
-                <div className="relative">
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        status: e.target.value as typeof formData.status,
-                      })
-                    }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                  >
-                    <option value="planned">Planned</option>
-                    <option value="ongoing">Ongoing</option>
-                    <option value="completed">Completed</option>
-                    <option value="aborted">Aborted</option>
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <label className="text-xs text-gray-400 font-medium">Status</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      status: e.target.value as typeof formData.status,
+                    })
+                  }
+                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="planned">Planned</option>
+                  <option value="ongoing">Ongoing</option>
+                  <option value="completed">Completed</option>
+                  <option value="aborted">Aborted</option>
+                </select>
               </div>
 
-              {/* Is Flight */}
               <div className="flex flex-col gap-2 justify-center">
-                <label className="text-xs text-gray-400 font-medium">
-                  Is Flight
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer h-[46px]">
+                <label className="text-xs text-gray-400 font-medium">Is Flight</label>
+                <label className="flex items-center gap-3 cursor-pointer h-11.5">
                   <input
                     type="checkbox"
                     checked={formData.is_flight}
@@ -402,14 +340,11 @@ export const AddOperationPage = () => {
                 </label>
               </div>
 
-              {/* Activities */}
               <div className="flex flex-col gap-2 lg:col-span-3">
-                <label className="text-xs text-gray-400 font-medium">
-                  Activities
-                </label>
+                <label className="text-xs text-gray-400 font-medium">Activities</label>
                 <input
                   type="text"
-                  placeholder="Enter Code Name"
+                  placeholder="Enter description"
                   value={formData.description}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
@@ -420,96 +355,62 @@ export const AddOperationPage = () => {
             </div>
           </section>
 
-          {/* Coordinates Section */}
           <section>
             <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider mb-4 border-b border-[#0A4D66]/40 pb-2">
               Coordinates (Optional)
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Departure Latitude
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="-90 to 90"
-                  value={formData.departure_latitude}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      departure_latitude: e.target.value,
-                    })
-                  }
-                  min={-90}
-                  max={90}
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Departure Longitude
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="-180 to 180"
-                  value={formData.departure_longitude}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      departure_longitude: e.target.value,
-                    })
-                  }
-                  min={-180}
-                  max={180}
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Arrival Latitude
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="-90 to 90"
-                  value={formData.arrival_latitude}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      arrival_latitude: e.target.value,
-                    })
-                  }
-                  min={-90}
-                  max={90}
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Arrival Longitude
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  placeholder="-180 to 180"
-                  value={formData.arrival_longitude}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      arrival_longitude: e.target.value,
-                    })
-                  }
-                  min={-180}
-                  max={180}
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                />
-              </div>
+              <input
+                type="number"
+                step="any"
+                placeholder="Departure Latitude (-90 to 90)"
+                value={formData.departure_latitude}
+                onChange={(e) =>
+                  setFormData({ ...formData, departure_latitude: e.target.value })
+                }
+                min={-90}
+                max={90}
+                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="Departure Longitude (-180 to 180)"
+                value={formData.departure_longitude}
+                onChange={(e) =>
+                  setFormData({ ...formData, departure_longitude: e.target.value })
+                }
+                min={-180}
+                max={180}
+                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="Arrival Latitude (-90 to 90)"
+                value={formData.arrival_latitude}
+                onChange={(e) =>
+                  setFormData({ ...formData, arrival_latitude: e.target.value })
+                }
+                min={-90}
+                max={90}
+                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="Arrival Longitude (-180 to 180)"
+                value={formData.arrival_longitude}
+                onChange={(e) =>
+                  setFormData({ ...formData, arrival_longitude: e.target.value })
+                }
+                min={-180}
+                max={180}
+                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              />
             </div>
           </section>
 
-          {/* Aircraft Section */}
           <section>
             <div className="flex items-center gap-4 mb-4 border-b border-[#0A4D66]/40 pb-2">
               <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider">
@@ -518,9 +419,10 @@ export const AddOperationPage = () => {
               <button
                 type="button"
                 onClick={addAsset}
-                className="bg-white text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+                className="inline-flex items-center gap-2 rounded-sm bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 transition-colors"
               >
-                <Icon icon="mdi:plus" className="w-4 h-4" /> Add Aircraft
+                <Icon icon="mdi:plus-circle" className="h-4 w-4" />
+                Add Aircraft
               </button>
             </div>
 
@@ -530,7 +432,7 @@ export const AddOperationPage = () => {
                   key={index}
                   className="bg-[#001219]/50 p-4 rounded-lg border border-[#0A4D66]/20"
                 >
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center justify-between mb-4">
                     <h3 className="text-[#7FD5FF] text-xs font-bold uppercase">
                       AIRCRAFT {index + 1}
                     </h3>
@@ -539,104 +441,67 @@ export const AddOperationPage = () => {
                         type="button"
                         onClick={() => removeAsset(index)}
                         className="text-gray-500 hover:text-red-400 transition-colors"
+                        title="Remove aircraft"
                       >
-                        <Icon
-                          icon="mdi:trash-can-outline"
-                          className="w-4 h-4"
-                        />
+                        <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
                       </button>
                     )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Aircraft Select */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-xs text-gray-400 font-medium">
-                        Aircraft
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={asset.asset_id ?? 0}
-                          onChange={(e) =>
-                            handleAssetChange(
-                              index,
-                              "asset_id",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                          required
-                        >
-                          <option value="0">Select Aircraft</option>
-                          {aircrafts.map((ac) => (
-                            <option key={ac.id} value={ac.id}>
-                              {ac.name} ({ac.type})
-                            </option>
-                          ))}
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                        />
-                      </div>
+                      <label className="text-xs text-gray-400 font-medium">Aircraft</label>
+                      <select
+                        value={asset.asset_id ?? 0}
+                        onChange={(e) =>
+                          handleAssetChange(index, "asset_id", e.target.value)
+                        }
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        required
+                      >
+                        <option value="0">Select Aircraft</option>
+                        {aircrafts.map((aircraft) => (
+                          <option key={aircraft.id} value={aircraft.id}>
+                            {aircraft.name} ({aircraft.type})
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    {/* Pilot Select */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-xs text-gray-400 font-medium">
-                        Pilot in Command
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={asset.pilot_id ?? ""}
-                          onChange={(e) =>
-                            handleAssetChange(index, "pilot_id", e.target.value)
-                          }
-                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                        >
-                          <option value="">Select Pilot</option>
-                          {pilots.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.rank?.name} {p.firstname} {p.lastname}
-                            </option>
-                          ))}
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                        />
-                      </div>
+                      <label className="text-xs text-gray-400 font-medium">Pilot in Command</label>
+                      <select
+                        value={asset.pilot_id ?? ""}
+                        onChange={(e) =>
+                          handleAssetChange(index, "pilot_id", e.target.value)
+                        }
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      >
+                        <option value="">Select Pilot</option>
+                        {pilots.map((pilot) => (
+                          <option key={pilot.id} value={pilot.id}>
+                            {getPersonnelDisplayName(pilot)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
-                    {/* Co-Pilot Select */}
                     <div className="flex flex-col gap-2">
-                      <label className="text-xs text-gray-400 font-medium">
-                        Co-Pilot
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={asset.co_pilot_id ?? ""}
-                          onChange={(e) =>
-                            handleAssetChange(
-                              index,
-                              "co_pilot_id",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                        >
-                          <option value="">Select Co-Pilot</option>
-                          {pilots.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.rank?.name} {p.firstname} {p.lastname}
-                            </option>
-                          ))}
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                        />
-                      </div>
+                      <label className="text-xs text-gray-400 font-medium">Co-Pilot</label>
+                      <select
+                        value={asset.co_pilot_id ?? ""}
+                        onChange={(e) =>
+                          handleAssetChange(index, "co_pilot_id", e.target.value)
+                        }
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      >
+                        <option value="">Select Co-Pilot</option>
+                        {pilots.map((pilot) => (
+                          <option key={pilot.id} value={pilot.id}>
+                            {getPersonnelDisplayName(pilot)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -644,12 +509,11 @@ export const AddOperationPage = () => {
             </div>
           </section>
 
-          {/* Footer */}
-          <div className="flex justify-end pt-4 border-t border-[#0A4D66]/40">
+          <div className="mt-10 flex justify-end border-t border-[#0A4D66]/30 pt-8">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-[#7FD5FF] text-black font-bold py-3 px-12 rounded hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
+              className="h-16 w-full max-w-130 bg-[#7FD5FF] text-[#00090D] text-2xl font-semibold rounded-sm hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : "Save"}
             </button>
