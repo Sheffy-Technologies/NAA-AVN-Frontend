@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { useGetAssetsQuery } from "@/features/assets/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
-import {
-  useGetAircraftsQuery,
-  useGetPersonnelQuery,
-} from "@/features/personnel/api";
+import { useGetPersonnelQuery } from "@/features/personnel/api";
 import {
   useCreateOperationMutation,
   useGetOperationTypesQuery,
@@ -31,7 +29,9 @@ export const AddOperationPage = () => {
 
   const { data: units = [] } = useGetUnitsQuery();
   const { data: operationTypes = [] } = useGetOperationTypesQuery();
-  const { data: aircrafts = [] } = useGetAircraftsQuery();
+  const { data: aircraftOptions = [] } = useGetAssetsQuery({
+    type: "aircraft",
+  });
   const { data: personnel = [] } = useGetPersonnelQuery({
     branches: [],
     units: [],
@@ -460,8 +460,11 @@ export const AddOperationPage = () => {
                         required
                       >
                         <option value="0">Select Aircraft</option>
-                        {aircrafts.map((aircraft) => (
-                          <option key={aircraft.id} value={aircraft.id}>
+                        {aircraftOptions.map((aircraft) => (
+                          <option
+                            key={aircraft.asset_id ?? aircraft.id}
+                            value={aircraft.asset_id ?? aircraft.id}
+                          >
                             {aircraft.name} ({aircraft.type})
                           </option>
                         ))}

@@ -342,6 +342,7 @@ export type CreateFacilityPayload = {
 
 export type Asset = {
   id: number;
+  asset_id?: number;
   type: "aircraft" | "vehicle" | "airbase" | "equipment" | "facility";
   unit_id: number;
   name: string;
