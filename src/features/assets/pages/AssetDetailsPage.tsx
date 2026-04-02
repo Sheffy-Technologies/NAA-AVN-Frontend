@@ -96,10 +96,16 @@ const formatDifference = (
   return `${Math.max(limitValue - currentValue, 0).toLocaleString()} ${suffix}`;
 };
 
-const parseConfiguration = (configuration: string[] | undefined) => {
-  const entries = (configuration ?? []).reduce<Record<string, string>>(
+const parseConfiguration = (configuration: unknown) => {
+  // coerce to string[]
+  const list = Array.isArray(configuration)
+    ? configuration
+    : typeof configuration === "string"
+    ? [configuration]
+    : [];
+  const entries = list.reduce<Record<string, string>>(
     (acc, item) => {
-      const [key, ...rest] = item.split(":");
+      const [key, ...rest] = String(item).split(":");
       if (!key || rest.length === 0) return acc;
       acc[key] = rest.join(":");
       return acc;
