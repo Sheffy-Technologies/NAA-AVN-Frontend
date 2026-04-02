@@ -170,13 +170,6 @@ const TableToolbar = ({ resetCount }: { resetCount?: number | string }) => (
       </button>
       <button
         type="button"
-        className="inline-flex items-center gap-2 px-3 py-2 rounded bg-[#00090D] border border-[#0A4D66]/50 text-xs text-gray-200 hover:border-[#7FD5FF]/60 transition-colors"
-      >
-        <span>All Priority</span>
-        <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" />
-      </button>
-      <button
-        type="button"
         className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
       >
         <Icon icon="mdi:download" className="w-5 h-5" />

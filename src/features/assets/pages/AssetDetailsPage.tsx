@@ -1,19 +1,30 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useState, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAppDispatch } from "@/app/store";
+import { useGetUnitsQuery } from "@/shared/api/units";
 import { showToast } from "@/shared/store/toastSlice";
-import { useDeleteAssetMutation, useGetAssetByIdQuery } from "../api";
+import {
+  useDeleteAssetMutation,
+  useGetAssetByIdQuery,
+  useGetAssetTypesQuery,
+  useGetAvionicCategoriesQuery,
+  useGetComponentTypesQuery,
+  useGetEnginePositionsQuery,
+} from "../api";
 import { cn } from "@/shared/utils/cn";
 
 const TABS = [
   { id: "info", label: "Aircraft Information" },
+  { id: "airframe", label: "Airframe" },
   { id: "engines", label: "Engines" },
-  { id: "components", label: "Components" },
-  { id: "defects", label: "Defects" },
+  { id: "avionics", label: "Avionics" },
+  { id: "discrepancies", label: "Discrepancies" },
   { id: "operations", label: "Operations" },
-  { id: "history", label: "Log History" },
-];
+  { id: "maintenance", label: "Maintenance Tracking" },
+] as const;
+
+type AssetTabId = (typeof TABS)[number]["id"];
 
 const statusDotColor: Record<string, string> = {
   planned: "bg-blue-400",
@@ -23,13 +34,97 @@ const statusDotColor: Record<string, string> = {
   aborted: "bg-red-500",
 };
 
+const formatStatus = (status: string | null | undefined) => {
+  if (!status) return "-";
+  return status
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const formatDate = (value: string | null | undefined) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const formatNumber = (value: number | string | null | undefined) => {
+  if (value === null || value === undefined || value === "") return "-";
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return String(value);
+  return parsed.toLocaleString();
+};
+
+const formatHours = (value: number | string | null | undefined) => {
+  const formatted = formatNumber(value);
+  return formatted === "-" ? "-" : `${formatted} hrs`;
+};
+
+const formatCycles = (value: number | string | null | undefined) => {
+  const formatted = formatNumber(value);
+  return formatted === "-" ? "-" : `${formatted} cyc`;
+};
+
+const formatDifference = (
+  limit: number | string | null | undefined,
+  current: number | string | null | undefined,
+  suffix: string,
+) => {
+  const limitValue = Number(limit);
+  const currentValue = Number(current);
+
+  if (Number.isNaN(limitValue) || Number.isNaN(currentValue)) return "-";
+
+  return `${Math.max(limitValue - currentValue, 0).toLocaleString()} ${suffix}`;
+};
+
+const parseConfiguration = (configuration: string[] | undefined) => {
+  const entries = (configuration ?? []).reduce<Record<string, string>>(
+    (acc, item) => {
+      const [key, ...rest] = item.split(":");
+      if (!key || rest.length === 0) return acc;
+      acc[key] = rest.join(":");
+      return acc;
+    },
+    {},
+  );
+
+  return {
+    role: entries.role ? formatStatus(entries.role) : "-",
+    seats: entries.seats ?? "-",
+  };
+};
+
 export const AssetDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { data: asset, isLoading } = useGetAssetByIdQuery(id || "");
+  const { data: units = [] } = useGetUnitsQuery();
+  const { data: assetTypes = [] } = useGetAssetTypesQuery();
+  const { data: enginePositions = [] } = useGetEnginePositionsQuery();
+  const { data: componentTypes = [] } = useGetComponentTypesQuery();
+  const { data: avionicCategories = [] } = useGetAvionicCategoriesQuery();
   const [deleteAsset, { isLoading: isDeleting }] = useDeleteAssetMutation();
-  const [activeTab, setActiveTab] = useState("info");
+  const [activeTab, setActiveTab] = useState<AssetTabId>("info");
 
   const handleDeleteAsset = async () => {
     if (!asset?.id || isDeleting) return;
@@ -70,14 +165,33 @@ export const AssetDetailsPage = () => {
     return <div className="p-8 text-center text-red-400">Asset not found</div>;
   }
 
-  const formatStatus = (status: string) => {
-    return status
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
   const assetImageUrl = asset.image_url || asset.image || "";
+  const unitName = units.find((unit) => unit.id === asset.unit_id)?.name ?? "-";
+  const assetTypeName =
+    assetTypes.find((type) => type.id === asset.asset_type_id)?.name ?? "-";
+  const enginePositionMap = new Map(
+    enginePositions.map((position) => [position.id, position.name]),
+  );
+  const componentTypeMap = new Map(
+    componentTypes.map((type) => [type.id, type.name]),
+  );
+  const avionicCategoryMap = new Map(
+    avionicCategories.map((category) => [category.id, category.name]),
+  );
+  const configuration = parseConfiguration(asset.configuration);
+  const latestOperation = asset.operations[0] ?? null;
+  const nextHoursInspection = formatDifference(
+    asset.inspection_interval,
+    asset.last_inspection_hours,
+    "hrs",
+  );
+  const nextCycleInspection = formatDifference(
+    asset.inspection_interval_cycle,
+    asset.last_inspection_cycles,
+    "cyc",
+  );
+  const defects = asset.defects ?? [];
+  const maintenanceEvents = asset.maintenance_events ?? [];
 
   return (
     <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
@@ -112,7 +226,9 @@ export const AssetDetailsPage = () => {
             <span>Add Operations</span>
           </button>
           <button
-            onClick={() => navigate(`/dashboard/assets/${asset.id}/defects/add`)}
+            onClick={() =>
+              navigate(`/dashboard/assets/${asset.id}/defects/add`)
+            }
             className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
           >
             <Icon icon="mdi:alert-circle-outline" className="w-4 h-4" />
@@ -160,9 +276,7 @@ export const AssetDetailsPage = () => {
       <div className="space-y-6">
         {activeTab === "info" && (
           <div className="space-y-6">
-            {/* Top Stats Section */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-              {/* Image Card */}
               <div className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40 flex items-center justify-center min-h-[200px] overflow-hidden">
                 {assetImageUrl ? (
                   <img
@@ -178,120 +292,295 @@ export const AssetDetailsPage = () => {
                 )}
               </div>
 
-              {/* Stats Cards */}
               <div className="col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard
                   label="TOTAL AIRFRAME HRS"
                   value={`${asset.total_airframe_hours} hrs`}
                 />
-                <StatCard label="TOTAL ENGINE HRS" value="2,300 hrs" />{" "}
-                {/* Mocked as not in Asset directly? */}
-                <StatCard label="HRS TO LIMITING ITEM" value="70 hrs" />
-                <StatCard label="LIMITING ITEM" value="Engine 1" />
                 <StatCard
-                  label="NEXT ANNUAL INSP"
-                  value={`${asset.next_annual_inspection_date} hrs`}
+                  label="TOTAL CYCLES"
+                  value={formatCycles(asset.total_cycles)}
                 />
                 <StatCard
-                  label="DEFECTS"
-                  value={asset.maintenance_events.length > 0 ? "Yes" : "No"}
+                  label="HRS TO NEXT INSP"
+                  value={nextHoursInspection}
+                />
+                <StatCard
+                  label="CYC TO NEXT INSP"
+                  value={nextCycleInspection}
+                />
+                <StatCard
+                  label="NEXT ANNUAL INSP"
+                  value={formatDate(asset.next_annual_inspection_date)}
+                />
+                <StatCard
+                  label="DISCREPANCIES"
+                  value={String(defects.length)}
                 />
                 <StatCard
                   label="NO. OF OPERATIONS"
-                  value={asset.operations.length.toString()}
+                  value={String(
+                    asset.operations_count ?? asset.operations.length,
+                  )}
                 />
-                <StatCard label="LAST OPERATION" value="OP Eagle Watch" />
+                <StatCard
+                  label="LAST OPERATION"
+                  value={latestOperation?.name ?? "-"}
+                />
               </div>
             </div>
 
-            {/* Details Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Identification */}
               <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
                 <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
                   Aircraft Identification
                 </h3>
                 <div className="space-y-4">
-                  <DetailRow
-                    label="Aircraft Type"
-                    value={asset.type.toUpperCase()}
-                  />
+                  <DetailRow label="Aircraft Type" value={assetTypeName} />
                   <DetailRow label="Aircraft Name" value={asset.name} />
+                  <DetailRow label="Model" value={asset.model || "-"} />
                   <DetailRow label="Tail No" value={asset.tail_number} />
                   <DetailRow
-                    label="Serial Number"
+                    label="Serial Number (Airframe SN)"
                     value={asset.serial_number}
                   />
-                  <DetailRow label="Aircraft ID" value={`ID-${asset.id}`} />
-                  <DetailRow label="Internal ID" value={`INT-${asset.id}`} />
-                  <DetailRow label="Military Registration" value="ML9289e" />
-                  <DetailRow label="Date Inducted" value="26 Jan 2026" />
-                  <DetailRow label="Date Into Service" value="26 Jan 2026" />
+                  <DetailRow label="Assigned Unit" value={unitName} />
+                  <DetailRow label="Role" value={configuration.role} />
+                  <DetailRow label="Seats" value={configuration.seats} />
                   <DetailRow
-                    label="Assigned Unit"
-                    value={asset.unit_id.toString()}
-                  />
-                  <DetailRow label="Airbase" value="AirBase 1" />
-                  <DetailRow label="Hangar" value="Hangar 2" />
-                </div>
-              </div>
-
-              {/* Airframe */}
-              <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
-                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
-                  Airframe
-                </h3>
-                <div className="space-y-4">
-                  <DetailRow
-                    label="Total Airframe Hrs"
-                    value={`${asset.total_airframe_hours} hrs`}
-                  />
-                  <DetailRow
-                    label="Service Life Limit hrs"
-                    value={`${asset.service_life_limit} hrs`}
-                  />
-                  <DetailRow label="Life Remaining" value="2,700 hrs" />
-                  <DetailRow
-                    label="Status"
+                    label="Serviceability Status"
                     value={
-                      <span className="flex items-center gap-2">
-                        {formatStatus(asset.serviceability_status)}
-                        <div
-                          className={cn(
-                            "w-2 h-2 rounded-full",
-                            asset.serviceability_status === "serviceable"
-                              ? "bg-emerald-500"
-                              : asset.serviceability_status ===
-                                  "under_maintenance"
-                                ? "bg-amber-500"
-                                : "bg-red-500",
-                          )}
-                        />
-                      </span>
+                      <StatusPill
+                        label={formatStatus(asset.serviceability_status)}
+                        tone={
+                          asset.serviceability_status === "serviceable"
+                            ? "success"
+                            : asset.serviceability_status ===
+                                "under_maintenance"
+                              ? "warning"
+                              : "danger"
+                        }
+                      />
                     }
                   />
                   <DetailRow
-                    label="Last Major Inspection"
-                    value={asset.last_inspection_date}
+                    label="Operation Status"
+                    value={formatStatus(asset.operation_status)}
                   />
                   <DetailRow
-                    label="Last Major Inspection Hrs"
-                    value={`${asset.last_inspection_hours} hrs`}
+                    label="Manufacturer"
+                    value={asset.manufacturer || "-"}
+                  />
+                  <DetailRow
+                    label="Purchase Date"
+                    value={formatDate(asset.purchase_date)}
+                  />
+                  <DetailRow
+                    label="Created At"
+                    value={formatDateTime(asset.created_at)}
+                  />
+                  <DetailRow
+                    label="Updated At"
+                    value={formatDateTime(asset.updated_at)}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
+                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
+                  Documents
+                </h3>
+                {asset.documents.length === 0 ? (
+                  <EmptyState message="No documents found." />
+                ) : (
+                  <div className="space-y-4">
+                    {asset.documents.map((document) => (
+                      <div
+                        key={document.id ?? document.file}
+                        className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-2">
+                            <div className="text-sm font-semibold text-white">
+                              {document.document_type?.name ?? "Document"}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              Issued: {formatDate(document.issue_date)}
+                            </div>
+                            <div className="text-xs text-gray-400">
+                              Expires: {formatDate(document.expiry_date)}
+                            </div>
+                          </div>
+                          <a
+                            href={document.file}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
+                          >
+                            <Icon icon="mdi:open-in-new" className="w-4 h-4" />
+                            View
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "airframe" && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
+                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
+                  Hours Tracking
+                </h3>
+                <div className="space-y-4">
+                  <DetailRow
+                    label="Total Flight Hrs"
+                    value={formatHours(asset.total_airframe_hours)}
+                  />
+                  <DetailRow
+                    label="Service Life Limit hrs"
+                    value={formatHours(asset.service_life_limit)}
+                  />
+                  <DetailRow
+                    label="Life Remaining"
+                    value={formatDifference(
+                      asset.service_life_limit,
+                      asset.total_airframe_hours,
+                      "hrs",
+                    )}
+                  />
+                  <DetailRow
+                    label="Last Inspection hrs"
+                    value={formatHours(asset.last_inspection_hours)}
                   />
                   <DetailRow
                     label="Inspection Interval"
-                    value={`${asset.inspection_interval} hrs`}
+                    value={formatHours(asset.inspection_interval)}
                   />
-                  <DetailRow label="Next Inspection Due" value="100hrs" />
                   <DetailRow
-                    label="Next Annual Inspection"
-                    value={asset.next_annual_inspection_date}
+                    label="Next Inspection Due"
+                    value={nextHoursInspection}
                   />
-                  <DetailRow label="Airframe Cycles" value="21" />
-                  <DetailRow label="Service Life Limit Cycles" value="200" />
-                  <DetailRow label="Landings" value={asset.landings} />
                 </div>
               </div>
+
+              <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
+                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
+                  Cycles & Inspections
+                </h3>
+                <div className="space-y-4">
+                  <DetailRow
+                    label="Total Cycles"
+                    value={formatCycles(asset.total_cycles)}
+                  />
+                  <DetailRow
+                    label="Cycle Limit"
+                    value={formatCycles(asset.cycle_limit)}
+                  />
+                  <DetailRow
+                    label="Cycles Remaining"
+                    value={formatDifference(
+                      asset.cycle_limit,
+                      asset.total_cycles,
+                      "cyc",
+                    )}
+                  />
+                  <DetailRow
+                    label="Last Inspection Cycles"
+                    value={formatCycles(asset.last_inspection_cycles)}
+                  />
+                  <DetailRow
+                    label="Inspection Interval (Cycles)"
+                    value={formatCycles(asset.inspection_interval_cycle)}
+                  />
+                  <DetailRow
+                    label="Next Cycle Inspection Due"
+                    value={nextCycleInspection}
+                  />
+                  <DetailRow
+                    label="Last Major Inspection Date"
+                    value={formatDate(asset.last_inspection_date)}
+                  />
+                  <DetailRow
+                    label="Next Type of Inspection"
+                    value={asset.next_type_of_inspection || "-"}
+                  />
+                  <DetailRow
+                    label="Next Annual Inspection"
+                    value={formatDate(asset.next_annual_inspection_date)}
+                  />
+                  <DetailRow
+                    label="Landings"
+                    value={formatNumber(asset.landings)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
+              <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
+                Airframe Components
+              </h3>
+              {asset.components.length === 0 ? (
+                <EmptyState message="No airframe components found." />
+              ) : (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  {asset.components.map((component, index) => (
+                    <div
+                      key={component.id ?? `${component.part_number}-${index}`}
+                      className="rounded-xl border border-[#0A4D66]/30 bg-[#001825] p-5"
+                    >
+                      <div className="mb-4 flex items-center justify-between">
+                        <div className="text-sm font-bold text-[#7FD5FF] uppercase">
+                          {componentTypeMap.get(
+                            component.component_type_id ?? 0,
+                          ) ?? `Component ${index + 1}`}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Installed {formatDate(component.installed_at)}
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <DetailRow
+                          label="Part Number"
+                          value={component.part_number || "-"}
+                        />
+                        <DetailRow
+                          label="Serial Number"
+                          value={component.serial_number || "-"}
+                        />
+                        <DetailRow
+                          label="Total Service Hours"
+                          value={formatHours(component.total_service_hours)}
+                        />
+                        <DetailRow
+                          label="Service Life Limit"
+                          value={formatHours(
+                            component.service_life_limit_hours,
+                          )}
+                        />
+                        <DetailRow
+                          label="Last Overhaul Hours"
+                          value={formatHours(component.last_overhaul_hours)}
+                        />
+                        <DetailRow
+                          label="Overhaul Limit"
+                          value={formatHours(component.overhaul_limit)}
+                        />
+                        <DetailRow
+                          label="Removed At"
+                          value={formatDate(component.removed_at)}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -308,10 +597,17 @@ export const AssetDetailsPage = () => {
                     ENGINE {index + 1}
                   </h3>
                   <span className="text-xs text-[#7FD5FF]">
-                    Next Inspection Due 100hrs
+                    {enginePositionMap.get(engine.position_id) ??
+                      "Position Unassigned"}
                   </span>
                 </div>
                 <div className="space-y-4">
+                  <DetailRow
+                    label="Category"
+                    value={
+                      engine.category_id ? String(engine.category_id) : "-"
+                    }
+                  />
                   <DetailRow
                     label="Serial Number"
                     value={engine.serial_number}
@@ -319,9 +615,12 @@ export const AssetDetailsPage = () => {
                   <DetailRow label="Model" value={engine.model} />
                   <DetailRow
                     label="Installation Date"
-                    value={engine.installation_date}
+                    value={formatDate(engine.installation_date)}
                   />
-                  <DetailRow label="Position" value="Primary Engine" />
+                  <DetailRow
+                    label="Position"
+                    value={enginePositionMap.get(engine.position_id) ?? "-"}
+                  />
                   <DetailRow
                     label="Time Since New"
                     value={`${engine.time_since_new} hrs`}
@@ -344,50 +643,59 @@ export const AssetDetailsPage = () => {
           </div>
         )}
 
-        {activeTab === "components" && (
+        {activeTab === "avionics" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {asset.components.map((component, index) => (
+            {asset.avionics.map((avionic, index) => (
               <div
                 key={index}
                 className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40"
               >
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-[#7FD5FF] text-sm font-bold uppercase">
-                    COMPONENT {index + 1}
+                    AVIONICS {index + 1}
                   </h3>
-                  <span className="text-xs text-[#7FD5FF]">
-                    Next Inspection Due 100hrs
-                  </span>
                 </div>
                 <div className="space-y-4">
-                  <DetailRow label="Component Type" value="Main Rotor Blade" />
+                  <DetailRow
+                    label="Avionic Category"
+                    value={
+                      avionicCategoryMap.get(
+                        avionic.avionic_category_id ?? 0,
+                      ) ?? "-"
+                    }
+                  />
                   <DetailRow
                     label="Serial Number"
-                    value={component.serial_number}
+                    value={avionic.serial_number}
                   />
-                  <DetailRow
-                    label="Part Number"
-                    value={component.part_number}
-                  />
+                  <DetailRow label="Model" value={avionic.model || "-"} />
                   <DetailRow
                     label="Installation Date"
-                    value={component.installed_at}
+                    value={formatDate(avionic.installed_at)}
                   />
                   <DetailRow
-                    label="Time Since New"
-                    value={`${component.time_since_new} hrs`}
+                    label="Manufacturer"
+                    value={avionic.manufacturer || "-"}
                   />
                   <DetailRow
-                    label="Time Since Overhaul"
-                    value={`${component.time_since_overhaul} hrs`}
+                    label="Total Service Hours"
+                    value={formatHours(avionic.total_service_hours)}
                   />
                   <DetailRow
                     label="Service Life Limit"
-                    value={`${component.life_limit_hours} hrs`}
+                    value={formatHours(avionic.service_life_limit)}
+                  />
+                  <DetailRow
+                    label="Last Overhaul Hours"
+                    value={formatHours(avionic.last_overhaul_hours)}
                   />
                   <DetailRow
                     label="Overhaul Limit"
-                    value={`${component.overhaul_limit} hrs`}
+                    value={formatHours(avionic.overhaul_limit)}
+                  />
+                  <DetailRow
+                    label="Removed At"
+                    value={formatDate(avionic.removed_at)}
                   />
                 </div>
               </div>
@@ -395,59 +703,62 @@ export const AssetDetailsPage = () => {
           </div>
         )}
 
-        {activeTab === "defects" && (
+        {activeTab === "discrepancies" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {asset.maintenance_events
-              .filter((e) => e.event_type === "Defect" || true)
-              .map((defect, index) => (
+            {defects.length === 0 ? (
+              <div className="lg:col-span-2">
+                <EmptyState message="No discrepancies found." />
+              </div>
+            ) : (
+              defects.map((defect, index) => (
                 <div
-                  key={index}
+                  key={defect.id ?? index}
                   className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40"
                 >
                   <div className="flex justify-between items-center mb-6">
                     <h3 className="text-[#7FD5FF] text-sm font-bold uppercase">
-                      Last Defect
+                      Discrepancy {index + 1}
                     </h3>
-                    <span className="text-xs text-white">
-                      Rectified?{" "}
-                      <span className="font-bold">
-                        {defect.rectified ? "Yes" : "No"}
-                      </span>
-                    </span>
+                    <StatusPill
+                      label={formatStatus(defect.status)}
+                      tone={
+                        defect.status === "resolved"
+                          ? "success"
+                          : defect.status === "in_progress"
+                            ? "warning"
+                            : "danger"
+                      }
+                    />
                   </div>
                   <div className="space-y-4">
+                    <DetailRow label="Title" value={defect.title || "-"} />
                     <DetailRow
-                      label="Defect Reported"
-                      value={defect.defect_reported || defect.description}
+                      label="Description"
+                      value={defect.description || "-"}
                     />
                     <DetailRow
-                      label="Date of defect"
-                      value={defect.date_of_defect || defect.started_at || "-"}
+                      label="Severity"
+                      value={formatStatus(defect.severity)}
                     />
                     <DetailRow
-                      label="Pilots Involved"
-                      value={defect.pilots_involved?.toString() || "-"}
+                      label="Reported At"
+                      value={formatDate(defect.reported_at)}
                     />
                     <DetailRow
-                      label="Location"
-                      value={defect.location || "-"}
+                      label="Resolved At"
+                      value={formatDate(defect.resolved_at)}
                     />
-                    {defect.rectification_details && (
-                      <DetailRow
-                        label="Rectification Details"
-                        value={defect.rectification_details}
-                      />
-                    )}
-                    {defect.work_done && (
-                      <DetailRow label="Work Done" value={defect.work_done} />
-                    )}
+                    <DetailRow label="Remarks" value={defect.remarks || "-"} />
                     <DetailRow
-                      label="Certifying Engineer"
-                      value={defect.certifying_engineer?.toString() || "-"}
+                      label="Operation ID"
+                      value={
+                        defect.operation_id ? String(defect.operation_id) : "-"
+                      }
                     />
                   </div>
                 </div>
-              ))}
+              ))
+            )}
           </div>
         )}
 
@@ -462,69 +773,138 @@ export const AssetDetailsPage = () => {
                     <th className="text-left px-4 py-3 font-medium">Start</th>
                     <th className="text-left px-4 py-3 font-medium">End</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
-                    <th className="text-left px-4 py-3 font-medium">Duration</th>
+                    <th className="text-left px-4 py-3 font-medium">
+                      Duration
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-            {asset.operations.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-6 py-6 text-center text-gray-400 border-t border-[#0A4D66]/40"
-                    >
-                      No operations found.
-                    </td>
-                  </tr>
-            ) : (
-              asset.operations.map((op, index) => (
-                    <tr
-                  key={index}
-                      onClick={() => navigate(`/dashboard/operations/${op.id}`)}
-                      className={cn(
-                        "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
-                        index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
-                      )}
-                >
-                      <td className="px-6 py-3 font-medium text-white">{op.description || op.name}</td>
-                      <td className="px-4 py-3 text-gray-200">{op.name}</td>
-                      <td className="px-4 py-3 text-gray-200 whitespace-nowrap">
-                      {new Date(op.start_date_time).toLocaleDateString()} -{" "}
-                        {new Date(op.start_date_time).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                  {asset.operations.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="px-6 py-6 text-center text-gray-400 border-t border-[#0A4D66]/40"
+                      >
+                        No operations found.
                       </td>
-                      <td className="px-4 py-3 text-gray-200 whitespace-nowrap">
-                        {new Date(op.end_date_time).toLocaleDateString()} -{" "}
-                        {new Date(op.end_date_time).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 text-sm">
-                          <span
-                            className={cn(
-                              "w-2 h-2 rounded-full",
-                              statusDotColor[op.status] || "bg-gray-400",
-                            )}
-                          />
-                          <span className="capitalize">{op.status}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-gray-200">{op.duration_label}</td>
                     </tr>
-              ))
-            )}
+                  ) : (
+                    asset.operations.map((op, index) => (
+                      <tr
+                        key={index}
+                        onClick={() =>
+                          navigate(`/dashboard/operations/${op.id}`)
+                        }
+                        className={cn(
+                          "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
+                          index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                        )}
+                      >
+                        <td className="px-6 py-3 font-medium text-white">
+                          {op.description || op.name}
+                        </td>
+                        <td className="px-4 py-3 text-gray-200">
+                          {op.operation_type?.name ?? op.name}
+                        </td>
+                        <td className="px-4 py-3 text-gray-200 whitespace-nowrap">
+                          {formatDateTime(op.start_date_time)}
+                        </td>
+                        <td className="px-4 py-3 text-gray-200 whitespace-nowrap">
+                          {formatDateTime(op.end_date_time)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span
+                              className={cn(
+                                "w-2 h-2 rounded-full",
+                                statusDotColor[op.status] || "bg-gray-400",
+                              )}
+                            />
+                            <span className="capitalize">{op.status}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-200">
+                          {op.duration_label}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {activeTab === "history" && (
-          <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 text-center text-gray-400">
-            No log history found.
+        {activeTab === "maintenance" && (
+          <div className="space-y-4">
+            {maintenanceEvents.length === 0 ? (
+              <EmptyState message="No maintenance tracking records found." />
+            ) : (
+              maintenanceEvents.map((event, index) => (
+                <div
+                  key={event.id ?? index}
+                  className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40"
+                >
+                  <div className="mb-5 flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-[#7FD5FF] text-sm font-bold uppercase">
+                        {event.event_type || `Maintenance Event ${index + 1}`}
+                      </div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        {event.description || "No description"}
+                      </div>
+                    </div>
+                    <StatusPill
+                      label={formatStatus(event.status)}
+                      tone={
+                        event.status === "completed"
+                          ? "success"
+                          : event.status === "ongoing" ||
+                              event.status === "active"
+                            ? "warning"
+                            : "neutral"
+                      }
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <DetailRow
+                        label="Started At"
+                        value={formatDateTime(event.started_at)}
+                      />
+                      <DetailRow
+                        label="Completed At"
+                        value={formatDateTime(event.completed_at)}
+                      />
+                      <DetailRow
+                        label="Hours Logged"
+                        value={formatHours(event.hours_logged)}
+                      />
+                      <DetailRow
+                        label="Aircraft Airworthiness"
+                        value={formatStatus(event.aircraft_airworthiness)}
+                      />
+                    </div>
+                    <div className="space-y-4">
+                      <DetailRow
+                        label="Performed By"
+                        value={
+                          event.performed_by ? String(event.performed_by) : "-"
+                        }
+                      />
+                      <DetailRow
+                        label="Component ID"
+                        value={
+                          event.component_id ? String(event.component_id) : "-"
+                        }
+                      />
+                      <DetailRow label="Remarks" value={event.remarks || "-"} />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -541,15 +921,44 @@ const StatCard = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const DetailRow = ({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) => (
+const DetailRow = ({ label, value }: { label: string; value: ReactNode }) => (
   <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2 last:border-0 last:pb-0">
     <span className="text-[#7FD5FF] text-sm">{label}:</span>
     <span className="text-white text-sm font-medium">{value}</span>
   </div>
+);
+
+const EmptyState = ({ message }: { message: string }) => (
+  <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 text-center text-gray-400">
+    {message}
+  </div>
+);
+
+const StatusPill = ({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "success" | "warning" | "danger" | "neutral";
+}) => (
+  <span
+    className={cn(
+      "inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium",
+      tone === "success" && "bg-emerald-500/10 text-emerald-300",
+      tone === "warning" && "bg-amber-500/10 text-amber-300",
+      tone === "danger" && "bg-red-500/10 text-red-300",
+      tone === "neutral" && "bg-gray-500/10 text-gray-300",
+    )}
+  >
+    <span
+      className={cn(
+        "h-2 w-2 rounded-full",
+        tone === "success" && "bg-emerald-400",
+        tone === "warning" && "bg-amber-400",
+        tone === "danger" && "bg-red-400",
+        tone === "neutral" && "bg-gray-400",
+      )}
+    />
+    {label}
+  </span>
 );

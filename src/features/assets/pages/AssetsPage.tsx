@@ -276,9 +276,6 @@ export const AssetsPage = () => {
                 <option>All Units</option>
               </select>
               <select className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]">
-                <option>All Status</option>
-              </select>
-              <select className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]">
                 <option>All Aircraft Type</option>
               </select>
               <select className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]">

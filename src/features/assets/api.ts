@@ -8,6 +8,7 @@ export type Engine = {
   id?: number;
   asset_id?: number;
   position_id: number;
+  category_id?: number;
   serial_number: string;
   model: string;
   installation_date: string;
@@ -17,44 +18,67 @@ export type Engine = {
   overhaul_limit: number | string;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
 };
 
 export type Component = {
   id?: number;
   asset_id?: number;
+  component_type_id?: number;
   part_number: string;
   serial_number: string;
-  life_limit_hours: number | string;
-  time_since_overhaul: number | string;
-  time_since_new: number | string;
+  total_service_hours?: number | string;
+  service_life_limit_hours?: number | string;
+  last_overhaul_hours?: number | string;
   overhaul_limit: number | string;
-  hours_used: number | string;
+  life_limit_hours?: number | string;
+  time_since_overhaul?: number | string;
+  time_since_new?: number | string;
+  hours_used?: number | string;
   installed_at: string;
   removed_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
 };
 
 export type Document = {
   id?: number;
   asset_id?: number;
-  document_type: string;
+  maintenance_event_id?: number | null;
+  document_type_id?: number | null;
   file: string;
-  issue_date: string;
-  expiry_date: string;
+  issue_date: string | null;
+  expiry_date: string | null;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
+  document_type?: {
+    id: number;
+    name: string;
+    description: string | null;
+    created_at: string;
+    updated_at: string;
+    deleted_at?: string | null;
+  } | null;
 };
 
 export type Avionics = {
   id?: number;
   asset_id?: number;
+  avionic_category_id?: number;
   serial_number: string;
   model: string;
+  manufacturer?: string | null;
   installed_at: string;
+  total_service_hours?: number | string;
+  service_life_limit?: number | string;
+  last_overhaul_hours?: number | string;
+  overhaul_limit?: number | string;
   removed_at?: string | null;
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
 };
 
 export type Defect = {
@@ -66,9 +90,13 @@ export type Defect = {
   reported_at: string;
   status: "open" | "resolved" | "in_progress";
   severity: string;
-  personnel: number[];
+  remarks?: string | null;
+  resolved_at?: string | null;
+  reported_by?: number | null;
+  personnel?: number[];
   created_at?: string;
   updated_at?: string;
+  deleted_at?: string | null;
 };
 
 export type MaintenanceEvent = {
@@ -344,6 +372,7 @@ export type Asset = {
   id: number;
   type: "aircraft" | "vehicle" | "airbase" | "equipment" | "facility";
   unit_id: number;
+  asset_type_id?: number;
   name: string;
   image?: string | null;
   image_url?: string | null;
@@ -369,6 +398,12 @@ export type Asset = {
   purchase_date: string;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
+  total_cycles?: string;
+  cycle_limit?: string;
+  last_inspection_cycles?: string;
+  inspection_interval_cycle?: string;
+  operations_count?: number;
   operations_total_hours: number;
   operations_total_hours_label: string;
 };
@@ -378,6 +413,8 @@ export type AssetDetail = Asset & {
   engines: Engine[];
   components: Component[];
   documents: Document[];
+  avionics: Avionics[];
+  defects: Defect[];
   operations: Operation[];
 };
 
@@ -625,10 +662,7 @@ export const assetsApi = createApi({
         ];
       },
     }),
-    createDefect: builder.mutation<
-      Defect,
-      CreateDefectPayload
-    >({
+    createDefect: builder.mutation<Defect, CreateDefectPayload>({
       query: (body) => ({
         url: "/defects",
         method: "POST",
