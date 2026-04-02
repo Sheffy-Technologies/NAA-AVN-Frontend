@@ -53,7 +53,7 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
                   "w-2 h-2 rounded-full",
                   operation.status === "completed"
                     ? "bg-emerald-400"
-                    : operation.status === "active"
+                    : operation.status === "ongoing"
                       ? "bg-amber-400"
                       : operation.status === "aborted"
                         ? "bg-red-500"
