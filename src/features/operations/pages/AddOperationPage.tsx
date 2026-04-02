@@ -42,13 +42,20 @@ export const AddOperationPage = () => {
     unit_id: "",
     start_date: "",
     start_time: "00:00",
+    end_date: "",
     end_time: "00:00",
-    location: "",
-    description: "", // Activities
+    departure_longitude: "",
+    departure_latitude: "",
+    arrival_longitude: "",
+    arrival_latitude: "",
+    priority: "medium",
+    is_flight: true,
+    status: "planned" as "planned" | "completed" | "ongoing" | "aborted",
+    description: "",
   });
 
   const [assets, setAssets] = useState<OperationAsset[]>([
-    { aircraft_id: 0, pilot_id: 0, co_pilot_id: 0 },
+    { asset_id: 0, pilot_id: null, co_pilot_id: null },
   ]);
 
   const handleAssetChange = (
@@ -57,12 +64,15 @@ export const AddOperationPage = () => {
     value: string,
   ) => {
     const newAssets = [...assets];
-    newAssets[index] = { ...newAssets[index], [field]: Number(value) };
+    newAssets[index] = {
+      ...newAssets[index],
+      [field]: value ? Number(value) : null,
+    };
     setAssets(newAssets);
   };
 
   const addAsset = () => {
-    setAssets([...assets, { aircraft_id: 0, pilot_id: 0, co_pilot_id: 0 }]);
+    setAssets([...assets, { asset_id: 0, pilot_id: null, co_pilot_id: null }]);
   };
 
   const removeAsset = (index: number) => {
@@ -74,31 +84,46 @@ export const AddOperationPage = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Combine date and time
-    const startDateTime = `${formData.start_date}T${formData.start_time}:00`;
-    // End date is assumed to be same day or handled via logic, for now just use same date + end time
-    // Or if end time < start time, assume next day.
-    // For simplicity, let's just use same date for now or we might need an end date field if operations span days.
-    // The UI only shows "Date" once.
-    const endDateTime = `${formData.start_date}T${formData.end_time}:00`;
+    const startDateTime = formData.start_date
+      ? `${formData.start_date}T${formData.start_time}:00`
+      : undefined;
+    const endDateTime = formData.end_date
+      ? `${formData.end_date}T${formData.end_time}:00`
+      : formData.start_date
+        ? `${formData.start_date}T${formData.end_time}:00`
+        : undefined;
 
     const payload: CreateOperationRequest = {
       name: formData.name,
-      description: formData.description,
       unit_id: Number(formData.unit_id),
-      operation_type_id: Number(formData.operation_type_id),
+      operation_type_id: formData.operation_type_id
+        ? Number(formData.operation_type_id)
+        : undefined,
       start_date_time: startDateTime,
       end_date_time: endDateTime,
-      priority: "medium", // Default or add field
-      is_flight: 1, // Default to flight since aircrafts are involved
-      location: formData.location,
-      assets: assets
+      departure_longitude: formData.departure_longitude
+        ? Number(formData.departure_longitude)
+        : undefined,
+      departure_latitude: formData.departure_latitude
+        ? Number(formData.departure_latitude)
+        : undefined,
+      arrival_longitude: formData.arrival_longitude
+        ? Number(formData.arrival_longitude)
+        : undefined,
+      arrival_latitude: formData.arrival_latitude
+        ? Number(formData.arrival_latitude)
+        : undefined,
+      priority: formData.priority,
+      is_flight: formData.is_flight,
+      status: formData.status,
+      description: formData.description || undefined,
+      operation_assets: assets
+        .filter((a) => a.asset_id)
         .map((a) => ({
-          aircraft_id: a.aircraft_id,
-          pilot_id: a.pilot_id,
-          co_pilot_id: a.co_pilot_id || undefined,
-        }))
-        .filter((a) => a.aircraft_id && a.pilot_id), // Filter out incomplete entries
+          asset_id: a.asset_id,
+          pilot_id: a.pilot_id ?? null,
+          co_pilot_id: a.co_pilot_id ?? null,
+        })),
     };
 
     try {
@@ -264,10 +289,10 @@ export const AddOperationPage = () => {
                 </div>
               </div>
 
-              {/* Date */}
+              {/* Start Date */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-gray-400 font-medium">
-                  Date
+                  Start Date
                 </label>
                 <div className="relative">
                   <Icon
@@ -286,26 +311,95 @@ export const AddOperationPage = () => {
                 </div>
               </div>
 
-              {/* Location */}
-              <div className="flex flex-col gap-2 lg:col-span-1">
+              {/* End Date */}
+              <div className="flex flex-col gap-2">
                 <label className="text-xs text-gray-400 font-medium">
-                  Location
+                  End Date
                 </label>
                 <div className="relative">
                   <Icon
-                    icon="mdi:map-marker"
+                    icon="mdi:calendar"
                     className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                   />
                   <input
-                    type="text"
-                    placeholder="Select Location"
-                    value={formData.location}
+                    type="date"
+                    value={formData.end_date}
                     onChange={(e) =>
-                      setFormData({ ...formData, location: e.target.value })
+                      setFormData({ ...formData, end_date: e.target.value })
                     }
-                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-500"
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
                   />
                 </div>
+              </div>
+
+              {/* Priority */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-400 font-medium">
+                  Priority
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.priority}
+                    onChange={(e) =>
+                      setFormData({ ...formData, priority: e.target.value })
+                    }
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-400 font-medium">
+                  Status
+                </label>
+                <div className="relative">
+                  <select
+                    value={formData.status}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        status: e.target.value as typeof formData.status,
+                      })
+                    }
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
+                  >
+                    <option value="planned">Planned</option>
+                    <option value="ongoing">Ongoing</option>
+                    <option value="completed">Completed</option>
+                    <option value="aborted">Aborted</option>
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              {/* Is Flight */}
+              <div className="flex flex-col gap-2 justify-center">
+                <label className="text-xs text-gray-400 font-medium">
+                  Is Flight
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer h-[46px]">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_flight}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_flight: e.target.checked })
+                    }
+                    className="w-4 h-4 accent-[#7FD5FF]"
+                  />
+                  <span className="text-sm text-white">Flight Operation</span>
+                </label>
               </div>
 
               {/* Activities */}
@@ -320,6 +414,95 @@ export const AddOperationPage = () => {
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Coordinates Section */}
+          <section>
+            <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider mb-4 border-b border-[#0A4D66]/40 pb-2">
+              Coordinates (Optional)
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-400 font-medium">
+                  Departure Latitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="-90 to 90"
+                  value={formData.departure_latitude}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      departure_latitude: e.target.value,
+                    })
+                  }
+                  min={-90}
+                  max={90}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-400 font-medium">
+                  Departure Longitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="-180 to 180"
+                  value={formData.departure_longitude}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      departure_longitude: e.target.value,
+                    })
+                  }
+                  min={-180}
+                  max={180}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-400 font-medium">
+                  Arrival Latitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="-90 to 90"
+                  value={formData.arrival_latitude}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      arrival_latitude: e.target.value,
+                    })
+                  }
+                  min={-90}
+                  max={90}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-400 font-medium">
+                  Arrival Longitude
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="-180 to 180"
+                  value={formData.arrival_longitude}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      arrival_longitude: e.target.value,
+                    })
+                  }
+                  min={-180}
+                  max={180}
                   className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
                 />
               </div>
@@ -373,11 +556,11 @@ export const AddOperationPage = () => {
                       </label>
                       <div className="relative">
                         <select
-                          value={asset.aircraft_id}
+                          value={asset.asset_id ?? 0}
                           onChange={(e) =>
                             handleAssetChange(
                               index,
-                              "aircraft_id",
+                              "asset_id",
                               e.target.value,
                             )
                           }
@@ -405,14 +588,13 @@ export const AddOperationPage = () => {
                       </label>
                       <div className="relative">
                         <select
-                          value={asset.pilot_id}
+                          value={asset.pilot_id ?? ""}
                           onChange={(e) =>
                             handleAssetChange(index, "pilot_id", e.target.value)
                           }
                           className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                          required
                         >
-                          <option value="0">Select Pilot</option>
+                          <option value="">Select Pilot</option>
                           {pilots.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.rank?.name} {p.firstname} {p.lastname}
@@ -433,7 +615,7 @@ export const AddOperationPage = () => {
                       </label>
                       <div className="relative">
                         <select
-                          value={asset.co_pilot_id}
+                          value={asset.co_pilot_id ?? ""}
                           onChange={(e) =>
                             handleAssetChange(
                               index,
@@ -443,7 +625,7 @@ export const AddOperationPage = () => {
                           }
                           className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
                         >
-                          <option value="0">Select Co-Pilot</option>
+                          <option value="">Select Co-Pilot</option>
                           {pilots.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.rank?.name} {p.firstname} {p.lastname}

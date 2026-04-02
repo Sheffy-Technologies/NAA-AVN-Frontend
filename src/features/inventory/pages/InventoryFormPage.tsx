@@ -6,6 +6,7 @@ import {
   useCreateInventoryMutation,
   useGetExpenseCategoriesQuery,
   useGetInventoryByIdQuery,
+  useGetSuppliersQuery,
   useUpdateInventoryMutation,
   type InventoryItem,
 } from "@/features/inventory/api";
@@ -33,8 +34,9 @@ type InventoryFormValues = {
   re_order_level: string;
   unit_cost: string;
   measurement_unit: string;
-  vendor: string;
+  supplier_id: number | "";
   expiry_date: string;
+  date_received: string;
   remark: string;
   quantity: string;
 };
@@ -51,8 +53,9 @@ const emptyFormValues: InventoryFormValues = {
   re_order_level: "",
   unit_cost: "",
   measurement_unit: "",
-  vendor: "",
+  supplier_id: "",
   expiry_date: "",
+  date_received: "",
   remark: "",
   quantity: "",
 };
@@ -82,8 +85,9 @@ const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => ({
   re_order_level: String(item.re_order_level ?? ""),
   unit_cost: String(item.unit_cost ?? ""),
   measurement_unit: item.measurement_unit ?? "",
-  vendor: item.vendor ?? "",
+  supplier_id: item.supplier_id ?? "",
   expiry_date: item.expiry_date ?? "",
+  date_received: item.date_received ?? "",
   remark: item.remark ?? "",
   quantity: String(item.current_stock ?? ""),
 });
@@ -134,6 +138,8 @@ const InventoryFormContent = ({
 
   const { data: assetTypes = [], isLoading: isAssetTypesLoading } =
     useGetAssetTypesQuery();
+  const { data: suppliers = [], isLoading: isSuppliersLoading } =
+    useGetSuppliersQuery();
 
   const handleChange =
     (field: keyof InventoryFormValues) =>
@@ -176,7 +182,7 @@ const InventoryFormContent = ({
     if (!values.description.trim()) newErrors.description = "Required";
     if (!values.serial_number.trim()) newErrors.serial_number = "Required";
     if (!values.part_number.trim()) newErrors.part_number = "Required";
-    if (!values.vendor.trim()) newErrors.vendor = "Required";
+    if (!values.supplier_id) newErrors.supplier_id = "Required";
     if (!values.current_stock.trim()) newErrors.current_stock = "Required";
     if (!values.re_order_level.trim()) newErrors.re_order_level = "Required";
     if (!values.unit_id) newErrors.unit_id = "Required";
@@ -242,8 +248,12 @@ const InventoryFormContent = ({
       re_order_level: reOrderNumeric ?? 0,
       measurement_unit: inventory?.measurement_unit ?? "",
       unit_cost: unitCostNumeric ?? 0,
-      vendor: values.vendor.trim(),
+      supplier_id:
+        typeof values.supplier_id === "number"
+          ? values.supplier_id
+          : Number(values.supplier_id),
       expiry_date: values.expiry_date.trim() || null,
+      date_received: values.date_received.trim() || null,
       remark: values.remark.trim(),
       description: values.description.trim(),
       quantity: quantityNumeric ?? 0,
@@ -560,7 +570,7 @@ const InventoryFormContent = ({
               <label className="text-[11px] uppercase text-gray-400"></label>
             </div>
 
-            <div className="space-y-1">
+            {/* <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
                 Total Cost
               </label>
@@ -573,7 +583,7 @@ const InventoryFormContent = ({
                   return total.toLocaleString();
                 })()}
               </div>
-            </div>
+            </div> */}
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
@@ -607,17 +617,47 @@ const InventoryFormContent = ({
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
-                Vendor/Supplier
+                Date Received
               </label>
               <input
-                type="text"
-                value={values.vendor}
-                onChange={handleChange("vendor")}
+                type="date"
+                value={values.date_received}
+                onChange={handleChange("date_received")}
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-                placeholder="Enter Vendor/Supplier"
               />
-              {errors.vendor && (
-                <p className="text-[11px] text-red-400">{errors.vendor}</p>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
+                Vendor/Supplier
+              </label>
+              <div className="relative">
+                <select
+                  value={values.supplier_id}
+                  onChange={handleChange("supplier_id")}
+                  title="Vendor/Supplier"
+                  className={cn(
+                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
+                    isSuppliersLoading && "opacity-70 cursor-not-allowed",
+                  )}
+                  disabled={isSuppliersLoading}
+                >
+                  <option value="">
+                    {isSuppliersLoading ? "Loading suppliers..." : "Select Supplier"}
+                  </option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+                <Icon
+                  icon="mdi:chevron-down"
+                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                />
+              </div>
+              {errors.supplier_id && (
+                <p className="text-[11px] text-red-400">{errors.supplier_id}</p>
               )}
             </div>
 

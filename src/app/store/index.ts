@@ -9,6 +9,7 @@ import { inventoryApi } from "@/features/inventory/api";
 import { financeApi } from "@/features/finance/api";
 import { operationsApi } from "@/features/operations/api";
 import { assetsApi } from "@/features/assets/api";
+import { emergenciesApi } from "@/features/emergencies/api";
 import { notificationsApi } from "@/features/notifications/api";
 import { securityApi } from "@/features/security/api";
 import { usersApi } from "@/features/users/api";
@@ -48,6 +49,7 @@ export const store = configureStore({
     [financeApi.reducerPath]: financeApi.reducer,
     [operationsApi.reducerPath]: operationsApi.reducer,
     [assetsApi.reducerPath]: assetsApi.reducer,
+    [emergenciesApi.reducerPath]: emergenciesApi.reducer,
     [notificationsApi.reducerPath]: notificationsApi.reducer,
     [securityApi.reducerPath]: securityApi.reducer,
     [usersApi.reducerPath]: usersApi.reducer,
@@ -63,6 +65,7 @@ export const store = configureStore({
       financeApi.middleware,
       operationsApi.middleware,
       assetsApi.middleware,
+      emergenciesApi.middleware,
       notificationsApi.middleware,
       securityApi.middleware,
       usersApi.middleware,

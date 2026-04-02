@@ -61,6 +61,11 @@ const InventoryInfoPage = lazy(() =>
     default: module.InventoryInfoPage,
   })),
 );
+const AddSupplierPage = lazy(() =>
+  import("../../features/inventory/pages/AddSupplierPage").then((module) => ({
+    default: module.AddSupplierPage,
+  })),
+);
 const FinancePage = lazy(() =>
   import("@/features/finance/pages/FinancePage").then((module) => ({
     default: module.FinancePage,
@@ -410,6 +415,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <InventoryRequisitionDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "inventory/suppliers/add",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddSupplierPage />
           </Suspense>
         ),
       },
