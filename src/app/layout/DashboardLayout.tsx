@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
+import { useAppUpdater } from "@/shared/hooks/useAppUpdater";
 
 export const DashboardLayout = () => {
+  useAppUpdater();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
