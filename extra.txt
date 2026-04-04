@@ -1,0 +1,14 @@
+
+
+pubkey password:    
+(space 4 times)
+
+# 1. Bump the version in tauri.conf.json (e.g. "0.1.0" → "0.2.0")
+# 2. Commit and push
+git add src-tauri/tauri.conf.json
+git commit -m "chore: bump version to 0.2.0"
+git push origin main
+
+# 3. Tag it — this triggers the Actions workflow
+git tag v0.2.0
+git push origin v0.2.0

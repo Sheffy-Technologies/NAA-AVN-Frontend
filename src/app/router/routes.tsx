@@ -163,6 +163,11 @@ const OperationDetailsPage = lazy(() =>
     default: module.OperationDetailsPage,
   })),
 );
+const EditOperationPage = lazy(() =>
+  import("@/features/operations/pages/EditOperationPage").then((module) => ({
+    default: module.EditOperationPage,
+  })),
+);
 const PersonnelPage = lazy(() =>
   import("@/features/personnel/pages/PersonnelPage").then((module) => ({
     default: module.PersonnelPage,
@@ -519,6 +524,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <OperationDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "operations/:id/edit",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <EditOperationPage />
           </Suspense>
         ),
       },

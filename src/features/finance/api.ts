@@ -122,6 +122,7 @@ export type CreateBudgetPayload = {
 export const financeApi = createApi({
   reducerPath: "financeApi",
   baseQuery: axiosBaseQuery(),
+  tagTypes: ["Expenses", "Budgets"],
   endpoints: (builder) => ({
     getFinanceDashboard: builder.query<FinanceDashboardResponse, void>({
       query: () => ({
@@ -134,6 +135,7 @@ export const financeApi = createApi({
         url: "/expenses",
         method: "GET",
       }),
+      providesTags: [{ type: "Expenses", id: "LIST" }],
     }),
     createExpense: builder.mutation<FinanceExpense, CreateExpensePayload>({
       query: (body) => ({
@@ -141,6 +143,14 @@ export const financeApi = createApi({
         method: "POST",
         data: body,
       }),
+      invalidatesTags: [{ type: "Expenses", id: "LIST" }],
+    }),
+    deleteExpense: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/expenses/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: [{ type: "Expenses", id: "LIST" }],
     }),
     createBudget: builder.mutation<FinanceBudget, CreateBudgetPayload>({
       query: (body) => ({
@@ -148,12 +158,21 @@ export const financeApi = createApi({
         method: "POST",
         data: body,
       }),
+      invalidatesTags: [{ type: "Budgets", id: "LIST" }],
+    }),
+    deleteBudget: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/budgets/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: [{ type: "Budgets", id: "LIST" }],
     }),
     getBudgets: builder.query<FinanceBudget[], void>({
       query: () => ({
         url: "/budgets",
         method: "GET",
       }),
+      providesTags: [{ type: "Budgets", id: "LIST" }],
     }),
     getExpenseCategories: builder.query<FinanceExpenseCategory[], void>({
       query: () => ({
@@ -186,7 +205,9 @@ export const {
   useGetFinanceDashboardQuery,
   useGetExpensesQuery,
   useCreateExpenseMutation,
+  useDeleteExpenseMutation,
   useCreateBudgetMutation,
+  useDeleteBudgetMutation,
   useGetBudgetsQuery,
   useGetExpenseCategoriesQuery,
   useGetBudgetCategoriesQuery,

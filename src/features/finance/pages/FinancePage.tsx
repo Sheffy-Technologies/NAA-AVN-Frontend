@@ -7,10 +7,14 @@ import {
   useGetExpensesQuery,
   useGetBudgetsQuery,
   useGetExpenseCategoriesQuery,
+  useDeleteExpenseMutation,
+  useDeleteBudgetMutation,
   type FinanceExpense,
   type FinanceBudget,
   type FinanceExpenseCategory,
 } from "@/features/finance/api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 
@@ -54,6 +58,7 @@ type BudgetRow = {
 
 export const FinancePage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<FinanceTabKey>("expenses");
 
   const {
@@ -265,6 +270,31 @@ export const FinancePage = () => {
       navigate("/dashboard/finance/budgets/add");
     } else {
       navigate("/dashboard/finance/add");
+    }
+  };
+
+  const [deleteExpense] = useDeleteExpenseMutation();
+  const [deleteBudget] = useDeleteBudgetMutation();
+
+  const handleDeleteExpense = async (id: number) => {
+    if (!window.confirm("Delete this expense? This action cannot be undone.")) return;
+    try {
+      await deleteExpense(id).unwrap();
+      dispatch(showToast({ message: "Expense deleted successfully", type: "success" }));
+      setOpenExpenseDetailId(null);
+    } catch {
+      dispatch(showToast({ message: "Failed to delete expense", type: "error" }));
+    }
+  };
+
+  const handleDeleteBudget = async (id: number) => {
+    if (!window.confirm("Delete this budget? This action cannot be undone.")) return;
+    try {
+      await deleteBudget(id).unwrap();
+      dispatch(showToast({ message: "Budget deleted successfully", type: "success" }));
+      setOpenBudgetActionId(null);
+    } catch {
+      dispatch(showToast({ message: "Failed to delete budget", type: "error" }));
     }
   };
 
@@ -712,6 +742,7 @@ export const FinancePage = () => {
                               </button>
                               <button
                                 type="button"
+                                onClick={() => handleDeleteExpense(row.id)}
                                 className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
                               >
                                 <Icon
@@ -932,6 +963,7 @@ export const FinancePage = () => {
                               </button>
                               <button
                                 type="button"
+                                onClick={() => handleDeleteBudget(budget.id)}
                                 className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
                               >
                                 <Icon

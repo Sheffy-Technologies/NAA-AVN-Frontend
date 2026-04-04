@@ -245,6 +245,12 @@ export const inventoryApi = createApi({
         data: body,
       }),
     }),
+    deleteInventory: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `/inventories/${id}`,
+        method: "DELETE",
+      }),
+    }),
     updateInventoryStock: builder.mutation<
       unknown,
       InventoryStockUpdatePayload
@@ -306,6 +312,7 @@ export const {
   useGetInventoryByIdQuery,
   useCreateInventoryMutation,
   useUpdateInventoryMutation,
+  useDeleteInventoryMutation,
   useUpdateInventoryStockMutation,
   useGetInventoryRequisitionsQuery,
   useCreateInventoryRequisitionMutation,

@@ -5,9 +5,12 @@ import { cn } from "@/shared/utils/cn";
 import {
   useGetInventoriesQuery,
   useUpdateInventoryStockMutation,
+  useDeleteInventoryMutation,
   useGetInventoryRequisitionsQuery,
   useGetSuppliersQuery,
 } from "@/features/inventory/api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
@@ -418,6 +421,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
 };
 
 export const InventoryPage = () => {
+  const dispatch = useAppDispatch();
   const location = useLocation();
   const initialTab = useMemo(() => {
     const nextTab = (location.state as { inventoryTab?: unknown } | null)
@@ -446,6 +450,18 @@ export const InventoryPage = () => {
   const [requisitionUnitId, setRequisitionUnitId] = useState<number | "">("");
 
   const navigate = useNavigate();
+  const [deleteInventory] = useDeleteInventoryMutation();
+
+  const handleDeleteInventory = async (id: number, name: string) => {
+    if (!window.confirm(`Delete "${name}"? This action cannot be undone.`)) return;
+    try {
+      await deleteInventory(id).unwrap();
+      dispatch(showToast({ message: "Item deleted successfully", type: "success" }));
+      setOpenActionId(null);
+    } catch {
+      dispatch(showToast({ message: "Failed to delete item", type: "error" }));
+    }
+  };
 
   // Filters State
   const [unitFilter, setUnitFilter] = useState<MultiFilterState<number>>({
@@ -708,6 +724,7 @@ export const InventoryPage = () => {
       <div className="h-px bg-[#0A4D66]/40 my-1" />
       <button
         type="button"
+        onClick={() => handleDeleteInventory(row.id, row.partName)}
         className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 hover:text-red-300 flex items-center gap-2"
       >
         <Icon icon="mdi:delete" className="w-3.5 h-3.5" />
