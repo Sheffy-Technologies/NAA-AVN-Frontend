@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
-import { useGetPersonnelByIdQuery } from "@/features/personnel/api";
+import { useGetPersonnelByIdQuery, useDeletePersonnelMutation } from "@/features/personnel/api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -150,13 +152,28 @@ const statusDotColor: Record<PersonnelStatus, string> = {
 
 export const PersonnelDetailPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
   const { data: apiPerson, isLoading: isPersonLoading } =
     useGetPersonnelByIdQuery(id ?? "", {
       skip: !id,
     });
+  const [deletePersonnel, { isLoading: isDeleting }] = useDeletePersonnelMutation();
   const [activeTab, setActiveTab] = useState<"bio" | "activity">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
+
+  const handleDeletePersonnel = async () => {
+    if (!id || isDeleting) return;
+    const name = apiPerson ? `${apiPerson.firstname} ${apiPerson.lastname}` : "this personnel";
+    if (!window.confirm(`Delete ${name}? This action cannot be undone.`)) return;
+    try {
+      await deletePersonnel(id).unwrap();
+      dispatch(showToast({ message: "Personnel deleted successfully", type: "success" }));
+      navigate("/dashboard/personnel");
+    } catch {
+      dispatch(showToast({ message: "Failed to delete personnel", type: "error" }));
+    }
+  };
 
   const person: PersonnelDetail | null = useMemo(() => {
     if (!apiPerson) {
@@ -240,9 +257,11 @@ export const PersonnelDetailPage = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                className="px-3 py-1.5 rounded border border-red-700/60 text-xs text-red-300 hover:bg-red-900/30"
+                onClick={handleDeletePersonnel}
+                disabled={isDeleting}
+                className="px-3 py-1.5 rounded border border-red-700/60 text-xs text-red-300 hover:bg-red-900/30 disabled:opacity-50"
               >
-                Delete
+                {isDeleting ? "Deleting..." : "Delete"}
               </button>
               <button
                 type="button"

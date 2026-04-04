@@ -6,10 +6,13 @@ import {
   useGetFacilitiesQuery,
   useGetVehiclesQuery,
   useUpdateAssetMutation,
+  useDeleteAssetMutation,
   type Asset,
   type Facility,
   type Vehicle,
 } from "@/features/assets/api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
@@ -23,6 +26,7 @@ const TABS = [
 ];
 
 export const AssetsPage = () => {
+  const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState("aircraft");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const { data: assets, isLoading: isAssetsLoading } = useGetAssetsQuery(
@@ -39,6 +43,7 @@ export const AssetsPage = () => {
     });
   const { data: units } = useGetUnitsQuery();
   const [updateAsset] = useUpdateAssetMutation();
+  const [deleteAsset] = useDeleteAssetMutation();
 
   const navigate = useNavigate();
   const [openActionId, setOpenActionId] = useState<number | null>(null);
@@ -54,6 +59,17 @@ export const AssetsPage = () => {
   useClickOutside(statusMenuRef, () => {
     setStatusMenuForId(null);
   });
+
+  const handleDeleteAsset = async (id: number, name: string) => {
+    if (!window.confirm(`Delete ${name}? This action cannot be undone.`)) return;
+    try {
+      await deleteAsset(id).unwrap();
+      dispatch(showToast({ message: "Asset deleted successfully", type: "success" }));
+      setOpenActionId(null);
+    } catch {
+      dispatch(showToast({ message: "Failed to delete asset", type: "error" }));
+    }
+  };
 
   const handleToggleActions = (id: number) => {
     setOpenActionId((current) => (current === id ? null : id));
@@ -545,7 +561,10 @@ export const AssetsPage = () => {
                                 />
                                 <span>Log Flight Hrs</span>
                               </button>
-                              <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400">
+                              <button
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+                                onClick={() => handleDeleteAsset(asset.id, asset.name)}
+                              >
                                 <Icon
                                   icon="mdi:trash-can-outline"
                                   className="w-4 h-4"

@@ -23,6 +23,42 @@ export type OperationAsset = {
   co_pilot_id?: number | null;
 };
 
+export type OperationAssetPerson = {
+  id?: number;
+  firstname?: string | null;
+  lastname?: string | null;
+  othernames?: string | null;
+  rank?: {
+    name?: string | null;
+  } | null;
+};
+
+export type OperationAssetDetails = {
+  id?: number;
+  name?: string;
+  type?: string;
+  total_hours?: number | string;
+  total_flight_hours?: number | string;
+  total_landings?: number | string;
+  next_inspection?: string;
+  next_inspection_date?: string;
+  last_snag?: string;
+  last_defect?: {
+    title?: string | null;
+    description?: string | null;
+  } | null;
+};
+
+export type OperationAssignedAsset = {
+  id?: number;
+  asset_id?: number;
+  pilot_id?: number | null;
+  co_pilot_id?: number | null;
+  asset?: OperationAssetDetails | null;
+  pilot?: OperationAssetPerson | null;
+  co_pilot?: OperationAssetPerson | null;
+};
+
 export type CreateOperationRequest = {
   name: string;
   unit_id: number;
@@ -40,6 +76,16 @@ export type CreateOperationRequest = {
   description?: string | null;
   asset_ids?: number[];
   operation_assets?: OperationAsset[];
+};
+
+export type UpdateOperationRequest = {
+  id: string | number;
+  data: Partial<CreateOperationRequest>;
+};
+
+export type UpdateOperationStatusRequest = {
+  id: string | number;
+  status: "planned" | "ongoing" | "completed" | "aborted";
 };
 
 export type ContactPhoto = {
@@ -102,9 +148,12 @@ export type Operation = {
   duration_label: string;
   unit: OperationUnit;
   operation_type: OperationType | null;
-  assets: unknown[];
+  assets: OperationAssignedAsset[];
   after_action_report: AfterActionReport | null;
-  // Mock fields for UI that might not be in API yet
+  departure_longitude?: number | null;
+  departure_latitude?: number | null;
+  arrival_longitude?: number | null;
+  arrival_latitude?: number | null;
   location?: {
     lat: number;
     lng: number;
@@ -115,6 +164,37 @@ export type Operation = {
 
 export type GetOperationsParams = {
   operations_id?: string;
+};
+
+const getOperationLocation = (operation: Operation) => {
+  if (
+    operation.departure_latitude !== null &&
+    operation.departure_latitude !== undefined &&
+    operation.departure_longitude !== null &&
+    operation.departure_longitude !== undefined
+  ) {
+    return {
+      lat: Number(operation.departure_latitude),
+      lng: Number(operation.departure_longitude),
+    };
+  }
+
+  if (
+    operation.arrival_latitude !== null &&
+    operation.arrival_latitude !== undefined &&
+    operation.arrival_longitude !== null &&
+    operation.arrival_longitude !== undefined
+  ) {
+    return {
+      lat: Number(operation.arrival_latitude),
+      lng: Number(operation.arrival_longitude),
+    };
+  }
+
+  return {
+    lat: 9.0765 + (Math.random() - 0.5) * 0.1,
+    lng: 7.3986 + (Math.random() - 0.5) * 0.1,
+  };
 };
 
 export const operationsApi = createApi({
@@ -130,14 +210,9 @@ export const operationsApi = createApi({
       }),
       providesTags: ["Operations"],
       transformResponse: (response: Operation[]) => {
-        // Mock locations for map view since they are missing in the sample response
-        // In a real app, these should come from the backend
         return response.map((op) => ({
           ...op,
-          location: {
-            lat: 9.0765 + (Math.random() - 0.5) * 0.1, // Near Abuja
-            lng: 7.3986 + (Math.random() - 0.5) * 0.1,
-          },
+          location: getOperationLocation(op),
         }));
       },
     }),
@@ -145,6 +220,10 @@ export const operationsApi = createApi({
       query: (id) => ({
         url: `/operations/${id}`,
         method: "GET",
+      }),
+      transformResponse: (response: Operation) => ({
+        ...response,
+        location: getOperationLocation(response),
       }),
       providesTags: (_result, _error, id) => [{ type: "OperationDetails", id }],
     }),
@@ -162,6 +241,41 @@ export const operationsApi = createApi({
         data: body,
       }),
       invalidatesTags: ["Operations"],
+    }),
+    updateOperation: builder.mutation<Operation, UpdateOperationRequest>({
+      query: ({ id, data }) => ({
+        url: `/operations/${id}`,
+        method: "PUT",
+        data,
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        "Operations",
+        { type: "OperationDetails", id },
+      ],
+    }),
+    updateOperationStatus: builder.mutation<
+      Operation,
+      UpdateOperationStatusRequest
+    >({
+      query: ({ id, status }) => ({
+        url: `/operations/${id}`,
+        method: "PUT",
+        data: { status },
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        "Operations",
+        { type: "OperationDetails", id },
+      ],
+    }),
+    deleteOperation: builder.mutation<void, string | number>({
+      query: (id) => ({
+        url: `/operations/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        "Operations",
+        { type: "OperationDetails", id },
+      ],
     }),
     createAfterActionReport: builder.mutation<AfterActionReport, CreateAfterActionReportRequest>({
       query: (body) => ({
@@ -182,5 +296,8 @@ export const {
   useGetOperationByIdQuery,
   useGetOperationTypesQuery,
   useCreateOperationMutation,
+  useUpdateOperationMutation,
+  useUpdateOperationStatusMutation,
+  useDeleteOperationMutation,
   useCreateAfterActionReportMutation,
 } = operationsApi;

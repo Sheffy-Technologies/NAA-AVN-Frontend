@@ -187,6 +187,16 @@ export const personnelApi = createApi({
         method: "GET",
       }),
     }),
+    deletePersonnel: builder.mutation<void, string | number>({
+      query: (id) => ({
+        url: `/personnel/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Personnel", id },
+        { type: "Personnel", id: "LIST" },
+      ],
+    }),
     getPersonnelRanks: builder.query<PersonnelRank[], void>({
       query: () => ({
         url: "/ranks",
@@ -238,4 +248,5 @@ export const {
   useCreatePersonnelMutation,
   useUploadPersonnelImageMutation,
   useUpdatePersonnelMutation,
+  useDeletePersonnelMutation,
 } = personnelApi;

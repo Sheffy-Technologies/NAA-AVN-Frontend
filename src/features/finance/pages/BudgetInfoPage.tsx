@@ -5,9 +5,12 @@ import { cn } from "@/shared/utils/cn";
 import {
   useGetBudgetsQuery,
   useGetExpensesQuery,
+  useDeleteBudgetMutation,
   type FinanceBudget,
   type FinanceExpense,
 } from "@/features/finance/api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
 
 type BudgetInfoTabKey = "info" | "expenses";
 type BudgetExpenseViewMode = "table" | "grid";
@@ -15,6 +18,7 @@ type PeriodFilterKey = "all" | "month" | "quarter" | "year";
 
 export const BudgetInfoPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
 
   const [activeTab, setActiveTab] = useState<BudgetInfoTabKey>("info");
@@ -120,6 +124,20 @@ export const BudgetInfoPage = () => {
 
   const handleEdit = () => {
     navigate("/dashboard/finance/budgets/add");
+  };
+
+  const [deleteBudget, { isLoading: isDeleting }] = useDeleteBudgetMutation();
+
+  const handleDeleteBudget = async () => {
+    if (!budget?.id || isDeleting) return;
+    if (!window.confirm(`Delete budget "${budget.name}"? This action cannot be undone.`)) return;
+    try {
+      await deleteBudget(budget.id).unwrap();
+      dispatch(showToast({ message: "Budget deleted successfully", type: "success" }));
+      navigate("/dashboard/finance");
+    } catch {
+      dispatch(showToast({ message: "Failed to delete budget", type: "error" }));
+    }
   };
 
   const handleAddFinance = () => {
@@ -249,7 +267,9 @@ export const BudgetInfoPage = () => {
           <div className="flex items-center justify-end gap-2 flex-1">
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs sm:text-sm text-gray-200 hover:bg-[#021a27]/80"
+              onClick={handleDeleteBudget}
+              disabled={isDeleting}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs sm:text-sm text-red-400 hover:bg-red-900/20 disabled:opacity-50"
             >
               <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
             </button>

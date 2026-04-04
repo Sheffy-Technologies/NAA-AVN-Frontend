@@ -10,8 +10,11 @@ import {
   useGetPersonnelSpecialtiesQuery,
   useGetPersonnelBranchesQuery,
   useUpdatePersonnelMutation,
+  useDeletePersonnelMutation,
   type PersonnelFilters,
 } from "@/features/personnel/api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
@@ -53,6 +56,7 @@ const statusTextColor: Record<PersonnelStatus, string> = {
 
 export const PersonnelPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [unitFilter, setUnitFilter] = useState<MultiFilterState<number>>({
     all: true,
     selected: [],
@@ -244,6 +248,18 @@ export const PersonnelPage = () => {
   };
 
   const [updatePersonnel] = useUpdatePersonnelMutation();
+  const [deletePersonnel] = useDeletePersonnelMutation();
+
+  const handleDeletePersonnel = async (id: string, name: string) => {
+    if (!window.confirm(`Delete ${name}? This action cannot be undone.`)) return;
+    try {
+      await deletePersonnel(id).unwrap();
+      dispatch(showToast({ message: "Personnel deleted successfully", type: "success" }));
+      setOpenActionId(null);
+    } catch {
+      dispatch(showToast({ message: "Failed to delete personnel", type: "error" }));
+    }
+  };
 
   const handleChangeStatus = async (id: string, status: PersonnelStatus) => {
     try {
@@ -833,6 +849,7 @@ export const PersonnelPage = () => {
                               </button>
                               <button
                                 type="button"
+                                onClick={() => handleDeletePersonnel(p.id, p.name)}
                                 className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
                               >
                                 <Icon
