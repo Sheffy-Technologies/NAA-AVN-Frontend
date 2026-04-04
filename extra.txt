@@ -3,6 +3,8 @@
 pubkey password:    
 (space 4 times)
 
+
+#COmmand for Updating APP
 # 1. Bump the version in tauri.conf.json (e.g. "0.1.0" → "0.2.0")
 # 2. Commit and push
 git add src-tauri/tauri.conf.json
