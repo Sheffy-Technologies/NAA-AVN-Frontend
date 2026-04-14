@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useGetInventoryRequisitionByIdQuery,
   useUpdateInventoryRequisitionMutation,
@@ -58,7 +61,10 @@ const toNumber = (value: number | string | null | undefined) => {
 
 export const InventoryRequisitionDetailsPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const {
     data: detail,
@@ -215,6 +221,24 @@ export const InventoryRequisitionDetailsPage = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !detail || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `inventory-requisition-${detail.id}`,
+        backgroundColor: "#001219",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   if (!id) {
     return (
       <div className="p-6 text-center text-gray-400">Invalid request.</div>
@@ -234,23 +258,37 @@ export const InventoryRequisitionDetailsPage = () => {
   }
 
   return (
-    <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
+    <div ref={contentRef} className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
           REQUEST DETAILS
         </h1>
-        <button
-          type="button"
-          onClick={handleSaveAndExit}
-          className={cn(
-            "inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white",
-            isSaving && "opacity-70 cursor-not-allowed",
-          )}
-          disabled={isSaving}
-        >
-          <Icon icon="mdi:close-circle-outline" className="w-4 h-4" />
-          <span>Save &amp; Exit</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white disabled:opacity-70"
+          >
+            <Icon
+              icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+              className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+            />
+            <span>{isDownloadingPdf ? "Downloading..." : "Download"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveAndExit}
+            className={cn(
+              "inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white",
+              isSaving && "opacity-70 cursor-not-allowed",
+            )}
+            disabled={isSaving}
+          >
+            <Icon icon="mdi:close-circle-outline" className="w-4 h-4" />
+            <span>Save &amp; Exit</span>
+          </button>
+        </div>
       </div>
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">

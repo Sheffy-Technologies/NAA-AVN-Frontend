@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetPersonnelByIdQuery, useDeletePersonnelMutation } from "@/features/personnel/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -161,6 +162,8 @@ export const PersonnelDetailPage = () => {
   const [deletePersonnel, { isLoading: isDeleting }] = useDeletePersonnelMutation();
   const [activeTab, setActiveTab] = useState<"bio" | "activity">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const handleDeletePersonnel = async () => {
     if (!id || isDeleting) return;
@@ -241,9 +244,35 @@ export const PersonnelDetailPage = () => {
     navigate("/dashboard/personnel");
   };
 
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !person || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `${person.firstName}-${person.lastName}-${person.id}`,
+        backgroundColor: "#001219",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch (error) {
+      console.error("Failed to download personnel PDF", {
+        personnelId: person.id,
+        fileName: `${person.firstName}-${person.lastName}-${person.id}`,
+        error,
+      });
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   return (
     <div className="px-2 sm:px-0">
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
+      <section
+        ref={contentRef}
+        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
+      >
         <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
           <div className="flex items-center justify-between gap-3">
             <button
@@ -255,6 +284,14 @@ export const PersonnelDetailPage = () => {
               <span>Back</span>
             </button>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf || !person}
+                className="px-3 py-1.5 rounded border border-[#0A4D66]/60 text-xs text-white hover:bg-red-900/30 disabled:opacity-50"
+              >
+                {isDownloadingPdf ? "Downloading..." : "Download"}
+              </button>
               <button
                 type="button"
                 onClick={handleDeletePersonnel}
@@ -321,6 +358,8 @@ export const PersonnelDetailPage = () => {
                   <button
                     type="button"
                     onClick={() => setActivityView("table")}
+                    aria-label="Switch to table view"
+                    title="Table view"
                     className={cn(
                       "px-2 py-1 rounded-sm flex items-center justify-center",
                       activityView === "table"
@@ -333,6 +372,8 @@ export const PersonnelDetailPage = () => {
                   <button
                     type="button"
                     onClick={() => setActivityView("grid")}
+                    aria-label="Switch to grid view"
+                    title="Grid view"
                     className={cn(
                       "px-2 py-1 rounded-sm flex items-center justify-center",
                       activityView === "grid"
@@ -357,9 +398,16 @@ export const PersonnelDetailPage = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf || !person}
+                  aria-label="Download personnel details"
+                  title="Download personnel details"
                   className="inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-gray-300"
                 >
-                  <Icon icon="mdi:download-outline" className="w-4 h-4" />
+                  <Icon
+                    icon={isDownloadingPdf ? "mdi:loading" : "mdi:download-outline"}
+                    className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+                  />
                 </button>
               </div>
             )}

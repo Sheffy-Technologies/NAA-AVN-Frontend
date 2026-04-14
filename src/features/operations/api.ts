@@ -58,6 +58,10 @@ export type OperationAssignedAsset = {
   asset_id?: number;
   pilot_id?: number | null;
   co_pilot_id?: number | null;
+  departure_takeoff?: string | null;
+  departure_landing?: string | null;
+  arrival_takeoff?: string | null;
+  arrival_landing?: string | null;
   asset?: OperationAssetDetails | null;
   pilot?: OperationAssetPerson | null;
   co_pilot?: OperationAssetPerson | null;
@@ -123,7 +127,6 @@ export type CreateAfterActionReportRequest = {
   mission: "logistics" | "recon" | "attack" | "base_support";
   task_no: string;
   infantry_no: number;
-  vehicles_no: number;
   activities: string;
   contacts: Contact[];
   resource_utilizations: ResourceUtilization[];
@@ -153,7 +156,7 @@ export type Operation = {
   unit: OperationUnit;
   operation_type: OperationType | null;
   assets: OperationAssignedAsset[];
-  after_action_report: AfterActionReport | null;
+  afterActionReport: AfterActionReport | null;
   departure_longitude?: number | null;
   departure_latitude?: number | null;
   arrival_longitude?: number | null;

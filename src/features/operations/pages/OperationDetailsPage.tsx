@@ -250,8 +250,8 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
 
 // Placeholder for AAR Tab
 const AARTab = ({ operation }: { operation: Operation }) => {
-  if (operation.after_action_report) {
-    const report = operation.after_action_report;
+  if (operation.afterActionReport) {
+    const report = operation.afterActionReport;
     return (
       <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-6">
         <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-4">
@@ -270,7 +270,6 @@ const AARTab = ({ operation }: { operation: Operation }) => {
           />
           <InfoRow label="Task No" value={report.task_no} />
           <InfoRow label="Infantry No" value={report.infantry_no} />
-          <InfoRow label="Vehicles No" value={report.vehicles_no} />
         </div>
 
         <div className="space-y-2">
@@ -279,6 +278,42 @@ const AARTab = ({ operation }: { operation: Operation }) => {
             {report.activities}
           </p>
         </div>
+
+        {operation.assets && operation.assets.length > 0 && (
+          <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
+            <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
+              Aircraft Flight Times
+            </h4>
+            <div className="grid grid-cols-1 gap-3">
+              {operation.assets.map((assignedAsset, idx) => (
+                <div
+                  key={idx}
+                  className="bg-[#001825] p-4 rounded border border-[#0A4D66]/30 text-sm"
+                >
+                  <p className="font-semibold text-white mb-3">
+                    {assignedAsset.asset?.name ?? `Aircraft ${idx + 1}`}
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-gray-300">
+                    <div className="space-y-1">
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Departure</p>
+                      <div className="flex gap-4">
+                        <span><span className="text-gray-500">T/O:</span> {assignedAsset.departure_takeoff ?? "—"}</span>
+                        <span><span className="text-gray-500">LDG:</span> {assignedAsset.departure_landing ?? "—"}</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Return</p>
+                      <div className="flex gap-4">
+                        <span><span className="text-gray-500">T/O:</span> {assignedAsset.arrival_takeoff ?? "—"}</span>
+                        <span><span className="text-gray-500">LDG:</span> {assignedAsset.arrival_landing ?? "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {report.contacts && report.contacts.length > 0 && (
           <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
@@ -289,28 +324,77 @@ const AARTab = ({ operation }: { operation: Operation }) => {
               {report.contacts.map((contact, idx) => (
                 <div
                   key={idx}
-                  className="bg-[#001825] p-4 rounded border border-[#0A4D66]/30 text-sm"
+                  className="bg-[#001825] p-4 rounded border border-[#0A4D66]/30 text-sm space-y-3"
                 >
-                  <div className="flex justify-between mb-2">
-                    <span className="font-bold text-white capitalize">
-                      {contact.engagement.replace("_", " ")}
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white capitalize text-base">
+                      {contact.engagement.replace(/_/g, " ")}
                     </span>
-                    <span className="text-gray-400">
-                      {contact.time_of_contact}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-gray-300">
-                    <div>
-                      <span className="text-gray-500">Location:</span>{" "}
-                      {contact.location}
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Enemy Infantry:</span>{" "}
-                      {contact.enemy_infantry_no}
+                    <div className="flex gap-4 text-gray-400 text-xs">
+                      <span>{contact.date_of_contact}</span>
+                      <span>{contact.time_of_contact}</span>
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-gray-300">
+                    <InfoRow label="Location" value={contact.location} />
+                    <InfoRow label="Enemy Infantry" value={contact.enemy_infantry_no} />
+                    <InfoRow label="Enemy Vehicles" value={contact.enemy_vehicle_no} />
+                    <InfoRow label="Targets Infantry" value={contact.targets_infantry_no} />
+                    <InfoRow label="Targets Vehicles" value={contact.targets_vehicle_no} />
+                  </div>
+
+                  {contact.enemy_resources_description && (
+                    <div className="space-y-1">
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Enemy Resources</p>
+                      <p className="text-gray-300">{contact.enemy_resources_description}</p>
+                    </div>
+                  )}
+
+                  {contact.targets_treated_description && (
+                    <div className="space-y-1">
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Targets Treated</p>
+                      <p className="text-gray-300">{contact.targets_treated_description}</p>
+                    </div>
+                  )}
+
+                  {contact.damage_received && (
+                    <div className="space-y-1">
+                      <p className="text-gray-500 text-xs uppercase tracking-wide">Damage Received</p>
+                      <p className="text-gray-300">{contact.damage_received}</p>
+                    </div>
+                  )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {report.resource_utilizations && report.resource_utilizations.length > 0 && (
+          <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
+            <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
+              Resource Utilization ({report.resource_utilizations.length})
+            </h4>
+            <div className="overflow-x-auto rounded border border-[#0A4D66]/30">
+              <table className="w-full text-sm text-gray-300">
+                <thead>
+                  <tr className="bg-[#0A4D66]/20 border-b border-[#0A4D66]/30">
+                    <th className="text-left px-4 py-2 text-gray-500 font-medium">Item</th>
+                    <th className="text-right px-4 py-2 text-gray-500 font-medium">Qty Used</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.resource_utilizations.map((res, idx) => (
+                    <tr
+                      key={idx}
+                      className="border-b border-[#0A4D66]/20 last:border-0"
+                    >
+                      <td className="px-4 py-2">{res.item_description}</td>
+                      <td className="px-4 py-2 text-right">{res.quantity_used}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

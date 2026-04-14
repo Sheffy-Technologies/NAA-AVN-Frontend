@@ -1,7 +1,11 @@
+import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetUnitByIdQuery } from "@/shared/api/units";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 
 type Card = {
   label: string;
@@ -44,7 +48,10 @@ const CardItem = ({ card }: { card: Card }) => (
 
 export const UnitsDetailsPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const {
     data: unit,
     isLoading,
@@ -128,6 +135,24 @@ export const UnitsDetailsPage = () => {
     },
   ];
 
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !unit || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `${unit.name || "unit"}-${unit.id}`,
+        backgroundColor: "#001219",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="px-2 sm:px-0">
@@ -192,7 +217,10 @@ export const UnitsDetailsPage = () => {
 
   return (
     <div className="px-2 sm:px-0 space-y-6">
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
+      <section
+        ref={contentRef}
+        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
+      >
         <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
           <button
             type="button"
@@ -221,6 +249,19 @@ export const UnitsDetailsPage = () => {
               >
                 <Icon icon="mdi:pencil" className="w-4 h-4" />
                 Edit
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf}
+                className="flex items-center gap-2 px-3 py-1.5 rounded bg-[#001219] text-gray-300 border border-[#0A4D66]/40 hover:bg-[#001825] text-xs disabled:opacity-60"
+                title="Download unit details"
+                aria-label="Download unit details"
+              >
+                <Icon
+                  icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+                  className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+                />
               </button>
               <button
                 type="button"

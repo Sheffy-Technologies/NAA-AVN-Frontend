@@ -64,7 +64,6 @@ export const AfterActionReportForm = ({
     mission: "logistics",
     task_no: "",
     infantry_no: 0,
-    vehicles_no: 0,
     activities: "",
   });
 
@@ -269,7 +268,7 @@ export const AfterActionReportForm = ({
       </section>
 
       {/* Task Details */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-400 font-medium">Task No.</label>
           <input
@@ -292,20 +291,6 @@ export const AfterActionReportForm = ({
             value={formData.infantry_no || ""}
             onChange={(e) =>
               setFormData({ ...formData, infantry_no: Number(e.target.value) })
-            }
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-xs text-gray-400 font-medium">
-            Vehicles No.
-          </label>
-          <input
-            type="number"
-            placeholder="Enter Number"
-            value={formData.vehicles_no || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, vehicles_no: Number(e.target.value) })
             }
             className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
           />

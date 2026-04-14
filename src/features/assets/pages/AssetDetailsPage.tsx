@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAppDispatch } from "@/app/store";
@@ -13,6 +13,7 @@ import {
   useGetEnginePositionsQuery,
 } from "../api";
 import { cn } from "@/shared/utils/cn";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 
 const TABS = [
   { id: "info", label: "Aircraft Information" },
@@ -131,6 +132,8 @@ export const AssetDetailsPage = () => {
   const { data: avionicCategories = [] } = useGetAvionicCategoriesQuery();
   const [deleteAsset, { isLoading: isDeleting }] = useDeleteAssetMutation();
   const [activeTab, setActiveTab] = useState<AssetTabId>("info");
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const handleDeleteAsset = async () => {
     if (!asset?.id || isDeleting) return;
@@ -156,6 +159,24 @@ export const AssetDetailsPage = () => {
           type: "error",
         }),
       );
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !asset || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `${asset.name || "asset"}-${asset.id}`,
+        backgroundColor: "#00090D",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
@@ -200,7 +221,7 @@ export const AssetDetailsPage = () => {
   const maintenanceEvents = asset.maintenance_events ?? [];
 
   return (
-    <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+    <div ref={contentRef} className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
@@ -248,11 +269,16 @@ export const AssetDetailsPage = () => {
             <span>Edit</span>
           </button>
           <button
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
             aria-label="Download asset details"
             title="Download asset details"
-            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors disabled:opacity-60"
           >
-            <Icon icon="mdi:download" className="w-4 h-4" />
+            <Icon
+              icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+              className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+            />
           </button>
         </div>
       </div>
