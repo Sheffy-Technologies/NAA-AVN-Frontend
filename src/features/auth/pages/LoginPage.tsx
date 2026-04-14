@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button/Button";
 import { Input } from "@/shared/ui/input/Input";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { setCredentials } from "../authSlice";
-import { Icon } from "@/shared/icons/Icon";
+import { showToast } from "@/shared/store/toastSlice";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const DEVICE_ID_KEY = "naavn_device_id";
@@ -46,7 +46,6 @@ export const LoginPage = () => {
   const [errors, setErrors] = useState<{ login?: string; password?: string }>(
     {},
   );
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const validate = () => {
@@ -59,7 +58,6 @@ export const LoginPage = () => {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setToastMessage(null);
     if (!validate()) return;
 
     setIsLoading(true);
@@ -100,7 +98,7 @@ export const LoginPage = () => {
               : errorBody.message,
           );
 
-        setToastMessage(extracted || "Unable to login. Please try again.");
+        dispatch(showToast({ message: extracted || "Unable to login. Please try again.", type: "error" }));
         return;
       }
 
@@ -130,49 +128,14 @@ export const LoginPage = () => {
 
       navigate("/dashboard");
     } catch {
-      setToastMessage(
-        "Network error. Please check your connection and try again.",
-      );
+      dispatch(showToast({ message: "Network error. Please check your connection and try again.", type: "error" }));
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (!toastMessage) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setToastMessage(null);
-    }, 5000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [toastMessage]);
-
   return (
     <div className="flex flex-col items-center gap-10">
-      {toastMessage && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
-          <div className="flex items-center gap-3 px-4 sm:px-5 py-3 rounded-full bg-[#1F130F] border border-red-500/70 shadow-lg shadow-black/40 text-sm text-gray-100 min-w-[280px] max-w-[90vw]">
-            <span className="flex items-center justify-center w-7 h-7 rounded-full bg-red-500/90">
-              <Icon
-                icon="mdi:alert-circle-outline"
-                size={18}
-                className="text-white"
-              />
-            </span>
-            <p className="whitespace-nowrap sm:whitespace-normal">
-              {toastMessage}
-            </p>
-            <button
-              type="button"
-              onClick={() => setToastMessage(null)}
-              className="ml-2 text-xs text-gray-300 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-      )}
 
       <div className="flex flex-col items-center gap-4 mt-6">
         <div className="w-20 h-20 rounded-full overflow-hidden bg-[#001219] flex items-center justify-center">

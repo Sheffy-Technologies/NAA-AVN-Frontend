@@ -2,17 +2,32 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   useCreateAfterActionReportMutation,
+  useGetOperationByIdQuery,
+  useUpdateOperationMutation,
   type CreateAfterActionReportRequest,
   type Contact,
   type ResourceUtilization,
+  type Operation,
 } from "../api";
 import { useGetInventoriesQuery } from "@/features/inventory/api";
 import { useGetAircraftsQuery } from "@/features/personnel/api";
 
 interface AfterActionReportFormProps {
   operationId: number;
+  operation?: Operation | null;
   onSuccess?: () => void;
 }
+
+const getPersonnelDisplayName = (person: {
+  firstname?: string | null;
+  lastname?: string | null;
+  rank?: { name?: string | null } | null;
+}) => {
+  const rankName = person.rank?.name?.trim();
+  const firstName = person.firstname?.trim() ?? "";
+  const lastName = person.lastname?.trim() ?? "";
+  return `${rankName ? `${rankName} ` : ""}${firstName} ${lastName}`.trim();
+};
 
 const EngagementOptions = [
   { value: "visuals_only", label: "Visuals Only" },
@@ -30,9 +45,13 @@ const MissionOptions = [
 
 export const AfterActionReportForm = ({
   operationId,
+  operation: initialOperation,
   onSuccess,
 }: AfterActionReportFormProps) => {
   const [createReport, { isLoading }] = useCreateAfterActionReportMutation();
+  const [updateOperation] = useUpdateOperationMutation();
+  const { data: fetchedOperation } = useGetOperationByIdQuery(operationId);
+  const operation = initialOperation || fetchedOperation;
   const { data: inventories = [] } = useGetInventoriesQuery();
   const { data: aircrafts = [] } = useGetAircraftsQuery();
 
@@ -51,6 +70,40 @@ export const AfterActionReportForm = ({
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [resources, setResources] = useState<ResourceUtilization[]>([]);
+  const [flightTimes, setFlightTimes] = useState<Record<number, {
+    departure_takeoff: string;
+    departure_landing: string;
+    return_takeoff: string;
+    return_landing: string;
+  }>>({});
+
+  const calculateDuration = (takeoff: string, landing: string): string => {
+    if (!takeoff || !landing) return "00:00";
+    const [takeoffHour, takeoffMin] = takeoff.split(":").map(Number);
+    const [landingHour, landingMin] = landing.split(":").map(Number);
+    let duration = (landingHour * 60 + landingMin) - (takeoffHour * 60 + takeoffMin);
+    if (duration < 0) duration += 24 * 60;
+    const hours = Math.floor(duration / 60);
+    const mins = duration % 60;
+    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+  };
+
+  const calculateTotalFlightHours = (): string => {
+    let totalMinutes = 0;
+    (operation?.assets || []).forEach((_, idx) => {
+      const times = flightTimes[idx];
+      if (times) {
+        const depDuration = calculateDuration(times.departure_takeoff, times.departure_landing);
+        const retDuration = calculateDuration(times.return_takeoff, times.return_landing);
+        const [depH, depM] = depDuration.split(":").map(Number);
+        const [retH, retM] = retDuration.split(":").map(Number);
+        totalMinutes += (depH * 60 + depM) + (retH * 60 + retM);
+      }
+    });
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+  };
 
   const handleContactChange = (
     index: number,
@@ -140,9 +193,33 @@ export const AfterActionReportForm = ({
     setResources(resources.filter((_, i) => i !== index));
   };
 
+  const toApiTime = (time?: string): string | null => {
+    if (!time) return null;
+    return time.length === 5 ? `${time}:00` : time;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (operation?.id) {
+        const operationAssetsPayload = (operation.assets ?? []).map((asset, idx) => ({
+          asset_id: asset.asset_id ?? asset.asset?.id ?? 0,
+          pilot_id: asset.pilot_id ?? null,
+          co_pilot_id: asset.co_pilot_id ?? null,
+          departure_takeoff: toApiTime(flightTimes[idx]?.departure_takeoff ?? "00:00"),
+          departure_landing: toApiTime(flightTimes[idx]?.departure_landing ?? "00:00"),
+          arrival_takeoff: toApiTime(flightTimes[idx]?.return_takeoff ?? "00:00"),
+          arrival_landing: toApiTime(flightTimes[idx]?.return_landing ?? "00:00"),
+        })).filter((item) => item.asset_id > 0);
+
+        await updateOperation({
+          id: operation.id,
+          data: {
+            operation_assets: operationAssetsPayload,
+          },
+        }).unwrap();
+      }
+
       await createReport({
         operation_id: operationId,
         ...formData,
@@ -247,6 +324,163 @@ export const AfterActionReportForm = ({
           />
         </div>
       </section>
+
+      {/* Aircraft Information */}
+      {operation && operation.assets && operation.assets.length > 0 && (
+        <section className="space-y-6">
+          {operation.assets.map((asset, idx) => (
+            <div
+              key={idx}
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6"
+            >
+              <h3 className="text-[#7FD5FF] text-sm font-bold mb-4 uppercase tracking-wide">
+                Aircraft {idx + 1}
+              </h3>
+
+              <div className="space-y-4 mb-6 pb-6 border-b border-[#0A4D66]/20">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-400 font-medium block mb-1">
+                      Aircraft Name
+                    </label>
+                    <p className="text-sm text-white font-semibold">
+                      {asset.asset?.name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 font-medium block mb-1">
+                      Pilot In Command
+                    </label>
+                    <p className="text-sm text-white font-semibold">
+                      {asset.pilot ? getPersonnelDisplayName(asset.pilot) : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 font-medium block mb-1">
+                      Co-Pilot
+                    </label>
+                    <p className="text-sm text-white font-semibold">
+                      {asset.co_pilot ? getPersonnelDisplayName(asset.co_pilot) : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <h5 className="text-xs font-semibold text-[#7FD5FF] uppercase tracking-wide">
+                      Departure Flight
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
+                        <input
+                          type="time"
+                          value={flightTimes[idx]?.departure_takeoff || "00:00"}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                departure_takeoff: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
+                        <input
+                          type="time"
+                          value={flightTimes[idx]?.departure_landing || "00:00"}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                departure_landing: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Total Duration</label>
+                        <div className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-2xl leading-none font-bold text-white">
+                          {calculateDuration(
+                            flightTimes[idx]?.departure_takeoff || "00:00",
+                            flightTimes[idx]?.departure_landing || "00:00",
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h5 className="text-xs font-semibold text-[#7FD5FF] uppercase tracking-wide">
+                      Return Flight
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
+                        <input
+                          type="time"
+                          value={flightTimes[idx]?.return_takeoff || "00:00"}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                return_takeoff: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
+                        <input
+                          type="time"
+                          value={flightTimes[idx]?.return_landing || "00:00"}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                return_landing: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Total Duration</label>
+                        <div className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-2xl leading-none font-bold text-white">
+                          {calculateDuration(
+                            flightTimes[idx]?.return_takeoff || "00:00",
+                            flightTimes[idx]?.return_landing || "00:00",
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <p className="text-4xl font-bold text-white">
+                    Total Flight Hrs: <span className="text-[#7FD5FF]">{calculateTotalFlightHours()}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Enemy In Contact */}
       <section>

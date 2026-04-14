@@ -1127,9 +1127,19 @@ export const AddAssetPage = () => {
     <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-8 border-b border-[#0A4D66]/40 pb-4">
-        <h1 className="text-2xl font-bold uppercase tracking-wider text-white">
-          {isEditRoute ? "Edit Asset" : "Add Aircraft"}
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 border border-[#0A4D66]/40 px-3 py-2 rounded text-sm text-gray-300 hover:text-white hover:bg-[#0A4D66]/20"
+          >
+            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
+            Back
+          </button>
+          <h1 className="text-2xl font-bold uppercase tracking-wider text-white">
+            {isEditRoute ? "Edit Asset" : "Add Aircraft"}
+          </h1>
+        </div>
         <div className="flex items-center gap-3">
           {import.meta.env.DEV && (
             <button

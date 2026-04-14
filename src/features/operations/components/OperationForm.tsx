@@ -256,9 +256,21 @@ export const OperationForm = ({
   return (
     <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col">
       <div className="bg-[#0A4D66] px-6 py-4 flex items-center justify-between shadow-md">
-        <h1 className="text-white font-bold text-lg uppercase tracking-wider">
-          {pageTitle}
-        </h1>
+        <div className="flex items-center gap-3">
+          {isCreateMode ? (
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
+              type="button"
+            >
+              <Icon icon="mdi:arrow-left" className="w-5 h-5" />
+              Back
+            </button>
+          ) : null}
+          <h1 className="text-white font-bold text-lg uppercase tracking-wider">
+            {pageTitle}
+          </h1>
+        </div>
         <button
           onClick={() => navigate("/dashboard/operations")}
           className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
@@ -348,60 +360,64 @@ export const OperationForm = ({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">Departure Time</label>
-                <input
-                  type="time"
-                  value={formData.start_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_time: e.target.value })
-                  }
-                  title="Departure time"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                  required
-                />
-              </div>
+              {!isCreateMode ? (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">Departure Time</label>
+                    <input
+                      type="time"
+                      value={formData.start_time}
+                      onChange={(e) =>
+                        setFormData({ ...formData, start_time: e.target.value })
+                      }
+                      title="Departure time"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      required
+                    />
+                  </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">Return Time</label>
-                <input
-                  type="time"
-                  value={formData.end_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_time: e.target.value })
-                  }
-                  title="Return time"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                  required
-                />
-              </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">Return Time</label>
+                    <input
+                      type="time"
+                      value={formData.end_time}
+                      onChange={(e) =>
+                        setFormData({ ...formData, end_time: e.target.value })
+                      }
+                      title="Return time"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      required
+                    />
+                  </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">Start Date</label>
-                <input
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_date: e.target.value })
-                  }
-                  title="Start date"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                  required
-                />
-              </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">Start Date</label>
+                    <input
+                      type="date"
+                      value={formData.start_date}
+                      onChange={(e) =>
+                        setFormData({ ...formData, start_date: e.target.value })
+                      }
+                      title="Start date"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      required
+                    />
+                  </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">End Date</label>
-                <input
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_date: e.target.value })
-                  }
-                  title="End date"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                />
-              </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">End Date</label>
+                    <input
+                      type="date"
+                      value={formData.end_date}
+                      onChange={(e) =>
+                        setFormData({ ...formData, end_date: e.target.value })
+                      }
+                      title="End date"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                </>
+              ) : null}
 
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-gray-400 font-medium">Priority</label>

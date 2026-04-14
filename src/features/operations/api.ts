@@ -21,6 +21,10 @@ export type OperationAsset = {
   asset_id: number;
   pilot_id: number | null;
   co_pilot_id?: number | null;
+  departure_takeoff?: string | null;
+  departure_landing?: string | null;
+  arrival_takeoff?: string | null;
+  arrival_landing?: string | null;
 };
 
 export type OperationAssetPerson = {

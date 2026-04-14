@@ -1,5 +1,5 @@
 import { useState } from "react";
-// import { Icon } from "@iconify/react";
+import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { useCreateUserMutation } from "@/features/users/api";
 import { useAppDispatch } from "@/shared/hooks/redux";
@@ -55,7 +55,17 @@ export const AddUserPage = () => {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Add User</h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white"
+          >
+            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
+            Back
+          </button>
+          <h1 className="text-2xl font-bold text-white">Add User</h1>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 max-w-3xl">

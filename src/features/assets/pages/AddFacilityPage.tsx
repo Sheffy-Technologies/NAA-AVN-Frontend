@@ -80,9 +80,19 @@ export const AddFacilityPage = () => {
   return (
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          Add Facility
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white"
+          >
+            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
+            Add Facility
+          </h1>
+        </div>
         <button
           type="button"
           onClick={() => navigate("/dashboard/assets")}

@@ -322,6 +322,7 @@ const AARTab = ({ operation }: { operation: Operation }) => {
     <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white">
       <AfterActionReportForm
         operationId={operation.id}
+        operation={operation}
         onSuccess={() => window.location.reload()}
       />
     </div>
@@ -334,10 +335,13 @@ export const OperationDetailsPage = () => {
   const dispatch = useAppDispatch();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<"operation" | "aar">("operation");
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [deleteOperation, { isLoading: isDeleting }] = useDeleteOperationMutation();
   const [updateOperationStatus, { isLoading: isUpdatingStatus }] =
     useUpdateOperationStatusMutation();
+
+  const statusOptions = ["planned", "completed", "ongoing", "aborted"] as const;
 
   const { data: operation, isLoading } = useGetOperationByIdQuery(id || "", {
     skip: !id,
@@ -382,29 +386,22 @@ export const OperationDetailsPage = () => {
     }
   };
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateStatus = async (
+    selected: (typeof statusOptions)[number],
+  ) => {
     if (!operation.id || isUpdatingStatus) return;
 
-    const options = ["planned", "ongoing", "completed", "aborted"] as const;
-    const selected = window
-      .prompt(
-        `Update operation status (${options.join("/")})`,
-        operation.status,
-      )
-      ?.trim()
-      .toLowerCase();
-
-    if (!selected) return;
-    if (!options.includes(selected as (typeof options)[number])) {
-      dispatch(showToast({ message: "Invalid status value", type: "warning" }));
+    if (selected === operation.status) {
+      setIsStatusMenuOpen(false);
       return;
     }
 
     try {
       await updateOperationStatus({
         id: operation.id,
-        status: selected as (typeof options)[number],
+        status: selected,
       }).unwrap();
+      setIsStatusMenuOpen(false);
       dispatch(showToast({ message: "Operation status updated", type: "success" }));
     } catch {
       dispatch(showToast({ message: "Failed to update operation status", type: "error" }));
@@ -513,14 +510,36 @@ export const OperationDetailsPage = () => {
             <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
             {isDeleting ? "Deleting..." : "Delete"}
           </button>
-          <button
-            onClick={handleUpdateStatus}
-            disabled={isUpdatingStatus}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
-          >
-            <Icon icon="mdi:refresh" className="w-4 h-4" />
-            {isUpdatingStatus ? "Updating..." : "Update status"}
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+              disabled={isUpdatingStatus}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
+              type="button"
+            >
+              <Icon icon="mdi:refresh" className="w-4 h-4" />
+              {isUpdatingStatus ? "Updating..." : "Update status"}
+              <Icon icon="mdi:chevron-down" className="w-4 h-4" />
+            </button>
+
+            {isStatusMenuOpen && !isUpdatingStatus ? (
+              <div className="absolute right-0 mt-2 min-w-40 bg-[#001825] border border-[#0A4D66]/40 rounded shadow-lg z-30 overflow-hidden">
+                {statusOptions.map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => handleUpdateStatus(status)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#002030] transition-colors",
+                      operation.status === status ? "text-[#7FD5FF]" : "text-gray-300",
+                    )}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <button
             onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
             className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030]"
