@@ -221,7 +221,7 @@ export const AssetDetailsPage = () => {
   const maintenanceEvents = asset.maintenance_events ?? [];
 
   return (
-    <div ref={contentRef} className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+    <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <button
@@ -305,7 +305,7 @@ export const AssetDetailsPage = () => {
       </div>
 
       {/* Content */}
-      <div className="space-y-6">
+      <div ref={contentRef} className="space-y-6">
         {activeTab === "info" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

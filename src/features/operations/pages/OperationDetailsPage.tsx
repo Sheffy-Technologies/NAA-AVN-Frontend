@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useDeleteOperationMutation,
   useGetOperationByIdQuery,
@@ -497,44 +498,18 @@ export const OperationDetailsPage = () => {
 
     setIsDownloadingPdf(true);
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-
-      const canvas = await html2canvas(contentRef.current, {
-        scale: 2,
-        useCORS: true,
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `${operation.name || "operation"}-${operation.id}`,
         backgroundColor: "#021019",
       });
-
-      const imageData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imageWidth = pageWidth;
-      const imageHeight = (canvas.height * imageWidth) / canvas.width;
-
-      let heightLeft = imageHeight;
-      let position = 0;
-
-      pdf.addImage(imageData, "PNG", 0, position, imageWidth, imageHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imageHeight;
-        pdf.addPage();
-        pdf.addImage(imageData, "PNG", 0, position, imageWidth, imageHeight);
-        heightLeft -= pageHeight;
-      }
-
-      const fileName = `${operation.name || "operation"}-${operation.id}.pdf`
-        .toLowerCase()
-        .replace(/[^a-z0-9-_]+/g, "-");
-
-      pdf.save(fileName);
       dispatch(showToast({ message: "PDF downloaded", type: "success" }));
-    } catch {
+    } catch (error) {
+      console.error("Failed to download operation PDF", {
+        operationId: operation.id,
+        fileName: `${operation.name || "operation"}-${operation.id}`,
+        error,
+      });
       dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
     } finally {
       setIsDownloadingPdf(false);
@@ -544,102 +519,108 @@ export const OperationDetailsPage = () => {
   return (
     <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/dashboard/operations")}
-            className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
-          >
-            <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-            Back
-          </button>
-
-          <div className="flex items-center ml-4">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
             <button
-              onClick={() => setActiveTab("operation")}
-              className={cn(
-                "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
-                activeTab === "operation"
-                  ? "border-white text-white"
-                  : "border-transparent text-gray-500 hover:text-gray-300",
-              )}
+              onClick={() => navigate("/dashboard/operations")}
+              className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
             >
-              <Icon icon="mdi:database" className="inline-block w-4 h-4 mr-2" />
-              Operation
+              <Icon icon="mdi:arrow-left" className="w-5 h-5" />
+              Back
+            </button>
+
+            <div className="text-sm text-gray-400">
+              {operation.name}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDeleteOperation}
+              disabled={isDeleting}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              {isDeleting ? "Deleting..." : "Delete"}
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+                disabled={isUpdatingStatus}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
+                type="button"
+              >
+                <Icon icon="mdi:refresh" className="w-4 h-4" />
+                {isUpdatingStatus ? "Updating..." : "Update status"}
+                <Icon icon="mdi:chevron-down" className="w-4 h-4" />
+              </button>
+
+              {isStatusMenuOpen && !isUpdatingStatus ? (
+                <div className="absolute right-0 mt-2 min-w-40 bg-[#001825] border border-[#0A4D66]/40 rounded shadow-lg z-30 overflow-hidden">
+                  {statusOptions.map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => handleUpdateStatus(status)}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#002030] transition-colors",
+                        operation.status === status ? "text-[#7FD5FF]" : "text-gray-300",
+                      )}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030]"
+            >
+              <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
             </button>
             <button
-              onClick={() => setActiveTab("aar")}
-              className={cn(
-                "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
-                activeTab === "aar"
-                  ? "border-white text-white"
-                  : "border-transparent text-gray-500 hover:text-gray-300",
-              )}
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              title="Download operation"
+              className="p-1.5 text-gray-400 hover:text-white disabled:opacity-60"
             >
               <Icon
-                icon="mdi:file-document-outline"
-                className="inline-block w-4 h-4 mr-2"
+                icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+                className={cn("w-5 h-5", isDownloadingPdf ? "animate-spin" : "")}
               />
-              After Action Report
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <button
-            onClick={handleDeleteOperation}
-            disabled={isDeleting}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
+            onClick={() => setActiveTab("operation")}
+            className={cn(
+              "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
+              activeTab === "operation"
+                ? "border-white text-white"
+                : "border-transparent text-gray-500 hover:text-gray-300",
+            )}
           >
-            <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-            {isDeleting ? "Deleting..." : "Delete"}
-          </button>
-          <div className="relative">
-            <button
-              onClick={() => setIsStatusMenuOpen((prev) => !prev)}
-              disabled={isUpdatingStatus}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
-              type="button"
-            >
-              <Icon icon="mdi:refresh" className="w-4 h-4" />
-              {isUpdatingStatus ? "Updating..." : "Update status"}
-              <Icon icon="mdi:chevron-down" className="w-4 h-4" />
-            </button>
-
-            {isStatusMenuOpen && !isUpdatingStatus ? (
-              <div className="absolute right-0 mt-2 min-w-40 bg-[#001825] border border-[#0A4D66]/40 rounded shadow-lg z-30 overflow-hidden">
-                {statusOptions.map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => handleUpdateStatus(status)}
-                    className={cn(
-                      "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#002030] transition-colors",
-                      operation.status === status ? "text-[#7FD5FF]" : "text-gray-300",
-                    )}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <button
-            onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030]"
-          >
-            <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
+            <Icon icon="mdi:database" className="inline-block w-4 h-4 mr-2" />
+            Operation
           </button>
           <button
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf}
-            title="Download operation"
-            className="p-1.5 text-gray-400 hover:text-white disabled:opacity-60"
+            onClick={() => setActiveTab("aar")}
+            className={cn(
+              "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
+              activeTab === "aar"
+                ? "border-white text-white"
+                : "border-transparent text-gray-500 hover:text-gray-300",
+            )}
           >
             <Icon
-              icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
-              className={cn("w-5 h-5", isDownloadingPdf ? "animate-spin" : "")}
+              icon="mdi:file-document-outline"
+              className="inline-block w-4 h-4 mr-2"
             />
+            After Action Report
           </button>
         </div>
       </div>

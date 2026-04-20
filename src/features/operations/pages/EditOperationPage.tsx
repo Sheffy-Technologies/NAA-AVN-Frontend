@@ -51,6 +51,7 @@ export const EditOperationPage = () => {
 
   return (
     <OperationForm
+      key={operation.id}
       mode="edit"
       initialOperation={operation}
       onSubmit={handleSubmit}

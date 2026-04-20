@@ -269,10 +269,7 @@ export const PersonnelDetailPage = () => {
 
   return (
     <div className="px-2 sm:px-0">
-      <section
-        ref={contentRef}
-        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
-      >
+      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
         <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
           <div className="flex items-center justify-between gap-3">
             <button
@@ -415,7 +412,7 @@ export const PersonnelDetailPage = () => {
         </div>
 
         {activeTab === "bio" && (
-          <div className="p-4 sm:p-6">
+          <div ref={contentRef} className="p-4 sm:p-6">
             {isPersonLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="inline-flex items-center gap-2 text-gray-200">
@@ -680,7 +677,7 @@ export const PersonnelDetailPage = () => {
         )}
 
         {activeTab === "activity" && (
-          <div className="p-4 sm:p-6">
+          <div ref={contentRef} className="p-4 sm:p-6">
             {activityView === "grid" && (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {mockActivityLog.map((entry) => (

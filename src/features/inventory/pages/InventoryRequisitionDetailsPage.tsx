@@ -258,7 +258,7 @@ export const InventoryRequisitionDetailsPage = () => {
   }
 
   return (
-    <div ref={contentRef} className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
+    <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
           REQUEST DETAILS
@@ -291,7 +291,10 @@ export const InventoryRequisitionDetailsPage = () => {
         </div>
       </div>
 
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
+      <section
+        ref={contentRef}
+        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
+      >
         <div className="px-4 sm:px-6 py-3 bg-[#000f18] border-b border-[#0A4D66]/40">
           <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm">
             <div className="flex items-center gap-2">

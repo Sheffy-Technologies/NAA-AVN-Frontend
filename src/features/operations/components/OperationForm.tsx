@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { forward as toMgrs, toPoint as mgrsToPoint } from "mgrs";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
@@ -24,13 +25,20 @@ type OperationFormData = {
   end_time: string;
   departure_longitude: string;
   departure_latitude: string;
+  departure_mgrs: string;
   arrival_longitude: string;
   arrival_latitude: string;
+  arrival_mgrs: string;
   priority: "low" | "medium" | "high";
   is_flight: boolean;
   status: "planned" | "completed" | "ongoing" | "aborted";
   description: string;
 };
+
+type CoordinateTarget = "departure" | "arrival";
+type CoordinateAxis = "latitude" | "longitude";
+type CoordinateInputMode = "latlon" | "mgrs";
+type CoordinateErrorState = Record<CoordinateTarget, string>;
 
 type OperationFormProps = {
   mode: OperationFormMode;
@@ -49,8 +57,10 @@ const emptyFormData: OperationFormData = {
   end_time: "00:00",
   departure_longitude: "",
   departure_latitude: "",
+  departure_mgrs: "",
   arrival_longitude: "",
   arrival_latitude: "",
+  arrival_mgrs: "",
   priority: "medium",
   is_flight: true,
   status: "planned",
@@ -72,6 +82,67 @@ const formatCoordinate = (value?: number | null) =>
   value === null || value === undefined || Number.isNaN(Number(value))
     ? ""
     : Number(value).toFixed(6);
+
+const formatMgrsDisplayValue = (value?: string | null) =>
+  value ? value.trim().toUpperCase().replace(/\s+/g, " ") : "";
+
+const normalizeMgrsForParsing = (value: string) =>
+  value.replace(/\s+/g, "").toUpperCase();
+
+const parseCoordinateNumber = (value: string) => {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isLatitudeInRange = (value: number) => value >= -90 && value <= 90;
+const isLongitudeInRange = (value: number) => value >= -180 && value <= 180;
+
+const convertLatLonToMgrs = (latitude: string, longitude: string) => {
+  const parsedLatitude = parseCoordinateNumber(latitude);
+  const parsedLongitude = parseCoordinateNumber(longitude);
+
+  if (
+    parsedLatitude === null ||
+    parsedLongitude === null ||
+    !isLatitudeInRange(parsedLatitude) ||
+    !isLongitudeInRange(parsedLongitude)
+  ) {
+    return "";
+  }
+
+  try {
+    return toMgrs([parsedLongitude, parsedLatitude], 5);
+  } catch {
+    return "";
+  }
+};
+
+const convertMgrsToLatLon = (value: string) => {
+  const normalized = normalizeMgrsForParsing(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const [longitude, latitude] = mgrsToPoint(normalized);
+
+    if (!isLatitudeInRange(latitude) || !isLongitudeInRange(longitude)) {
+      return null;
+    }
+
+    return {
+      latitude: latitude.toFixed(6),
+      longitude: longitude.toFixed(6),
+    };
+  } catch {
+    return null;
+  }
+};
 
 const extractDate = (value?: string | null) => {
   if (!value) return "";
@@ -101,8 +172,16 @@ const mapOperationToFormData = (operation: Operation): OperationFormData => ({
   end_time: extractTime(operation.end_date_time),
   departure_longitude: formatCoordinate(operation.departure_longitude),
   departure_latitude: formatCoordinate(operation.departure_latitude),
+  departure_mgrs: convertLatLonToMgrs(
+    formatCoordinate(operation.departure_latitude),
+    formatCoordinate(operation.departure_longitude),
+  ),
   arrival_longitude: formatCoordinate(operation.arrival_longitude),
   arrival_latitude: formatCoordinate(operation.arrival_latitude),
+  arrival_mgrs: convertLatLonToMgrs(
+    formatCoordinate(operation.arrival_latitude),
+    formatCoordinate(operation.arrival_longitude),
+  ),
   priority: operation.priority,
   is_flight: Boolean(operation.is_flight),
   status: operation.status,
@@ -116,9 +195,15 @@ export const OperationForm = ({
   isSubmitting,
 }: OperationFormProps) => {
   const navigate = useNavigate();
+  const [coordinateInputMode, setCoordinateInputMode] =
+    useState<CoordinateInputMode>("latlon");
   const [activeMapTarget, setActiveMapTarget] = useState<"departure" | "arrival">(
     "departure",
   );
+  const [coordinateErrors, setCoordinateErrors] = useState<CoordinateErrorState>({
+    departure: "",
+    arrival: "",
+  });
   const [formData, setFormData] = useState<OperationFormData>(
     initialOperation ? mapOperationToFormData(initialOperation) : emptyFormData,
   );
@@ -143,11 +228,91 @@ export const OperationForm = ({
   const submitLabel = isCreateMode ? "Save" : "Save Changes";
   const pilots = personnel;
 
-  useEffect(() => {
-    if (initialOperation) {
-      setFormData(mapOperationToFormData(initialOperation));
-    }
-  }, [initialOperation]);
+  const updateTargetCoordinates = (
+    previous: OperationFormData,
+    nextValues: Partial<
+      Pick<
+        OperationFormData,
+        | "departure_latitude"
+        | "departure_longitude"
+        | "departure_mgrs"
+        | "arrival_latitude"
+        | "arrival_longitude"
+        | "arrival_mgrs"
+      >
+    >,
+  ) => ({
+    ...previous,
+    ...nextValues,
+  });
+
+  const setTargetFromLatLon = (
+    target: CoordinateTarget,
+    latitude: string,
+    longitude: string,
+  ) => {
+    setFormData((prev) =>
+      updateTargetCoordinates(prev, {
+        [`${target}_latitude`]: latitude,
+        [`${target}_longitude`]: longitude,
+        [`${target}_mgrs`]: convertLatLonToMgrs(latitude, longitude),
+      } as Partial<OperationFormData>),
+    );
+    setCoordinateErrors((prev) => ({ ...prev, [target]: "" }));
+  };
+
+  const handleLatLonChange = (
+    target: CoordinateTarget,
+    axis: CoordinateAxis,
+    value: string,
+  ) => {
+    setFormData((prev) => {
+      const nextLatitude =
+        axis === "latitude" ? value : prev[`${target}_latitude` as const];
+      const nextLongitude =
+        axis === "longitude" ? value : prev[`${target}_longitude` as const];
+
+      return updateTargetCoordinates(prev, {
+        [`${target}_${axis}`]: value,
+        [`${target}_mgrs`]: convertLatLonToMgrs(nextLatitude, nextLongitude),
+      } as Partial<OperationFormData>);
+    });
+    setCoordinateErrors((prev) => ({ ...prev, [target]: "" }));
+  };
+
+  const handleMgrsChange = (target: CoordinateTarget, value: string) => {
+    const displayValue = formatMgrsDisplayValue(value);
+    const convertedCoordinates = convertMgrsToLatLon(displayValue);
+
+    setFormData((prev) => {
+      if (!displayValue) {
+        return updateTargetCoordinates(prev, {
+          [`${target}_mgrs`]: "",
+          [`${target}_latitude`]: "",
+          [`${target}_longitude`]: "",
+        } as Partial<OperationFormData>);
+      }
+
+      if (!convertedCoordinates) {
+        return updateTargetCoordinates(prev, {
+          [`${target}_mgrs`]: displayValue,
+          [`${target}_latitude`]: "",
+          [`${target}_longitude`]: "",
+        } as Partial<OperationFormData>);
+      }
+
+      return updateTargetCoordinates(prev, {
+        [`${target}_mgrs`]: displayValue,
+        [`${target}_latitude`]: convertedCoordinates.latitude,
+        [`${target}_longitude`]: convertedCoordinates.longitude,
+      } as Partial<OperationFormData>);
+    });
+
+    setCoordinateErrors((prev) => ({
+      ...prev,
+      [target]: displayValue && !convertedCoordinates ? "Enter a valid MGRS reference." : "",
+    }));
+  };
 
   const handleAssetChange = (
     index: number,
@@ -183,23 +348,15 @@ export const OperationForm = ({
     latitude: number,
     longitude: number,
   ) => {
-    setFormData((prev) => {
-      const next = {
-        ...prev,
-        [`${target}_latitude`]: latitude.toFixed(6),
-        [`${target}_longitude`]: longitude.toFixed(6),
-      } as OperationFormData;
+    setTargetFromLatLon(target, latitude.toFixed(6), longitude.toFixed(6));
 
-      if (
-        target === "departure" &&
-        !prev.arrival_latitude &&
-        !prev.arrival_longitude
-      ) {
-        setActiveMapTarget("arrival");
-      }
-
-      return next;
-    });
+    if (
+      target === "departure" &&
+      !formData.arrival_latitude &&
+      !formData.arrival_longitude
+    ) {
+      setActiveMapTarget("arrival");
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -493,6 +650,34 @@ export const OperationForm = ({
               Coordinates (Optional)
             </h2>
             <div className="mb-6 space-y-4">
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#0A4D66]/30 bg-[#031924] p-2">
+                <button
+                  type="button"
+                  onClick={() => setCoordinateInputMode("latlon")}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+                    coordinateInputMode === "latlon"
+                      ? "bg-[#7FD5FF] text-[#001219]"
+                      : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
+                  }`}
+                >
+                  Latitude / Longitude
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCoordinateInputMode("mgrs")}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+                    coordinateInputMode === "mgrs"
+                      ? "bg-[#7FD5FF] text-[#001219]"
+                      : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
+                  }`}
+                >
+                  MGRS
+                </button>
+                <span className="text-xs text-gray-400">
+                  Choose how coordinates are entered. The map always uses the resolved latitude and longitude.
+                </span>
+              </div>
+
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
@@ -538,56 +723,112 @@ export const OperationForm = ({
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <input
-                type="number"
-                step="any"
-                placeholder="Departure Latitude (-90 to 90)"
-                value={formData.departure_latitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, departure_latitude: e.target.value })
-                }
-                min={-90}
-                max={90}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Departure Longitude (-180 to 180)"
-                value={formData.departure_longitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, departure_longitude: e.target.value })
-                }
-                min={-180}
-                max={180}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Arrival Latitude (-90 to 90)"
-                value={formData.arrival_latitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, arrival_latitude: e.target.value })
-                }
-                min={-90}
-                max={90}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Arrival Longitude (-180 to 180)"
-                value={formData.arrival_longitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, arrival_longitude: e.target.value })
-                }
-                min={-180}
-                max={180}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-            </div>
+            {coordinateInputMode === "latlon" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Departure Latitude (-90 to 90)"
+                  value={formData.departure_latitude}
+                  onChange={(e) =>
+                    handleLatLonChange("departure", "latitude", e.target.value)
+                  }
+                  min={-90}
+                  max={90}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Departure Longitude (-180 to 180)"
+                  value={formData.departure_longitude}
+                  onChange={(e) =>
+                    handleLatLonChange("departure", "longitude", e.target.value)
+                  }
+                  min={-180}
+                  max={180}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Arrival Latitude (-90 to 90)"
+                  value={formData.arrival_latitude}
+                  onChange={(e) =>
+                    handleLatLonChange("arrival", "latitude", e.target.value)
+                  }
+                  min={-90}
+                  max={90}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Arrival Longitude (-180 to 180)"
+                  value={formData.arrival_longitude}
+                  onChange={(e) =>
+                    handleLatLonChange("arrival", "longitude", e.target.value)
+                  }
+                  min={-180}
+                  max={180}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400 font-medium">
+                    Departure MGRS
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Example: 32NPH1234512345"
+                    value={formData.departure_mgrs}
+                    onChange={(e) => handleMgrsChange("departure", e.target.value)}
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm uppercase tracking-wide text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {coordinateErrors.departure ? (
+                    <p className="text-xs text-[#FCA5A5]">{coordinateErrors.departure}</p>
+                  ) : formData.departure_latitude && formData.departure_longitude ? (
+                    <p className="text-xs text-gray-400">
+                      Resolved to {formData.departure_latitude}, {formData.departure_longitude}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Enter an MGRS reference to place the departure marker.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400 font-medium">
+                    Arrival MGRS
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Example: 32NPH5432154321"
+                    value={formData.arrival_mgrs}
+                    onChange={(e) => handleMgrsChange("arrival", e.target.value)}
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm uppercase tracking-wide text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {coordinateErrors.arrival ? (
+                    <p className="text-xs text-[#FCA5A5]">{coordinateErrors.arrival}</p>
+                  ) : formData.arrival_latitude && formData.arrival_longitude ? (
+                    <p className="text-xs text-gray-400">
+                      Resolved to {formData.arrival_latitude}, {formData.arrival_longitude}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Enter an MGRS reference to place the arrival marker.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
 
           {isCreateMode ? (

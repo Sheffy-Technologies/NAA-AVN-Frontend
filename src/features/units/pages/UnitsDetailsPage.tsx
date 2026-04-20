@@ -217,10 +217,7 @@ export const UnitsDetailsPage = () => {
 
   return (
     <div className="px-2 sm:px-0 space-y-6">
-      <section
-        ref={contentRef}
-        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
-      >
+      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
           <button
             type="button"
@@ -276,7 +273,7 @@ export const UnitsDetailsPage = () => {
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 space-y-6">
+        <div ref={contentRef} className="p-4 sm:p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="p-4 bg-[#001219] border border-[#0A4D66]/40 rounded-lg">
               <p className="text-[11px] uppercase tracking-wide text-gray-400">
