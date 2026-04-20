@@ -1,62 +1,67 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
-import { cn } from "@/shared/utils/cn";
 import { useNavigate } from "react-router-dom";
 import {
+  useCreateRoleMutation,
   useGetActivityLogsQuery,
   useGetDevicesQuery,
+  useGetPermissionsQuery,
+  useGetRolesQuery,
+  useGetUserRolesQuery,
+  useSyncRolePermissionsMutation,
+  useSyncUserRolesMutation,
   useUpdateDeviceStatusMutation,
+  type RoleRecord,
 } from "@/features/security/api";
 import { useGetUsersQuery } from "@/features/users/api";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
+import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { cn } from "@/shared/utils/cn";
 
-type SecurityTab = "activity" | "device" | "user";
+type SecurityTab = "activity" | "device" | "user" | "rbac";
+
+const searchInputClassName =
+  "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors";
+
+const panelClassName =
+  "rounded-xl border border-[#0A4D66]/40 bg-[linear-gradient(180deg,rgba(0,42,64,0.95)_0%,rgba(0,22,34,0.98)_100%)]";
 
 export const SecurityPage = () => {
   const [activeTab, setActiveTab] = useState<SecurityTab>("activity");
-  const { data: logs = [], isLoading } = useGetActivityLogsQuery();
-  const {
-    data: devices = [],
-    isLoading: isDevicesLoading,
-    refetch: refetchDevices,
-  } = useGetDevicesQuery();
-  const [updateDeviceStatus, { isLoading: isUpdatingDeviceStatus }] =
-    useUpdateDeviceStatusMutation();
-  const [openDeviceActionId, setOpenDeviceActionId] = useState<number | null>(
-    null,
-  );
+  const [openDeviceActionId, setOpenDeviceActionId] = useState<number | null>(null);
+  const [roleForm, setRoleForm] = useState({ name: "", permissions: [] as string[] });
+  const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
+  const [selectedRolePermissions, setSelectedRolePermissions] = useState<string[]>([]);
+  const [permissionFilter, setPermissionFilter] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
 
-  const { data: users = [], isLoading: isUsersLoading } = useGetUsersQuery();
+  const { data: logs = [], isLoading } = useGetActivityLogsQuery();
+  const { data: devices = [], isLoading: isDevicesLoading } = useGetDevicesQuery();
+  const [updateDeviceStatus, { isLoading: isUpdatingDeviceStatus }] = useUpdateDeviceStatusMutation();
+  const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery();
+  const { data: roles = [], isLoading: isRolesLoading, refetch: refetchRoles } = useGetRolesQuery();
+  const {
+    data: permissionCatalog,
+    isLoading: isPermissionsLoading,
+    refetch: refetchPermissions,
+  } = useGetPermissionsQuery();
+  const {
+    data: selectedUserAssignment,
+    isFetching: isUserRoleLoading,
+    refetch: refetchUserAssignment,
+  } = useGetUserRolesQuery(selectedUserId ?? 0, {
+    skip: selectedUserId === null,
+  });
+  const [createRole, { isLoading: isCreatingRole }] = useCreateRoleMutation();
+  const [syncRolePermissions, { isLoading: isSavingRolePermissions }] =
+    useSyncRolePermissionsMutation();
+  const [syncUserRoles, { isLoading: isSavingUserRoles }] =
+    useSyncUserRolesMutation();
 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-
-  const userRows = useMemo(() => {
-    return users.map((u) => {
-      const created = u.created_at ? new Date(u.created_at) : null;
-      const hasValid = created && !Number.isNaN(created.getTime());
-
-      const name = [u.firstname, u.lastname].filter(Boolean).join(" ") || u.username || u.email || "-";
-
-      return {
-        id: u.id,
-        name,
-        email: u.email || "-",
-        phone: u.phone_number || "-",
-        created: hasValid
-          ? created.toLocaleString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })
-          : "-",
-      };
-    });
-  }, [users]);
 
   const currentDateTime = useMemo(() => {
     const now = new Date();
@@ -72,11 +77,40 @@ export const SecurityPage = () => {
     });
   }, []);
 
+  const userRows = useMemo(() => {
+    return users.map((u) => {
+      const created = u.created_at ? new Date(u.created_at) : null;
+      const hasValid = created && !Number.isNaN(created.getTime());
+      const name =
+        [u.firstname, u.lastname].filter(Boolean).join(" ") ||
+        u.username ||
+        u.email ||
+        "-";
+
+      return {
+        id: u.id,
+        name,
+        email: u.email || "-",
+        phone: u.phone_number || "-",
+        roles: (u.roles || []).map((role) => role.name).filter(Boolean) as string[],
+        created: hasValid
+          ? created.toLocaleString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: false,
+            })
+          : "-",
+      };
+    });
+  }, [users]);
+
   const displayRows = useMemo(() => {
     return logs.map((log) => {
       const createdAt = log.created_at ? new Date(log.created_at) : null;
       const validDate = createdAt && !Number.isNaN(createdAt.getTime());
-
       const date =
         log.date ||
         (validDate
@@ -86,7 +120,6 @@ export const SecurityPage = () => {
               year: "numeric",
             })
           : "-");
-
       const time =
         log.time ||
         (validDate
@@ -96,11 +129,8 @@ export const SecurityPage = () => {
               hour12: false,
             })} Z`
           : "-");
-
       const name =
-        [log.causer?.firstname, log.causer?.lastname]
-          .filter(Boolean)
-          .join(" ") ||
+        [log.causer?.firstname, log.causer?.lastname].filter(Boolean).join(" ") ||
         log.name ||
         log.user?.name ||
         [log.user?.firstname, log.user?.lastname, log.user?.othernames]
@@ -108,15 +138,12 @@ export const SecurityPage = () => {
           .join(" ") ||
         "-";
 
-      const email = log.causer?.email || "-";
-
       return {
         id: log.id,
         date,
         time,
-        
         name,
-        email,
+        email: log.causer?.email || "-",
         action: log.description || log.action || "-",
         userType: log.user_type || "-",
         deviceCode: log.device_code || "-",
@@ -155,11 +182,81 @@ export const SecurityPage = () => {
     });
   }, [devices]);
 
+  const roleOptions = useMemo(
+    () => roles.map((role) => ({ value: role.name, label: role.name })),
+    [roles],
+  );
+
+  const permissionOptions = useMemo(() => {
+    const names = permissionCatalog?.permissions || permissionCatalog?.defined_permissions || [];
+
+    return names.map((permission) => ({ value: permission, label: permission }));
+  }, [permissionCatalog]);
+
+  const filteredPermissionOptions = useMemo(() => {
+    if (!permissionFilter.trim()) return permissionOptions;
+    const query = permissionFilter.trim().toLowerCase();
+
+    return permissionOptions.filter((option) =>
+      option.label.toLowerCase().includes(query),
+    );
+  }, [permissionFilter, permissionOptions]);
+
+  const selectedRole = useMemo(
+    () => roles.find((role) => role.id === selectedRoleId) ?? null,
+    [roles, selectedRoleId],
+  );
+
+  const rbacStats = useMemo(() => {
+    const usersWithRoles = userRows.filter((user) => user.roles.length > 0).length;
+
+    return {
+      roleCount: roles.length,
+      permissionCount:
+        permissionCatalog?.permissions?.length ||
+        permissionCatalog?.defined_permissions?.length ||
+        0,
+      assignedUsers: usersWithRoles,
+    };
+  }, [permissionCatalog, roles.length, userRows]);
+
+  useEffect(() => {
+    if (roles.length === 0) {
+      setSelectedRoleId(null);
+      setSelectedRolePermissions([]);
+      return;
+    }
+
+    const exists = roles.some((role) => role.id === selectedRoleId);
+    const targetRole = exists ? roles.find((role) => role.id === selectedRoleId) ?? null : roles[0];
+
+    if (!targetRole) return;
+
+    if (!exists) {
+      setSelectedRoleId(targetRole.id);
+    }
+
+    setSelectedRolePermissions(
+      (targetRole.permissions || []).map((permission) => permission.name),
+    );
+  }, [roles, selectedRoleId]);
+
+  useEffect(() => {
+    if (selectedUserId === null && users.length > 0) {
+      setSelectedUserId(users[0].id);
+    }
+  }, [users, selectedUserId]);
+
+  useEffect(() => {
+    if (selectedUserAssignment) {
+      setSelectedUserRoles(selectedUserAssignment.roles || []);
+    }
+  }, [selectedUserAssignment]);
+
   const handleDeviceAction = async (id: number, isActiveValue: 1 | 0) => {
     try {
       await updateDeviceStatus({ id, is_active: isActiveValue }).unwrap();
       setOpenDeviceActionId(null);
-      await refetchDevices();
       const action = isActiveValue === 1 ? "approved" : "declined";
       dispatch(showToast({ message: `Device ${action} successfully`, type: "success" }));
     } catch (error) {
@@ -168,97 +265,208 @@ export const SecurityPage = () => {
     }
   };
 
+  const handleCreateRole = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!roleForm.name.trim()) {
+      dispatch(showToast({ message: "Role name is required", type: "error" }));
+      return;
+    }
+
+    try {
+      const createdRole = await createRole({
+        name: roleForm.name.trim(),
+        permissions: roleForm.permissions,
+      }).unwrap();
+
+      setRoleForm({ name: "", permissions: [] });
+      setSelectedRoleId(createdRole.id);
+      await Promise.all([refetchRoles(), refetchPermissions()]);
+      dispatch(showToast({ message: `Role ${createdRole.name} created`, type: "success" }));
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to create role", type: "error" }));
+    }
+  };
+
+  const handleSaveRolePermissions = async () => {
+    if (!selectedRole) {
+      dispatch(showToast({ message: "Select a role first", type: "error" }));
+      return;
+    }
+
+    try {
+      await syncRolePermissions({
+        roleId: selectedRole.id,
+        permissions: selectedRolePermissions,
+      }).unwrap();
+
+      await Promise.all([refetchRoles(), refetchUsers()]);
+      dispatch(
+        showToast({
+          message: `Permissions updated for ${selectedRole.name}`,
+          type: "success",
+        }),
+      );
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to update role permissions", type: "error" }));
+    }
+  };
+
+  const handleSaveUserRoles = async () => {
+    if (!selectedUserId) {
+      dispatch(showToast({ message: "Select a user first", type: "error" }));
+      return;
+    }
+
+    try {
+      await syncUserRoles({ userId: selectedUserId, roles: selectedUserRoles }).unwrap();
+      await Promise.all([refetchUsers(), refetchRoles(), refetchUserAssignment()]);
+      dispatch(showToast({ message: "User roles updated", type: "success" }));
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to update user roles", type: "error" }));
+    }
+  };
+
+  const renderTabButton = (tab: SecurityTab, label: string) => (
+    <button
+      onClick={() => setActiveTab(tab)}
+      className={cn(
+        "pb-3 text-lg font-semibold border-b-2 transition-colors",
+        activeTab === tab ? "text-white border-white" : "text-gray-400 border-transparent",
+      )}
+    >
+      {label}
+    </button>
+  );
+
+  const renderRoleCard = (role: RoleRecord) => {
+    const permissionNames = (role.permissions || []).map((permission) => permission.name);
+    const isSelected = role.id === selectedRoleId;
+
+    return (
+      <button
+        key={role.id}
+        type="button"
+        onClick={() => {
+          setSelectedRoleId(role.id);
+          setSelectedRolePermissions(permissionNames);
+        }}
+        className={cn(
+          "w-full rounded-xl border p-4 text-left transition-all",
+          isSelected
+            ? "border-[#7FD5FF]/70 bg-[#01283D] shadow-[0_0_0_1px_rgba(127,213,255,0.2)]"
+            : "border-[#0A4D66]/35 bg-[#001825] hover:border-[#0A4D66]/70",
+        )}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-base font-semibold text-white">{role.name}</div>
+            <div className="mt-1 text-xs uppercase tracking-[0.18em] text-[#7FD5FF]">
+              {(role.permissions || []).length} permissions
+            </div>
+          </div>
+          {isSelected ? (
+            <span className="rounded-full bg-[#7FD5FF]/15 px-2 py-1 text-[11px] font-medium text-[#7FD5FF]">
+              Selected
+            </span>
+          ) : null}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {permissionNames.length === 0 ? (
+            <span className="text-xs text-gray-500">No permissions assigned</span>
+          ) : (
+            permissionNames.slice(0, 6).map((permission) => (
+              <span
+                key={permission}
+                className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-[11px] text-gray-200"
+              >
+                {permission}
+              </span>
+            ))
+          )}
+          {permissionNames.length > 6 ? (
+            <span className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-[11px] text-gray-400">
+              +{permissionNames.length - 6} more
+            </span>
+          ) : null}
+        </div>
+      </button>
+    );
+  };
+
+  const selectedUserSummary = useMemo(() => {
+    const user = userRows.find((entry) => entry.id === selectedUserId);
+    if (!user) return null;
+
+    return {
+      ...user,
+      effectivePermissions: selectedUserAssignment?.permissions || [],
+    };
+  }, [selectedUserAssignment?.permissions, selectedUserId, userRows]);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <span className="text-sm text-gray-300">{currentDateTime} Abuja</span>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Icon
               icon="mdi:magnify"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
             />
             <input
               type="text"
               placeholder="Search"
-              className="w-80 bg-[#1A1A1A] border border-[#2B2B2B] rounded px-9 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-[#0A4D66]"
+              className="w-80 rounded border border-[#2B2B2B] bg-[#1A1A1A] px-9 py-2 text-sm text-white placeholder:text-gray-500 focus:border-[#0A4D66] focus:outline-none"
             />
           </div>
-         
         </div>
       </div>
 
-      <div className="flex items-center gap-8 border-b border-[#0A4D66]/40">
-        <button
-          onClick={() => setActiveTab("activity")}
-          className={cn(
-            "pb-3 text-lg font-semibold border-b-2 transition-colors",
-            activeTab === "activity"
-              ? "text-white border-white"
-              : "text-gray-400 border-transparent",
-          )}
-        >
-          Activity Log
-        </button>
-        <button
-          onClick={() => setActiveTab("device")}
-          className={cn(
-            "pb-3 text-lg font-semibold border-b-2 transition-colors",
-            activeTab === "device"
-              ? "text-white border-white"
-              : "text-gray-400 border-transparent",
-          )}
-        >
-          Device Management
-        </button>
-        <button
-          onClick={() => setActiveTab("user")}
-          className={cn(
-            "pb-3 text-lg font-semibold border-b-2 transition-colors",
-            activeTab === "user"
-              ? "text-white border-white"
-              : "text-gray-400 border-transparent",
-          )}
-        >
-          User Management
-        </button>
+      <div className="flex flex-wrap items-center gap-8 border-b border-[#0A4D66]/40">
+        {renderTabButton("activity", "Activity Log")}
+        {renderTabButton("device", "Device Management")}
+        {renderTabButton("user", "User Management")}
+        {renderTabButton("rbac", "Access Control")}
       </div>
 
-      <div className="bg-[#001D2B] border border-[#0A4D66]/40 rounded-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#0A4D66]/30 flex items-center justify-between">
-          <h2 className="text-3xl font-bold text-white uppercase">
+      <div className="overflow-hidden rounded-sm border border-[#0A4D66]/40 bg-[#001D2B]">
+        <div className="flex items-center justify-between border-b border-[#0A4D66]/30 px-6 py-4">
+          <h2 className="text-3xl font-bold uppercase text-white">
             {activeTab === "user"
               ? "User Management"
               : activeTab === "device"
-              ? "Device Management"
-              : "Activity Log"}
+                ? "Device Management"
+                : activeTab === "rbac"
+                  ? "Role Based Access Control"
+                  : "Activity Log"}
           </h2>
           <div className="flex items-center gap-3">
-            {activeTab === "user" && (
+            {activeTab === "user" ? (
               <button
                 onClick={() => navigate("/dashboard/users/add")}
-                className="flex items-center gap-2 bg-[#7FD5FF] text-[#00263A] rounded px-3 py-1.5 text-sm font-medium hover:opacity-90"
+                className="flex items-center gap-2 rounded bg-[#7FD5FF] px-3 py-1.5 text-sm font-medium text-[#00263A] hover:opacity-90"
                 aria-label="Add user"
                 title="Add user"
               >
-                <Icon icon="mdi:account-plus" className="w-4 h-4" />
+                <Icon icon="mdi:account-plus" className="h-4 w-4" />
                 Add User
               </button>
-            )}
-            <button
-              className="text-gray-300 hover:text-white"
-              aria-label="Download"
-              title="Download"
-            >
-              <Icon icon="mdi:download" className="w-5 h-5" />
+            ) : null}
+            <button className="text-gray-300 hover:text-white" aria-label="Download" title="Download">
+              <Icon icon="mdi:download" className="h-5 w-5" />
             </button>
           </div>
         </div>
+
         {activeTab === "activity" ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-275 text-left">
+            <table className="min-w-275 w-full text-left">
               <thead>
-                <tr className="text-gray-400 text-sm border-b border-[#0A4D66]/30">
+                <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
                   <th className="px-6 py-3 font-medium">Date</th>
                   <th className="px-6 py-3 font-medium">Time</th>
                   <th className="px-6 py-3 font-medium">Name</th>
@@ -286,7 +494,7 @@ export const SecurityPage = () => {
                     <tr
                       key={row.id}
                       className={cn(
-                        "text-white border-b border-[#0A4D66]/20",
+                        "border-b border-[#0A4D66]/20 text-white",
                         index % 2 === 0 ? "bg-[#002336]" : "bg-[#002A40]",
                       )}
                     >
@@ -301,7 +509,7 @@ export const SecurityPage = () => {
                       <td className="px-6 py-4">{row.action}</td>
                       <td className="px-6 py-4">{row.userType}</td>
                       <td className="px-6 py-4">{row.deviceCode}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{row.unit}</td>
+                      <td className="whitespace-nowrap px-6 py-4">{row.unit}</td>
                     </tr>
                   ))
                 )}
@@ -310,9 +518,9 @@ export const SecurityPage = () => {
           </div>
         ) : activeTab === "device" ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-275 text-left">
+            <table className="min-w-275 w-full text-left">
               <thead>
-                <tr className="text-gray-400 text-sm border-b border-[#0A4D66]/30">
+                <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
                   <th className="px-6 py-3 font-medium">Device Name</th>
                   <th className="px-6 py-3 font-medium">Device Code</th>
                   <th className="px-6 py-3 font-medium">Status</th>
@@ -338,7 +546,7 @@ export const SecurityPage = () => {
                     <tr
                       key={row.id}
                       className={cn(
-                        "text-white border-b border-[#0A4D66]/20",
+                        "border-b border-[#0A4D66]/20 text-white",
                         index % 2 === 0 ? "bg-[#002336]" : "bg-[#002A40]",
                       )}
                     >
@@ -346,22 +554,20 @@ export const SecurityPage = () => {
                       <td className="px-6 py-4">{row.code}</td>
                       <td className="px-6 py-4 capitalize">{row.status}</td>
                       <td className="px-6 py-4">{row.lastSeen}</td>
-                      <td className="px-6 py-4 text-right relative">
+                      <td className="relative px-6 py-4 text-right">
                         <button
                           onClick={() =>
-                            setOpenDeviceActionId((current) =>
-                              current === row.id ? null : row.id,
-                            )
+                            setOpenDeviceActionId((current) => (current === row.id ? null : row.id))
                           }
                           className="text-gray-300 hover:text-white"
                           aria-label="Device actions"
                           title="Device actions"
                         >
-                          <Icon icon="mdi:dots-horizontal" className="w-5 h-5" />
+                          <Icon icon="mdi:dots-horizontal" className="h-5 w-5" />
                         </button>
 
-                        {openDeviceActionId === row.id && (
-                          <div className="absolute right-6 top-12 z-50 w-32 rounded-md border border-[#0A4D66]/50 bg-[#001D2B] shadow-xl overflow-hidden">
+                        {openDeviceActionId === row.id ? (
+                          <div className="absolute right-6 top-12 z-50 w-32 overflow-hidden rounded-md border border-[#0A4D66]/50 bg-[#001D2B] shadow-xl">
                             <button
                               onClick={() => handleDeviceAction(row.id, 1)}
                               className="w-full px-3 py-2 text-left text-xs text-emerald-300 hover:bg-[#0A4D66]/40 disabled:opacity-50"
@@ -377,7 +583,7 @@ export const SecurityPage = () => {
                               Decline
                             </button>
                           </div>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   ))
@@ -385,14 +591,15 @@ export const SecurityPage = () => {
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : activeTab === "user" ? (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-275 text-left">
+            <table className="min-w-275 w-full text-left">
               <thead>
-                <tr className="text-gray-400 text-sm border-b border-[#0A4D66]/30">
+                <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
                   <th className="px-6 py-3 font-medium">Name</th>
                   <th className="px-6 py-3 font-medium">Email</th>
                   <th className="px-6 py-3 font-medium">Phone</th>
+                  <th className="px-6 py-3 font-medium">Roles</th>
                   <th className="px-6 py-3 font-medium">Created</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -400,13 +607,13 @@ export const SecurityPage = () => {
               <tbody>
                 {isUsersLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       Loading users...
                     </td>
                   </tr>
                 ) : userRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       No users found
                     </td>
                   </tr>
@@ -415,13 +622,29 @@ export const SecurityPage = () => {
                     <tr
                       key={row.id}
                       className={cn(
-                        "text-white border-b border-[#0A4D66]/20",
+                        "border-b border-[#0A4D66]/20 text-white",
                         index % 2 === 0 ? "bg-[#002336]" : "bg-[#002A40]",
                       )}
                     >
                       <td className="px-6 py-4">{row.name}</td>
                       <td className="px-6 py-4">{row.email}</td>
                       <td className="px-6 py-4">{row.phone}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          {row.roles.length === 0 ? (
+                            <span className="text-sm text-gray-500">No roles</span>
+                          ) : (
+                            row.roles.map((role) => (
+                              <span
+                                key={`${row.id}-${role}`}
+                                className="rounded-full border border-[#0A4D66]/40 bg-[#001825] px-2.5 py-1 text-xs text-[#7FD5FF]"
+                              >
+                                {role}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4">{row.created}</td>
                       <td className="px-6 py-4 text-right">
                         <button className="text-gray-300 hover:text-white">View</button>
@@ -431,6 +654,293 @@ export const SecurityPage = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        ) : (
+          <div className="space-y-6 p-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className={`${panelClassName} p-5`}>
+                <div className="text-xs uppercase tracking-[0.22em] text-[#7FD5FF]">Roles</div>
+                <div className="mt-3 text-4xl font-semibold text-white">{rbacStats.roleCount}</div>
+                <p className="mt-2 text-sm text-gray-400">
+                  Active access groups available for assignment.
+                </p>
+              </div>
+              <div className={`${panelClassName} p-5`}>
+                <div className="text-xs uppercase tracking-[0.22em] text-[#7FD5FF]">Permissions</div>
+                <div className="mt-3 text-4xl font-semibold text-white">{rbacStats.permissionCount}</div>
+                <p className="mt-2 text-sm text-gray-400">
+                  Endpoint-level access rules currently exposed by the API.
+                </p>
+              </div>
+              <div className={`${panelClassName} p-5`}>
+                <div className="text-xs uppercase tracking-[0.22em] text-[#7FD5FF]">Assigned Users</div>
+                <div className="mt-3 text-4xl font-semibold text-white">{rbacStats.assignedUsers}</div>
+                <p className="mt-2 text-sm text-gray-400">
+                  Users with one or more roles already attached.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[1.1fr_1.3fr]">
+              <form onSubmit={handleCreateRole} className={`${panelClassName} p-5`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">Create Role</h3>
+                    <p className="mt-1 text-sm text-gray-400">
+                      Create a new role and optionally seed it with permissions.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#0A4D66]/40 px-3 py-1 text-xs text-gray-300">
+                    Admin action
+                  </span>
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-300">Role name</label>
+                    <input
+                      value={roleForm.name}
+                      onChange={(event) =>
+                        setRoleForm((current) => ({ ...current, name: event.target.value }))
+                      }
+                      placeholder="e.g. auditor"
+                      className={searchInputClassName}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-300">
+                      Filter permissions
+                    </label>
+                    <input
+                      value={permissionFilter}
+                      onChange={(event) => setPermissionFilter(event.target.value)}
+                      placeholder="Search permissions"
+                      className={searchInputClassName}
+                    />
+                  </div>
+
+                  <MultiSelect
+                    label="Permissions"
+                    placeholder={isPermissionsLoading ? "Loading permissions..." : "Select permissions"}
+                    options={filteredPermissionOptions}
+                    selectedValues={roleForm.permissions}
+                    onChange={(selected) =>
+                      setRoleForm((current) => ({ ...current, permissions: selected as string[] }))
+                    }
+                    disabled={isPermissionsLoading}
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={isCreatingRole}
+                    className="inline-flex items-center gap-2 rounded-md bg-[#7FD5FF] px-4 py-2 text-sm font-semibold text-[#00263A] disabled:opacity-60"
+                  >
+                    <Icon icon="mdi:shield-plus" className="h-4 w-4" />
+                    {isCreatingRole ? "Creating..." : "Create Role"}
+                  </button>
+                </div>
+              </form>
+
+              <div className={`${panelClassName} p-5`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">Roles Overview</h3>
+                    <p className="mt-1 text-sm text-gray-400">
+                      Inspect existing roles and the permissions attached to each.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void refetchRoles();
+                      void refetchPermissions();
+                    }}
+                    className="inline-flex items-center gap-2 rounded-md border border-[#0A4D66]/50 px-3 py-2 text-sm text-gray-300 hover:text-white"
+                  >
+                    <Icon icon="mdi:refresh" className="h-4 w-4" />
+                    Refresh
+                  </button>
+                </div>
+
+                <div className="mt-5 grid max-h-[28rem] gap-3 overflow-y-auto pr-1">
+                  {isRolesLoading ? (
+                    <div className="rounded-lg border border-dashed border-[#0A4D66]/40 p-6 text-center text-gray-400">
+                      Loading roles...
+                    </div>
+                  ) : roles.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-[#0A4D66]/40 p-6 text-center text-gray-400">
+                      No roles found
+                    </div>
+                  ) : (
+                    roles.map(renderRoleCard)
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 xl:grid-cols-[1.1fr_1.3fr]">
+              <div className={`${panelClassName} p-5`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">Role Permissions</h3>
+                    <p className="mt-1 text-sm text-gray-400">
+                      Select a role and update the permissions it controls.
+                    </p>
+                  </div>
+                  {selectedRole ? (
+                    <span className="rounded-full bg-[#7FD5FF]/10 px-3 py-1 text-xs font-medium text-[#7FD5FF]">
+                      {selectedRole.name}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-gray-300">Active role</label>
+                    <select
+                      aria-label="Active role"
+                      value={selectedRoleId ?? ""}
+                      onChange={(event) => setSelectedRoleId(Number(event.target.value))}
+                      className={searchInputClassName}
+                      disabled={roles.length === 0}
+                    >
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <MultiSelect
+                    label="Permissions assigned to role"
+                    placeholder="Select permissions"
+                    options={filteredPermissionOptions}
+                    selectedValues={selectedRolePermissions}
+                    onChange={(selected) => setSelectedRolePermissions(selected as string[])}
+                    disabled={!selectedRole || isPermissionsLoading}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleSaveRolePermissions}
+                    disabled={!selectedRole || isSavingRolePermissions}
+                    className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#04273A] px-4 py-2 text-sm font-semibold text-[#7FD5FF] disabled:opacity-60"
+                  >
+                    <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                    {isSavingRolePermissions ? "Saving..." : "Save Permissions"}
+                  </button>
+                </div>
+              </div>
+
+              <div className={`${panelClassName} p-5`}>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">User Role Assignment</h3>
+                    <p className="mt-1 text-sm text-gray-400">
+                      Attach one or more roles to a user and inspect effective access.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#0A4D66]/40 px-3 py-1 text-xs text-gray-300">
+                    {selectedUserSummary ? selectedUserSummary.name : "No user selected"}
+                  </span>
+                </div>
+
+                <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1fr]">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-300">User</label>
+                      <select
+                        aria-label="User role assignment target"
+                        value={selectedUserId ?? ""}
+                        onChange={(event) => setSelectedUserId(Number(event.target.value))}
+                        className={searchInputClassName}
+                        disabled={users.length === 0}
+                      >
+                        {userRows.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name} {user.email !== "-" ? `(${user.email})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <MultiSelect
+                      label="Roles"
+                      placeholder="Select roles"
+                      options={roleOptions}
+                      selectedValues={selectedUserRoles}
+                      onChange={(selected) => setSelectedUserRoles(selected as string[])}
+                      disabled={isRolesLoading || roles.length === 0 || selectedUserId === null}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleSaveUserRoles}
+                      disabled={selectedUserId === null || isSavingUserRoles}
+                      className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#04273A] px-4 py-2 text-sm font-semibold text-[#7FD5FF] disabled:opacity-60"
+                    >
+                      <Icon icon="mdi:account-key-outline" className="h-4 w-4" />
+                      {isSavingUserRoles ? "Saving..." : "Assign Roles"}
+                    </button>
+                  </div>
+
+                  <div className="rounded-xl border border-[#0A4D66]/35 bg-[#001825] p-4">
+                    <div className="text-sm font-medium text-white">User Access Summary</div>
+                    {isUserRoleLoading && selectedUserId !== null ? (
+                      <div className="mt-4 text-sm text-gray-400">Loading user access...</div>
+                    ) : selectedUserSummary ? (
+                      <div className="mt-4 space-y-4">
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.2em] text-[#7FD5FF]">
+                            Assigned Roles
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {selectedUserSummary.roles.length === 0 ? (
+                              <span className="text-sm text-gray-500">No roles assigned</span>
+                            ) : (
+                              selectedUserSummary.roles.map((role) => (
+                                <span
+                                  key={role}
+                                  className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-xs text-[#7FD5FF]"
+                                >
+                                  {role}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs uppercase tracking-[0.2em] text-[#7FD5FF]">
+                            Effective Permissions
+                          </div>
+                          <div className="mt-2 max-h-48 overflow-y-auto pr-1">
+                            <div className="flex flex-wrap gap-2">
+                              {selectedUserSummary.effectivePermissions.length === 0 ? (
+                                <span className="text-sm text-gray-500">No effective permissions</span>
+                              ) : (
+                                selectedUserSummary.effectivePermissions.map((permission) => (
+                                  <span
+                                    key={permission}
+                                    className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-[11px] text-gray-200"
+                                  >
+                                    {permission}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 text-sm text-gray-500">Select a user to inspect access.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
