@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import {
   useGetAssetsQuery,
   useGetFacilitiesQuery,
+  useGetVehicleTypesQuery,
   useGetVehiclesQuery,
   useUpdateAssetMutation,
   useDeleteAssetMutation,
@@ -22,13 +23,16 @@ const TABS = [
   { id: "vehicle", label: "Vehicles", icon: "mdi:car" },
   // { id: "airbase", label: "Airbases", icon: "mdi:airport" },
   { id: "facility", label: "Facilities", icon: "mdi:office-building" },
-  { id: "equipment", label: "Equipments", icon: "mdi:tools" },
+  // { id: "equipment", label: "Equipments", icon: "mdi:tools" },
 ];
 
 export const AssetsPage = () => {
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState("aircraft");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
+  const [selectedOperationStatus, setSelectedOperationStatus] =
+    useState<string>("all");
   const { data: assets, isLoading: isAssetsLoading } = useGetAssetsQuery(
     { type: activeTab },
     { skip: activeTab === "vehicle" || activeTab === "facility" },
@@ -37,6 +41,9 @@ export const AssetsPage = () => {
     undefined,
     { skip: activeTab !== "vehicle" },
   );
+  const { data: vehicleTypes } = useGetVehicleTypesQuery(undefined, {
+    skip: activeTab !== "vehicle",
+  });
   const { data: facilities, isLoading: isFacilitiesLoading } =
     useGetFacilitiesQuery(undefined, {
       skip: activeTab !== "facility",
@@ -104,6 +111,18 @@ export const AssetsPage = () => {
     "grounded",
   ];
 
+  const normalizeOperationStatus = (status?: string | null) => {
+    if (!status) return "operational";
+
+    const normalized = status.toLowerCase().trim().replace(/\s+/g, "_");
+
+    if (normalized === "serviceable") return "operational";
+    if (normalized === "under_maintenance") return "under_maintenance";
+    if (normalized === "grounded") return "grounded";
+
+    return normalized;
+  };
+
   const isLoading =
     activeTab === "vehicle"
       ? isVehiclesLoading
@@ -111,8 +130,8 @@ export const AssetsPage = () => {
         ? isFacilitiesLoading
         : isAssetsLoading;
 
-  // Filter assets based on active tab. Vehicles use a dedicated endpoint.
-  const filteredAssets: Asset[] =
+  // Filter assets based on active tab. Vehicles/facilities use dedicated endpoints.
+  const tabAssets: Asset[] =
     activeTab === "vehicle"
       ? (vehicles ?? []).map((vehicle: Vehicle) => ({
           id: vehicle.id,
@@ -136,7 +155,11 @@ export const AssetsPage = () => {
           next_type_of_inspection: "-",
           last_inspection_date: "-",
           landings: "0",
-          operation_status: vehicle.status || "serviceable",
+          operation_status: normalizeOperationStatus(
+            vehicle.operation_status ??
+              vehicle.status ??
+              vehicle.serviceability_status,
+          ),
           manufacturer: "-",
           purchase_date: "-",
           created_at: vehicle.created_at || "",
@@ -168,7 +191,11 @@ export const AssetsPage = () => {
             next_type_of_inspection: "-",
             last_inspection_date: "-",
             landings: "0",
-            operation_status: facility.status || "serviceable",
+            operation_status: normalizeOperationStatus(
+              facility.operation_status ??
+                facility.status ??
+                facility.serviceability_status,
+            ),
             manufacturer: "-",
             purchase_date: "-",
             created_at: facility.created_at || "",
@@ -176,18 +203,36 @@ export const AssetsPage = () => {
             operations_total_hours: 0,
             operations_total_hours_label: "0",
           }))
-      : assets?.filter((asset) => asset.type === activeTab) || [];
+      :
+          assets
+            ?.filter((asset) => asset.type === activeTab)
+            .map((asset) => ({
+              ...asset,
+              operation_status: normalizeOperationStatus(
+                asset.operation_status ?? asset.serviceability_status,
+              ),
+            })) || [];
+
+  const filteredAssets = tabAssets.filter((asset) => {
+    const matchesUnit =
+      selectedUnitId === "all" || String(asset.unit_id) === selectedUnitId;
+    const matchesOperationStatus =
+      selectedOperationStatus === "all" ||
+      asset.operation_status === selectedOperationStatus;
+
+    return matchesUnit && matchesOperationStatus;
+  });
 
   // Stats
   const total = filteredAssets.length;
   const serviceable = filteredAssets.filter(
-    (a) => a.serviceability_status === "serviceable",
+    (a) => a.operation_status === "operational",
   ).length;
   const maintenance = filteredAssets.filter(
-    (a) => a.serviceability_status === "under_maintenance",
+    (a) => a.operation_status === "under_maintenance",
   ).length;
   const grounded = filteredAssets.filter(
-    (a) => a.serviceability_status === "grounded",
+    (a) => a.operation_status === "grounded",
   ).length;
 
   const formatStatus = (status?: string | null) => {
@@ -203,6 +248,29 @@ export const AssetsPage = () => {
     return units?.find((u) => u.id === unitId)?.name || "-";
   };
 
+  const getVehicleTypeName = (vehicleTypeId?: number | null) => {
+    if (!vehicleTypeId) return "-";
+    const match = vehicleTypes?.find((type) => type.id === vehicleTypeId);
+    return match?.name ? `${match.name} (#${vehicleTypeId})` : `#${vehicleTypeId}`;
+  };
+
+  const filteredVehicles =
+    activeTab === "vehicle"
+      ? (vehicles ?? []).filter((vehicle) => {
+          const matchesUnit =
+            selectedUnitId === "all" ||
+            String(vehicle.unit_id ?? "") === selectedUnitId;
+          const vehicleOperationStatus = normalizeOperationStatus(
+            vehicle.operation_status ?? vehicle.status ?? vehicle.serviceability_status,
+          );
+          const matchesOperationStatus =
+            selectedOperationStatus === "all" ||
+            vehicleOperationStatus === selectedOperationStatus;
+
+          return matchesUnit && matchesOperationStatus;
+        })
+      : [];
+
   const calculateHoursToLimit = (next: string, current: string) => {
     const nextVal = parseFloat(next);
     const currentVal = parseFloat(current);
@@ -213,6 +281,75 @@ export const AssetsPage = () => {
 
   const getAssetImageUrl = (asset: Asset) =>
     asset.image_url || asset.image || "";
+
+  const escapeCsvValue = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return "";
+    const stringValue = String(value);
+    if (
+      stringValue.includes(",") ||
+      stringValue.includes("\"") ||
+      stringValue.includes("\n")
+    ) {
+      return `"${stringValue.replace(/"/g, '""')}"`;
+    }
+
+    return stringValue;
+  };
+
+  const handleDownloadCsv = () => {
+    if (filteredAssets.length === 0) {
+      dispatch(
+        showToast({
+          message: "No assets available to export",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    const headers = [
+      "Tail No",
+      "Name",
+      "Type",
+      "Unit",
+      "Airframe Hrs",
+      "Hrs to Limiting Item",
+      "Limiting Item",
+      "Serviceability Status",
+      "Operation Status",
+    ];
+
+    const rows = filteredAssets.map((asset) => [
+      asset.tail_number,
+      asset.name,
+      asset.model,
+      getUnitName(asset.unit_id),
+      `${parseFloat(asset.total_airframe_hours).toLocaleString()} hrs`,
+      calculateHoursToLimit(
+        asset.next_annual_inspection_date,
+        asset.total_airframe_hours,
+      ),
+      asset.next_type_of_inspection,
+      formatStatus(asset.serviceability_status),
+      formatStatus(asset.operation_status),
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(","))
+      .join("\n");
+
+    const csvBlob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const blobUrl = window.URL.createObjectURL(csvBlob);
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = `assets-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(blobUrl);
+  };
 
   return (
     <div className="space-y-6">
@@ -259,6 +396,8 @@ export const AssetsPage = () => {
             <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
               <button
                 onClick={() => setViewMode("table")}
+                title="Table view"
+                aria-label="Switch to table view"
                 className={cn(
                   "p-1.5 rounded transition-colors",
                   viewMode === "table"
@@ -270,6 +409,8 @@ export const AssetsPage = () => {
               </button>
               <button
                 onClick={() => setViewMode("grid")}
+                title="Grid view"
+                aria-label="Switch to grid view"
                 className={cn(
                   "p-1.5 rounded transition-colors",
                   viewMode === "grid"
@@ -286,18 +427,41 @@ export const AssetsPage = () => {
             {/* Filters */}
             <div className="flex items-center gap-2 overflow-x-auto max-w-full">
               <span className="text-xs text-[#7FD5FF] cursor-pointer hover:underline whitespace-nowrap bg-[#001825] px-2 py-1 rounded-full border border-[#0A4D66]/40">
-                12 Reset Filter
+               Reset Filter
               </span>
-              <select className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]">
-                <option>All Units</option>
+              <select
+                title="Filter assets by unit"
+                aria-label="Filter assets by unit"
+                value={selectedUnitId}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+                className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
+              >
+                <option value="all">All Units</option>
+                {(units ?? []).map((unit) => (
+                  <option key={unit.id} value={String(unit.id)}>
+                    {unit.name}
+                  </option>
+                ))}
               </select>
-              <select className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]">
-                <option>All Aircraft Type</option>
+              <select
+                title="Filter assets by operation status"
+                aria-label="Filter assets by operation status"
+                value={selectedOperationStatus}
+                onChange={(e) => setSelectedOperationStatus(e.target.value)}
+                className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
+              >
+                <option value="all">All Operation Status</option>
+                <option value="operational">Operational</option>
+                <option value="under_maintenance">Under Maintenance</option>
+                <option value="grounded">Grounded</option>
               </select>
-              <select className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]">
-                <option>Defect</option>
-              </select>
-              <button className="p-1.5 text-gray-400 hover:text-white">
+              <button
+                type="button"
+                onClick={handleDownloadCsv}
+                title="Download filtered assets CSV"
+                aria-label="Download filtered assets CSV"
+                className="p-1.5 text-gray-400 hover:text-white"
+              >
                 <Icon icon="mdi:download" className="w-4 h-4" />
               </button>
             </div>
@@ -329,7 +493,7 @@ export const AssetsPage = () => {
             </div>
             <div className="flex items-center space-x-2 whitespace-nowrap">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="text-gray-400">Serviceable:</span>
+              <span className="text-gray-400">Operational:</span>
               <span className="text-white font-bold">{serviceable}</span>
             </div>
             <div className="flex items-center space-x-2 whitespace-nowrap">
@@ -348,238 +512,353 @@ export const AssetsPage = () => {
         {/* View Content */}
         {viewMode === "table" ? (
           <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-hidden overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[1100px]">
-              <thead>
-                <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                  <th className="px-6 py-4 font-medium">Tail No.</th>
-                  <th className="px-6 py-4 font-medium"> Name</th>
-                  <th className="px-6 py-4 font-medium">Type</th>
-                  <th className="px-6 py-4 font-medium">Unit</th>
-                  <th className="px-6 py-4 font-medium">Airframe Hrs</th>
-                  <th className="px-6 py-4 font-medium">
-                    Hrs to Limiting Item
-                  </th>
-                  <th className="px-6 py-4 font-medium">Limiting Item</th>
-                  <th className="px-6 py-4 font-medium">Defects</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                {isLoading ? (
-                  <tr>
-                    <td
-                      colSpan={10}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
-                      Loading...
-                    </td>
+            {activeTab === "vehicle" ? (
+              <table className="w-full text-left border-collapse min-w-[1000px]">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-6 py-4 font-medium">Photo</th>
+                    <th className="px-6 py-4 font-medium">Name</th>
+                    <th className="px-6 py-4 font-medium">Registration Number</th>
+                    <th className="px-6 py-4 font-medium">Serial Number</th>
+                    <th className="px-6 py-4 font-medium">Vehicle Type</th>
+                    <th className="px-6 py-4 font-medium">Unit</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 font-medium text-right">Action</th>
                   </tr>
-                ) : filteredAssets.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={10}
-                      className="px-6 py-8 text-center text-gray-500"
-                    >
-                      No assets found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredAssets.map((asset, idx) => (
-                    <tr
-                      key={asset.id}
-                      className={cn(
-                        "hover:bg-[#0A4D66]/20 transition-colors",
-                        idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
-                      )}
-                    >
-                      <td className="px-6 py-4 font-medium text-white">
-                        {asset.tail_number}
-                      </td>
-                      <td className="px-6 py-4 flex items-center gap-3">
-                        <div className="w-8 h-8 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
-                          {getAssetImageUrl(asset) ? (
-                            <img
-                              src={getAssetImageUrl(asset)}
-                              alt={asset.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Icon
-                              icon={
-                                asset.type === "aircraft"
-                                  ? "mdi:helicopter"
-                                  : "mdi:cube"
-                              }
-                              className="w-5 h-5 text-[#7FD5FF]"
-                            />
-                          )}
-                        </div>
-                        <span className="font-bold text-white">
-                          {asset.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">{asset.model}</td>
-                      <td className="px-6 py-4 text-gray-300">
-                        {getUnitName(asset.unit_id)}
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">
-                        {parseFloat(
-                          asset.total_airframe_hours,
-                        ).toLocaleString()}{" "}
-                        hrs
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">
-                        {calculateHoursToLimit(
-                          asset.next_annual_inspection_date,
-                          asset.total_airframe_hours,
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">
-                        {asset.next_type_of_inspection}
-                      </td>
-                      <td className="px-6 py-4 text-gray-300">No</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={cn(
-                            "flex items-center gap-1.5",
-                            asset.serviceability_status === "serviceable"
-                              ? "text-emerald-400"
-                              : asset.serviceability_status ===
-                                  "under_maintenance"
-                                ? "text-amber-400"
-                                : "text-red-400",
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "w-1.5 h-1.5 rounded-full",
-                              asset.serviceability_status === "serviceable"
-                                ? "bg-emerald-500"
-                                : asset.serviceability_status ===
-                                    "under_maintenance"
-                                  ? "bg-amber-500"
-                                  : "bg-red-500",
-                            )}
-                          />
-                          {formatStatus(asset.serviceability_status)}
-                        </span>
-                      </td>
-                      <td
-                        className="relative px-6 py-4 text-right"
-                        ref={
-                          openActionId === asset.id ? actionMenuRef : undefined
-                        }
-                      >
-                        <button
-                          onClick={() => handleToggleActions(asset.id)}
-                          className="text-gray-400 hover:text-white"
-                        >
-                          <Icon
-                            icon="mdi:dots-horizontal"
-                            className="w-5 h-5"
-                          />
-                        </button>
-
-                        {openActionId === asset.id && (
-                          <div className="absolute right-8 top-8 z-50 w-48 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl text-left">
-                            <div className="py-1 text-xs text-gray-200">
-                              <button
-                                onClick={() => handleOpenDetail(asset.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:eye-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>View</span>
-                              </button>
-                              <button
-                                onClick={() =>
-                                  navigate(`/dashboard/assets/${asset.id}/edit`)
-                                }
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:pencil-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Edit</span>
-                              </button>
-                              <div className="relative">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setStatusMenuForId((current) =>
-                                      current === asset.id ? null : asset.id,
-                                    );
-                                  }}
-                                  className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                                >
-                                  <span className="inline-flex items-center gap-2">
-                                    <Icon
-                                      icon="mdi:swap-horizontal"
-                                      className="w-4 h-4 text-gray-300"
-                                    />
-                                    <span>Update Status</span>
-                                  </span>
-                                  <Icon
-                                    icon="mdi:chevron-right"
-                                    className="w-4 h-4 text-gray-400"
-                                  />
-                                </button>
-                                {statusMenuForId === asset.id && (
-                                  <div
-                                    ref={statusMenuRef}
-                                    className="absolute top-0 right-full mr-1 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl"
-                                  >
-                                    {STATUS_OPTIONS.map((status) => (
-                                      <button
-                                        key={status}
-                                        onClick={() =>
-                                          handleChangeStatus(asset.id, status)
-                                        }
-                                        className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#0A4D66]/40"
-                                      >
-                                        <span>{formatStatus(status)}</span>
-                                        {asset.serviceability_status ===
-                                          status && (
-                                          <Icon
-                                            icon="mdi:check"
-                                            className="w-4 h-4 text-emerald-400"
-                                          />
-                                        )}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left">
-                                <Icon
-                                  icon="mdi:clock-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Log Flight Hrs</span>
-                              </button>
-                              <button
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                                onClick={() => handleDeleteAsset(asset.id, asset.name)}
-                              >
-                                <Icon
-                                  icon="mdi:trash-can-outline"
-                                  className="w-4 h-4"
-                                />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                        Loading...
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : filteredVehicles.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                        No vehicles found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredVehicles.map((vehicle, idx) => {
+                      const operationStatus = normalizeOperationStatus(
+                        vehicle.operation_status ??
+                          vehicle.status ??
+                          vehicle.serviceability_status,
+                      );
+
+                      return (
+                        <tr
+                          key={vehicle.id}
+                          className={cn(
+                            "hover:bg-[#0A4D66]/20 transition-colors",
+                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="w-8 h-8 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
+                              {vehicle.photo_url || vehicle.photo ? (
+                                <img
+                                  src={vehicle.photo_url || vehicle.photo || ""}
+                                  alt={vehicle.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <Icon icon="mdi:car" className="w-5 h-5 text-[#7FD5FF]" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 font-medium text-white">{vehicle.name}</td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {vehicle.registration_number || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {vehicle.serial_number || "-"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {getVehicleTypeName(vehicle.vehicle_type_id)}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {getUnitName(vehicle.unit_id ?? 0)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={cn(
+                                "flex items-center gap-1.5",
+                                operationStatus === "operational"
+                                  ? "text-emerald-400"
+                                  : operationStatus === "under_maintenance"
+                                  ? "text-amber-400"
+                                  : "text-red-400",
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "w-1.5 h-1.5 rounded-full",
+                                  operationStatus === "operational"
+                                    ? "bg-emerald-500"
+                                    : operationStatus === "under_maintenance"
+                                    ? "bg-amber-500"
+                                    : "bg-red-500",
+                                )}
+                              />
+                              {formatStatus(operationStatus)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/dashboard/assets/vehicles/${vehicle.id}/edit`)
+                              }
+                              className="text-[#7FD5FF] hover:text-white text-xs"
+                            >
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              <table className="w-full text-left border-collapse min-w-[1100px]">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-6 py-4 font-medium">Tail No.</th>
+                    <th className="px-6 py-4 font-medium"> Name</th>
+                    <th className="px-6 py-4 font-medium">Type</th>
+                    <th className="px-6 py-4 font-medium">Unit</th>
+                    <th className="px-6 py-4 font-medium">Airframe Hrs</th>
+                    <th className="px-6 py-4 font-medium">
+                      Hrs to Limiting Item
+                    </th>
+                    <th className="px-6 py-4 font-medium">Limiting Item</th>
+                    <th className="px-6 py-4 font-medium">Defects</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 font-medium text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {isLoading ? (
+                    <tr>
+                      <td
+                        colSpan={10}
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : filteredAssets.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={10}
+                        className="px-6 py-8 text-center text-gray-500"
+                      >
+                        No assets found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredAssets.map((asset, idx) => (
+                      <tr
+                        key={asset.id}
+                        className={cn(
+                          "hover:bg-[#0A4D66]/20 transition-colors",
+                          idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                        )}
+                      >
+                        <td className="px-6 py-4 font-medium text-white">
+                          {asset.tail_number}
+                        </td>
+                        <td className="px-6 py-4 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
+                            {getAssetImageUrl(asset) ? (
+                              <img
+                                src={getAssetImageUrl(asset)}
+                                alt={asset.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Icon
+                                icon={
+                                  asset.type === "aircraft"
+                                    ? "mdi:helicopter"
+                                    : "mdi:cube"
+                                }
+                                className="w-5 h-5 text-[#7FD5FF]"
+                              />
+                            )}
+                          </div>
+                          <span className="font-bold text-white">
+                            {asset.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">{asset.model}</td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {getUnitName(asset.unit_id)}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {parseFloat(
+                            asset.total_airframe_hours,
+                          ).toLocaleString()}{" "}
+                          hrs
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {calculateHoursToLimit(
+                            asset.next_annual_inspection_date,
+                            asset.total_airframe_hours,
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {asset.next_type_of_inspection}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">No</td>
+                        <td className="px-6 py-4">
+                          <span
+                            className={cn(
+                              "flex items-center gap-1.5",
+                              asset.operation_status === "operational"
+                                ? "text-emerald-400"
+                                : asset.operation_status ===
+                                    "under_maintenance"
+                                  ? "text-amber-400"
+                                  : "text-red-400",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                asset.operation_status === "operational"
+                                  ? "bg-emerald-500"
+                                  : asset.operation_status ===
+                                      "under_maintenance"
+                                    ? "bg-amber-500"
+                                    : "bg-red-500",
+                              )}
+                            />
+                            {formatStatus(asset.operation_status)}
+                          </span>
+                        </td>
+                        <td
+                          className="relative px-6 py-4 text-right"
+                          ref={
+                            openActionId === asset.id ? actionMenuRef : undefined
+                          }
+                        >
+                          <button
+                            type="button"
+                            title="Open actions"
+                            aria-label="Open actions"
+                            onClick={() => handleToggleActions(asset.id)}
+                            className="text-gray-400 hover:text-white"
+                          >
+                            <Icon
+                              icon="mdi:dots-horizontal"
+                              className="w-5 h-5"
+                            />
+                          </button>
+
+                          {openActionId === asset.id && (
+                            <div className="absolute right-8 top-8 z-50 w-48 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl text-left">
+                              <div className="py-1 text-xs text-gray-200">
+                                <button
+                                  onClick={() => handleOpenDetail(asset.id)}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                                >
+                                  <Icon
+                                    icon="mdi:eye-outline"
+                                    className="w-4 h-4 text-gray-300"
+                                  />
+                                  <span>View</span>
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    navigate(`/dashboard/assets/${asset.id}/edit`)
+                                  }
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                                >
+                                  <Icon
+                                    icon="mdi:pencil-outline"
+                                    className="w-4 h-4 text-gray-300"
+                                  />
+                                  <span>Edit</span>
+                                </button>
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setStatusMenuForId((current) =>
+                                        current === asset.id ? null : asset.id,
+                                      );
+                                    }}
+                                    className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                                  >
+                                    <span className="inline-flex items-center gap-2">
+                                      <Icon
+                                        icon="mdi:swap-horizontal"
+                                        className="w-4 h-4 text-gray-300"
+                                      />
+                                      <span>Update Status</span>
+                                    </span>
+                                    <Icon
+                                      icon="mdi:chevron-right"
+                                      className="w-4 h-4 text-gray-400"
+                                    />
+                                  </button>
+                                  {statusMenuForId === asset.id && (
+                                    <div
+                                      ref={statusMenuRef}
+                                      className="absolute top-0 right-full mr-1 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl"
+                                    >
+                                      {STATUS_OPTIONS.map((status) => (
+                                        <button
+                                          key={status}
+                                          onClick={() =>
+                                            handleChangeStatus(asset.id, status)
+                                          }
+                                          className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#0A4D66]/40"
+                                        >
+                                          <span>{formatStatus(status)}</span>
+                                          {asset.serviceability_status ===
+                                            status && (
+                                            <Icon
+                                              icon="mdi:check"
+                                              className="w-4 h-4 text-emerald-400"
+                                            />
+                                          )}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left">
+                                  <Icon
+                                    icon="mdi:clock-outline"
+                                    className="w-4 h-4 text-gray-300"
+                                  />
+                                  <span>Log Flight Hrs</span>
+                                </button>
+                                <button
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+                                  onClick={() => handleDeleteAsset(asset.id, asset.name)}
+                                >
+                                  <Icon
+                                    icon="mdi:trash-can-outline"
+                                    className="w-4 h-4"
+                                  />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

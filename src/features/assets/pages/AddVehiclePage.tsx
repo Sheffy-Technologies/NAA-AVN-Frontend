@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -30,10 +30,19 @@ export const AddVehiclePage = () => {
   const navigate = useNavigate();
   const [values, setValues] = useState<VehicleFormValues>(emptyVehicleValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   const { data: units = [] } = useGetUnitsQuery();
   const { data: vehicleTypes = [] } = useGetVehicleTypesQuery();
   const [createVehicle, { isLoading: isSubmitting }] = useCreateVehicleMutation();
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl);
+      }
+    };
+  }, [photoPreviewUrl]);
 
   const handleTextChange =
     (field: "name" | "registration_number" | "serial_number") =>
@@ -53,10 +62,34 @@ export const AddVehiclePage = () => {
     };
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+
+    if (!file) {
+      setValues((prev) => ({
+        ...prev,
+        photo: null,
+      }));
+      setPhotoPreviewUrl(null);
+      setSubmitError(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setSubmitError("Please select an image file.");
+      return;
+    }
+
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setSubmitError("Photo must be 5MB or smaller.");
+      return;
+    }
+
     setValues((prev) => ({
       ...prev,
-      photo: event.target.files?.[0] ?? null,
+      photo: file,
     }));
+    setPhotoPreviewUrl(URL.createObjectURL(file));
     setSubmitError(null);
   };
 
@@ -206,6 +239,15 @@ export const AddVehiclePage = () => {
               onChange={handlePhotoChange}
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
             />
+            {photoPreviewUrl ? (
+              <div className="mt-2 rounded-md border border-[#0A4D66]/40 bg-[#001825] p-2">
+                <img
+                  src={photoPreviewUrl}
+                  alt="Vehicle preview"
+                  className="h-24 w-full object-cover rounded"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
 

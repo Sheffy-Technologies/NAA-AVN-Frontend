@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import {
+  type EmergencyAssetInspectionItem,
   type EmergencyLowStockInventoryItem,
   useGetEmergencySummaryQuery,
 } from "@/features/emergencies/api";
-import { useGetNotificationsQuery } from "@/features/notifications/api";
+import {
+  type NavigationTarget,
+  useGetNotificationsQuery,
+} from "@/features/notifications/api";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 
 type HeaderProps = {
@@ -75,6 +79,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
         id: notification.id,
         message,
         dateLabel,
+        navigation: notification.navigation,
       };
     });
   }, [notifications]);
@@ -91,6 +96,8 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
   }, [emergencySummary.reference_date]);
 
   const lowStockItems = emergencySummary.low_stock_inventories?.data ?? [];
+  const assetInspectionItems =
+    emergencySummary.assets_due_for_inspection?.data ?? [];
   const emergencyBadgeCount =
     (emergencySummary.assets_due_for_inspection?.count ?? 0) +
     (emergencySummary.low_stock_inventories?.count ?? 0);
@@ -99,6 +106,66 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
     const primary = item.part_number || item.serial_number || `Inventory #${item.id}`;
     const type = item.type ? item.type.replace(/_/g, " ") : "inventory";
     return `${primary} (${type})`;
+  };
+
+  const formatAssetInspectionLabel = (item: EmergencyAssetInspectionItem) => {
+    return item.name || item.serial_number || `Asset #${item.id}`;
+  };
+
+  const resolveDashboardPath = (navigation?: NavigationTarget | null) => {
+    if (!navigation?.href) {
+      return null;
+    }
+
+    const href = navigation.href.startsWith("/")
+      ? navigation.href
+      : `/${navigation.href}`;
+
+    if (href.startsWith("/dashboard/")) {
+      return href;
+    }
+
+    const inventoryMatch = href.match(/^\/inventories\/(\d+)$/);
+    if (inventoryMatch) {
+      return `/dashboard/inventory/${inventoryMatch[1]}`;
+    }
+
+    const assetMatch = href.match(/^\/assets\/(\d+)$/);
+    if (assetMatch) {
+      return `/dashboard/assets/${assetMatch[1]}`;
+    }
+
+    const personnelMatch = href.match(/^\/personnel\/(\d+)$/);
+    if (personnelMatch) {
+      return `/dashboard/personnel/${personnelMatch[1]}`;
+    }
+
+    const operationMatch = href.match(/^\/operations\/(\d+)$/);
+    if (operationMatch) {
+      return `/dashboard/operations/${operationMatch[1]}`;
+    }
+
+    return `/dashboard${href}`;
+  };
+
+  const handleNavigation = (navigation?: NavigationTarget | null) => {
+    const path = resolveDashboardPath(navigation);
+
+    if (!path) {
+      return;
+    }
+
+    setIsEmergenciesOpen(false);
+    setIsNotificationsOpen(false);
+    navigate(path);
+  };
+
+  const getClickableRowClassName = (isDisabled: boolean) => {
+    if (isDisabled) {
+      return "grid w-full gap-3 py-3 border-b border-[#0A4D66]/40 last:border-b-0 text-left disabled:cursor-default";
+    }
+
+    return "group grid w-full gap-3 py-3 border-b border-[#0A4D66]/40 last:border-b-0 text-left rounded-sm transition-all duration-150 hover:bg-[#0A4D66]/20 hover:shadow-[inset_3px_0_0_0_#7FD5FF] focus-visible:outline-none focus-visible:bg-[#0A4D66]/20 focus-visible:shadow-[inset_3px_0_0_0_#7FD5FF] cursor-pointer";
   };
 
   useClickOutside(
@@ -222,34 +289,93 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                         </p>
                       </div>
 
+                      {assetInspectionItems.length > 0 && (
+                        <div className="py-3 border-b border-[#0A4D66]/50">
+                          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">
+                            Assets Due Now
+                          </p>
+                          {assetInspectionItems.map((item) => {
+                            const targetPath = resolveDashboardPath(item.navigation);
+
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleNavigation(item.navigation)}
+                                disabled={!targetPath}
+                                className={`${getClickableRowClassName(!targetPath)} grid-cols-[minmax(0,1fr)_auto]`}
+                              >
+                                <div>
+                                  <p className="text-white text-sm leading-6">
+                                    {formatAssetInspectionLabel(item)}
+                                  </p>
+                                  <p className="text-gray-400 text-xs">
+                                    Serial: {item.serial_number || "-"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3 text-right whitespace-nowrap">
+                                  {targetPath && (
+                                    <Icon
+                                      icon="mdi:open-in-new"
+                                      className="w-4 h-4 text-[#7FD5FF] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                                    />
+                                  )}
+                                  <p className="text-[#FFB3B3] text-sm font-semibold">
+                                    Due
+                                  </p>
+                                  <p className="text-gray-400 text-xs group-hover:text-[#B7E6FF] group-focus-visible:text-[#B7E6FF]">
+                                    Open item
+                                  </p>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
                       {lowStockItems.length > 0 && (
                         <div className="py-3">
                           <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">
                             Low Stock Items
                           </p>
-                          {lowStockItems.map((item) => (
-                            <div
-                              key={item.id}
-                              className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-3 border-b border-[#0A4D66]/40 last:border-b-0"
-                            >
-                              <div>
-                                <p className="text-white text-sm leading-6">
-                                  {formatInventoryLabel(item)}
-                                </p>
-                                <p className="text-gray-400 text-xs">
-                                  Unit: {item.unit?.name || "-"}
-                                </p>
-                              </div>
-                              <div className="text-right whitespace-nowrap">
-                                <p className="text-[#FFB3B3] text-sm font-semibold">
-                                  {item.current_stock ?? 0} / {item.re_order_level ?? 0}
-                                </p>
-                                <p className="text-gray-400 text-xs">
-                                  {item.stock_level || "Low"}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
+                          {lowStockItems.map((item) => {
+                            const targetPath = resolveDashboardPath(item.navigation);
+
+                            return (
+                              <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => handleNavigation(item.navigation)}
+                                disabled={!targetPath}
+                                className={`${getClickableRowClassName(!targetPath)} grid-cols-[minmax(0,1fr)_auto]`}
+                              >
+                                <div>
+                                  <p className="text-white text-sm leading-6">
+                                    {formatInventoryLabel(item)}
+                                  </p>
+                                  <p className="text-gray-400 text-xs">
+                                    Unit: {item.unit?.name || "-"}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-3 text-right whitespace-nowrap">
+                                  {targetPath && (
+                                    <Icon
+                                      icon="mdi:open-in-new"
+                                      className="w-4 h-4 text-[#7FD5FF] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                                    />
+                                  )}
+                                  <div>
+                                    <p className="text-[#FFB3B3] text-sm font-semibold">
+                                      {item.current_stock ?? 0} / {item.re_order_level ?? 0}
+                                    </p>
+                                    <p className="text-gray-400 text-xs group-hover:text-[#B7E6FF] group-focus-visible:text-[#B7E6FF]">
+                                      {item.stock_level || "Low"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </>
@@ -297,20 +423,35 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                       No notifications found
                     </div>
                   ) : (
-                    notificationItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="grid grid-cols-[18px_minmax(0,1fr)_110px] gap-4 py-4 border-b border-[#0A4D66]/50 last:border-b-0"
-                      >
-                        <div className="w-3 h-3 bg-[#0A4D66] mt-1.5" />
-                        <p className="text-white text-sm leading-7">
-                          {item.message}
-                        </p>
-                        <div className="text-right text-white text-sm font-semibold whitespace-nowrap">
-                          {item.dateLabel}
-                        </div>
-                      </div>
-                    ))
+                    notificationItems.map((item) => {
+                      const targetPath = resolveDashboardPath(item.navigation);
+
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleNavigation(item.navigation)}
+                          disabled={!targetPath}
+                          className={`${getClickableRowClassName(!targetPath)} grid-cols-[18px_minmax(0,1fr)_110px] border-[#0A4D66]/50 py-4`}
+                        >
+                          <div className="w-3 h-3 bg-[#0A4D66] mt-1.5 group-hover:bg-[#7FD5FF] group-focus-visible:bg-[#7FD5FF] transition-colors" />
+                          <p className="text-white text-sm leading-7">
+                            {item.message}
+                          </p>
+                          <div className="flex items-center justify-end gap-2 text-right text-white text-sm font-semibold whitespace-nowrap">
+                            {targetPath && (
+                              <Icon
+                                icon="mdi:open-in-new"
+                                className="w-4 h-4 text-[#7FD5FF] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
+                              />
+                            )}
+                            <span className="group-hover:text-[#B7E6FF] group-focus-visible:text-[#B7E6FF] transition-colors">
+                              {item.dateLabel}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               </div>

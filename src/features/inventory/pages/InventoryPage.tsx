@@ -8,6 +8,7 @@ import {
   useDeleteInventoryMutation,
   useGetInventoryRequisitionsQuery,
   useGetSuppliersQuery,
+  useGetPurchaseOrdersQuery,
 } from "@/features/inventory/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
@@ -43,6 +44,14 @@ type InventoryRow = {
   measurementUnit: string;
 };
 
+type PurchaseOrderListRow = {
+  id: number;
+  name?: string | null;
+  status?: string | null;
+  order_date?: string | null;
+  expected_date_of_delivery?: string | null;
+};
+
 type MultiFilterState<T> = {
   all: boolean;
   selected: T[];
@@ -54,6 +63,11 @@ const INVENTORY_TABS = [
     id: "Requisitions",
     label: "Requisitions",
     icon: "mdi:file-document-outline",
+  },
+  {
+    id: "Purchase Orders",
+    label: "Purchase Orders",
+    icon: "mdi:cart-outline",
   },
   {
     id: "Suppliers",
@@ -503,6 +517,14 @@ export const InventoryPage = () => {
       skip: activeTab !== "Suppliers",
     });
 
+  const {
+    data: purchaseOrdersData = [],
+    isLoading: isPurchaseOrdersLoading,
+    isError: isPurchaseOrdersError,
+  } = useGetPurchaseOrdersQuery(undefined, {
+    skip: activeTab !== "Purchase Orders",
+  });
+
   // Handlers
   const handleToggleAll =
     <T,>(setState: React.Dispatch<React.SetStateAction<MultiFilterState<T>>>) =>
@@ -735,6 +757,7 @@ export const InventoryPage = () => {
 
   return (
     <div className="space-y-6">
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
           {INVENTORY_TABS.map((tab) => (
@@ -766,6 +789,16 @@ export const InventoryPage = () => {
         {activeTab === "Stocks" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex justify-end mb-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-500 text-black text-xs font-semibold shadow hover:bg-emerald-600 transition-colors"
+                  onClick={() => navigate("/dashboard/inventory/purchase-orders/new")}
+                >
+                  <Icon icon="mdi:cart-plus" className="w-4 h-4" />
+                  Create Purchase Order
+                </button>
+              </div>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
                   {STOCK_SUB_TABS.map((subTab) => (
@@ -883,13 +916,14 @@ export const InventoryPage = () => {
                   </div>
                 </div>
 
-                <Link
-                  to="/dashboard/inventory/add"
+                <button
+                  type="button"
+                  onClick={() => navigate("/dashboard/inventory/add")}
                   className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
-                  <span>Add Stock</span>
-                </Link>
+                  <span>Add Inventory</span>
+                </button>
               </div>
 
               <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
@@ -1406,6 +1440,90 @@ export const InventoryPage = () => {
                 )}
               </div>
             )}
+          </>
+        ) : activeTab === "Purchase Orders" ? (
+          <>
+            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                    Purchase Orders
+                  </button>
+                </div>
+
+                <div className="flex-1" />
+
+                <Link
+                  to="/dashboard/inventory/purchase-orders/new"
+                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  <span>Create Purchase Order</span>
+                </Link>
+              </div>
+
+              <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
+                <div className="flex items-center space-x-2 whitespace-nowrap">
+                  <div className="w-2 h-2 rounded-full bg-[#7FD5FF]" />
+                  <span className="text-gray-400">Total Purchase Orders:</span>
+                  <span className="text-white font-bold">{purchaseOrdersData.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-250">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-6 py-4 font-medium">PO ID</th>
+                    <th className="px-6 py-4 font-medium">Name</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 font-medium">Order Date</th>
+                    <th className="px-6 py-4 font-medium">Expected Delivery</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {isPurchaseOrdersLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        Loading purchase orders...
+                      </td>
+                    </tr>
+                  ) : isPurchaseOrdersError ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-red-400">
+                        Failed to load purchase orders.
+                      </td>
+                    </tr>
+                  ) : purchaseOrdersData.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        No purchase orders found.
+                      </td>
+                    </tr>
+                  ) : (
+                    (purchaseOrdersData as PurchaseOrderListRow[]).map((order, idx) => (
+                      <tr
+                        key={order.id}
+                        className={cn(
+                          "hover:bg-[#0A4D66]/20 transition-colors cursor-pointer",
+                          idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                        )}
+                        onClick={() => navigate(`/dashboard/inventory/purchase-orders/${order.id}`)}
+                      >
+                        <td className="px-6 py-4 text-gray-200">#{order.id}</td>
+                        <td className="px-6 py-4 text-white">{order.name || `PO #${order.id}`}</td>
+                        <td className="px-6 py-4 text-gray-300">{order.status || "-"}</td>
+                        <td className="px-6 py-4 text-gray-300">{formatDateShort(order.order_date)}</td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {formatDateShort(order.expected_date_of_delivery)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         ) : activeTab === "Suppliers" ? (
           <>

@@ -25,6 +25,7 @@ export type OperationAsset = {
   departure_landing?: string | null;
   arrival_takeoff?: string | null;
   arrival_landing?: string | null;
+  flight_hours?: number | null;
 };
 
 export type OperationAssetPerson = {
@@ -62,6 +63,7 @@ export type OperationAssignedAsset = {
   departure_landing?: string | null;
   arrival_takeoff?: string | null;
   arrival_landing?: string | null;
+  flight_hours?: number | string | null;
   asset?: OperationAssetDetails | null;
   pilot?: OperationAssetPerson | null;
   co_pilot?: OperationAssetPerson | null;

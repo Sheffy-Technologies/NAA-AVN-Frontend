@@ -23,6 +23,14 @@ const NAV_ITEMS = [
   },
 ];
 
+const MAINTENANCE_ITEMS = [
+  {
+    name: "Maintenance Hub",
+    path: "/dashboard/maintenance",
+    icon: "mdi:wrench-cog-outline",
+  },
+];
+
 const BOTTOM_ITEMS = [
   {
     name: "User",
@@ -109,6 +117,31 @@ export const Sidebar = () => {
             <span>{item.name}</span>
           </NavLink>
         ))}
+
+        <div className="pt-3 mt-3 border-t border-[#0A4D66]/30">
+          <div className="px-4 pb-2 text-[10px] uppercase tracking-widest text-gray-500">
+            Maintenance
+          </div>
+          <div className="space-y-1">
+            {MAINTENANCE_ITEMS.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200",
+                    isActive
+                      ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-2 border-[#7FD5FF]"
+                      : "hover:bg-[#0A4D66]/50 hover:text-white text-gray-400",
+                  )
+                }
+              >
+                <Icon icon={item.icon} className="w-5 h-5" />
+                <span>{item.name}</span>
+              </NavLink>
+            ))}
+          </div>
+        </div>
       </nav>
 
       {/* Bottom Section */}
@@ -150,7 +183,7 @@ export const Sidebar = () => {
             </p>
             <p className="text-xs text-gray-500 truncate">Super Admin</p>
           </div>
-          <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" />
+          {/* <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" /> */}
         </div>
       </div>
     </aside>

@@ -27,6 +27,20 @@ interface ApiError {
   };
 }
 
+type DeploymentFormData = {
+  from_unit_id: string;
+  to_unit_id: string;
+  start_date: string;
+  end_date: string;
+};
+
+const createEmptyDeployment = (): DeploymentFormData => ({
+  from_unit_id: "",
+  to_unit_id: "",
+  start_date: "",
+  end_date: "",
+});
+
 type AddPersonnelFormData = {
   service_number: string;
   firstname: string;
@@ -122,13 +136,9 @@ export const AddPersonnelPage = () => {
   };
 
   const [status, setStatus] = useState<string>("");
-  const [currentDeploymentUnitId, setCurrentDeploymentUnitId] =
-    useState<string>("");
-  const [currentDeploymentDate, setCurrentDeploymentDate] =
-    useState<string>("");
-  const [lastDeploymentUnitId, setLastDeploymentUnitId] = useState<string>("");
-  const [lastDeploymentDate, setLastDeploymentDate] = useState<string>("");
-  const [tosDate, setTosDate] = useState<string>("");
+  const [deployments, setDeployments] = useState<DeploymentFormData[]>([
+    createEmptyDeployment(),
+  ]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -186,15 +196,50 @@ export const AddPersonnelPage = () => {
     }));
   };
 
-  const formatDateToIsoString = (value: string, endOfDay: boolean = false) => {
-    if (!value) return "";
-    const time = endOfDay ? "T23:59:59.000Z" : "T00:00:00.000Z";
-    return new Date(`${value}${time}`).toISOString();
+  const handleDeploymentChange = (
+    index: number,
+    field: keyof DeploymentFormData,
+    value: string,
+  ) => {
+    setDeployments((prev) =>
+      prev.map((deployment, deploymentIndex) =>
+        deploymentIndex === index
+          ? { ...deployment, [field]: value }
+          : deployment,
+      ),
+    );
+  };
+
+  const addDeploymentRow = () => {
+    setDeployments((prev) => [...prev, createEmptyDeployment()]);
+  };
+
+  const removeDeploymentRow = (index: number) => {
+    setDeployments((prev) =>
+      prev.length === 1
+        ? [createEmptyDeployment()]
+        : prev.filter((_, deploymentIndex) => deploymentIndex !== index),
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const normalizedDeployments = deployments
+        .filter((deployment) =>
+          Object.values(deployment).some((value) => Boolean(value)),
+        )
+        .map((deployment) => ({
+          from_unit_id: deployment.from_unit_id
+            ? Number(deployment.from_unit_id)
+            : null,
+          to_unit_id: deployment.to_unit_id
+            ? Number(deployment.to_unit_id)
+            : null,
+          start_date: deployment.start_date || null,
+          end_date: deployment.end_date || null,
+        }));
+
       const payload: CreatePersonnelRequest = {
         ...formData,
         rank_id: String(formData.rank_id),
@@ -212,20 +257,9 @@ export const AddPersonnelPage = () => {
           flight_hours: Number(flightHours[assetId] || 0),
           notes: "",
         })),
-        deployments:
-          currentDeploymentUnitId &&
-          lastDeploymentUnitId &&
-          currentDeploymentDate &&
-          lastDeploymentDate
-            ? [
-                {
-                  from_unit_id: Number(lastDeploymentUnitId),
-                  to_unit_id: Number(currentDeploymentUnitId),
-                  start_date: formatDateToIsoString(lastDeploymentDate),
-                  end_date: formatDateToIsoString(currentDeploymentDate, true),
-                },
-              ]
-            : [],
+        deployments: normalizedDeployments.length
+          ? normalizedDeployments
+          : undefined,
       };
 
       await createPersonnel(payload).unwrap();
@@ -576,44 +610,78 @@ export const AddPersonnelPage = () => {
 
         {/* Deployment Section */}
         <div className="space-y-4">
-          <h2 className="text-lg font-medium text-cyan-400 border-b border-white/10 pb-2 uppercase">
-            Deployment
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SelectField
-              label="Current Deployment Unit"
-              value={currentDeploymentUnitId}
-              onChange={(e) => setCurrentDeploymentUnitId(e.target.value)}
+          <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-2">
+            <h2 className="text-lg font-medium text-cyan-400 uppercase">
+              Deployment
+            </h2>
+            <button
+              type="button"
+              onClick={addDeploymentRow}
+              className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-3 py-2 text-sm font-medium text-cyan-300 transition-colors hover:bg-cyan-500/10"
             >
-              <option value="">Select Unit</option>
-              {renderOptions(units)}
-            </SelectField>
-            <InputField
-              label="Current Deployment Date"
-              type="date"
-              value={currentDeploymentDate}
-              onChange={(e) => setCurrentDeploymentDate(e.target.value)}
-            />
-            <SelectField
-              label="Last Deployment Unit"
-              value={lastDeploymentUnitId}
-              onChange={(e) => setLastDeploymentUnitId(e.target.value)}
-            >
-              <option value="">Select Unit</option>
-              {renderOptions(units)}
-            </SelectField>
-            <InputField
-              label="Last Deployment Date"
-              type="date"
-              value={lastDeploymentDate}
-              onChange={(e) => setLastDeploymentDate(e.target.value)}
-            />
-            <InputField
-              label="Date Taken on Strength (TOS)"
-              type="date"
-              value={tosDate}
-              onChange={(e) => setTosDate(e.target.value)}
-            />
+              <Icon icon="mdi:plus" className="h-4 w-4" />
+              Add Deployment
+            </button>
+          </div>
+          <div className="space-y-4">
+            {deployments.map((deployment, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-white/10 bg-white/5 p-4"
+              >
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <span className="text-sm font-medium text-white">
+                    Deployment {index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeDeploymentRow(index)}
+                    className="inline-flex items-center gap-2 rounded-md border border-red-500/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10"
+                  >
+                    <Icon icon="mdi:trash-can-outline" className="h-4 w-4" />
+                    Remove
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <SelectField
+                    label="From Unit"
+                    value={deployment.from_unit_id}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "from_unit_id", e.target.value)
+                    }
+                  >
+                    <option value="">Select Unit</option>
+                    {renderOptions(units)}
+                  </SelectField>
+                  <SelectField
+                    label="To Unit"
+                    value={deployment.to_unit_id}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "to_unit_id", e.target.value)
+                    }
+                  >
+                    <option value="">Select Unit</option>
+                    {renderOptions(units)}
+                  </SelectField>
+                  <InputField
+                    label="Start Date"
+                    type="date"
+                    value={deployment.start_date}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "start_date", e.target.value)
+                    }
+                  />
+                  <InputField
+                    label="End Date"
+                    type="date"
+                    value={deployment.end_date}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "end_date", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

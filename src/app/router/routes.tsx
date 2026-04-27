@@ -61,6 +61,23 @@ const InventoryInfoPage = lazy(() =>
     default: module.InventoryInfoPage,
   })),
 );
+const PurchaseOrdersPage = lazy(() =>
+  import("@/features/inventory/pages/PurchaseOrdersPage").then((module) => ({
+    default: module.default,
+  })),
+);
+const PurchaseOrderFormPage = lazy(() =>
+  import("@/features/inventory/pages/PurchaseOrderFormPage").then((module) => ({
+    default: module.default,
+  })),
+);
+const PurchaseOrderDetailsPage = lazy(() =>
+  import("@/features/inventory/pages/PurchaseOrderDetailsPage").then(
+    (module) => ({
+      default: module.default,
+    }),
+  ),
+);
 const AddSupplierPage = lazy(() =>
   import("../../features/inventory/pages/AddSupplierPage").then((module) => ({
     default: module.AddSupplierPage,
@@ -114,6 +131,11 @@ const AddAssetPage = lazy(() =>
 const AddVehiclePage = lazy(() =>
   import("@/features/assets/pages/AddVehiclePage").then((module) => ({
     default: module.AddVehiclePage,
+  })),
+);
+const EditVehiclePage = lazy(() =>
+  import("@/features/assets/pages/EditVehiclePage").then((module) => ({
+    default: module.EditVehiclePage,
   })),
 );
 const AddFacilityPage = lazy(() =>
@@ -196,6 +218,16 @@ const ComingSoonPage = lazy(() =>
 const SecurityPage = lazy(() =>
   import("@/features/security/pages/SecurityPage").then((module) => ({
     default: module.SecurityPage,
+  })),
+);
+const MaintenancePage = lazy(() =>
+  import("@/features/maintenance/pages/MaintenancePage").then((module) => ({
+    default: module.MaintenancePage,
+  })),
+);
+const WorkOrderDetailsPage = lazy(() =>
+  import("@/features/maintenance/pages/WorkOrderDetailsPage").then((module) => ({
+    default: module.WorkOrderDetailsPage,
   })),
 );
 const UserDetailsPage = lazy(() =>
@@ -328,6 +360,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "assets/vehicles/:id/edit",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <EditVehiclePage />
+          </Suspense>
+        ),
+      },
+      {
         path: "assets/facilities/add",
         element: (
           <Suspense fallback={loadingElement}>
@@ -420,6 +460,30 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <InventoryRequisitionDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "inventory/purchase-orders",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <PurchaseOrdersPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "inventory/purchase-orders/new",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <PurchaseOrderFormPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "inventory/purchase-orders/:id",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <PurchaseOrderDetailsPage />
           </Suspense>
         ),
       },
@@ -540,6 +604,62 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <SecurityPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance/planning",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance/compliance",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance/work-orders",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance/work-orders/:id",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <WorkOrderDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance/defects",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance/tracking",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
           </Suspense>
         ),
       },

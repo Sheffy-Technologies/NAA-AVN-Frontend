@@ -76,32 +76,42 @@ export const AfterActionReportForm = ({
     return_landing: string;
   }>>({});
 
-  const calculateDuration = (takeoff: string, landing: string): string => {
-    if (!takeoff || !landing) return "00:00";
+  const calculateDurationMinutes = (takeoff: string, landing: string): number => {
+    if (!takeoff || !landing) return 0;
     const [takeoffHour, takeoffMin] = takeoff.split(":").map(Number);
     const [landingHour, landingMin] = landing.split(":").map(Number);
     let duration = (landingHour * 60 + landingMin) - (takeoffHour * 60 + takeoffMin);
     if (duration < 0) duration += 24 * 60;
-    const hours = Math.floor(duration / 60);
-    const mins = duration % 60;
+    return duration;
+  };
+
+  const formatDuration = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
     return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+  };
+
+  const getAssetFlightTimes = (idx: number, asset: OperationAssignedAsset) => ({
+    departure_takeoff: flightTimes[idx]?.departure_takeoff ?? (asset.departure_takeoff?.slice(0, 5) || ""),
+    departure_landing: flightTimes[idx]?.departure_landing ?? (asset.departure_landing?.slice(0, 5) || ""),
+    return_takeoff: flightTimes[idx]?.return_takeoff ?? (asset.arrival_takeoff?.slice(0, 5) || ""),
+    return_landing: flightTimes[idx]?.return_landing ?? (asset.arrival_landing?.slice(0, 5) || ""),
+  });
+
+  const calculateAssetTotalMinutes = (idx: number, asset: OperationAssignedAsset): number => {
+    const times = getAssetFlightTimes(idx, asset);
+    const depMinutes = calculateDurationMinutes(times.departure_takeoff, times.departure_landing);
+    const retMinutes = calculateDurationMinutes(times.return_takeoff, times.return_landing);
+    return depMinutes + retMinutes;
   };
 
   const calculateTotalFlightHours = (): string => {
     let totalMinutes = 0;
-    (operation?.assets || []).forEach((_, idx) => {
-      const times = flightTimes[idx];
-      if (times) {
-        const depDuration = calculateDuration(times.departure_takeoff, times.departure_landing);
-        const retDuration = calculateDuration(times.return_takeoff, times.return_landing);
-        const [depH, depM] = depDuration.split(":").map(Number);
-        const [retH, retM] = retDuration.split(":").map(Number);
-        totalMinutes += (depH * 60 + depM) + (retH * 60 + retM);
-      }
+    (operation?.assets || []).forEach((asset, idx) => {
+      totalMinutes += calculateAssetTotalMinutes(idx, asset);
     });
-    const hours = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+
+    return formatDuration(totalMinutes);
   };
 
   const handleContactChange = (
@@ -202,13 +212,15 @@ export const AfterActionReportForm = ({
     try {
       if (operation?.id) {
         const operationAssetsPayload = (operation.assets ?? []).map((asset, idx) => ({
+          ...getAssetFlightTimes(idx, asset),
           asset_id: asset.asset_id ?? asset.asset?.id ?? 0,
           pilot_id: asset.pilot_id ?? null,
           co_pilot_id: asset.co_pilot_id ?? null,
-          departure_takeoff: toApiTime(flightTimes[idx]?.departure_takeoff ?? "00:00"),
-          departure_landing: toApiTime(flightTimes[idx]?.departure_landing ?? "00:00"),
-          arrival_takeoff: toApiTime(flightTimes[idx]?.return_takeoff ?? "00:00"),
-          arrival_landing: toApiTime(flightTimes[idx]?.return_landing ?? "00:00"),
+          departure_takeoff: toApiTime(getAssetFlightTimes(idx, asset).departure_takeoff),
+          departure_landing: toApiTime(getAssetFlightTimes(idx, asset).departure_landing),
+          arrival_takeoff: toApiTime(getAssetFlightTimes(idx, asset).return_takeoff),
+          arrival_landing: toApiTime(getAssetFlightTimes(idx, asset).return_landing),
+          flight_hours: Number((calculateAssetTotalMinutes(idx, asset) / 60).toFixed(2)),
         })).filter((item) => item.asset_id > 0);
 
         await updateOperation({
@@ -362,7 +374,7 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
                         <input
                           type="time"
-                          value={flightTimes[idx]?.departure_takeoff || "00:00"}
+                          value={getAssetFlightTimes(idx, asset).departure_takeoff}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
                               ...prev,
@@ -379,7 +391,7 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
                         <input
                           type="time"
-                          value={flightTimes[idx]?.departure_landing || "00:00"}
+                          value={getAssetFlightTimes(idx, asset).departure_landing}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
                               ...prev,
@@ -395,9 +407,11 @@ export const AfterActionReportForm = ({
                       <div className="flex flex-col gap-2">
                         <label className="text-xs text-gray-400 font-medium">Total Duration</label>
                         <div className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-2xl leading-none font-bold text-white">
-                          {calculateDuration(
-                            flightTimes[idx]?.departure_takeoff || "00:00",
-                            flightTimes[idx]?.departure_landing || "00:00",
+                          {formatDuration(
+                            calculateDurationMinutes(
+                              getAssetFlightTimes(idx, asset).departure_takeoff,
+                              getAssetFlightTimes(idx, asset).departure_landing,
+                            ),
                           )}
                         </div>
                       </div>
@@ -413,7 +427,7 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
                         <input
                           type="time"
-                          value={flightTimes[idx]?.return_takeoff || "00:00"}
+                          value={getAssetFlightTimes(idx, asset).return_takeoff}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
                               ...prev,
@@ -430,7 +444,7 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
                         <input
                           type="time"
-                          value={flightTimes[idx]?.return_landing || "00:00"}
+                          value={getAssetFlightTimes(idx, asset).return_landing}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
                               ...prev,
@@ -446,14 +460,22 @@ export const AfterActionReportForm = ({
                       <div className="flex flex-col gap-2">
                         <label className="text-xs text-gray-400 font-medium">Total Duration</label>
                         <div className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-2xl leading-none font-bold text-white">
-                          {calculateDuration(
-                            flightTimes[idx]?.return_takeoff || "00:00",
-                            flightTimes[idx]?.return_landing || "00:00",
+                          {formatDuration(
+                            calculateDurationMinutes(
+                              getAssetFlightTimes(idx, asset).return_takeoff,
+                              getAssetFlightTimes(idx, asset).return_landing,
+                            ),
                           )}
                         </div>
                       </div>
                     </div>
                   </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#0A4D66]/20">
+                  <p className="text-sm font-semibold text-gray-300">
+                    Aircraft Total Flight Hours: {Number((calculateAssetTotalMinutes(idx, asset) / 60).toFixed(2)).toFixed(2)} hrs
+                  </p>
                 </div>
 
                 <div className="pt-2">

@@ -13,6 +13,7 @@ import {
   useGetAssetByIdQuery,
   useGetAssetTypesQuery,
   useGetAvionicCategoriesQuery,
+  useGetAtaChaptersQuery,
   useGetComponentTypesQuery,
   useGetDocumentTypesQuery,
   useGetEngineCategoriesQuery,
@@ -126,6 +127,7 @@ export const AddAssetPage = () => {
   const { data: enginePositions = [] } = useGetEnginePositionsQuery();
   const { data: componentTypes = [] } = useGetComponentTypesQuery();
   const { data: engineCategories = [] } = useGetEngineCategoriesQuery();
+  const { data: ataChapters = [] } = useGetAtaChaptersQuery();
   const { data: avionicCategories = [] } = useGetAvionicCategoriesQuery();
   const { data: documentTypes = [] } = useGetDocumentTypesQuery();
   const { data: operations = [] } = useGetOperationsQuery();
@@ -147,6 +149,8 @@ export const AddAssetPage = () => {
   const [photoError, setPhotoError] = useState("");
   const hasHydratedEditForm = useRef(false);
   const isSaving = isCreating || isUpdating;
+  const defaultEngineCategoryId = engineCategories[0]?.id ?? 1;
+  const defaultAtaChapterId = ataChapters[0]?.id ?? 1;
 
   useEffect(() => {
     return () => {
@@ -190,6 +194,10 @@ export const AddAssetPage = () => {
     seats: 1,
     manufacturer: "",
     purchase_date: "",
+    default_engine_category_id: "",
+    default_ata_chapter_id: "",
+    default_inspection_interval_unit: "hours",
+    default_maintenance_strategy: "hard-time",
   });
 
   // Dynamic Lists
@@ -224,6 +232,7 @@ export const AddAssetPage = () => {
         time_since_overhaul: "",
         time_since_new: "",
         overhaul_limit: "",
+        inspection_interval_unit: "hours",
         hours_used: "",
         installed_at: "",
         cycles_since_new: "",
@@ -244,6 +253,7 @@ export const AddAssetPage = () => {
       time_since_overhaul: "",
       time_since_new: "",
       overhaul_limit: "",
+      inspection_interval_unit: "hours",
       hours_used: "",
       installed_at: "",
       cycles_since_new: "",
@@ -363,6 +373,20 @@ export const AddAssetPage = () => {
       seats: Number(configMap.get("seats")) || prev.seats,
       manufacturer: loadedAsset.manufacturer || "",
       purchase_date: toDateOnly(loadedAsset.purchase_date || ""),
+      default_engine_category_id:
+        loadedAsset.engines?.[0]?.category_id != null
+          ? String(loadedAsset.engines[0].category_id)
+          : prev.default_engine_category_id,
+      default_ata_chapter_id:
+        loadedAsset.engines?.[0]?.ata_chapter_id != null
+          ? String(loadedAsset.engines[0].ata_chapter_id)
+          : prev.default_ata_chapter_id,
+      default_inspection_interval_unit:
+        loadedAsset.engines?.[0]?.inspection_interval_unit ||
+        prev.default_inspection_interval_unit,
+      default_maintenance_strategy:
+        loadedAsset.engines?.[0]?.maintenance_strategy ||
+        prev.default_maintenance_strategy,
     }));
 
     setUploadedPhotoUrl(loadedAsset.image_url || loadedAsset.image || "");
@@ -374,9 +398,9 @@ export const AddAssetPage = () => {
       model: engine.model || "",
       installation_date: toDateOnly(engine.installation_date || ""),
       time_since_new: String(engine.time_since_new || ""),
-      time_since_overhaul: String(engine.time_since_overhaul || ""),
+      time_since_overhaul: "",
       service_life_limit: String(engine.service_life_limit || ""),
-      overhaul_limit: String(engine.overhaul_limit || ""),
+      overhaul_limit: String(engine.inspection_interval || ""),
       cycles_since_new: "",
       service_life_limit_cycles: "",
       cycles_since_overhaul: "",
@@ -416,6 +440,7 @@ export const AddAssetPage = () => {
           time_since_overhaul: "",
           time_since_new: "",
           overhaul_limit: "",
+          inspection_interval_unit: "hours",
           hours_used: "",
           installed_at: "",
           cycles_since_new: "",
@@ -431,14 +456,22 @@ export const AddAssetPage = () => {
       component_type: String(
         (component as { component_type_id?: number | string }).component_type_id || "",
       ),
-      track_by: "hours" as TrackByKey,
+      track_by:
+        component.inspection_interval_unit === "cycle"
+          ? ("cycles" as TrackByKey)
+          : ("hours" as TrackByKey),
       part_number: component.part_number || "",
       serial_number: component.serial_number || "",
-      life_limit_hours: String(component.life_limit_hours || ""),
-      time_since_overhaul: String(component.time_since_overhaul || ""),
+      life_limit_hours: String(component.service_life_limit_hours || ""),
+      time_since_overhaul: "",
       time_since_new: String(component.time_since_new || ""),
-      overhaul_limit: String(component.overhaul_limit || ""),
-      hours_used: String(component.hours_used || ""),
+      overhaul_limit: String(component.inspection_interval || ""),
+      inspection_interval_unit:
+        component.inspection_interval_unit === "months" ||
+        component.inspection_interval_unit === "cycle"
+          ? component.inspection_interval_unit
+          : "hours",
+      hours_used: "",
       installed_at: toDateOnly(component.installed_at || ""),
       cycles_since_new: "",
       service_life_limit_cycles: "",
@@ -459,6 +492,7 @@ export const AddAssetPage = () => {
               time_since_overhaul: "",
               time_since_new: "",
               overhaul_limit: "",
+              inspection_interval_unit: "hours",
               hours_used: "",
               installed_at: "",
               cycles_since_new: "",
@@ -572,6 +606,12 @@ export const AddAssetPage = () => {
       seats: 1,
       manufacturer: "Lockheed Martin",
       purchase_date: "2018-06-14",
+      default_engine_category_id: engineCategories[0]
+        ? String(engineCategories[0].id)
+        : "",
+      default_ata_chapter_id: ataChapters[0] ? String(ataChapters[0].id) : "",
+      default_inspection_interval_unit: "hours",
+      default_maintenance_strategy: "hard-time",
     }));
 
     setAirframeTrackBy("both");
@@ -607,6 +647,7 @@ export const AddAssetPage = () => {
           time_since_overhaul: "10",
           time_since_new: "100",
           overhaul_limit: "250",
+          inspection_interval_unit: "hours",
           hours_used: "50",
           installed_at: isoDate,
           cycles_since_new: "20",
@@ -627,6 +668,7 @@ export const AddAssetPage = () => {
         time_since_overhaul: "30",
         time_since_new: "200",
         overhaul_limit: "400",
+        inspection_interval_unit: "hours",
         hours_used: "80",
         installed_at: isoDate,
         cycles_since_new: "50",
@@ -702,17 +744,13 @@ export const AddAssetPage = () => {
   }, [formData.service_life_limit_cycles, formData.airframe_cycles]);
 
   const nextInspectionDueHours = useMemo(() => {
-    const total = Number(formData.total_airframe_hours);
     const last = Number(formData.last_major_inspection_hours);
     const interval = Number(formData.inspection_interval);
     if (!interval || Number.isNaN(interval)) {
       return { label: "next inspection due", value: "00 hrs" };
     }
 
-    const remaining =
-      (Number.isNaN(last) ? 0 : last) +
-      interval -
-      (Number.isNaN(total) ? 0 : total);
+    const remaining = (Number.isNaN(last) ? 0 : last) - interval;
 
     if (remaining < 0) {
       return {
@@ -725,21 +763,16 @@ export const AddAssetPage = () => {
   }, [
     formData.inspection_interval,
     formData.last_major_inspection_hours,
-    formData.total_airframe_hours,
   ]);
 
   const nextInspectionDueCycles = useMemo(() => {
-    const total = Number(formData.airframe_cycles);
     const last = Number(formData.last_inspection_cycles);
     const interval = Number(formData.inspection_interval_cycles);
     if (!interval || Number.isNaN(interval)) {
       return { label: "next inspection due", value: "00 Cyc" };
     }
 
-    const remaining =
-      (Number.isNaN(last) ? 0 : last) +
-      interval -
-      (Number.isNaN(total) ? 0 : total);
+    const remaining = (Number.isNaN(last) ? 0 : last) - interval;
 
     if (remaining < 0) {
       return {
@@ -750,7 +783,6 @@ export const AddAssetPage = () => {
 
     return { label: "next inspection due", value: `${remaining} Cyc` };
   }, [
-    formData.airframe_cycles,
     formData.inspection_interval_cycles,
     formData.last_inspection_cycles,
   ]);
@@ -834,6 +866,7 @@ export const AddAssetPage = () => {
           time_since_overhaul: "",
           time_since_new: "",
           overhaul_limit: "",
+          inspection_interval_unit: "hours",
           hours_used: "",
           installed_at: "",
           cycles_since_new: "",
@@ -876,6 +909,7 @@ export const AddAssetPage = () => {
                 time_since_overhaul: "",
                 time_since_new: "",
                 overhaul_limit: "",
+                inspection_interval_unit: "hours",
                 hours_used: "",
                 installed_at: "",
                 cycles_since_new: "",
@@ -903,6 +937,20 @@ export const AddAssetPage = () => {
         ...components,
         ...engineComponentsByEngine.flatMap((list) => list),
       ];
+      const selectedEngineCategoryId =
+        Number(formData.default_engine_category_id) || defaultEngineCategoryId;
+      const selectedAtaChapterId =
+        Number(formData.default_ata_chapter_id) || defaultAtaChapterId;
+      const selectedIntervalUnit =
+        formData.default_inspection_interval_unit === "months" ||
+        formData.default_inspection_interval_unit === "cycle"
+          ? formData.default_inspection_interval_unit
+          : "hours";
+      const selectedMaintenanceStrategy =
+        formData.default_maintenance_strategy === "on-condition" ||
+        formData.default_maintenance_strategy === "condition"
+          ? formData.default_maintenance_strategy
+          : "hard-time";
 
       const payload: CreateAssetPayload = {
         type: "aircraft",
@@ -955,19 +1003,23 @@ export const AddAssetPage = () => {
               model,
               installation_date,
               time_since_new,
-              time_since_overhaul,
               service_life_limit,
               overhaul_limit,
             }) => ({
               position_id: Number(position_id) || 1,
+              category_id: selectedEngineCategoryId,
+              ata_chapter_id: selectedAtaChapterId,
               serial_number,
               model,
               installation_date: toDateOnly(installation_date),
               time_since_new: Number(time_since_new) || 0,
-              time_since_overhaul: Number(time_since_overhaul) || 0,
               service_life_limit: Number(service_life_limit) || 0,
-              overhaul_limit: Number(overhaul_limit) || 0,
-              category_id: 1, // to be reviewed
+              inspection_interval_unit: selectedIntervalUnit,
+              inspection_interval:
+                String(overhaul_limit || "").trim() === ""
+                  ? null
+                  : Number(overhaul_limit) || null,
+              maintenance_strategy: selectedMaintenanceStrategy,
             }),
           ),
 
@@ -978,23 +1030,32 @@ export const AddAssetPage = () => {
           .map(
             ({
               component_type,
+              track_by,
               part_number,
               serial_number,
               life_limit_hours,
-              time_since_overhaul,
               time_since_new,
               overhaul_limit,
-              hours_used,
+              inspection_interval_unit,
               installed_at,
             }) => ({
               component_type_id: Number(component_type) || 0,
+              ata_chapter_id: selectedAtaChapterId,
               part_number,
               serial_number,
-              total_service_hours:
-                Number(hours_used) || Number(time_since_new) || 0,
+              time_since_new: Number(time_since_new) || 0,
               service_life_limit_hours: Number(life_limit_hours) || 0,
-              last_overhaul_hours: Number(time_since_overhaul) || 0,
-              overhaul_limit: Number(overhaul_limit) || 0,
+              inspection_interval_unit:
+                track_by === "cycles" || track_by === "both"
+                  ? "cycle"
+                  : inspection_interval_unit === "months"
+                    ? "months"
+                    : "hours",
+              inspection_interval:
+                String(overhaul_limit || "").trim() === ""
+                  ? null
+                  : Number(overhaul_limit) || null,
+              maintenance_strategy: selectedMaintenanceStrategy,
               installed_at: toDateOnly(installed_at),
               removed_at: null,
             }),
@@ -1029,20 +1090,23 @@ export const AddAssetPage = () => {
               item.removed_at,
           )
           .map((item) => ({
-            // avionic_category_id: 1, // to be reviewed
             avionic_category_id: Number(item.component_type) || 0,
-            component_type_id: Number(item.component_type) || 0,
+            ata_chapter_id: selectedAtaChapterId,
             serial_number: item.serial_number,
             model: item.model || item.part_number,
-            total_service_hours:
-              Number(item.hours_used) || Number(item.time_since_new) || 0,
+            manufacturer: null,
+            time_since_new: Number(item.time_since_new) || 0,
             service_life_limit: Number(item.life_limit_hours) || 0,
-            last_overhaul_hours: Number(item.time_since_overhaul) || 0,
-            overhaul_limit: Number(item.overhaul_limit) || 0,
+            inspection_interval_unit: selectedIntervalUnit,
+            inspection_interval:
+              String(item.overhaul_limit || "").trim() === ""
+                ? null
+                : Number(item.overhaul_limit) || null,
+            maintenance_strategy: selectedMaintenanceStrategy,
             installed_at: toDateOnly(item.installed_at),
             removed_at: item.removed_at ? toDateOnly(item.removed_at) : null,
           }))
-          .filter((a) => a.component_type_id > 0),
+          .filter((a) => a.avionic_category_id > 0),
 
         defects: defects
           .filter(
@@ -1178,6 +1242,7 @@ export const AddAssetPage = () => {
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Aircraft Type</label>
               <select
+                title="Aircraft Type"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                 value={formData.asset_type_id}
                 onChange={(e) => {
@@ -1242,6 +1307,7 @@ export const AddAssetPage = () => {
               <input
                 ref={photoInputRef}
                 type="file"
+                title="Aircraft Photo"
                 accept="image/*"
                 className="hidden"
                 onChange={async (e) => {
@@ -1357,6 +1423,7 @@ export const AddAssetPage = () => {
               <label className="text-xs text-gray-400">Date Inducted</label>
               <input
                 type="date"
+                title="Date Inducted"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                 value={formData.date_inducted}
                 onChange={(e) =>
@@ -1369,6 +1436,7 @@ export const AddAssetPage = () => {
               <label className="text-xs text-gray-400">Date Into Service</label>
               <input
                 type="date"
+                title="Date Into Service"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                 value={formData.date_into_service}
                 onChange={(e) =>
@@ -1380,6 +1448,7 @@ export const AddAssetPage = () => {
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Assigned Unit</label>
               <select
+                title="Assigned Unit"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                 value={formData.unit_id}
                 onChange={(e) => handleInputChange("unit_id", e.target.value)}
@@ -1395,6 +1464,7 @@ export const AddAssetPage = () => {
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Operation Status</label>
               <select
+                title="Operation Status"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                 value={formData.operation_status}
                 onChange={(e) =>
@@ -1646,6 +1716,7 @@ export const AddAssetPage = () => {
                   </label>
                   <input
                     type="date"
+                    title="Last Major Inspection Date"
                     className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                     value={formData.last_major_inspection_date}
                     onChange={(e) =>
@@ -1679,6 +1750,7 @@ export const AddAssetPage = () => {
                   </label>
                   <input
                     type="date"
+                    title="Next Annual Inspection"
                     className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                     value={formData.next_annual_inspection}
                     onChange={(e) =>
@@ -1721,6 +1793,7 @@ export const AddAssetPage = () => {
                       time_since_overhaul: "",
                       time_since_new: "",
                       overhaul_limit: "",
+                      inspection_interval_unit: "hours",
                       cycles_since_new: "",
                       service_life_limit_cycles: "",
                       cycles_since_overhaul: "",
@@ -1746,24 +1819,20 @@ export const AddAssetPage = () => {
                     return `${Math.max(0, remaining)} hrs`;
                   })();
 
-                  const nextOverhaulDue = (() => {
-                    const total = Number(comp.time_since_new);
+                  const nextInspectionDue = (() => {
                     const last = Number(comp.time_since_overhaul);
                     const limit = Number(comp.overhaul_limit);
                     if (!limit || Number.isNaN(limit))
-                      return { label: "next Overhaul due", value: "00 hrs" };
-                    const delta =
-                      (Number.isNaN(total) ? 0 : total) -
-                      (Number.isNaN(last) ? 0 : last) -
-                      limit;
+                      return { label: "next inspection due", value: "00 hrs" };
+                    const delta = (Number.isNaN(last) ? 0 : last) - limit;
                     if (delta > 0) {
                       return {
-                        label: "overhaul overdue by",
+                        label: "inspection overdue by",
                         value: `${delta} hrs`,
                       };
                     }
                     return {
-                      label: "next Overhaul due",
+                      label: "next inspection due",
                       value: `${Math.abs(delta)} hrs`,
                     };
                   })();
@@ -1781,6 +1850,8 @@ export const AddAssetPage = () => {
                         </div>
                         <button
                           type="button"
+                          title="Remove Airframe Component"
+                          aria-label="Remove Airframe Component"
                           onClick={() =>
                             removeItem(setComponents, components, idx)
                           }
@@ -1840,9 +1911,10 @@ export const AddAssetPage = () => {
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="space-y-1">
                           <label className="text-xs text-gray-400">
-                            Component Type
+                            Component Description
                           </label>
                           <select
+                            title="Component Type"
                             className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                             value={comp.component_type}
                             onChange={(e) =>
@@ -1855,7 +1927,7 @@ export const AddAssetPage = () => {
                               )
                             }
                           >
-                            <option value="">Select Type</option>
+                            <option value="">Select Description</option>
                             {componentTypes.map((t) => (
                               <option key={t.id} value={t.id}>
                                 {t.name}
@@ -1909,6 +1981,7 @@ export const AddAssetPage = () => {
                           </label>
                           <input
                             type="date"
+                            title="Component Installation Date"
                             className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                             value={comp.installed_at}
                             onChange={(e) =>
@@ -1976,7 +2049,7 @@ export const AddAssetPage = () => {
                             </div>
                             <div className="space-y-1">
                               <label className="text-xs text-gray-400">
-                                Last Overhaul hrs
+                                Last Inspection Reading hrs
                               </label>
                               <input
                                 type="number"
@@ -1996,7 +2069,7 @@ export const AddAssetPage = () => {
                             </div>
                             <div className="space-y-1">
                               <label className="text-xs text-gray-400">
-                                Overhaul Limit
+                                Inspection Interval
                               </label>
                               <input
                                 type="number"
@@ -2016,10 +2089,33 @@ export const AddAssetPage = () => {
                             </div>
                             <div className="space-y-1">
                               <label className="text-xs text-gray-400">
-                                {nextOverhaulDue.label}
+                                Interval Unit
+                              </label>
+                              <select
+                                title="Component Inspection Interval Unit"
+                                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                value={comp.inspection_interval_unit || "hours"}
+                                onChange={(e) =>
+                                  updateItem(
+                                    setComponents,
+                                    components,
+                                    idx,
+                                    "inspection_interval_unit",
+                                    e.target.value,
+                                  )
+                                }
+                              >
+                                <option value="hours">Hours</option>
+                                <option value="months">Months</option>
+                                <option value="cycle">Cycle</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">
+                                {nextInspectionDue.label}
                               </label>
                               <div className="text-2xl font-bold text-white">
-                                {nextOverhaulDue.value}
+                                {nextInspectionDue.value}
                               </div>
                             </div>
                           </>
@@ -2070,7 +2166,7 @@ export const AddAssetPage = () => {
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs text-gray-400">
-                              Last Overhaul Cycles
+                              Last Inspection Cycles Reference
                             </label>
                             <input
                               type="number"
@@ -2090,7 +2186,7 @@ export const AddAssetPage = () => {
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs text-gray-400">
-                              Overhaul Interval (cycles)
+                              Inspection Interval (cycles)
                             </label>
                             <input
                               type="number"
@@ -2129,25 +2225,21 @@ export const AddAssetPage = () => {
                           <div className="space-y-1">
                             <label className="text-xs text-gray-400">
                               {(() => {
-                                const total = Number(comp.cycles_since_new);
                                 const last = Number(comp.cycles_since_overhaul);
                                 const limit = Number(
                                   comp.overhaul_limit_cycles,
                                 );
                                 if (!limit || Number.isNaN(limit))
-                                  return "next Overhaul due";
+                                  return "next inspection due";
                                 const delta =
-                                  (Number.isNaN(total) ? 0 : total) -
-                                  (Number.isNaN(last) ? 0 : last) -
-                                  limit;
+                                  (Number.isNaN(last) ? 0 : last) - limit;
                                 return delta > 0
-                                  ? "overhaul overdue by"
-                                  : "next Overhaul due";
+                                  ? "inspection overdue by"
+                                  : "next inspection due";
                               })()}
                             </label>
                             <div className="text-2xl font-bold text-white">
                               {(() => {
-                                const total = Number(comp.cycles_since_new);
                                 const last = Number(comp.cycles_since_overhaul);
                                 const limit = Number(
                                   comp.overhaul_limit_cycles,
@@ -2155,9 +2247,7 @@ export const AddAssetPage = () => {
                                 if (!limit || Number.isNaN(limit))
                                   return "00 Cyc";
                                 const delta =
-                                  (Number.isNaN(total) ? 0 : total) -
-                                  (Number.isNaN(last) ? 0 : last) -
-                                  limit;
+                                  (Number.isNaN(last) ? 0 : last) - limit;
                                 return delta > 0
                                   ? `${delta} Cyc`
                                   : `${Math.abs(delta)} Cyc`;
@@ -2193,6 +2283,8 @@ export const AddAssetPage = () => {
                   {engines.length > 1 ? (
                     <button
                       type="button"
+                      title="Remove Engine"
+                      aria-label="Remove Engine"
                       onClick={(e) => {
                         e.stopPropagation();
                         removeEngine(idx);
@@ -2213,6 +2305,78 @@ export const AddAssetPage = () => {
                 <Icon icon="mdi:plus-circle-outline" className="w-4 h-4" />
                 Add Engine
               </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">Engine Category</label>
+                <select
+                  title="Engine Category"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                  value={formData.default_engine_category_id}
+                  onChange={(e) =>
+                    handleInputChange("default_engine_category_id", e.target.value)
+                  }
+                >
+                  <option value="">Use default ({defaultEngineCategoryId})</option>
+                  {engineCategories.map((category) => (
+                    <option key={category.id} value={String(category.id)}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">ATA Chapter</label>
+                <select
+                  title="ATA Chapter"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                  value={formData.default_ata_chapter_id}
+                  onChange={(e) =>
+                    handleInputChange("default_ata_chapter_id", e.target.value)
+                  }
+                >
+                  <option value="">Use default ({defaultAtaChapterId})</option>
+                  {ataChapters.map((chapter) => (
+                    <option key={chapter.id} value={String(chapter.id)}>
+                      {chapter.chapter_number || chapter.name || `ATA ${chapter.id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">Interval Unit</label>
+                <select
+                  title="Interval Unit"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                  value={formData.default_inspection_interval_unit}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "default_inspection_interval_unit",
+                      e.target.value,
+                    )
+                  }
+                >
+                  <option value="hours">Hours</option>
+                  <option value="months">Months</option>
+                  <option value="cycle">Cycle</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-400">Maintenance Strategy</label>
+                <select
+                  title="Maintenance Strategy"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                  value={formData.default_maintenance_strategy}
+                  onChange={(e) =>
+                    handleInputChange("default_maintenance_strategy", e.target.value)
+                  }
+                >
+                  <option value="hard-time">Hard Time</option>
+                  <option value="on-condition">On Condition</option>
+                  <option value="condition">Condition</option>
+                </select>
+              </div>
             </div>
 
             {engines[activeEngineIndex] ? (
@@ -2293,6 +2457,7 @@ export const AddAssetPage = () => {
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">Position</label>
                       <select
+                        title="Engine Position"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={engines[activeEngineIndex].position_id}
                         onChange={(e) =>
@@ -2365,6 +2530,7 @@ export const AddAssetPage = () => {
                       </label>
                       <input
                         type="date"
+                        title="Engine Installation Date"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={engines[activeEngineIndex].installation_date}
                         onChange={(e) =>
@@ -2444,7 +2610,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Last Overhaul hrs
+                          Last Inspection Reading hrs
                         </label>
                         <input
                           type="number"
@@ -2464,7 +2630,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Overhaul Limit
+                          Inspection Interval
                         </label>
                         <input
                           type="number"
@@ -2485,9 +2651,6 @@ export const AddAssetPage = () => {
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
                           {(() => {
-                            const total = Number(
-                              engines[activeEngineIndex].time_since_new,
-                            );
                             const last = Number(
                               engines[activeEngineIndex].time_since_overhaul,
                             );
@@ -2495,21 +2658,16 @@ export const AddAssetPage = () => {
                               engines[activeEngineIndex].overhaul_limit,
                             );
                             if (!interval || Number.isNaN(interval))
-                              return "next Overhaul due";
+                              return "next inspection due";
                             const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              interval;
+                              (Number.isNaN(last) ? 0 : last) - interval;
                             return delta > 0
-                              ? "overhaul overdue by"
-                              : "next Overhaul due";
+                              ? "inspection overdue by"
+                              : "next inspection due";
                           })()}
                         </label>
                         <div className="text-2xl font-bold text-white">
                           {(() => {
-                            const total = Number(
-                              engines[activeEngineIndex].time_since_new,
-                            );
                             const last = Number(
                               engines[activeEngineIndex].time_since_overhaul,
                             );
@@ -2519,9 +2677,7 @@ export const AddAssetPage = () => {
                             if (!interval || Number.isNaN(interval))
                               return "00 hrs";
                             const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              interval;
+                              (Number.isNaN(last) ? 0 : last) - interval;
                             return delta > 0
                               ? `${delta} hrs`
                               : `${Math.abs(delta)} hrs`;
@@ -2598,7 +2754,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Last Overhaul Cycles
+                          Last Inspection Cycles Reference
                         </label>
                         <input
                           type="number"
@@ -2620,7 +2776,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Overhaul Limit
+                          Inspection Interval
                         </label>
                         <input
                           type="number"
@@ -2643,9 +2799,6 @@ export const AddAssetPage = () => {
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
                           {(() => {
-                            const total = Number(
-                              engines[activeEngineIndex].cycles_since_new,
-                            );
                             const last = Number(
                               engines[activeEngineIndex].cycles_since_overhaul,
                             );
@@ -2653,21 +2806,16 @@ export const AddAssetPage = () => {
                               engines[activeEngineIndex].overhaul_limit_cycles,
                             );
                             if (!interval || Number.isNaN(interval))
-                              return "next Overhaul due";
+                              return "next inspection due";
                             const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              interval;
+                              (Number.isNaN(last) ? 0 : last) - interval;
                             return delta > 0
-                              ? "overhaul overdue by"
-                              : "next Overhaul due";
+                              ? "inspection overdue by"
+                              : "next inspection due";
                           })()}
                         </label>
                         <div className="text-2xl font-bold text-white">
                           {(() => {
-                            const total = Number(
-                              engines[activeEngineIndex].cycles_since_new,
-                            );
                             const last = Number(
                               engines[activeEngineIndex].cycles_since_overhaul,
                             );
@@ -2677,9 +2825,7 @@ export const AddAssetPage = () => {
                             if (!interval || Number.isNaN(interval))
                               return "00 Cyc";
                             const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              interval;
+                              (Number.isNaN(last) ? 0 : last) - interval;
                             return delta > 0
                               ? `${delta} Cyc`
                               : `${Math.abs(delta)} Cyc`;
@@ -2718,6 +2864,8 @@ export const AddAssetPage = () => {
                             </div>
                             <button
                               type="button"
+                              title="Remove Engine Component"
+                              aria-label="Remove Engine Component"
                               onClick={() => removeEngineComponent(idx)}
                               className="text-gray-500 hover:text-red-500"
                             >
@@ -2818,6 +2966,7 @@ export const AddAssetPage = () => {
                                   Component Type
                                 </label>
                                 <select
+                                  title="Engine Component Type"
                                   className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                                   value={comp.component_type}
                                   onChange={(e) =>
@@ -2907,6 +3056,7 @@ export const AddAssetPage = () => {
                                 </label>
                                 <input
                                   type="date"
+                                  title="Engine Component Installation Date"
                                   className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                                   value={comp.installed_at}
                                   onChange={(e) =>
@@ -3010,7 +3160,7 @@ export const AddAssetPage = () => {
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-xs text-gray-400">
-                                    Last Overhaul hrs
+                                    Last Inspection Reading hrs
                                   </label>
                                   <input
                                     type="number"
@@ -3038,7 +3188,7 @@ export const AddAssetPage = () => {
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-xs text-gray-400">
-                                    Overhaul Limit
+                                    Inspection Interval
                                   </label>
                                   <input
                                     type="number"
@@ -3067,7 +3217,6 @@ export const AddAssetPage = () => {
                                 <div className="space-y-1">
                                   <label className="text-xs text-gray-400">
                                     {(() => {
-                                      const total = Number(comp.time_since_new);
                                       const last = Number(
                                         comp.time_since_overhaul,
                                       );
@@ -3075,19 +3224,17 @@ export const AddAssetPage = () => {
                                         comp.overhaul_limit,
                                       );
                                       if (!interval || Number.isNaN(interval))
-                                        return "next Overhaul due";
+                                        return "next inspection due";
                                       const delta =
-                                        (Number.isNaN(total) ? 0 : total) -
                                         (Number.isNaN(last) ? 0 : last) -
                                         interval;
                                       return delta > 0
-                                        ? "overhaul overdue by"
-                                        : "next Overhaul due";
+                                        ? "inspection overdue by"
+                                        : "next inspection due";
                                     })()}
                                   </label>
                                   <div className="text-2xl font-bold text-white">
                                     {(() => {
-                                      const total = Number(comp.time_since_new);
                                       const last = Number(
                                         comp.time_since_overhaul,
                                       );
@@ -3097,7 +3244,6 @@ export const AddAssetPage = () => {
                                       if (!interval || Number.isNaN(interval))
                                         return "00 hrs";
                                       const delta =
-                                        (Number.isNaN(total) ? 0 : total) -
                                         (Number.isNaN(last) ? 0 : last) -
                                         interval;
                                       return delta > 0
@@ -3191,7 +3337,7 @@ export const AddAssetPage = () => {
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-xs text-gray-400">
-                                    Last Overhaul Cycles
+                                    Last Inspection Cycles Reference
                                   </label>
                                   <input
                                     type="number"
@@ -3219,7 +3365,7 @@ export const AddAssetPage = () => {
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-xs text-gray-400">
-                                    Overhaul Limit
+                                    Inspection Interval
                                   </label>
                                   <input
                                     type="number"
@@ -3248,9 +3394,6 @@ export const AddAssetPage = () => {
                                 <div className="space-y-1">
                                   <label className="text-xs text-gray-400">
                                     {(() => {
-                                      const total = Number(
-                                        comp.cycles_since_new,
-                                      );
                                       const last = Number(
                                         comp.cycles_since_overhaul,
                                       );
@@ -3258,21 +3401,17 @@ export const AddAssetPage = () => {
                                         comp.overhaul_limit_cycles,
                                       );
                                       if (!interval || Number.isNaN(interval))
-                                        return "next Overhaul due";
+                                        return "next inspection due";
                                       const delta =
-                                        (Number.isNaN(total) ? 0 : total) -
                                         (Number.isNaN(last) ? 0 : last) -
                                         interval;
                                       return delta > 0
-                                        ? "overhaul overdue by"
-                                        : "next Overhaul due";
+                                        ? "inspection overdue by"
+                                        : "next inspection due";
                                     })()}
                                   </label>
                                   <div className="text-2xl font-bold text-white">
                                     {(() => {
-                                      const total = Number(
-                                        comp.cycles_since_new,
-                                      );
                                       const last = Number(
                                         comp.cycles_since_overhaul,
                                       );
@@ -3282,7 +3421,6 @@ export const AddAssetPage = () => {
                                       if (!interval || Number.isNaN(interval))
                                         return "00 Cyc";
                                       const delta =
-                                        (Number.isNaN(total) ? 0 : total) -
                                         (Number.isNaN(last) ? 0 : last) -
                                         interval;
                                       return delta > 0
@@ -3351,6 +3489,8 @@ export const AddAssetPage = () => {
                     </div>
                     <button
                       type="button"
+                      title="Remove Avionics Component"
+                      aria-label="Remove Avionics Component"
                       onClick={() =>
                         removeItem(
                           setAvionicsComponents,
@@ -3435,6 +3575,7 @@ export const AddAssetPage = () => {
                         Component Type
                       </label>
                       <select
+                        title="Avionics Component Type"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={comp.component_type}
                         onChange={(e) =>
@@ -3501,6 +3642,7 @@ export const AddAssetPage = () => {
                       </label>
                       <input
                         type="date"
+                        title="Avionics Installation Date"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={comp.installed_at}
                         onChange={(e) =>
@@ -3541,6 +3683,7 @@ export const AddAssetPage = () => {
                       </label>
                       <input
                         type="date"
+                        title="Avionics Removed Date"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={comp.removed_at}
                         onChange={(e) =>
@@ -3615,7 +3758,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Last Overhaul hrs
+                          Last Inspection Reading hrs
                         </label>
                         <input
                           type="number"
@@ -3635,7 +3778,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Overhaul Limit
+                          Inspection Interval
                         </label>
                         <input
                           type="number"
@@ -3656,31 +3799,25 @@ export const AddAssetPage = () => {
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
                           {(() => {
-                            const total = Number(comp.time_since_new);
                             const last = Number(comp.time_since_overhaul);
                             const interval = Number(comp.overhaul_limit);
                             if (!interval || Number.isNaN(interval))
-                              return "next Overhaul due";
+                              return "next inspection due";
                             const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              interval;
+                              (Number.isNaN(last) ? 0 : last) - interval;
                             return delta > 0
-                              ? "overhaul overdue by"
-                              : "next Overhaul due";
+                              ? "inspection overdue by"
+                              : "next inspection due";
                           })()}
                         </label>
                         <div className="text-2xl font-bold text-white">
                           {(() => {
-                            const total = Number(comp.time_since_new);
                             const last = Number(comp.time_since_overhaul);
                             const interval = Number(comp.overhaul_limit);
                             if (!interval || Number.isNaN(interval))
                               return "00 hrs";
                             const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              interval;
+                              (Number.isNaN(last) ? 0 : last) - interval;
                             return delta > 0
                               ? `${delta} hrs`
                               : `${Math.abs(delta)} hrs`;
@@ -3751,7 +3888,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Last Overhaul Cycles
+                          Last Inspection Cycles Reference
                         </label>
                         <input
                           type="number"
@@ -3771,7 +3908,7 @@ export const AddAssetPage = () => {
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Overhaul Limit
+                          Inspection Interval
                         </label>
                         <input
                           type="number"
@@ -3792,30 +3929,22 @@ export const AddAssetPage = () => {
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
                           {(() => {
-                            const total = Number(comp.cycles_since_new);
                             const last = Number(comp.cycles_since_overhaul);
                             const limit = Number(comp.overhaul_limit_cycles);
                             if (!limit || Number.isNaN(limit))
-                              return "next Overhaul due";
-                            const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              limit;
+                              return "next inspection due";
+                            const delta = (Number.isNaN(last) ? 0 : last) - limit;
                             return delta > 0
-                              ? "overhaul overdue by"
-                              : "next Overhaul due";
+                              ? "inspection overdue by"
+                              : "next inspection due";
                           })()}
                         </label>
                         <div className="text-2xl font-bold text-white">
                           {(() => {
-                            const total = Number(comp.cycles_since_new);
                             const last = Number(comp.cycles_since_overhaul);
                             const limit = Number(comp.overhaul_limit_cycles);
                             if (!limit || Number.isNaN(limit)) return "00 Cyc";
-                            const delta =
-                              (Number.isNaN(total) ? 0 : total) -
-                              (Number.isNaN(last) ? 0 : last) -
-                              limit;
+                            const delta = (Number.isNaN(last) ? 0 : last) - limit;
                             return delta > 0
                               ? `${delta} Cyc`
                               : `${Math.abs(delta)} Cyc`;
@@ -3871,6 +4000,8 @@ export const AddAssetPage = () => {
                     </div>
                     <button
                       type="button"
+                      title="Remove Defect"
+                      aria-label="Remove Defect"
                       onClick={() => removeItem(setDefects, defects, idx)}
                       className="text-gray-500 hover:text-red-500"
                     >
@@ -3905,6 +4036,7 @@ export const AddAssetPage = () => {
                       </label>
                       <input
                         type="date"
+                        title="Date of Defect"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={defect.date_of_defect}
                         onChange={(e) =>
@@ -3921,6 +4053,7 @@ export const AddAssetPage = () => {
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">Operation</label>
                       <select
+                        title="Operation"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={defect.operation_id}
                         onChange={(e) =>
@@ -4076,6 +4209,7 @@ export const AddAssetPage = () => {
                             Certifying Engineer
                           </label>
                           <select
+                            title="Certifying Engineer"
                             className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                             value={defect.certifying_engineer}
                             onChange={(e) =>
@@ -4138,6 +4272,8 @@ export const AddAssetPage = () => {
                 >
                   <button
                     type="button"
+                    title="Remove Document"
+                    aria-label="Remove Document"
                     onClick={() => removeItem(setDocuments, documents, idx)}
                     className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
                   >
@@ -4152,6 +4288,7 @@ export const AddAssetPage = () => {
                         Document Type
                       </label>
                       <select
+                        title="Document Type"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={doc.document_type}
                         onChange={(e) =>
@@ -4180,6 +4317,7 @@ export const AddAssetPage = () => {
                             fileInputRefs.current[idx] = el;
                           }}
                           type="file"
+                          title="Upload Document File"
                           className="hidden"
                           onChange={(e) => {
                             const selectedFile = e.target.files?.[0];
@@ -4212,6 +4350,7 @@ export const AddAssetPage = () => {
                       </label>
                       <input
                         type="date"
+                        title="Issue Date"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={doc.issue_date}
                         onChange={(e) =>
@@ -4231,6 +4370,7 @@ export const AddAssetPage = () => {
                       </label>
                       <input
                         type="date"
+                        title="Expiry Date"
                         className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                         value={doc.expiry_date}
                         onChange={(e) =>

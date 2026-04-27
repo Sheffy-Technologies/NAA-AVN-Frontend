@@ -6,7 +6,6 @@ import {
   useCreateInventoryMutation,
   useGetExpenseCategoriesQuery,
   useGetInventoryByIdQuery,
-  useGetSuppliersQuery,
   useUpdateInventoryMutation,
   type InventoryItem,
 } from "@/features/inventory/api";
@@ -16,14 +15,14 @@ import { useGetAssetTypesQuery } from "@/features/assets/api";
 type FormMode = "create" | "edit";
 
 type StockType =
-  | "aircraft_spares"
-  | "consumables"
-  | "ground_support"
-  | "general"
+  | "bonded"
+  | "quarantine"
+  | "flammable"
+  | "rubber"
   | "others";
 
 type InventoryFormValues = {
-  type: StockType;
+  store: StockType;
   asset_id: number | "";
   expense_category_id: number | "";
   unit_id: number | "";
@@ -34,15 +33,13 @@ type InventoryFormValues = {
   re_order_level: string;
   unit_cost: string;
   measurement_unit: string;
-  supplier_id: number | "";
   expiry_date: string;
   date_received: string;
   remark: string;
-  quantity: string;
 };
 
 const emptyFormValues: InventoryFormValues = {
-  type: "aircraft_spares",
+  store: "others",
   asset_id: "",
   expense_category_id: "",
   unit_id: "",
@@ -53,28 +50,20 @@ const emptyFormValues: InventoryFormValues = {
   re_order_level: "",
   unit_cost: "",
   measurement_unit: "",
-  supplier_id: "",
   expiry_date: "",
   date_received: "",
   remark: "",
-  quantity: "",
 };
 
 const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => ({
-  type:
-    item.type === "aircraft_spares" ||
-    item.type === "aircraft" ||
-    item.type === "consumables" ||
-    item.type === "oem" ||
-    item.type === "ground_support" ||
-    item.type === "general" ||
-    item.type === "others"
-      ? item.type === "aircraft"
-        ? "aircraft_spares"
-        : item.type === "oem"
-          ? "consumables"
-          : item.type
-      : "aircraft_spares",
+  store:
+    item.store === "bonded" ||
+    item.store === "quarantine" ||
+    item.store === "flammable" ||
+    item.store === "rubber" ||
+    item.store === "others"
+      ? item.store
+      : "others",
   asset_id: item.asset_id ?? "",
   expense_category_id: item.expense_category_id,
   unit_id: item.unit_id,
@@ -85,11 +74,9 @@ const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => ({
   re_order_level: String(item.re_order_level ?? ""),
   unit_cost: String(item.unit_cost ?? ""),
   measurement_unit: item.measurement_unit ?? "",
-  supplier_id: item.supplier_id ?? "",
   expiry_date: item.expiry_date ?? "",
   date_received: item.date_received ?? "",
   remark: item.remark ?? "",
-  quantity: String(item.current_stock ?? ""),
 });
 
 type InventoryFormContentProps = {
@@ -131,16 +118,12 @@ const InventoryFormContent = ({
     Partial<Record<keyof InventoryFormValues, string>>
   >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const isAircraftSpares = values.type === "aircraft_spares";
 
   const pageTitle = mode === "create" ? "Add Stock" : "Edit";
   const primaryButtonLabel = mode === "create" ? "Save" : "Save Changes";
 
   const { data: assetTypes = [], isLoading: isAssetTypesLoading } =
     useGetAssetTypesQuery();
-  const { data: suppliers = [], isLoading: isSuppliersLoading } =
-    useGetSuppliersQuery();
-
   const handleChange =
     (field: keyof InventoryFormValues) =>
     (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -154,8 +137,6 @@ const InventoryFormContent = ({
       values.current_stock.trim().length > 0
         ? Number(values.current_stock)
         : undefined;
-    const quantityNumeric =
-      values.quantity.trim().length > 0 ? Number(values.quantity) : undefined;
     const unitCostNumeric =
       values.unit_cost.trim().length > 0 ? Number(values.unit_cost) : undefined;
     const reOrderNumeric =
@@ -166,12 +147,10 @@ const InventoryFormContent = ({
     return {
       currentStockNumeric,
       reOrderNumeric,
-      quantityNumeric,
       unitCostNumeric,
     };
   }, [
     values.current_stock,
-    values.quantity,
     values.re_order_level,
     values.unit_cost,
   ]);
@@ -182,13 +161,9 @@ const InventoryFormContent = ({
     if (!values.description.trim()) newErrors.description = "Required";
     if (!values.serial_number.trim()) newErrors.serial_number = "Required";
     if (!values.part_number.trim()) newErrors.part_number = "Required";
-    if (!values.supplier_id) newErrors.supplier_id = "Required";
     if (!values.current_stock.trim()) newErrors.current_stock = "Required";
     if (!values.re_order_level.trim()) newErrors.re_order_level = "Required";
     if (!values.unit_id) newErrors.unit_id = "Required";
-    if (!isAircraftSpares && !values.expense_category_id)
-      newErrors.expense_category_id = "Required";
-    if (isAircraftSpares && !values.asset_id) newErrors.asset_id = "Required";
 
     if (
       values.re_order_level.trim() &&
@@ -217,27 +192,25 @@ const InventoryFormContent = ({
     const {
       currentStockNumeric,
       reOrderNumeric,
-      quantityNumeric,
       unitCostNumeric,
     } = parsedPayload;
 
     const computedAssetId =
-      values.type === "aircraft_spares"
-        ? typeof values.asset_id === "number"
+      values.asset_id === ""
+        ? null
+        : typeof values.asset_id === "number"
           ? values.asset_id
-          : Number(values.asset_id)
-        : mode === "edit" && inventory
-          ? (inventory.asset_id ?? null)
-          : null;
+          : Number(values.asset_id);
 
     const basePayload = {
-      type: values.type,
+      store: values.store,
       asset_id: computedAssetId,
-      expense_category_id: isAircraftSpares
-        ? (inventory?.expense_category_id ?? null)
-        : typeof values.expense_category_id === "number"
-          ? values.expense_category_id
-          : Number(values.expense_category_id),
+      expense_category_id:
+        values.expense_category_id === ""
+          ? null
+          : typeof values.expense_category_id === "number"
+            ? values.expense_category_id
+            : Number(values.expense_category_id),
       unit_id:
         typeof values.unit_id === "number"
           ? values.unit_id
@@ -248,15 +221,10 @@ const InventoryFormContent = ({
       re_order_level: reOrderNumeric ?? 0,
       measurement_unit: inventory?.measurement_unit ?? "",
       unit_cost: unitCostNumeric ?? 0,
-      supplier_id:
-        typeof values.supplier_id === "number"
-          ? values.supplier_id
-          : Number(values.supplier_id),
       expiry_date: values.expiry_date.trim() || null,
       date_received: values.date_received.trim() || null,
       remark: values.remark.trim(),
       description: values.description.trim(),
-      quantity: quantityNumeric ?? 0,
     };
 
     try {
@@ -309,103 +277,113 @@ const InventoryFormContent = ({
                   type="radio"
                   name="stockType"
                   className="form-radio text-[#7FD5FF]"
-                  checked={values.type === "aircraft_spares"}
+                  checked={values.store === "bonded"}
                   onChange={() =>
                     setValues((prev) => ({
                       ...prev,
-                      type: "aircraft_spares",
-                      asset_id: "",
+                      store: "bonded",
                     }))
                   }
                 />
-                <span>Aircraft spares</span>
+                <span>Bonded</span>
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   name="stockType"
                   className="form-radio text-[#7FD5FF]"
-                  checked={values.type === "consumables"}
+                  checked={values.store === "quarantine"}
                   onChange={() =>
                     setValues((prev) => ({
                       ...prev,
-                      type: "consumables",
-                      asset_id: "",
+                      store: "quarantine",
                     }))
                   }
                 />
-                <span>Consumables</span>
+                <span>Quarantine</span>
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   name="stockType"
                   className="form-radio text-[#7FD5FF]"
-                  checked={values.type === "ground_support"}
+                  checked={values.store === "flammable"}
                   onChange={() =>
                     setValues((prev) => ({
                       ...prev,
-                      type: "ground_support",
-                      asset_id: "",
+                      store: "flammable",
                     }))
                   }
                 />
-                <span>Ground support</span>
+                <span>Flammable</span>
               </label>
               <label className="inline-flex items-center gap-2 cursor-pointer">
                 <input
                   type="radio"
                   name="stockType"
                   className="form-radio text-[#7FD5FF]"
-                  checked={values.type === "general"}
+                  checked={values.store === "rubber"}
                   onChange={() =>
                     setValues((prev) => ({
                       ...prev,
-                      type: "general",
-                      asset_id: "",
+                      store: "rubber",
                     }))
                   }
                 />
-                <span>General(Qm Stores)</span>
+                <span>Rubber</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="stockType"
+                  className="form-radio text-[#7FD5FF]"
+                  checked={values.store === "others"}
+                  onChange={() =>
+                    setValues((prev) => ({
+                      ...prev,
+                      store: "others",
+                    }))
+                  }
+                />
+                <span>Others</span>
               </label>
             </div>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
-            {values.type === "aircraft_spares" && (
-              <div className="space-y-1">
-                <label className="text-[11px] uppercase text-gray-400">
-                  Aircraft
-                </label>
-                <div className="relative">
-                  <select
-                    value={values.asset_id}
-                    onChange={handleChange("asset_id")}
-                    className={cn(
-                      "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
-                      isAssetTypesLoading && "opacity-70 cursor-not-allowed",
-                    )}
-                    disabled={isAssetTypesLoading}
-                  >
-                    <option value="">
-                      {isAssetTypesLoading ? "Loading..." : "Select"}
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
+                Aircraft
+              </label>
+              <div className="relative">
+                <select
+                  value={values.asset_id}
+                  onChange={handleChange("asset_id")}
+                  title="Aircraft"
+                  className={cn(
+                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
+                    isAssetTypesLoading && "opacity-70 cursor-not-allowed",
+                  )}
+                  disabled={isAssetTypesLoading}
+                >
+                  <option value="">
+                    {isAssetTypesLoading ? "Loading..." : "Select"}
+                  </option>
+                  {assetTypes.map((assetType) => (
+                    <option key={assetType.id} value={assetType.id}>
+                      {assetType.name}
                     </option>
-                    {assetTypes.map((assetType) => (
-                      <option key={assetType.id} value={assetType.id}>
-                        {assetType.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  />
-                </div>
-                {errors.asset_id && (
-                  <p className="text-[11px] text-red-400">{errors.asset_id}</p>
-                )}
+                  ))}
+                </select>
+                <Icon
+                  icon="mdi:chevron-down"
+                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                />
               </div>
-            )}
+              {errors.asset_id && (
+                <p className="text-[11px] text-red-400">{errors.asset_id}</p>
+              )}
+            </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
@@ -441,42 +419,41 @@ const InventoryFormContent = ({
               )}
             </div>
 
-            {!isAircraftSpares && (
-              <div className="space-y-1">
-                <label className="text-[11px] uppercase text-gray-400">
-                  Category
-                </label>
-                <div className="relative">
-                  <select
-                    value={values.expense_category_id}
-                    onChange={handleChange("expense_category_id")}
-                    className={cn(
-                      "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
-                      isCategoriesLoading && "opacity-70 cursor-not-allowed",
-                    )}
-                    disabled={isCategoriesLoading}
-                  >
-                    <option value="">
-                      {isCategoriesLoading ? "Loading..." : "Select Category"}
+            <div className="space-y-1">
+              <label className="text-[11px] uppercase text-gray-400">
+                Category
+              </label>
+              <div className="relative">
+                <select
+                  value={values.expense_category_id}
+                  onChange={handleChange("expense_category_id")}
+                  title="Category"
+                  className={cn(
+                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
+                    isCategoriesLoading && "opacity-70 cursor-not-allowed",
+                  )}
+                  disabled={isCategoriesLoading}
+                >
+                  <option value="">
+                    {isCategoriesLoading ? "Loading..." : "Select Category"}
+                  </option>
+                  {categories?.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
                     </option>
-                    {categories?.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  />
-                </div>
-                {errors.expense_category_id && (
-                  <p className="text-[11px] text-red-400">
-                    {errors.expense_category_id}
-                  </p>
-                )}
+                  ))}
+                </select>
+                <Icon
+                  icon="mdi:chevron-down"
+                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                />
               </div>
-            )}
+              {errors.expense_category_id && (
+                <p className="text-[11px] text-red-400">
+                  {errors.expense_category_id}
+                </p>
+              )}
+            </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">
@@ -504,6 +481,7 @@ const InventoryFormContent = ({
                 <select
                   value={values.unit_id}
                   onChange={handleChange("unit_id")}
+                  title="Unit"
                   className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
                 >
                   <option value="">
@@ -611,6 +589,8 @@ const InventoryFormContent = ({
                 type="date"
                 value={values.expiry_date}
                 onChange={handleChange("expiry_date")}
+                title="Expiry Date"
+                placeholder="Select expiry date"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
               />
             </div>
@@ -623,42 +603,10 @@ const InventoryFormContent = ({
                 type="date"
                 value={values.date_received}
                 onChange={handleChange("date_received")}
+                title="Date Received"
+                placeholder="Select date received"
                 className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
               />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Vendor/Supplier
-              </label>
-              <div className="relative">
-                <select
-                  value={values.supplier_id}
-                  onChange={handleChange("supplier_id")}
-                  title="Vendor/Supplier"
-                  className={cn(
-                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
-                    isSuppliersLoading && "opacity-70 cursor-not-allowed",
-                  )}
-                  disabled={isSuppliersLoading}
-                >
-                  <option value="">
-                    {isSuppliersLoading ? "Loading suppliers..." : "Select Supplier"}
-                  </option>
-                  {suppliers.map((supplier) => (
-                    <option key={supplier.id} value={supplier.id}>
-                      {supplier.name}
-                    </option>
-                  ))}
-                </select>
-                <Icon
-                  icon="mdi:chevron-down"
-                  className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                />
-              </div>
-              {errors.supplier_id && (
-                <p className="text-[11px] text-red-400">{errors.supplier_id}</p>
-              )}
             </div>
 
             <div className="space-y-1">

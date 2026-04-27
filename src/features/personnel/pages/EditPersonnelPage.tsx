@@ -28,6 +28,20 @@ interface ApiError {
   };
 }
 
+type DeploymentFormData = {
+  from_unit_id: string;
+  to_unit_id: string;
+  start_date: string;
+  end_date: string;
+};
+
+const createEmptyDeployment = (): DeploymentFormData => ({
+  from_unit_id: "",
+  to_unit_id: "",
+  start_date: "",
+  end_date: "",
+});
+
 const RATING_OPTIONS: MultiSelectOption[] = [
   { label: "PPL", value: "PPL" },
   { label: "CPL", value: "CPL" },
@@ -144,13 +158,9 @@ export const EditPersonnelPage = () => {
   // useClickOutside removed as it was for custom dropdown
 
   const [status, setStatus] = useState<string>("");
-  const [currentDeploymentUnitId, setCurrentDeploymentUnitId] =
-    useState<string>("");
-  const [currentDeploymentDate, setCurrentDeploymentDate] =
-    useState<string>("");
-  const [lastDeploymentUnitId, setLastDeploymentUnitId] = useState<string>("");
-  const [lastDeploymentDate, setLastDeploymentDate] = useState<string>("");
-  const [tosDate, setTosDate] = useState<string>("");
+  const [deployments, setDeployments] = useState<DeploymentFormData[]>([
+    createEmptyDeployment(),
+  ]);
   const [initializedId, setInitializedId] = useState<string | null>(null);
 
   // Populate form data when personnel and aircraft data are loaded
@@ -195,37 +205,30 @@ export const EditPersonnelPage = () => {
       setImageUrl(personnel.image);
     }
 
-    // Populate deployment data if available
-    if (personnel.latest_deployment) {
-      setCurrentDeploymentDate(
-        personnel.latest_deployment.start_date.split("T")[0],
-      ); // Ensure YYYY-MM-DD
-      if (personnel.latest_deployment.to_unit_id) {
-        setCurrentDeploymentUnitId(
-          String(personnel.latest_deployment.to_unit_id),
-        );
-      }
-
-      // Try to find previous deployment
-      // Sort deployments by start_date descending, skip the latest one
-      const previousDeployments = [...personnel.deployments]
-        .filter((d) => d.id !== personnel.latest_deployment?.id)
-        .sort(
-          (a, b) =>
-            new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
-        );
-
-      if (previousDeployments.length > 0) {
-        const prev = previousDeployments[0];
-        setLastDeploymentDate(prev.start_date.split("T")[0]);
-        if (prev.to_unit_id) {
-          setLastDeploymentUnitId(String(prev.to_unit_id));
-        } else if (prev.from_unit_id) {
-          // Fallback if to_unit_id is missing, though unlikely for a completed deployment
-          setLastDeploymentUnitId(String(prev.from_unit_id));
-        }
-      }
-    }
+    setDeployments(
+      personnel.deployments.length
+        ? [...personnel.deployments]
+            .sort(
+              (a, b) =>
+                new Date(a.start_date).getTime() -
+                new Date(b.start_date).getTime(),
+            )
+            .map((deployment) => ({
+              from_unit_id: deployment.from_unit_id
+                ? String(deployment.from_unit_id)
+                : "",
+              to_unit_id: deployment.to_unit_id
+                ? String(deployment.to_unit_id)
+                : "",
+              start_date: deployment.start_date
+                ? deployment.start_date.split("T")[0]
+                : "",
+              end_date: deployment.end_date
+                ? deployment.end_date.split("T")[0]
+                : "",
+            }))
+        : [createEmptyDeployment()],
+    );
     setInitializedId(String(personnel.id));
   }
 
@@ -309,6 +312,32 @@ export const EditPersonnelPage = () => {
     }));
   };
 
+  const handleDeploymentChange = (
+    index: number,
+    field: keyof DeploymentFormData,
+    value: string,
+  ) => {
+    setDeployments((prev) =>
+      prev.map((deployment, deploymentIndex) =>
+        deploymentIndex === index
+          ? { ...deployment, [field]: value }
+          : deployment,
+      ),
+    );
+  };
+
+  const addDeploymentRow = () => {
+    setDeployments((prev) => [...prev, createEmptyDeployment()]);
+  };
+
+  const removeDeploymentRow = (index: number) => {
+    setDeployments((prev) =>
+      prev.length === 1
+        ? [createEmptyDeployment()]
+        : prev.filter((_, deploymentIndex) => deploymentIndex !== index),
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
@@ -317,6 +346,20 @@ export const EditPersonnelPage = () => {
       const aircraftNames = selectedAircraftIds
         .map((id) => aircrafts?.find((a) => a.id === id)?.name)
         .filter(Boolean) as string[];
+      const normalizedDeployments = deployments
+        .filter((deployment) =>
+          Object.values(deployment).some((value) => Boolean(value)),
+        )
+        .map((deployment) => ({
+          from_unit_id: deployment.from_unit_id
+            ? Number(deployment.from_unit_id)
+            : null,
+          to_unit_id: deployment.to_unit_id
+            ? Number(deployment.to_unit_id)
+            : null,
+          start_date: deployment.start_date || null,
+          end_date: deployment.end_date || null,
+        }));
 
       const payload: CreatePersonnelRequest = {
         ...formData,
@@ -328,20 +371,9 @@ export const EditPersonnelPage = () => {
         specialty_id: Number(formData.specialty_id),
         corp_id: Number(formData.corp_id),
         image: imageUrl || undefined,
-        deployments:
-          currentDeploymentUnitId &&
-          lastDeploymentUnitId &&
-          currentDeploymentDate &&
-          lastDeploymentDate
-            ? [
-                {
-                  from_unit_id: String(lastDeploymentUnitId),
-                  to_unit_id: String(currentDeploymentUnitId),
-                  start_date: lastDeploymentDate,
-                  end_date: currentDeploymentDate,
-                },
-              ]
-            : [],
+        deployments: normalizedDeployments.length
+          ? normalizedDeployments
+          : undefined,
       };
 
       await updatePersonnel({ id, data: payload }).unwrap();
@@ -676,44 +708,78 @@ export const EditPersonnelPage = () => {
 
         {/* Deployment Section */}
         <div className="space-y-4">
-          <h2 className="text-lg font-medium text-cyan-400 border-b border-white/10 pb-2 uppercase">
-            Deployment
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SelectField
-              label="Current Deployment Unit"
-              value={currentDeploymentUnitId}
-              onChange={(e) => setCurrentDeploymentUnitId(e.target.value)}
+          <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-2">
+            <h2 className="text-lg font-medium text-cyan-400 uppercase">
+              Deployment
+            </h2>
+            <button
+              type="button"
+              onClick={addDeploymentRow}
+              className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-3 py-2 text-sm font-medium text-cyan-300 transition-colors hover:bg-cyan-500/10"
             >
-              <option value="">Select Unit</option>
-              {renderOptions(units)}
-            </SelectField>
-            <InputField
-              label="Current Deployment Date"
-              type="date"
-              value={currentDeploymentDate}
-              onChange={(e) => setCurrentDeploymentDate(e.target.value)}
-            />
-            <SelectField
-              label="Last Deployment Unit"
-              value={lastDeploymentUnitId}
-              onChange={(e) => setLastDeploymentUnitId(e.target.value)}
-            >
-              <option value="">Select Unit</option>
-              {renderOptions(units)}
-            </SelectField>
-            <InputField
-              label="Last Deployment Date"
-              type="date"
-              value={lastDeploymentDate}
-              onChange={(e) => setLastDeploymentDate(e.target.value)}
-            />
-            <InputField
-              label="Date Taken on Strength (TOS)"
-              type="date"
-              value={tosDate}
-              onChange={(e) => setTosDate(e.target.value)}
-            />
+              <Icon icon="mdi:plus" className="h-4 w-4" />
+              Add Deployment
+            </button>
+          </div>
+          <div className="space-y-4">
+            {deployments.map((deployment, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-white/10 bg-white/5 p-4"
+              >
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <span className="text-sm font-medium text-white">
+                    Deployment {index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeDeploymentRow(index)}
+                    className="inline-flex items-center gap-2 rounded-md border border-red-500/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10"
+                  >
+                    <Icon icon="mdi:trash-can-outline" className="h-4 w-4" />
+                    Remove
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <SelectField
+                    label="From Unit"
+                    value={deployment.from_unit_id}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "from_unit_id", e.target.value)
+                    }
+                  >
+                    <option value="">Select Unit</option>
+                    {renderOptions(units)}
+                  </SelectField>
+                  <SelectField
+                    label="To Unit"
+                    value={deployment.to_unit_id}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "to_unit_id", e.target.value)
+                    }
+                  >
+                    <option value="">Select Unit</option>
+                    {renderOptions(units)}
+                  </SelectField>
+                  <InputField
+                    label="Start Date"
+                    type="date"
+                    value={deployment.start_date}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "start_date", e.target.value)
+                    }
+                  />
+                  <InputField
+                    label="End Date"
+                    type="date"
+                    value={deployment.end_date}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "end_date", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -118,10 +118,10 @@ export type CreatePersonnelRequest = {
     notes: string;
   }[];
   deployments?: {
-    from_unit_id: string | number;
-    to_unit_id: string | number;
-    start_date: string;
-    end_date: string;
+    from_unit_id?: string | number | null;
+    to_unit_id?: string | number | null;
+    start_date?: string | null;
+    end_date?: string | null;
   }[];
 };
 
@@ -186,6 +186,7 @@ export const personnelApi = createApi({
         url: `/personnel/${id}`,
         method: "GET",
       }),
+      providesTags: (_result, _error, id) => [{ type: "Personnel", id }],
     }),
     deletePersonnel: builder.mutation<void, string | number>({
       query: (id) => ({
