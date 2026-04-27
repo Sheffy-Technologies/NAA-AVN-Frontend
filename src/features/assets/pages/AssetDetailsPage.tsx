@@ -39,6 +39,7 @@ const TABS = [
   { id: "discrepancies", label: "Discrepancies" },
   { id: "operations", label: "Operations" },
   { id: "maintenance", label: "Maintenance Tracking" },
+  { id: "after_action_report", label: "After Action Report" },
 ] as const;
 
 type AssetTabId = (typeof TABS)[number]["id"];
@@ -2586,6 +2587,172 @@ export const AssetDetailsPage = () => {
                   </div>
                 </div>
               ))
+            )}
+          </div>
+        )}
+
+        {activeTab === "after_action_report" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[#7FD5FF] text-sm font-bold uppercase">After Action Report</h3>
+              {latestOperation && !latestOperation.afterActionReport && (
+                <button
+                  onClick={() =>
+                    navigate(
+                      `/dashboard/assets/${asset.id}/operations/${latestOperation.id}/after-action-report`,
+                    )
+                  }
+                  className="flex items-center gap-2 rounded-lg bg-[#0A4D66] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A4D66]/80 transition-colors"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  Add Action Report
+                </button>
+              )}
+            </div>
+
+            {latestOperation?.afterActionReport ? (
+              <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-6">
+                <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-4">
+                  <div>
+                    <h4 className="text-[#7FD5FF] font-bold uppercase">After Action Report</h4>
+                    <p className="text-gray-400 text-xs mt-1">Operation: {latestOperation.name}</p>
+                  </div>
+                  <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/40 font-medium">
+                    SUBMITTED
+                  </span>
+                </div>
+
+                {(() => {
+                  const report = latestOperation.afterActionReport!;
+                  return (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Mission:</span>
+                          <span className="text-white text-sm font-medium capitalize">{report.mission}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Task No:</span>
+                          <span className="text-white text-sm font-medium">{report.task_no}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Infantry No:</span>
+                          <span className="text-white text-sm font-medium">{report.infantry_no}</span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h5 className="text-[#7FD5FF] text-sm font-medium">Activities</h5>
+                        <p className="text-gray-300 text-sm bg-[#001825] p-3 rounded border border-[#0A4D66]/30">
+                          {report.activities}
+                        </p>
+                      </div>
+
+                      {report.contacts && report.contacts.length > 0 && (
+                        <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
+                          <h5 className="text-[#7FD5FF] text-sm font-bold uppercase">
+                            Enemy Contacts ({report.contacts.length})
+                          </h5>
+                          <div className="grid grid-cols-1 gap-4">
+                            {report.contacts.map((contact, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-[#001825] p-4 rounded border border-[#0A4D66]/30 text-sm space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-white capitalize">
+                                    {contact.engagement.replace(/_/g, " ")}
+                                  </span>
+                                  <div className="flex gap-4 text-gray-400 text-xs">
+                                    <span>{contact.date_of_contact}</span>
+                                    <span>{contact.time_of_contact}</span>
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-gray-300 text-xs">
+                                  <span><span className="text-gray-500">Location:</span> {contact.location}</span>
+                                  <span><span className="text-gray-500">Enemy Infantry:</span> {contact.enemy_infantry_no}</span>
+                                  <span><span className="text-gray-500">Enemy Vehicles:</span> {contact.enemy_vehicle_no}</span>
+                                  <span><span className="text-gray-500">Targets Infantry:</span> {contact.targets_infantry_no}</span>
+                                  <span><span className="text-gray-500">Targets Vehicles:</span> {contact.targets_vehicle_no}</span>
+                                </div>
+                                {contact.enemy_resources_description && (
+                                  <div className="text-xs mt-1">
+                                    <span className="text-gray-500">Enemy Resources: </span>
+                                    <span className="text-gray-300">{contact.enemy_resources_description}</span>
+                                  </div>
+                                )}
+                                {contact.targets_treated_description && (
+                                  <div className="text-xs mt-1">
+                                    <span className="text-gray-500">Targets Treated: </span>
+                                    <span className="text-gray-300">{contact.targets_treated_description}</span>
+                                  </div>
+                                )}
+                                {contact.damage_received && (
+                                  <div className="text-xs mt-1">
+                                    <span className="text-gray-500">Damage Received: </span>
+                                    <span className="text-gray-300">{contact.damage_received}</span>
+                                  </div>
+                                )}
+                                {contact.photos && contact.photos.length > 0 && (
+                                  <div className="mt-2">
+                                    <p className="text-gray-500 text-xs mb-1">Photos ({contact.photos.length})</p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {contact.photos.map((photo, pIdx) => (
+                                        <img
+                                          key={pIdx}
+                                          src={photo.file}
+                                          alt={`Contact ${idx + 1} photo ${pIdx + 1}`}
+                                          className="w-20 h-20 object-cover rounded border border-[#0A4D66]/40"
+                                        />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {report.resource_utilizations && report.resource_utilizations.length > 0 && (
+                        <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
+                          <h5 className="text-[#7FD5FF] text-sm font-bold uppercase">
+                            Resource Utilization ({report.resource_utilizations.length})
+                          </h5>
+                          <div className="overflow-x-auto rounded border border-[#0A4D66]/30">
+                            <table className="w-full text-sm text-gray-300">
+                              <thead>
+                                <tr className="bg-[#0A4D66]/20 border-b border-[#0A4D66]/30">
+                                  <th className="text-left px-4 py-2 text-gray-500 font-medium">Item</th>
+                                  <th className="text-right px-4 py-2 text-gray-500 font-medium">Qty Used</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {report.resource_utilizations.map((res, idx) => (
+                                  <tr key={idx} className="border-b border-[#0A4D66]/20 last:border-0">
+                                    <td className="px-4 py-2">{res.item_description}</td>
+                                    <td className="px-4 py-2 text-right">{res.quantity_used}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-10 flex flex-col items-center justify-center gap-3 text-center">
+                <Icon icon="mdi:file-remove-outline" className="w-10 h-10 text-gray-600" />
+                <p className="text-white text-sm font-medium">No report submitted</p>
+                <p className="text-gray-400 text-xs">
+                  {!latestOperation
+                    ? "No operation is available yet to submit an after action report."
+                    : "No after action report has been submitted for the latest operation."}
+                </p>
+              </div>
             )}
           </div>
         )}

@@ -114,14 +114,24 @@ export type Contact = {
   targets_infantry_no: number;
   targets_vehicle_no: number;
   damage_received: string;
-  photos: ContactPhoto[];
+  photos?: ContactPhoto[];
 };
 
 export type ResourceUtilization = {
   inventory_id: number;
   item_description: string;
-  quantity_used: number;
+  quantity_used: number | string;
   asset_id?: number;
+};
+
+export type AfterActionReportVehicle = {
+  id?: number;
+  name?: string | null;
+  registration_number?: string | null;
+  plate_number?: string | null;
+  serial_number?: string | null;
+  type?: string | null;
+  [key: string]: unknown;
 };
 
 export type CreateAfterActionReportRequest = {
@@ -138,6 +148,7 @@ export type AfterActionReport = CreateAfterActionReportRequest & {
   id: number;
   created_at: string;
   updated_at: string;
+  vehicles?: AfterActionReportVehicle[];
 };
 
 export type Operation = {
@@ -159,6 +170,7 @@ export type Operation = {
   operation_type: OperationType | null;
   assets: OperationAssignedAsset[];
   afterActionReport: AfterActionReport | null;
+  after_action_report?: AfterActionReport | null;
   departure_longitude?: number | null;
   departure_latitude?: number | null;
   arrival_longitude?: number | null;
@@ -170,6 +182,17 @@ export type Operation = {
   departure_location: string | null;
   arrival_location: string | null;
 };
+
+type OperationApiResponse = Omit<Operation, "afterActionReport"> & {
+  afterActionReport?: AfterActionReport | null;
+  after_action_report?: AfterActionReport | null;
+};
+
+const normalizeOperation = (operation: OperationApiResponse): Operation => ({
+  ...operation,
+  afterActionReport:
+    operation.afterActionReport ?? operation.after_action_report ?? null,
+});
 
 export type GetOperationsParams = {
   operations_id?: string;
@@ -218,11 +241,14 @@ export const operationsApi = createApi({
         params: params || undefined,
       }),
       providesTags: ["Operations"],
-      transformResponse: (response: Operation[]) => {
-        return response.map((op) => ({
-          ...op,
-          location: getOperationLocation(op),
-        }));
+      transformResponse: (response: OperationApiResponse[]) => {
+        return response.map((op) => {
+          const normalized = normalizeOperation(op);
+          return {
+            ...normalized,
+            location: getOperationLocation(normalized),
+          };
+        });
       },
     }),
     getOperationById: builder.query<Operation, string | number>({
@@ -230,10 +256,13 @@ export const operationsApi = createApi({
         url: `/operations/${id}`,
         method: "GET",
       }),
-      transformResponse: (response: Operation) => ({
-        ...response,
-        location: getOperationLocation(response),
-      }),
+      transformResponse: (response: OperationApiResponse) => {
+        const normalized = normalizeOperation(response);
+        return {
+          ...normalized,
+          location: getOperationLocation(normalized),
+        };
+      },
       providesTags: (_result, _error, id) => [{ type: "OperationDetails", id }],
     }),
     getOperationTypes: builder.query<OperationType[], void>({

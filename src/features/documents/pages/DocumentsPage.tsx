@@ -18,6 +18,7 @@ type DocumentsViewMode = "table" | "grid";
 type DocumentRow = {
   id: number;
   title: string;
+  category: string;
   type: string;
   size: string;
   uploadedBy: string;
@@ -30,12 +31,19 @@ const FILE_BASE_URL = (import.meta.env.VITE_FILE_BASE_URL as string | undefined)
   ?.trim()
   .replace(/\/+$/, "");
 
+const normalizeDocumentUrl = (value: string) => {
+  if (!value) return value;
+
+  // Backend can return links like /storage/documents/...; frontend expects /documents/...
+  return value.replace("/storage/documents/", "/documents/");
+};
+
 const buildDocumentFileUrl = (document: DocumentItem) => {
-  if (document.file_url) return document.file_url;
+  if (document.file_url) return normalizeDocumentUrl(document.file_url);
   const filePath = document.file || document.file_path;
   if (!FILE_BASE_URL || !filePath) return null;
   const normalizedPath = filePath.startsWith("/") ? filePath : `/${filePath}`;
-  return `${FILE_BASE_URL}${normalizedPath}`;
+  return normalizeDocumentUrl(`${FILE_BASE_URL}${normalizedPath}`);
 };
 
 const formatDate = (value: string | null | undefined) => {
@@ -78,6 +86,7 @@ const mapDocumentRow = (document: DocumentItem): DocumentRow => {
       document.file_name ||
       document.filename ||
       "Untitled",
+    category: document.document_type?.name || "Uncategorized",
     type: document.file_type || document.mime_type || "-",
     size: formatFileSize(document.file_size ?? document.size),
     uploadedBy,
@@ -379,6 +388,7 @@ export const DocumentsPage = () => {
                 <thead>
                   <tr className="text-[11px] uppercase text-gray-400 border-b border-[#0A4D66]/30">
                     <th className="py-2 pr-3 font-medium">Document</th>
+                    <th className="py-2 pr-3 font-medium">Category</th>
                     <th className="py-2 pr-3 font-medium">Type</th>
                     <th className="py-2 pr-3 font-medium">Size</th>
                     <th className="py-2 pr-3 font-medium">Uploaded By</th>
@@ -396,6 +406,7 @@ export const DocumentsPage = () => {
                       <td className="py-2 pr-3 text-gray-100 font-medium">
                         {document.title}
                       </td>
+                      <td className="py-2 pr-3 text-gray-300">{document.category}</td>
                       <td className="py-2 pr-3 text-gray-300">{document.type}</td>
                       <td className="py-2 pr-3 text-gray-300">{document.size}</td>
                       <td className="py-2 pr-3 text-gray-300">{document.uploadedBy}</td>
@@ -450,6 +461,7 @@ export const DocumentsPage = () => {
                     <Icon icon="mdi:file-document-outline" className="w-5 h-5 text-[#7FD5FF]" />
                   </div>
                   <div className="mt-3 space-y-1.5 text-xs text-gray-300">
+                    <p>Category: {document.category}</p>
                     <p>Type: {document.type}</p>
                     <p>Size: {document.size}</p>
                     <p>By: {document.uploadedBy}</p>

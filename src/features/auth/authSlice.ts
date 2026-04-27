@@ -2,10 +2,21 @@ import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 export const AUTH_STORAGE_KEY = "naavn_auth";
 
+export interface UserRole {
+  id?: number;
+  name: string;
+  guard_name?: string;
+}
+
 export interface User {
   id: string;
   email: string;
   name: string;
+  firstname?: string;
+  lastname?: string;
+  username?: string;
+  roles?: UserRole[];
+  role_names?: string[];
 }
 
 export interface AuthState {

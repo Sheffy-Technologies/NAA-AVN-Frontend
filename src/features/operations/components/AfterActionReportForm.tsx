@@ -10,7 +10,7 @@ import {
   type Operation,
 } from "../api";
 import { useGetInventoriesQuery } from "@/features/inventory/api";
-import { useGetAircraftsQuery } from "@/features/personnel/api";
+import { useGetAssetsQuery } from "@/features/assets/api";
 
 interface AfterActionReportFormProps {
   operationId: number;
@@ -53,7 +53,7 @@ export const AfterActionReportForm = ({
   const { data: fetchedOperation } = useGetOperationByIdQuery(operationId);
   const operation = initialOperation || fetchedOperation;
   const { data: inventories = [] } = useGetInventoriesQuery();
-  const { data: aircrafts = [] } = useGetAircraftsQuery();
+  const { data: assets = [] } = useGetAssetsQuery();
 
   const [formData, setFormData] = useState<
     Omit<
@@ -889,8 +889,8 @@ export const AfterActionReportForm = ({
                           ...newResources[index],
                           inventory_id: selectedId,
                           item_description:
-                            selectedItem?.part_name ??
                             selectedItem?.description ??
+                            selectedItem?.part_name ??
                             "",
                         };
                         setResources(newResources);
@@ -900,7 +900,7 @@ export const AfterActionReportForm = ({
                       <option value={0}>Select Item</option>
                       {inventories.map((inv) => (
                         <option key={inv.id} value={inv.id}>
-                          {inv.part_name}
+                          {inv.description}
                         </option>
                       ))}
                     </select>
@@ -951,9 +951,9 @@ export const AfterActionReportForm = ({
                       className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
                     >
                       <option value={0}>Select Asset</option>
-                      {aircrafts.map((aircraft) => (
-                        <option key={aircraft.id} value={aircraft.id}>
-                          {aircraft.name}
+                      {assets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.name || `Asset #${asset.id}`}
                         </option>
                       ))}
                     </select>

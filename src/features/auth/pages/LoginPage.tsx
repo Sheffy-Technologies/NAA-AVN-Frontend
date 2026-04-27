@@ -112,6 +112,8 @@ export const LoginPage = () => {
           lastname: string;
           username: string;
           email: string;
+          roles?: Array<{ id?: number; name: string; guard_name?: string }>;
+          role_names?: string[];
         };
       };
 
@@ -119,8 +121,17 @@ export const LoginPage = () => {
         setCredentials({
           user: {
             id: String(data.data.id),
+            firstname: data.data.firstname,
+            lastname: data.data.lastname,
+            username: data.data.username,
             name: `${data.data.firstname} ${data.data.lastname}`,
             email: data.data.email,
+            roles: Array.isArray(data.data.roles) ? data.data.roles : [],
+            role_names: Array.isArray(data.data.role_names)
+              ? data.data.role_names
+              : Array.isArray(data.data.roles)
+                ? data.data.roles.map((role) => role.name)
+                : [],
           },
           token: data.token,
         }),

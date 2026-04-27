@@ -28,6 +28,12 @@ export type DocumentItem = {
   updated_at?: string | null;
   uploaded_by?: DocumentUser | null;
   user?: DocumentUser | null;
+  document_type_id?: number | null;
+  document_type?: {
+    id?: number;
+    name?: string | null;
+    description?: string | null;
+  } | null;
 };
 
 type DocumentsApiResponse =

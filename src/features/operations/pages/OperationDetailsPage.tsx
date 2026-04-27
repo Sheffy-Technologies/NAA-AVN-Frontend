@@ -13,7 +13,6 @@ import {
   type OperationAssignedAsset,
 } from "../api";
 import { format } from "date-fns";
-import { AfterActionReportForm } from "../components/AfterActionReportForm";
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
 
 const formatOperationDate = (value: string | null | undefined) => {
@@ -249,167 +248,141 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
   );
 };
 
-// Placeholder for AAR Tab
-const AARTab = ({ operation }: { operation: Operation }) => {
-  if (operation.afterActionReport) {
-    const report = operation.afterActionReport;
+const AARTab = ({
+  operation,
+  onAddReport,
+}: {
+  operation: Operation;
+  onAddReport: () => void;
+}) => {
+  const report = operation.afterActionReport;
+
+  if (!report) {
     return (
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-6">
-        <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-4">
-          <h3 className="text-[#7FD5FF] font-bold uppercase">
-            After Action Report
-          </h3>
-          <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/40 font-medium">
-            SUBMITTED
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
-          <InfoRow
-            label="Mission"
-            value={<span className="capitalize">{report.mission}</span>}
-          />
-          <InfoRow label="Task No" value={report.task_no} />
-          <InfoRow label="Infantry No" value={report.infantry_no} />
-        </div>
-
-        <div className="space-y-2">
-          <h4 className="text-[#7FD5FF] text-sm font-medium">Activities</h4>
-          <p className="text-gray-300 text-sm bg-[#001825] p-3 rounded border border-[#0A4D66]/30">
-            {report.activities}
-          </p>
-        </div>
-
-        {operation.assets && operation.assets.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
-            <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
-              Aircraft Flight Times
-            </h4>
-            <div className="grid grid-cols-1 gap-3">
-              {operation.assets.map((assignedAsset, idx) => (
-                <div
-                  key={idx}
-                  className="bg-[#001825] p-4 rounded border border-[#0A4D66]/30 text-sm"
-                >
-                  <p className="font-semibold text-white mb-3">
-                    {assignedAsset.asset?.name ?? `Aircraft ${idx + 1}`}
-                  </p>
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-gray-300">
-                    <div className="space-y-1">
-                      <p className="text-gray-500 text-xs uppercase tracking-wide">Departure</p>
-                      <div className="flex gap-4">
-                        <span><span className="text-gray-500">T/O:</span> {assignedAsset.departure_takeoff ?? "—"}</span>
-                        <span><span className="text-gray-500">LDG:</span> {assignedAsset.departure_landing ?? "—"}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-gray-500 text-xs uppercase tracking-wide">Return</p>
-                      <div className="flex gap-4">
-                        <span><span className="text-gray-500">T/O:</span> {assignedAsset.arrival_takeoff ?? "—"}</span>
-                        <span><span className="text-gray-500">LDG:</span> {assignedAsset.arrival_landing ?? "—"}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {report.contacts && report.contacts.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
-            <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
-              Enemy Contacts ({report.contacts.length})
-            </h4>
-            <div className="grid grid-cols-1 gap-4">
-              {report.contacts.map((contact, idx) => (
-                <div
-                  key={idx}
-                  className="bg-[#001825] p-4 rounded border border-[#0A4D66]/30 text-sm space-y-3"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white capitalize text-base">
-                      {contact.engagement.replace(/_/g, " ")}
-                    </span>
-                    <div className="flex gap-4 text-gray-400 text-xs">
-                      <span>{contact.date_of_contact}</span>
-                      <span>{contact.time_of_contact}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-gray-300">
-                    <InfoRow label="Location" value={contact.location} />
-                    <InfoRow label="Enemy Infantry" value={contact.enemy_infantry_no} />
-                    <InfoRow label="Enemy Vehicles" value={contact.enemy_vehicle_no} />
-                    <InfoRow label="Targets Infantry" value={contact.targets_infantry_no} />
-                    <InfoRow label="Targets Vehicles" value={contact.targets_vehicle_no} />
-                  </div>
-
-                  {contact.enemy_resources_description && (
-                    <div className="space-y-1">
-                      <p className="text-gray-500 text-xs uppercase tracking-wide">Enemy Resources</p>
-                      <p className="text-gray-300">{contact.enemy_resources_description}</p>
-                    </div>
-                  )}
-
-                  {contact.targets_treated_description && (
-                    <div className="space-y-1">
-                      <p className="text-gray-500 text-xs uppercase tracking-wide">Targets Treated</p>
-                      <p className="text-gray-300">{contact.targets_treated_description}</p>
-                    </div>
-                  )}
-
-                  {contact.damage_received && (
-                    <div className="space-y-1">
-                      <p className="text-gray-500 text-xs uppercase tracking-wide">Damage Received</p>
-                      <p className="text-gray-300">{contact.damage_received}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {report.resource_utilizations && report.resource_utilizations.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
-            <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
-              Resource Utilization ({report.resource_utilizations.length})
-            </h4>
-            <div className="overflow-x-auto rounded border border-[#0A4D66]/30">
-              <table className="w-full text-sm text-gray-300">
-                <thead>
-                  <tr className="bg-[#0A4D66]/20 border-b border-[#0A4D66]/30">
-                    <th className="text-left px-4 py-2 text-gray-500 font-medium">Item</th>
-                    <th className="text-right px-4 py-2 text-gray-500 font-medium">Qty Used</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.resource_utilizations.map((res, idx) => (
-                    <tr
-                      key={idx}
-                      className="border-b border-[#0A4D66]/20 last:border-0"
-                    >
-                      <td className="px-4 py-2">{res.item_description}</td>
-                      <td className="px-4 py-2 text-right">{res.quantity_used}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-10 text-center text-white">
+        <Icon
+          icon="mdi:file-remove-outline"
+          className="w-10 h-10 text-gray-600 mx-auto mb-3"
+        />
+        <p className="text-base font-semibold">No after action report</p>
+        <button
+          type="button"
+          onClick={onAddReport}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#0A4D66] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A4D66]/80 transition-colors"
+        >
+          <Icon icon="mdi:plus" className="w-4 h-4" />
+          Add After Action Report
+        </button>
       </div>
     );
   }
 
+  const totalContactVehicles = (report.contacts ?? []).reduce(
+    (sum, contact) => sum + (Number(contact.enemy_vehicle_no) || 0),
+    0,
+  );
+  const reportVehicles = report.vehicles ?? [];
+
+  const getVehicleDisplay = (vehicle: unknown, index: number) => {
+    if (!vehicle || typeof vehicle !== "object") {
+      return `Vehicle ${index + 1}`;
+    }
+
+    const row = vehicle as Record<string, unknown>;
+    const name = typeof row.name === "string" ? row.name : null;
+    const registrationNumber =
+      typeof row.registration_number === "string"
+        ? row.registration_number
+        : typeof row.plate_number === "string"
+          ? row.plate_number
+          : null;
+
+    if (name && registrationNumber) {
+      return `${name} (${registrationNumber})`;
+    }
+    if (name) return name;
+    if (registrationNumber) return registrationNumber;
+    if (typeof row.id === "number") return `Vehicle #${row.id}`;
+    return `Vehicle ${index + 1}`;
+  };
+
   return (
-    <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white">
-      <AfterActionReportForm
-        operationId={operation.id}
-        operation={operation}
-        onSuccess={() => window.location.reload()}
-      />
+    <div className="space-y-4">
+      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white">
+        <div className="space-y-0">
+          <InfoRow label="Mission" value={<span className="capitalize">{report.mission}</span>} />
+          <InfoRow label="Task No." value={report.task_no || "-"} />
+          <InfoRow label="Infantry No" value={report.infantry_no ?? "-"} />
+          <InfoRow label="Vehicle No." value={totalContactVehicles} />
+          <InfoRow label="Activities" value={report.activities || "-"} />
+        </div>
+      </div>
+
+      {(report.contacts ?? []).length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {report.contacts.map((contact, idx) => (
+            <div
+              key={idx}
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-5 text-white"
+            >
+              <div className="text-[#7FD5FF] text-sm mb-3">Enemy in Contact {idx + 1}</div>
+
+              <div className="space-y-0">
+                <InfoRow
+                  label="Engagement"
+                  value={<span className="capitalize">{contact.engagement?.replace(/_/g, " ") || "-"}</span>}
+                />
+                <InfoRow label="Location" value={contact.location || "-"} />
+                <InfoRow label="Date" value={contact.date_of_contact || "-"} />
+                <InfoRow label="Time of Contact" value={contact.time_of_contact || "-"} />
+              </div>
+
+              <div className="mt-4 text-sm text-gray-300 space-y-2">
+                <div className="text-gray-400">Enemy Resources</div>
+                <InfoRow label="Description" value={contact.enemy_resources_description || "-"} />
+                <InfoRow label="Infantry No." value={contact.enemy_infantry_no ?? "-"} />
+                <InfoRow label="Vehicle No." value={contact.enemy_vehicle_no ?? "-"} />
+              </div>
+
+              <div className="mt-4 text-sm text-gray-300 space-y-2">
+                <div className="text-gray-400">Targets Treated</div>
+                <InfoRow label="Description" value={contact.targets_treated_description || "-"} />
+                <InfoRow label="Infantry No." value={contact.targets_infantry_no ?? "-"} />
+                <InfoRow label="Vehicle No." value={contact.targets_vehicle_no ?? "-"} />
+              </div>
+
+              <div className="mt-4 text-sm text-gray-300 space-y-2">
+                <div className="text-gray-400">Damage Received</div>
+                <InfoRow label="Description" value={contact.damage_received || "-"} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-4">
+        <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-3">
+          <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">Vehicles</h4>
+          <span className="text-xs text-gray-400">{reportVehicles.length}</span>
+        </div>
+
+        {reportVehicles.length === 0 ? (
+          <p className="text-sm text-gray-400">No vehicles recorded in after action report.</p>
+        ) : (
+          <div className="space-y-2">
+            {reportVehicles.map((vehicle, index) => (
+              <div
+                key={(vehicle && typeof vehicle === "object" && typeof (vehicle as Record<string, unknown>).id === "number")
+                  ? String((vehicle as Record<string, unknown>).id)
+                  : `${index}`}
+                className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] px-4 py-3 text-sm text-gray-200"
+              >
+                {getVehicleDisplay(vehicle, index)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -514,6 +487,10 @@ export const OperationDetailsPage = () => {
     } finally {
       setIsDownloadingPdf(false);
     }
+  };
+
+  const handleAddAfterActionReport = () => {
+    navigate(`/dashboard/operations/${operation.id}/after-action-report`);
   };
 
   return (
@@ -622,6 +599,16 @@ export const OperationDetailsPage = () => {
             />
             After Action Report
           </button>
+          {!operation.afterActionReport && (
+            <button
+              type="button"
+              onClick={handleAddAfterActionReport}
+              className="ml-2 inline-flex items-center gap-2 rounded-lg bg-[#0A4D66] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0A4D66]/80 transition-colors"
+            >
+              <Icon icon="mdi:plus" className="w-4 h-4" />
+              Add AAR
+            </button>
+          )}
         </div>
       </div>
 
@@ -630,7 +617,7 @@ export const OperationDetailsPage = () => {
         {activeTab === "operation" ? (
           <OperationTab operation={operation} />
         ) : (
-          <AARTab operation={operation} />
+          <AARTab operation={operation} onAddReport={handleAddAfterActionReport} />
         )}
       </div>
     </div>

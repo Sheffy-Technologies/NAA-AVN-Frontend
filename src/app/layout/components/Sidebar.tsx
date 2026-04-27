@@ -43,18 +43,40 @@ export const Sidebar = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
 
-  const signedInUserName = useMemo(() => {
-    if (typeof window === "undefined") return "User";
+  const toTitleCase = (value: string) =>
+    value
+      .replace(/[_-]+/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+
+  const formatRolesLabel = (roles: string[]) => {
+    if (!roles.length) return "No role";
+
+    const normalizedRoles = roles.map(toTitleCase);
+    const visibleRoles = normalizedRoles.slice(0, 2);
+    const remainingCount = normalizedRoles.length - visibleRoles.length;
+
+    return remainingCount > 0
+      ? `${visibleRoles.join(", ")} +${remainingCount}`
+      : visibleRoles.join(", ");
+  };
+
+  const signedInUser = useMemo(() => {
+    if (typeof window === "undefined") return { name: "User", rolesLabel: "No role" };
 
     try {
       const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
-      if (!stored) return "User";
+      if (!stored) return { name: "User", rolesLabel: "No role" };
 
       const parsed = JSON.parse(stored) as {
         user?: {
           firstname?: string | null;
           lastname?: string | null;
           name?: string | null;
+          roles?: Array<{ name?: string | null }>;
+          role_names?: string[];
         };
       };
 
@@ -62,12 +84,32 @@ export const Sidebar = () => {
       const lastname = parsed.user?.lastname?.trim() || "";
       const fullName = `${firstname} ${lastname}`.trim();
 
-      if (fullName) return fullName;
-      if (parsed.user?.name?.trim()) return parsed.user.name.trim();
+      const roleNamesFromRoles = Array.isArray(parsed.user?.roles)
+        ? parsed.user?.roles
+            .map((role) => (role?.name || "").trim())
+            .filter((name) => name.length > 0)
+        : [];
 
-      return "User";
+      const roleNamesFromRoleNames = Array.isArray(parsed.user?.role_names)
+        ? parsed.user?.role_names
+            .map((name) => (name || "").trim())
+            .filter((name) => name.length > 0)
+        : [];
+
+      const roleNames = roleNamesFromRoleNames.length
+        ? roleNamesFromRoleNames
+        : roleNamesFromRoles;
+
+      const rolesLabel = formatRolesLabel(roleNames);
+
+      if (fullName) return { name: fullName, rolesLabel };
+      if (parsed.user?.name?.trim()) {
+        return { name: parsed.user.name.trim(), rolesLabel };
+      }
+
+      return { name: "User", rolesLabel };
     } catch {
-      return "User";
+      return { name: "User", rolesLabel: "No role" };
     }
   }, []);
 
@@ -179,9 +221,9 @@ export const Sidebar = () => {
           <div className="w-8 h-8 rounded-full bg-gray-600 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white truncate">
-              {signedInUserName}
+              {signedInUser.name}
             </p>
-            <p className="text-xs text-gray-500 truncate">Super Admin</p>
+            <p className="text-xs text-gray-500 truncate">{signedInUser.rolesLabel}</p>
           </div>
           {/* <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" /> */}
         </div>

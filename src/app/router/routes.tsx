@@ -153,6 +153,11 @@ const AddAssetDefectPage = lazy(() =>
     default: module.AddAssetDefectPage,
   })),
 );
+const AddAfterActionReportPage = lazy(() =>
+  import("@/features/assets/pages/AddAfterActionReportPage").then((module) => ({
+    default: module.AddAfterActionReportPage,
+  })),
+);
 const UnitFormPage = lazy(() =>
   import("@/features/units/pages/UnitFormPage").then((module) => ({
     default: module.UnitFormPage,
@@ -183,6 +188,11 @@ const AddOperationPage = lazy(() =>
 const OperationDetailsPage = lazy(() =>
   import("@/features/operations/pages/OperationDetailsPage").then((module) => ({
     default: module.OperationDetailsPage,
+  })),
+);
+const AddAfterActionReportPageOperation = lazy(() =>
+  import("@/features/operations/pages/AddAfterActionReportPage").then((module) => ({
+    default: module.AddAfterActionReportPage,
   })),
 );
 const EditOperationPage = lazy(() =>
@@ -399,6 +409,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "assets/:id/operations/:operationId/after-action-report",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddAfterActionReportPage />
+          </Suspense>
+        ),
+      },
+      {
         path: "assets/:id/edit",
         element: (
           <Suspense fallback={loadingElement}>
@@ -595,6 +613,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <OperationDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "operations/:id/after-action-report",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <AddAfterActionReportPageOperation />
           </Suspense>
         ),
       },
