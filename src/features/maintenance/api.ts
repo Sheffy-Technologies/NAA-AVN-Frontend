@@ -51,6 +51,29 @@ export type MaintenanceProgram = {
   updated_at?: string;
 };
 
+export type CreateMaintenanceProgramRequest = {
+  ata_chapter_id: number;
+  name: string;
+  description?: string | null;
+  asset_id?: number | null;
+  interval_hours?: number | null;
+  interval_months?: number | null;
+  applicability: "component" | "engine" | "avionics";
+  interval_type?: "hours" | "cycles" | "calendar";
+};
+
+export type UpdateMaintenanceProgramRequest = {
+  id: number;
+  ata_chapter_id?: number | null;
+  name?: string;
+  description?: string | null;
+  asset_id?: number | null;
+  interval_hours?: number | null;
+  interval_months?: number | null;
+  applicability?: "component" | "engine" | "avionics";
+  interval_type?: "hours" | "cycles" | "calendar";
+};
+
 export type CreateWorkOrderRequest = {
   asset_id?: number | null;
   title: string;
@@ -170,10 +193,19 @@ export type WorkOrderAsset = {
   operations_total_hours_label?: string;
 };
 
+export type WorkOrderReporter = {
+  id: number;
+  firstname?: string | null;
+  lastname?: string | null;
+  full_name?: string | null;
+  service_number?: string | null;
+  email?: string | null;
+};
+
 export type WorkOrderResponse = {
   id: number;
   asset_id?: number | null;
-  reported_by?: number | null;
+  reported_by?: number | WorkOrderReporter | null;
   title: string;
   created_at?: string;
   updated_at?: string;
@@ -275,6 +307,35 @@ export const maintenanceApi = createApi({
       }),
       providesTags: [{ type: "MaintenancePrograms", id: "LIST" }],
     }),
+    createMaintenanceProgram: builder.mutation<
+      MaintenanceProgram,
+      CreateMaintenanceProgramRequest
+    >({
+      query: (body) => ({
+        url: "/maintenance-programs",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: [{ type: "MaintenancePrograms", id: "LIST" }],
+    }),
+    updateMaintenanceProgram: builder.mutation<
+      MaintenanceProgram,
+      UpdateMaintenanceProgramRequest
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/maintenance-programs/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+      invalidatesTags: [{ type: "MaintenancePrograms", id: "LIST" }],
+    }),
+    deleteMaintenanceProgram: builder.mutation<{ message?: string }, number>({
+      query: (id) => ({
+        url: `/maintenance-programs/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: [{ type: "MaintenancePrograms", id: "LIST" }],
+    }),
     createWorkOrder: builder.mutation<WorkOrderResponse, CreateWorkOrderRequest>({
       query: (body) => ({
         url: "/work-orders",
@@ -365,6 +426,9 @@ export const maintenanceApi = createApi({
 export const {
   useGetMaintenanceMetricsQuery,
   useGetMaintenanceProgramsQuery,
+  useCreateMaintenanceProgramMutation,
+  useUpdateMaintenanceProgramMutation,
+  useDeleteMaintenanceProgramMutation,
   useCreateWorkOrderMutation,
   useGetWorkOrdersQuery,
   useGetWorkOrderByIdQuery,

@@ -22,6 +22,39 @@ const formatDate = (value?: string | null) => {
   });
 };
 
+const formatReporter = (
+  reporter:
+    | number
+    | {
+        id?: number;
+        firstname?: string | null;
+        lastname?: string | null;
+        full_name?: string | null;
+        service_number?: string | null;
+        email?: string | null;
+      }
+    | null
+    | undefined,
+) => {
+  if (reporter == null) return "-";
+  if (typeof reporter === "number") return String(reporter);
+
+  const fullName = reporter.full_name?.trim();
+  if (fullName) return fullName;
+
+  const name = [reporter.firstname, reporter.lastname]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .trim();
+  if (name) return name;
+
+  if (reporter.service_number?.trim()) return reporter.service_number;
+  if (reporter.email?.trim()) return reporter.email;
+  if (reporter.id) return `Personnel #${reporter.id}`;
+
+  return "-";
+};
+
 export const WorkOrderDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -208,7 +241,9 @@ export const WorkOrderDetailsPage = () => {
                 </div>
                 <div>
                   <p className="text-xs uppercase text-gray-400 mb-1">Reported By</p>
-                  <p className="text-white font-semibold">{workOrder.reported_by ?? "-"}</p>
+                  <p className="text-white font-semibold">
+                    {formatReporter(workOrder.reported_by)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs uppercase text-gray-400 mb-1">Created At</p>

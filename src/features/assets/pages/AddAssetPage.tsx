@@ -150,7 +150,48 @@ export const AddAssetPage = () => {
   const hasHydratedEditForm = useRef(false);
   const isSaving = isCreating || isUpdating;
   const defaultEngineCategoryId = engineCategories[0]?.id ?? 1;
-  const defaultAtaChapterId = ataChapters[0]?.id ?? 1;
+
+  const getNormalizedAtaCategory = (
+    chapter: (typeof ataChapters)[number],
+  ): string[] => {
+    const maintenanceCategory = String(chapter.maintenance_category || "")
+      .trim()
+      .toLowerCase();
+    const applicability = String(chapter.applicability || "")
+      .trim()
+      .toLowerCase();
+    return [maintenanceCategory, applicability].filter(Boolean);
+  };
+
+  const engineAtaChapters = useMemo(
+    () =>
+      ataChapters.filter((chapter) => {
+        const tokens = getNormalizedAtaCategory(chapter);
+        return tokens.includes("engines") || tokens.includes("engine");
+      }),
+    [ataChapters],
+  );
+  const componentAtaChapters = useMemo(
+    () =>
+      ataChapters.filter((chapter) => {
+        const tokens = getNormalizedAtaCategory(chapter);
+        return tokens.includes("components") || tokens.includes("component");
+      }),
+    [ataChapters],
+  );
+  const avionicAtaChapters = useMemo(
+    () =>
+      ataChapters.filter((chapter) => {
+        const tokens = getNormalizedAtaCategory(chapter);
+        return tokens.includes("avionics") || tokens.includes("avionic");
+      }),
+    [ataChapters],
+  );
+  const defaultAtaChapterId = engineAtaChapters[0]?.id ?? ataChapters[0]?.id ?? 1;
+  const defaultComponentAtaChapterId =
+    componentAtaChapters[0]?.id ?? ataChapters[0]?.id ?? 1;
+  const defaultAvionicAtaChapterId =
+    avionicAtaChapters[0]?.id ?? ataChapters[0]?.id ?? 1;
 
   useEffect(() => {
     return () => {
@@ -225,6 +266,7 @@ export const AddAssetPage = () => {
     [
       {
         component_type: "",
+        ata_chapter_id: "",
         track_by: "hours" as TrackByKey,
         part_number: "",
         serial_number: "",
@@ -246,6 +288,7 @@ export const AddAssetPage = () => {
   const [components, setComponents] = useState([
     {
       component_type: "",
+      ata_chapter_id: "",
       track_by: "hours" as TrackByKey,
       part_number: "",
       serial_number: "",
@@ -266,6 +309,7 @@ export const AddAssetPage = () => {
   const [avionicsComponents, setAvionicsComponents] = useState([
     {
       component_type: "",
+      ata_chapter_id: "",
       track_by: "hours" as TrackByKey,
       part_number: "",
       serial_number: "",
@@ -571,6 +615,11 @@ export const AddAssetPage = () => {
     const enginePositionId = enginePositions[0]?.id ?? 1;
     const componentTypeId = componentTypes[0]?.id;
     const avionicTypeId = avionicCategories[0]?.id;
+    const engineAtaChapterId = engineAtaChapters[0]?.id ?? ataChapters[0]?.id;
+    const componentAtaChapterId =
+      componentAtaChapters[0]?.id ?? ataChapters[0]?.id;
+    const avionicAtaChapterId =
+      avionicAtaChapters[0]?.id ?? ataChapters[0]?.id;
     const documentTypeId = documentTypes[0]?.id;
     const operationId = operations[0]?.id;
     const engineerId = engineers[0]?.id;
@@ -609,7 +658,9 @@ export const AddAssetPage = () => {
       default_engine_category_id: engineCategories[0]
         ? String(engineCategories[0].id)
         : "",
-      default_ata_chapter_id: ataChapters[0] ? String(ataChapters[0].id) : "",
+      default_ata_chapter_id: engineAtaChapterId
+        ? String(engineAtaChapterId)
+        : "",
       default_inspection_interval_unit: "hours",
       default_maintenance_strategy: "hard-time",
     }));
@@ -640,6 +691,9 @@ export const AddAssetPage = () => {
       [
         {
           component_type: componentTypeId ? String(componentTypeId) : "",
+          ata_chapter_id: componentAtaChapterId
+            ? String(componentAtaChapterId)
+            : "",
           track_by: "hours",
           part_number: "ECP-001",
           serial_number: "ECSN-001",
@@ -661,6 +715,9 @@ export const AddAssetPage = () => {
     setComponents([
       {
         component_type: componentTypeId ? String(componentTypeId) : "",
+        ata_chapter_id: componentAtaChapterId
+          ? String(componentAtaChapterId)
+          : "",
         track_by: "hours",
         part_number: "CP-1001",
         serial_number: "CSN-1001",
@@ -681,6 +738,7 @@ export const AddAssetPage = () => {
     setAvionicsComponents([
       {
         component_type: avionicTypeId ? String(avionicTypeId) : "",
+        ata_chapter_id: avionicAtaChapterId ? String(avionicAtaChapterId) : "",
         track_by: "hours",
         part_number: "AVP-2001",
         serial_number: "AVSN-2001",
@@ -859,6 +917,7 @@ export const AddAssetPage = () => {
       [
         {
           component_type: "",
+          ata_chapter_id: "",
           track_by: "hours",
           part_number: "",
           serial_number: "",
@@ -902,6 +961,7 @@ export const AddAssetPage = () => {
               ...list,
               {
                 component_type: "",
+                ata_chapter_id: "",
                 track_by: "hours",
                 part_number: "",
                 serial_number: "",
@@ -941,6 +1001,8 @@ export const AddAssetPage = () => {
         Number(formData.default_engine_category_id) || defaultEngineCategoryId;
       const selectedAtaChapterId =
         Number(formData.default_ata_chapter_id) || defaultAtaChapterId;
+      const selectedComponentAtaChapterId = defaultComponentAtaChapterId;
+      const selectedAvionicAtaChapterId = defaultAvionicAtaChapterId;
       const selectedIntervalUnit =
         formData.default_inspection_interval_unit === "months" ||
         formData.default_inspection_interval_unit === "cycle"
@@ -1030,6 +1092,7 @@ export const AddAssetPage = () => {
           .map(
             ({
               component_type,
+              ata_chapter_id,
               track_by,
               part_number,
               serial_number,
@@ -1040,7 +1103,8 @@ export const AddAssetPage = () => {
               installed_at,
             }) => ({
               component_type_id: Number(component_type) || 0,
-              ata_chapter_id: selectedAtaChapterId,
+              ata_chapter_id:
+                Number(ata_chapter_id) || selectedComponentAtaChapterId,
               part_number,
               serial_number,
               time_since_new: Number(time_since_new) || 0,
@@ -1091,7 +1155,8 @@ export const AddAssetPage = () => {
           )
           .map((item) => ({
             avionic_category_id: Number(item.component_type) || 0,
-            ata_chapter_id: selectedAtaChapterId,
+            ata_chapter_id:
+              Number(item.ata_chapter_id) || selectedAvionicAtaChapterId,
             serial_number: item.serial_number,
             model: item.model || item.part_number,
             manufacturer: null,
@@ -1507,274 +1572,8 @@ export const AddAssetPage = () => {
 
         {activeTab === "airframe" && (
           <section className="space-y-6">
-            <div className="flex items-center gap-4 text-xs text-gray-300">
-              <span className="text-xs font-semibold text-white">Track By</span>
-              {[
-                { key: "hours" as const, label: "Hours" },
-                { key: "cycles" as const, label: "Cycles" },
-                { key: "both" as const, label: "Hours & Cycles" },
-              ].map((option) => (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() => setAirframeTrackBy(option.key)}
-                  className="inline-flex items-center gap-2"
-                >
-                  <span
-                    className={[
-                      "w-3.5 h-3.5 rounded-full border",
-                      airframeTrackBy === option.key
-                        ? "border-[#7FD5FF] bg-[#7FD5FF]"
-                        : "border-gray-500 bg-transparent",
-                    ].join(" ")}
-                  />
-                  <span
-                    className={
-                      airframeTrackBy === option.key
-                        ? "text-white"
-                        : "text-gray-400"
-                    }
-                  >
-                    {option.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-
-            <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 space-y-4">
-              {(airframeTrackBy === "hours" || airframeTrackBy === "both") && (
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Total Flight Hrs
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={formData.total_airframe_hours}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "total_airframe_hours",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Service Life Limit hrs
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={formData.service_life_limit}
-                      onChange={(e) =>
-                        handleInputChange("service_life_limit", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Life Remaining
-                    </label>
-                    <div className="text-2xl font-bold text-white">
-                      {airframeLifeRemainingHours}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Last Inspection hrs
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={formData.last_major_inspection_hours}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "last_major_inspection_hours",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Inspection Interval
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter Hrs"
-                      value={formData.inspection_interval}
-                      onChange={(e) =>
-                        handleInputChange("inspection_interval", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      {nextInspectionDueHours.label}
-                    </label>
-                    <div className="text-2xl font-bold text-white">
-                      {nextInspectionDueHours.value}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {(airframeTrackBy === "cycles" || airframeTrackBy === "both") && (
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Total Cycles
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter cyc"
-                      value={formData.airframe_cycles}
-                      onChange={(e) =>
-                        handleInputChange("airframe_cycles", e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">Cycle Limit</label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter cyc"
-                      value={formData.service_life_limit_cycles}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "service_life_limit_cycles",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Life Remaining
-                    </label>
-                    <div className="text-2xl font-bold text-white">
-                      {airframeLifeRemainingCycles}
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Last Inspection Cycles
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter cyc"
-                      value={formData.last_inspection_cycles}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "last_inspection_cycles",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      Inspection Interval(Cycles)
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                      placeholder="Enter cyc"
-                      value={formData.inspection_interval_cycles}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "inspection_interval_cycles",
-                          e.target.value,
-                        )
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-gray-400">
-                      {nextInspectionDueCycles.label}
-                    </label>
-                    <div className="text-2xl font-bold text-white">
-                      {nextInspectionDueCycles.value}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-400">
-                    Last Major Inspection Date
-                  </label>
-                  <input
-                    type="date"
-                    title="Last Major Inspection Date"
-                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                    value={formData.last_major_inspection_date}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "last_major_inspection_date",
-                        e.target.value,
-                      )
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-400">
-                    Next Type of inspection
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                    placeholder="Enter Type of inspection"
-                    value={formData.next_type_of_inspection}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "next_type_of_inspection",
-                        e.target.value,
-                      )
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-400">
-                    Next Annual Inspection
-                  </label>
-                  <input
-                    type="date"
-                    title="Next Annual Inspection"
-                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                    value={formData.next_annual_inspection}
-                    onChange={(e) =>
-                      handleInputChange(
-                        "next_annual_inspection",
-                        e.target.value,
-                      )
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-gray-400">Landings</label>
-                  <input
-                    type="number"
-                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                    placeholder="Enter"
-                    value={formData.landings}
-                    onChange={(e) =>
-                      handleInputChange("landings", e.target.value)
-                    }
-                  />
-                </div>
-              </div>
-            </div>
+            {/* Aircraft-level airframe metrics intentionally removed.
+                Per request, keep only Components, Engines, and Avionics forms. */}
 
             <div className="space-y-4">
               <div className="flex items-center gap-3">
@@ -1786,6 +1585,7 @@ export const AddAssetPage = () => {
                   onClick={() =>
                     addItem(setComponents, components, {
                       component_type: "",
+                      ata_chapter_id: "",
                       track_by: "hours",
                       part_number: "",
                       serial_number: "",
@@ -1908,7 +1708,7 @@ export const AddAssetPage = () => {
                         ))}
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                         <div className="space-y-1">
                           <label className="text-xs text-gray-400">
                             Component Description
@@ -1931,6 +1731,34 @@ export const AddAssetPage = () => {
                             {componentTypes.map((t) => (
                               <option key={t.id} value={t.id}>
                                 {t.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">
+                            ATA Chapter
+                          </label>
+                          <select
+                            title="Airframe Component ATA Chapter"
+                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                            value={comp.ata_chapter_id || ""}
+                            onChange={(e) =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "ata_chapter_id",
+                                e.target.value,
+                              )
+                            }
+                          >
+                            <option value="">Select ATA Chapter</option>
+                            {componentAtaChapters.map((chapter) => (
+                              <option key={chapter.id} value={String(chapter.id)}>
+                                {chapter.chapter_number ||
+                                  chapter.name ||
+                                  `ATA ${chapter.id}`}
                               </option>
                             ))}
                           </select>
@@ -2337,7 +2165,7 @@ export const AddAssetPage = () => {
                   }
                 >
                   <option value="">Use default ({defaultAtaChapterId})</option>
-                  {ataChapters.map((chapter) => (
+                  {engineAtaChapters.map((chapter) => (
                     <option key={chapter.id} value={String(chapter.id)}>
                       {chapter.chapter_number || chapter.name || `ATA ${chapter.id}`}
                     </option>
@@ -2877,7 +2705,7 @@ export const AddAssetPage = () => {
                           </div>
 
                           <div className="pt-10">
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                               <div className="col-span-1 md:col-span-4">
                                 <label className="text-xs text-gray-400 mb-2 block">
                                   Track By
@@ -2991,6 +2819,42 @@ export const AddAssetPage = () => {
                                   {engineCategories.map((t) => (
                                     <option key={t.id} value={t.id}>
                                       {t.name}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-xs text-gray-400">
+                                  ATA Chapter
+                                </label>
+                                <select
+                                  title="Engine Component ATA Chapter"
+                                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                  value={comp.ata_chapter_id || ""}
+                                  onChange={(e) =>
+                                    setEngineComponentsByEngine((prev) =>
+                                      prev.map((list, i) =>
+                                        i === activeEngineIndex
+                                          ? list.map((c, j) =>
+                                              j === idx
+                                                ? {
+                                                    ...c,
+                                                    ata_chapter_id:
+                                                      e.target.value,
+                                                  }
+                                                : c,
+                                            )
+                                          : list,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  <option value="">Select ATA Chapter</option>
+                                  {componentAtaChapters.map((chapter) => (
+                                    <option key={chapter.id} value={String(chapter.id)}>
+                                      {chapter.chapter_number ||
+                                        chapter.name ||
+                                        `ATA ${chapter.id}`}
                                     </option>
                                   ))}
                                 </select>
@@ -3453,6 +3317,7 @@ export const AddAssetPage = () => {
                 onClick={() =>
                   addItem(setAvionicsComponents, avionicsComponents, {
                     component_type: "",
+                    ata_chapter_id: "",
                     track_by: "hours",
                     part_number: "",
                     serial_number: "",
@@ -3569,7 +3434,7 @@ export const AddAssetPage = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">
                         Component Type
@@ -3592,6 +3457,34 @@ export const AddAssetPage = () => {
                         {avionicCategories.map((t) => (
                           <option key={t.id} value={t.id}>
                             {t.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">
+                        ATA Chapter
+                      </label>
+                      <select
+                        title="Avionics ATA Chapter"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        value={comp.ata_chapter_id || ""}
+                        onChange={(e) =>
+                          updateItem(
+                            setAvionicsComponents,
+                            avionicsComponents,
+                            idx,
+                            "ata_chapter_id",
+                            e.target.value,
+                          )
+                        }
+                      >
+                        <option value="">Select ATA Chapter</option>
+                        {avionicAtaChapters.map((chapter) => (
+                          <option key={chapter.id} value={String(chapter.id)}>
+                            {chapter.chapter_number ||
+                              chapter.name ||
+                              `ATA ${chapter.id}`}
                           </option>
                         ))}
                       </select>

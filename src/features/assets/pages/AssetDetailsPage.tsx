@@ -279,7 +279,7 @@ export const AssetDetailsPage = () => {
     useUpdateWorkOrderTaskMutation();
   const { data: assetWorkOrders = [] } = useGetWorkOrdersQuery(
     asset?.id ? { asset_id: asset.id } : undefined,
-    { skip: !asset?.id || activeTab !== "maintenance" },
+    { skip: !asset?.id },
   );
   const { data: complianceRecords = [] } = useGetComplianceRecordsQuery(undefined, {
     skip: activeTab !== "maintenance",
@@ -298,6 +298,59 @@ export const AssetDetailsPage = () => {
   const [componentsDraft, setComponentsDraft] = useState<Component[]>([]);
   const [enginesDraft, setEnginesDraft] = useState<Engine[]>([]);
   const [avionicsDraft, setAvionicsDraft] = useState<Avionics[]>([]);
+
+  const isAtaApplicableTo = (
+    chapter: {
+      maintenance_category?: string | null;
+      applicability?: string | null;
+      description?: string | null;
+      chapter_name?: string;
+      name?: string;
+    },
+    target: "component" | "engine" | "avionics",
+  ) => {
+    const maintenanceCategory = String(chapter.maintenance_category || "")
+      .toLowerCase()
+      .trim();
+    const applicability = String(chapter.applicability || "")
+      .toLowerCase()
+      .trim();
+
+    const acceptedTargets: Record<typeof target, string[]> = {
+      component: ["component", "components"],
+      engine: ["engine", "engines"],
+      avionics: ["avionics", "avionic"],
+    };
+    const allowedValues = acceptedTargets[target];
+
+    if (maintenanceCategory || applicability) {
+      return (
+        allowedValues.includes(maintenanceCategory) ||
+        allowedValues.includes(applicability)
+      );
+    }
+
+    const searchable = [
+      chapter.description,
+      chapter.chapter_name,
+      chapter.name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return allowedValues.some((value) => searchable.includes(value));
+  };
+
+  const componentAtaChapters = ataChapters.filter((chapter) =>
+    isAtaApplicableTo(chapter, "component"),
+  );
+  const engineAtaChapters = ataChapters.filter((chapter) =>
+    isAtaApplicableTo(chapter, "engine"),
+  );
+  const avionicsAtaChapters = ataChapters.filter((chapter) =>
+    isAtaApplicableTo(chapter, "avionics"),
+  );
 
   useEffect(() => {
     if (!asset) return;
@@ -795,40 +848,30 @@ export const AssetDetailsPage = () => {
                 )}
               </div>
 
-              <div className="col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="col-span-3 grid grid-cols-2 lg:grid-cols-3 gap-4">
                 <StatCard
-                  label="TOTAL AIRFRAME HRS"
-                  value={`${asset.total_airframe_hours} hrs`}
+                  label="TOTAL ENGINES"
+                  value={String(asset.engines.length)}
                 />
                 <StatCard
-                  label="TOTAL CYCLES"
-                  value={formatCycles(asset.total_cycles)}
+                  label="TOTAL AVIONICS"
+                  value={String(asset.avionics.length)}
                 />
                 <StatCard
-                  label="HRS TO NEXT INSP"
-                  value={nextHoursInspection}
+                  label="TOTAL COMPONENTS"
+                  value={String(asset.components.length)}
                 />
                 <StatCard
-                  label="CYC TO NEXT INSP"
-                  value={nextCycleInspection}
+                  label="TOTAL OPERATIONS"
+                  value={String(asset.operations_count ?? asset.operations.length)}
                 />
                 <StatCard
-                  label="NEXT ANNUAL INSP"
-                  value={formatDate(asset.next_annual_inspection_date)}
+                  label="TOTAL WORK ORDERS"
+                  value={String(assetWorkOrders.length)}
                 />
                 <StatCard
-                  label="DISCREPANCIES"
+                  label="TOTAL DISCREPANCIES"
                   value={String(defects.length)}
-                />
-                <StatCard
-                  label="NO. OF OPERATIONS"
-                  value={String(
-                    asset.operations_count ?? asset.operations.length,
-                  )}
-                />
-                <StatCard
-                  label="LAST OPERATION"
-                  value={latestOperation?.name ?? "-"}
                 />
               </div>
             </div>
@@ -1040,7 +1083,7 @@ export const AssetDetailsPage = () => {
                             ...prev,
                             {
                               component_type_id: componentTypes[0]?.id,
-                              ata_chapter_id: ataChapters[0]?.id,
+                              ata_chapter_id: componentAtaChapters[0]?.id,
                               part_number: "",
                               serial_number: "",
                               time_since_new: "",
@@ -1216,17 +1259,13 @@ export const AssetDetailsPage = () => {
                               }
                             >
                               <option value="">Select ATA chapter</option>
-                              {ataChapters
-                                .filter((chapter) =>
-                                  (chapter.description || "").toLowerCase().includes("component")
-                                )
-                                .map((chapter) => (
-                                  <option key={chapter.id} value={chapter.id}>
-                                    {chapter.chapter_number ||
-                                      chapter.name ||
-                                      `ATA ${chapter.id}`}
-                                  </option>
-                                ))}
+                              {componentAtaChapters.map((chapter) => (
+                                <option key={chapter.id} value={chapter.id}>
+                                  {chapter.chapter_number ||
+                                    chapter.name ||
+                                    `ATA ${chapter.id}`}
+                                </option>
+                              ))}
                             </select>
                             <select
                               title="Inspection interval unit"
@@ -1408,7 +1447,7 @@ export const AssetDetailsPage = () => {
                         {
                           position_id: enginePositions[0]?.id ?? 1,
                           category_id: engineCategories[0]?.id,
-                          ata_chapter_id: ataChapters[0]?.id,
+                          ata_chapter_id: engineAtaChapters[0]?.id,
                           serial_number: "",
                           model: "",
                           installation_date: "",
@@ -1531,17 +1570,13 @@ export const AssetDetailsPage = () => {
                       }
                     >
                       <option value="">Select ATA chapter</option>
-                      {ataChapters
-                        .filter((chapter) =>
-                          (chapter.description || "").toLowerCase().includes("engine")
-                        )
-                        .map((chapter) => (
-                          <option key={chapter.id} value={chapter.id}>
-                            {chapter.chapter_number ||
-                              chapter.name ||
-                              `ATA ${chapter.id}`}
-                          </option>
-                        ))}
+                      {engineAtaChapters.map((chapter) => (
+                        <option key={chapter.id} value={chapter.id}>
+                          {chapter.chapter_number ||
+                            chapter.name ||
+                            `ATA ${chapter.id}`}
+                        </option>
+                      ))}
                     </select>
                     <input
                       className={inputClass}
@@ -1757,7 +1792,7 @@ export const AssetDetailsPage = () => {
                         ...prev,
                         {
                           avionic_category_id: avionicCategories[0]?.id,
-                          ata_chapter_id: ataChapters[0]?.id,
+                          ata_chapter_id: avionicsAtaChapters[0]?.id,
                           serial_number: "",
                           model: "",
                           manufacturer: "",
@@ -1859,17 +1894,13 @@ export const AssetDetailsPage = () => {
                       }
                     >
                       <option value="">Select ATA chapter</option>
-                      {ataChapters
-                        .filter((chapter) =>
-                          (chapter.description || "").toLowerCase().includes("avionics")
-                        )
-                        .map((chapter) => (
-                          <option key={chapter.id} value={chapter.id}>
-                            {chapter.chapter_number ||
-                              chapter.name ||
-                              `ATA ${chapter.id}`}
-                          </option>
-                        ))}
+                      {avionicsAtaChapters.map((chapter) => (
+                        <option key={chapter.id} value={chapter.id}>
+                          {chapter.chapter_number ||
+                            chapter.name ||
+                            `ATA ${chapter.id}`}
+                        </option>
+                      ))}
                     </select>
                     <input
                       className={inputClass}

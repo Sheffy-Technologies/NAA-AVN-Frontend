@@ -164,6 +164,8 @@ export type AtaChapter = {
   chapter_name?: string;
   name?: string;
   description?: string | null;
+  maintenance_category?: "engines" | "avionics" | "components" | string | null;
+  applicability?: "component" | "engine" | "avionics" | string | null;
   created_at?: string;
   updated_at?: string;
 };

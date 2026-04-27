@@ -211,17 +211,22 @@ export const AfterActionReportForm = ({
     e.preventDefault();
     try {
       if (operation?.id) {
-        const operationAssetsPayload = (operation.assets ?? []).map((asset, idx) => ({
-          ...getAssetFlightTimes(idx, asset),
-          asset_id: asset.asset_id ?? asset.asset?.id ?? 0,
-          pilot_id: asset.pilot_id ?? null,
-          co_pilot_id: asset.co_pilot_id ?? null,
-          departure_takeoff: toApiTime(getAssetFlightTimes(idx, asset).departure_takeoff),
-          departure_landing: toApiTime(getAssetFlightTimes(idx, asset).departure_landing),
-          arrival_takeoff: toApiTime(getAssetFlightTimes(idx, asset).return_takeoff),
-          arrival_landing: toApiTime(getAssetFlightTimes(idx, asset).return_landing),
-          flight_hours: Number((calculateAssetTotalMinutes(idx, asset) / 60).toFixed(2)),
-        })).filter((item) => item.asset_id > 0);
+        const operationAssetsPayload = (operation.assets ?? [])
+          .map((asset, idx) => {
+            const times = getAssetFlightTimes(idx, asset);
+
+            return {
+              asset_id: asset.asset_id ?? asset.asset?.id ?? 0,
+              pilot_id: asset.pilot_id ?? null,
+              co_pilot_id: asset.co_pilot_id ?? null,
+              departure_takeoff: toApiTime(times.departure_takeoff),
+              departure_landing: toApiTime(times.departure_landing),
+              arrival_takeoff: toApiTime(times.return_takeoff),
+              arrival_landing: toApiTime(times.return_landing),
+              flight_hours: Number((calculateAssetTotalMinutes(idx, asset) / 60).toFixed(2)),
+            };
+          })
+          .filter((item) => item.asset_id > 0);
 
         await updateOperation({
           id: operation.id,
@@ -374,6 +379,8 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
                         <input
                           type="time"
+                          title="Departure takeoff time"
+                          placeholder="Departure takeoff"
                           value={getAssetFlightTimes(idx, asset).departure_takeoff}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
@@ -391,6 +398,8 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
                         <input
                           type="time"
+                          title="Departure landing time"
+                          placeholder="Departure landing"
                           value={getAssetFlightTimes(idx, asset).departure_landing}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
@@ -427,6 +436,8 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
                         <input
                           type="time"
+                          title="Return takeoff time"
+                          placeholder="Return takeoff"
                           value={getAssetFlightTimes(idx, asset).return_takeoff}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
@@ -444,6 +455,8 @@ export const AfterActionReportForm = ({
                         <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
                         <input
                           type="time"
+                          title="Return landing time"
+                          placeholder="Return landing"
                           value={getAssetFlightTimes(idx, asset).return_landing}
                           onChange={(e) =>
                             setFlightTimes((prev) => ({
@@ -513,6 +526,8 @@ export const AfterActionReportForm = ({
               <button
                 type="button"
                 onClick={() => removeContact(index)}
+                title={`Remove contact ${index + 1}`}
+                aria-label={`Remove contact ${index + 1}`}
                 className="absolute top-4 right-4 text-gray-500 hover:text-red-400"
               >
                 <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
@@ -586,6 +601,8 @@ export const AfterActionReportForm = ({
                       />
                       <input
                         type="time"
+                        title="Time of contact"
+                        placeholder="Time of contact"
                         value={contact.time_of_contact}
                         onChange={(e) =>
                           handleContactChange(
@@ -609,6 +626,8 @@ export const AfterActionReportForm = ({
                       />
                       <input
                         type="date"
+                        title="Date of contact"
+                        placeholder="Date of contact"
                         value={contact.date_of_contact}
                         onChange={(e) =>
                           handleContactChange(
@@ -787,6 +806,8 @@ export const AfterActionReportForm = ({
                     <button
                       type="button"
                       onClick={() => removePhoto(index, photoIndex)}
+                      title={`Remove photo ${photoIndex + 1}`}
+                      aria-label={`Remove photo ${photoIndex + 1}`}
                       className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Icon icon="mdi:close" className="w-4 h-4" />
@@ -837,6 +858,8 @@ export const AfterActionReportForm = ({
               <button
                 type="button"
                 onClick={() => removeResource(index)}
+                title={`Remove resource ${index + 1}`}
+                aria-label={`Remove resource ${index + 1}`}
                 className="absolute top-4 right-4 text-gray-500 hover:text-red-400"
               >
                 <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
@@ -853,6 +876,8 @@ export const AfterActionReportForm = ({
                   </label>
                   <div className="relative">
                     <select
+                      title="Resource inventory item"
+                      aria-label="Resource inventory item"
                       value={res.inventory_id}
                       onChange={(e) => {
                         const selectedId = Number(e.target.value);
@@ -913,6 +938,8 @@ export const AfterActionReportForm = ({
                   </label>
                   <div className="relative">
                     <select
+                      title="Resource asset assignment"
+                      aria-label="Resource asset assignment"
                       value={res.asset_id}
                       onChange={(e) =>
                         handleResourceChange(

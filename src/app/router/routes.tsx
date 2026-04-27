@@ -225,6 +225,13 @@ const MaintenancePage = lazy(() =>
     default: module.MaintenancePage,
   })),
 );
+const MaintenanceProgramsCrudPage = lazy(() =>
+  import("@/features/maintenance/pages/MaintenanceProgramsCrudPage").then(
+    (module) => ({
+      default: module.MaintenanceProgramsCrudPage,
+    }),
+  ),
+);
 const WorkOrderDetailsPage = lazy(() =>
   import("@/features/maintenance/pages/WorkOrderDetailsPage").then((module) => ({
     default: module.WorkOrderDetailsPage,
@@ -620,6 +627,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "maintenance/add-task",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MaintenanceProgramsCrudPage />
           </Suspense>
         ),
       },
