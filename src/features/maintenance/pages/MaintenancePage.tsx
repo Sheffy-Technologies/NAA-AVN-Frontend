@@ -175,6 +175,7 @@ export const MaintenancePage = () => {
   const [selectedDueKey, setSelectedDueKey] = useState<string | null>(null);
   const [selectedComplianceId, setSelectedComplianceId] = useState<number | null>(null);
   const [selectedDefectId, setSelectedDefectId] = useState<number | null>(null);
+  const [isExportingWorkOrders, setIsExportingWorkOrders] = useState(false);
   const [selectedDefectIds, setSelectedDefectIds] = useState<Set<number>>(new Set());
   const [defectWorkOrderFeedback, setDefectWorkOrderFeedback] = useState<
     { type: "success" | "error"; message: string } | null
@@ -193,7 +194,7 @@ export const MaintenancePage = () => {
       )
       .map((item) => ({
         id: item.id,
-        type: "Component",
+        type: "Component" as const,
         name: item.part_number || "-",
         serial: item.serial_number || "-",
         currentHours: item.time_since_new ?? null,
@@ -217,7 +218,7 @@ export const MaintenancePage = () => {
       )
       .map((item) => ({
         id: item.id,
-        type: "Engine",
+        type: "Engine" as const,
         name: item.model || "-",
         serial: item.serial_number || "-",
         currentHours: item.time_since_new ?? null,
@@ -242,7 +243,7 @@ export const MaintenancePage = () => {
       )
       .map((item) => ({
         id: item.id,
-        type: "Avionics",
+        type: "Avionics" as const,
         name: item.model || "-",
         serial: item.serial_number || "-",
         currentHours: item.time_since_new ?? null,
@@ -369,6 +370,96 @@ export const MaintenancePage = () => {
     ],
     [summary],
   );
+
+  const handleExportWorkOrdersExcel = async () => {
+    if (isExportingWorkOrders) return;
+
+    setIsExportingWorkOrders(true);
+    try {
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.utils.book_new();
+
+      const summaryRows: Array<Record<string, string | number>> = (workOrders || []).map((order) => ({
+        "Work Order ID": order.id,
+        Title: order.title || `Work Order #${order.id}`,
+        "Asset ID": order.asset_id ?? "-",
+        "Created At": formatDate(order.created_at),
+        "Updated At": formatDate(order.updated_at),
+        "Task Count": order.tasks?.length ?? 0,
+      }));
+
+      const taskRows: Array<Record<string, string | number>> = [];
+      const assignmentRows: Array<Record<string, string | number>> = [];
+
+      (workOrders || []).forEach((order) => {
+        const tasks = order.tasks || [];
+
+        if (tasks.length === 0) {
+          taskRows.push({
+            "Work Order ID": order.id,
+            "Task ID": "-",
+            "Task Type": "-",
+            Status: "-",
+            Description: "No tasks",
+            "Program Name": "-",
+            "Defect Title": "-",
+          });
+          return;
+        }
+
+        tasks.forEach((task) => {
+          taskRows.push({
+            "Work Order ID": order.id,
+            "Task ID": task.id,
+            "Task Type": task.task_type || "routine",
+            Status: String(task.status || "pending"),
+            Description: task.description || "-",
+            "Program Name": task.program?.name || "-",
+            "Defect Title": task.defect?.title || "-",
+          });
+
+          const assigned = task.assignedPersonnel ?? task.assigned_personnel ?? [];
+          if (assigned.length === 0) {
+            assignmentRows.push({
+              "Work Order ID": order.id,
+              "Task ID": task.id,
+              "Personnel ID": "-",
+              Name: "Unassigned",
+              "Service Number": "-",
+            });
+            return;
+          }
+
+          assigned.forEach((person) => {
+            assignmentRows.push({
+              "Work Order ID": order.id,
+              "Task ID": task.id,
+              "Personnel ID": person.id,
+              Name:
+                person.full_name ||
+                [person.firstname, person.lastname].filter(Boolean).join(" ") ||
+                `Personnel #${person.id}`,
+              "Service Number": person.service_number || "-",
+            });
+          });
+        });
+      });
+
+      const addSheet = (name: string, rows: Array<Record<string, string | number>>) => {
+        const data = rows.length > 0 ? rows : [{ Info: "No records" }];
+        const sheet = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(workbook, sheet, name);
+      };
+
+      addSheet("Work Orders", summaryRows);
+      addSheet("Tasks", taskRows);
+      addSheet("Assignments", assignmentRows);
+
+      XLSX.writeFile(workbook, "work-orders-export.xlsx");
+    } finally {
+      setIsExportingWorkOrders(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -562,9 +653,20 @@ export const MaintenancePage = () => {
 
       {section === "work-orders" && (
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-4">
-            Work Orders
-          </h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold text-[#7FD5FF] uppercase">
+              Work Orders
+            </h2>
+            <button
+              type="button"
+              onClick={handleExportWorkOrdersExcel}
+              disabled={isExportingWorkOrders || isWorkOrdersLoading}
+              className="inline-flex items-center gap-2 rounded border border-emerald-400/50 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Icon icon={isExportingWorkOrders ? "mdi:loading" : "mdi:microsoft-excel"} className={cn("w-4 h-4", isExportingWorkOrders ? "animate-spin" : "")} />
+              <span>{isExportingWorkOrders ? "Exporting..." : "Export Excel"}</span>
+            </button>
+          </div>
           {isWorkOrdersLoading ? (
             <div className="text-gray-400">Loading work orders...</div>
           ) : isWorkOrdersError ? (

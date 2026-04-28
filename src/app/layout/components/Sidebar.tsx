@@ -2,46 +2,114 @@ import { useMemo } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
-import { useAppDispatch } from "@/shared/hooks/redux";
+import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { AUTH_STORAGE_KEY, logout } from "@/features/auth/authSlice";
 
-const NAV_ITEMS = [
-  { name: "Dashboard", path: "/dashboard", icon: "mdi:view-dashboard" },
+type NavItem = {
+  name: string;
+  path: string;
+  icon: string;
+  /** If set, the item is only shown to users who have at least one of these permissions. */
+  requiredPermissions?: string[];
+};
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    name: "Dashboard",
+    path: "/dashboard",
+    icon: "mdi:view-dashboard",
+    requiredPermissions: ["dashboard.home.view"],
+  },
   // { name: "Weather", path: "/dashboard/weather", icon: "mdi:thermometer" },
-  { name: "Units", path: "/dashboard/units", icon: "mdi:office-building" },
-  { name: "Assets", path: "/dashboard/assets", icon: "mdi:sitemap" },
-  { name: "Operations", path: "/dashboard/operations", icon: "mdi:database" },
-  { name: "Personnel", path: "/dashboard/personnel", icon: "mdi:account" },
-  { name: "Inventory", path: "/dashboard/inventory", icon: "mdi:package-variant" },
-  { name: "Finances", path: "/dashboard/finance", icon: "mdi:wallet-outline" },
-  { name: "Security", path: "/dashboard/security", icon: "mdi:shield-outline" },
-  { name: "Reports", path: "/dashboard/reports", icon: "mdi:chart-line" },
+  {
+    name: "Units",
+    path: "/dashboard/units",
+    icon: "mdi:office-building",
+    requiredPermissions: ["units.viewAny"],
+  },
+  {
+    name: "Assets",
+    path: "/dashboard/assets",
+    icon: "mdi:sitemap",
+    requiredPermissions: ["assets.viewAny", "dashboard.home.view"],
+  },
+  {
+    name: "Operations",
+    path: "/dashboard/operations",
+    icon: "mdi:database",
+    requiredPermissions: ["dashboard.operations.view", "operations.viewAny"],
+  },
+  {
+    name: "Personnel",
+    path: "/dashboard/personnel",
+    icon: "mdi:account",
+    requiredPermissions: ["dashboard.personnel.view", "personnel.viewAny"],
+  },
+  {
+    name: "Inventory",
+    path: "/dashboard/inventory",
+    icon: "mdi:package-variant",
+    requiredPermissions: ["dashboard.inventories.view", "inventories.viewAny"],
+  },
+  {
+    name: "Finances",
+    path: "/dashboard/finance",
+    icon: "mdi:wallet-outline",
+    requiredPermissions: ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"],
+  },
+  {
+    name: "Security",
+    path: "/dashboard/security",
+    icon: "mdi:shield-outline",
+    requiredPermissions: ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"],
+  },
+  {
+    name: "Reports",
+    path: "/dashboard/reports",
+    icon: "mdi:chart-line",
+    requiredPermissions: ["reports.resources.view", "reports.query"],
+  },
   {
     name: "Documents",
     path: "/dashboard/documents",
     icon: "mdi:book-open-page-variant",
+    requiredPermissions: ["documents.viewAny"],
   },
 ];
 
-const MAINTENANCE_ITEMS = [
+const MAINTENANCE_ITEMS: NavItem[] = [
   {
     name: "Maintenance Hub",
     path: "/dashboard/maintenance",
     icon: "mdi:wrench-cog-outline",
+    requiredPermissions: ["dashboard.maintenance.view", "work-orders.viewAny", "maintenance-programs.viewAny"],
   },
 ];
 
-const BOTTOM_ITEMS = [
+const BOTTOM_ITEMS: NavItem[] = [
   {
     name: "User",
     path: "/dashboard/users",
     icon: "mdi:user-outline",
+    requiredPermissions: ["users.viewAny"],
   },
 ];
 
 export const Sidebar = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const userPermissions = useAppSelector(
+    (state) => state.auth.user?.permissions ?? [],
+  );
+
+  const canAccess = (item: NavItem) => {
+    if (!item.requiredPermissions?.length) return true;
+    return item.requiredPermissions.some((p) => userPermissions.includes(p));
+  };
+
+  const visibleNavItems = NAV_ITEMS.filter(canAccess);
+  const visibleMaintenanceItems = MAINTENANCE_ITEMS.filter(canAccess);
+  const visibleBottomItems = BOTTOM_ITEMS.filter(canAccess);
 
   const toTitleCase = (value: string) =>
     value
@@ -141,7 +209,7 @@ export const Sidebar = () => {
 
       {/* Main Navigation */}
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
-        {NAV_ITEMS.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
@@ -165,7 +233,7 @@ export const Sidebar = () => {
             Maintenance
           </div>
           <div className="space-y-1">
-            {MAINTENANCE_ITEMS.map((item) => (
+            {visibleMaintenanceItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
@@ -189,7 +257,7 @@ export const Sidebar = () => {
       {/* Bottom Section */}
       <div className="p-3 mt-auto border-t border-[#0A4D66]/30 bg-[#00090D]">
         <div className="space-y-1 mb-4">
-          {BOTTOM_ITEMS.map((item) => (
+          {visibleBottomItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}

@@ -1,12 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { useAppUpdater } from "@/shared/hooks/useAppUpdater";
+import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
+import { setCredentials } from "@/features/auth/authSlice";
+import { useGetMeQuery } from "@/features/security/api";
 
 export const DashboardLayout = () => {
   useAppUpdater();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const dispatch = useAppDispatch();
+  const token = useAppSelector((state) => state.auth.token);
+
+  const { data: me } = useGetMeQuery(undefined, { skip: !token });
+
+  useEffect(() => {
+    if (me && token) {
+      dispatch(
+        setCredentials({
+          token,
+          user: {
+            id: String(me.id),
+            email: me.email ?? "",
+            name: [me.firstname, me.lastname].filter(Boolean).join(" "),
+            firstname: me.firstname ?? undefined,
+            lastname: me.lastname ?? undefined,
+            username: me.username ?? undefined,
+            roles: me.roles,
+            role_names: me.role_names,
+            permissions: me.permissions,
+          },
+        }),
+      );
+    }
+  }, [me, token, dispatch]);
 
   return (
     <div className="flex h-screen bg-[#00090D] overflow-hidden">

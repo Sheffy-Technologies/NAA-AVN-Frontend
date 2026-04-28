@@ -1,8 +1,9 @@
-import { Suspense, lazy } from "react";
+import { Suspense, lazy, type ReactElement } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { AuthLayout } from "@/app/layout/AuthLayout";
 import { RouteErrorBoundary } from "@/app/router/RouteErrorBoundary";
 import { RequireAuth } from "@/app/router/RequireAuth";
+import { RequireRole } from "@/app/router/RequireRole";
 
 // Auth Pages
 const LoginPage = lazy(() =>
@@ -75,6 +76,13 @@ const PurchaseOrderDetailsPage = lazy(() =>
   import("@/features/inventory/pages/PurchaseOrderDetailsPage").then(
     (module) => ({
       default: module.default,
+    }),
+  ),
+);
+const ProcurementLifecyclePage = lazy(() =>
+  import("@/features/inventory/pages/ProcurementLifecyclePage").then(
+    (module) => ({
+      default: module.ProcurementLifecyclePage,
     }),
   ),
 );
@@ -264,6 +272,24 @@ const loadingElement = (
   </div>
 );
 
+const UNITS_ROUTE_PERMISSIONS = ["units.viewAny"];
+const ASSETS_ROUTE_PERMISSIONS = ["assets.viewAny", "dashboard.home.view"];
+const OPERATIONS_ROUTE_PERMISSIONS = ["dashboard.operations.view", "operations.viewAny"];
+const PERSONNEL_ROUTE_PERMISSIONS = ["dashboard.personnel.view", "personnel.viewAny"];
+const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.viewAny"];
+const FINANCE_ROUTE_PERMISSIONS = ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"];
+const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"];
+const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
+const DOCUMENTS_ROUTE_PERMISSIONS = ["documents.viewAny"];
+const MAINTENANCE_ROUTE_PERMISSIONS = ["dashboard.maintenance.view", "work-orders.viewAny", "maintenance-programs.viewAny"];
+
+const guardWithPermissions = (
+  element: ReactElement,
+  requiredPermissions: string[],
+) => (
+  <RequireRole requiredPermissions={requiredPermissions}>{element}</RequireRole>
+);
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -322,267 +348,275 @@ export const router = createBrowserRouter([
       },
       {
         path: "units",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <UnitsPage />
           </Suspense>
-        ),
+        ), UNITS_ROUTE_PERMISSIONS),
       },
       {
         path: "units/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <UnitFormPage />
           </Suspense>
-        ),
+        ), UNITS_ROUTE_PERMISSIONS),
       },
       {
         path: "units/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <UnitsDetailsPage />
           </Suspense>
-        ),
+        ), UNITS_ROUTE_PERMISSIONS),
       },
       {
         path: "units/:id/edit",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <UnitFormPage />
           </Suspense>
-        ),
+        ), UNITS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AssetsPage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddAssetPage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/vehicles/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddVehiclePage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/vehicles/:id/edit",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <EditVehiclePage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/facilities/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddFacilityPage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AssetDetailsPage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/:id/defects/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddAssetDefectPage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/:id/operations/:operationId/after-action-report",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddAfterActionReportPage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "assets/:id/edit",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddAssetPage />
           </Suspense>
-        ),
+        ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
         path: "personnel",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <PersonnelPage />
           </Suspense>
-        ),
+        ), PERSONNEL_ROUTE_PERMISSIONS),
       },
       {
         path: "personnel/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddPersonnelPage />
           </Suspense>
-        ),
+        ), PERSONNEL_ROUTE_PERMISSIONS),
       },
       {
         path: "personnel/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <PersonnelDetailPage />
           </Suspense>
-        ),
+        ), PERSONNEL_ROUTE_PERMISSIONS),
       },
       {
         path: "personnel/:id/edit",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <EditPersonnelPage />
           </Suspense>
-        ),
+        ), PERSONNEL_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <InventoryPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <InventoryFormPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/requisitions/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <InventoryRequisitionFormPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/requisitions/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <InventoryRequisitionDetailsPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/purchase-orders",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <PurchaseOrdersPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/purchase-orders/new",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <PurchaseOrderFormPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/purchase-orders/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <PurchaseOrderDetailsPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "inventory/procurement-lifecycle",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <ProcurementLifecyclePage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/suppliers/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddSupplierPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/:id/edit",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <InventoryFormPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "inventory/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <InventoryInfoPage />
           </Suspense>
-        ),
+        ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
         path: "finance",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <FinancePage />
           </Suspense>
-        ),
+        ), FINANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "finance/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <FinanceFormPage />
           </Suspense>
-        ),
+        ), FINANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "finance/budgets/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <BudgetFormPage />
           </Suspense>
-        ),
+        ), FINANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "finance/budgets/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <BudgetInfoPage />
           </Suspense>
-        ),
+        ), FINANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "documents",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <DocumentsPage />
           </Suspense>
-        ),
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
       },
       {
         path: "reports",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <ReportsPage />
           </Suspense>
-        ),
+        ), REPORTS_ROUTE_PERMISSIONS),
       },
       {
         path: "flight-programme",
@@ -594,130 +628,136 @@ export const router = createBrowserRouter([
       },
       {
         path: "operations",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <OperationsPage />
           </Suspense>
-        ),
+        ), OPERATIONS_ROUTE_PERMISSIONS),
       },
       {
         path: "operations/add",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddOperationPage />
           </Suspense>
-        ),
+        ), OPERATIONS_ROUTE_PERMISSIONS),
       },
       {
         path: "operations/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <OperationDetailsPage />
           </Suspense>
-        ),
+        ), OPERATIONS_ROUTE_PERMISSIONS),
       },
       {
         path: "operations/:id/after-action-report",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddAfterActionReportPageOperation />
           </Suspense>
-        ),
+        ), OPERATIONS_ROUTE_PERMISSIONS),
       },
       {
         path: "operations/:id/edit",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <EditOperationPage />
           </Suspense>
-        ),
+        ), OPERATIONS_ROUTE_PERMISSIONS),
       },
       {
         path: "security",
         element: (
-          <Suspense fallback={loadingElement}>
-            <SecurityPage />
-          </Suspense>
+          <RequireRole requiredPermissions={SECURITY_ROUTE_PERMISSIONS}>
+            <Suspense fallback={loadingElement}>
+              <SecurityPage />
+            </Suspense>
+          </RequireRole>
         ),
       },
       {
         path: "maintenance",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance/planning",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance/add-task",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenanceProgramsCrudPage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance/compliance",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance/work-orders",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance/work-orders/:id",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <WorkOrderDetailsPage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance/defects",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance/tracking",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
           </Suspense>
-        ),
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
         path: "users",
         element: (
-          <Suspense fallback={loadingElement}>
-            <UserDetailsPage />
-          </Suspense>
+          <RequireRole requiredPermissions={["users.viewAny"]}>
+            <Suspense fallback={loadingElement}>
+              <UserDetailsPage />
+            </Suspense>
+          </RequireRole>
         ),
       },
       {
         path: "users/add",
         element: (
-          <Suspense fallback={loadingElement}>
-            <AddUserPage />
-          </Suspense>
+          <RequireRole requiredPermissions={["users.create"]}>
+            <Suspense fallback={loadingElement}>
+              <AddUserPage />
+            </Suspense>
+          </RequireRole>
         ),
       },
       {

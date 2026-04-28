@@ -1,12 +1,21 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGetMaintenanceProgramsQuery } from "../api";
 import { cn } from "@/shared/utils/cn";
+import { useGetMaintenanceProgramsQuery } from "../api";
 
 export const PlanningPage = () => {
   const navigate = useNavigate();
-  const { data: programs = [], isLoading } = useGetMaintenanceProgramsQuery();
   const [search, setSearch] = useState("");
+  const [intervalFilter, setIntervalFilter] = useState<number | null>(null);
+  const [applicabilityFilter, setApplicabilityFilter] = useState<string | null>(null);
+
+  const filterParams = {
+    ...(intervalFilter != null ? { interval_hours: intervalFilter } : {}),
+    ...(applicabilityFilter ? { applicability: applicabilityFilter } : {}),
+  };
+  const { data: programs = [], isLoading } = useGetMaintenanceProgramsQuery(
+    Object.keys(filterParams).length > 0 ? filterParams : undefined,
+  );
 
   const filteredPrograms = useMemo(() => {
     if (!search.trim()) return programs;
@@ -30,6 +39,50 @@ export const PlanningPage = () => {
           + Add Task
         </button>
       </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Interval Hours filter */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-400">Interval:</span>
+          {([null, 10, 50, 100, 150, 200] as (number | null)[]).map((val) => (
+            <button
+              key={val ?? "all"}
+              type="button"
+              onClick={() => setIntervalFilter(val)}
+              className={cn(
+                "rounded px-2 py-1 text-xs transition-colors border",
+                intervalFilter === val
+                  ? "bg-[#0A4D66] border-[#7FD5FF] text-[#7FD5FF]"
+                  : "border-[#0A4D66]/40 text-gray-400 hover:border-[#7FD5FF]/40 hover:text-gray-200",
+              )}
+            >
+              {val == null ? "All" : `${val} hrs`}
+            </button>
+          ))}
+        </div>
+
+        {/* Applicability filter */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-400">Type:</span>
+          {([null, "component", "engine", "avionics"] as (string | null)[]).map((val) => (
+            <button
+              key={val ?? "all"}
+              type="button"
+              onClick={() => setApplicabilityFilter(val)}
+              className={cn(
+                "rounded px-2 py-1 text-xs transition-colors border capitalize",
+                applicabilityFilter === val
+                  ? "bg-[#0A4D66] border-[#7FD5FF] text-[#7FD5FF]"
+                  : "border-[#0A4D66]/40 text-gray-400 hover:border-[#7FD5FF]/40 hover:text-gray-200",
+              )}
+            >
+              {val == null ? "All" : val}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <input
         className="w-full mb-4 rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
         placeholder="Search tasks by name, description, or type..."

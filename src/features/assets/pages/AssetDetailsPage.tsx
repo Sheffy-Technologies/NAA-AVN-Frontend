@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAppDispatch } from "@/app/store";
@@ -27,7 +27,6 @@ import {
   type Engine,
 } from "../api";
 import { cn } from "@/shared/utils/cn";
-import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import AssetMaintenanceProgramsSearchable from "./AssetMaintenanceProgramsSearchable";
 
 
@@ -292,7 +291,6 @@ export const AssetDetailsPage = () => {
   const [isCreatingWorkOrder, setIsCreatingWorkOrder] = useState(false);
   // (removed duplicate ad-hoc modal state)
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const contentRef = useRef<HTMLDivElement | null>(null);
   const [isEditingComponents, setIsEditingComponents] = useState(false);
   const [isEditingEngines, setIsEditingEngines] = useState(false);
   const [isEditingAvionics, setIsEditingAvionics] = useState(false);
@@ -504,18 +502,145 @@ export const AssetDetailsPage = () => {
   };
 
   const handleDownloadPdf = async () => {
-    if (!contentRef.current || !asset || isDownloadingPdf) return;
+    if (!asset || isDownloadingPdf) return;
 
     setIsDownloadingPdf(true);
     try {
-      await downloadElementAsPdf({
-        element: contentRef.current,
-        fileName: `${asset.name || "asset"}-${asset.id}`,
-        backgroundColor: "#00090D",
-      });
-      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.utils.book_new();
+
+      const summaryRows = [
+        {
+          "Asset ID": asset.id,
+          Name: asset.name || "-",
+          Type: assetTypeName,
+          Unit: unitName,
+          Model: asset.model || "-",
+          Manufacturer: asset.manufacturer || "-",
+          "Serial Number": asset.serial_number || "-",
+          "Tail Number": asset.tail_number || "-",
+          "Serviceability Status": formatStatus(asset.serviceability_status),
+          "Operation Status": formatStatus(asset.operation_status),
+          "Total Airframe Hours": formatHours(asset.total_airframe_hours),
+          "Total Cycles": formatCycles(asset.total_cycles),
+          "Last Inspection Date": formatDate(asset.last_inspection_date),
+          "Next Annual Inspection": formatDate(asset.next_annual_inspection_date),
+        },
+      ];
+
+      const componentsRows = (asset.components || []).map((component, index) => ({
+        "S/N": index + 1,
+        "Component Type": componentTypeMap.get(component.component_type_id || 0) || "-",
+        "ATA Chapter": ataChapterMap.get(component.ata_chapter_id || 0) || "-",
+        "Part Number": component.part_number || "-",
+        "Serial Number": component.serial_number || "-",
+        "Time Since New": formatHours(component.time_since_new),
+        "Service Life Limit": formatHours(component.service_life_limit_hours),
+        "Inspection Interval": formatInspectionInterval(
+          component.inspection_interval,
+          component.inspection_interval_unit,
+        ),
+        Strategy: formatStatus(component.maintenance_strategy),
+      }));
+
+      const enginesRows = (asset.engines || []).map((engine, index) => ({
+        "S/N": index + 1,
+        Position: enginePositionMap.get(engine.position_id || 0) || "-",
+        Category: engineCategoryMap.get(engine.category_id || 0) || "-",
+        "ATA Chapter": ataChapterMap.get(engine.ata_chapter_id || 0) || "-",
+        Model: engine.model || "-",
+        "Serial Number": engine.serial_number || "-",
+        "Time Since New": formatHours(engine.time_since_new),
+        "Service Life Limit": formatHours(engine.service_life_limit),
+        "Inspection Interval": formatInspectionInterval(
+          engine.inspection_interval,
+          engine.inspection_interval_unit,
+        ),
+        Strategy: formatStatus(engine.maintenance_strategy),
+      }));
+
+      const avionicsRows = (asset.avionics || []).map((avionic, index) => ({
+        "S/N": index + 1,
+        Category: avionicCategoryMap.get(avionic.avionic_category_id || 0) || "-",
+        "ATA Chapter": ataChapterMap.get(avionic.ata_chapter_id || 0) || "-",
+        Model: avionic.model || "-",
+        Manufacturer: avionic.manufacturer || "-",
+        "Serial Number": avionic.serial_number || "-",
+        "Time Since New": formatHours(avionic.time_since_new),
+        "Service Life Limit": formatHours(avionic.service_life_limit),
+        "Inspection Interval": formatInspectionInterval(
+          avionic.inspection_interval,
+          avionic.inspection_interval_unit,
+        ),
+        Strategy: formatStatus(avionic.maintenance_strategy),
+      }));
+
+      const dueTrackingSheetRows = dueTrackingRows.map((row) => ({
+        Category: row.category,
+        Item: row.name,
+        "Current Hrs": formatNumber(row.current),
+        "Last Inspection": formatNumber(row.lastInspection),
+        Interval: formatInspectionInterval(row.interval, row.intervalUnit),
+        "Due Hours":
+          row.intervalUnit === "hours" && row.dueHours !== null
+            ? formatNumber(row.dueHours)
+            : "-",
+      }));
+
+      const maintenanceRows = (assetComplianceRecords || []).map((record) => ({
+        "Task ID": record.work_order_task_id || "-",
+        "Completion Date": formatDate(record.completion_date),
+        "Next Due Date": formatDate(record.next_due_date),
+        "Next Due Hours": formatHours(record.next_due_hours),
+        Remarks: record.remarks || "-",
+      }));
+
+      const workOrderRows = assetWorkOrders.flatMap((order) =>
+        (order.tasks || []).map((task) => ({
+          "Work Order ID": order.id,
+          Title: order.title || "-",
+          "Task ID": task.id,
+          "Task Type": task.task_type || "-",
+          Description: task.description || "-",
+          Status: formatStatus(task.status),
+        })),
+      );
+
+      const defectsRows = (defects || []).map((defect) => ({
+        ID: defect.id ?? "-",
+        Title: defect.title || "-",
+        Severity: formatStatus(defect.severity),
+        Status: formatStatus(defect.status),
+        "Reported At": formatDateTime(defect.reported_at),
+        Description: defect.description || "-",
+      }));
+
+      const addSheet = (name: string, rows: Array<Record<string, string | number>>) => {
+        const normalizedRows = rows.length > 0 ? rows : [{ Info: "No records" }];
+        const sheet = XLSX.utils.json_to_sheet(normalizedRows);
+        XLSX.utils.book_append_sheet(workbook, sheet, name);
+      };
+
+      addSheet("Summary", summaryRows);
+      addSheet("Components", componentsRows);
+      addSheet("Engines", enginesRows);
+      addSheet("Avionics", avionicsRows);
+      addSheet("Due Tracking", dueTrackingSheetRows);
+      addSheet("Maintenance", maintenanceRows);
+      addSheet("Work Orders", workOrderRows);
+      addSheet("Defects", defectsRows);
+
+      const safeName = String(asset.name || "asset")
+        .trim()
+        .replace(/[^a-zA-Z0-9-_]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") || "asset";
+      const fileName = `${safeName}-${asset.id}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      dispatch(showToast({ message: "Excel downloaded", type: "success" }));
     } catch {
-      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+      dispatch(showToast({ message: "Failed to download Excel", type: "error" }));
     } finally {
       setIsDownloadingPdf(false);
     }
@@ -687,14 +812,28 @@ export const AssetDetailsPage = () => {
       const programApplicabilities = maintenancePrograms
         .filter((prog) => programIds.includes(prog.id))
         .map((prog) => {
-          const applicability: any = { program_id: prog.id };
+          const applicability: {
+            program_id: number;
+            component_ids?: number[];
+            engine_ids?: number[];
+            avionics_ids?: number[];
+          } = { program_id: prog.id };
 
           if (prog.applicability === "component") {
-            applicability.component_ids = asset.components?.map((c) => c.id) || [];
+            applicability.component_ids =
+              asset.components
+                ?.map((c) => c.id)
+                .filter((id): id is number => typeof id === "number") || [];
           } else if (prog.applicability === "engine") {
-            applicability.engine_ids = asset.engines?.map((e) => e.id) || [];
+            applicability.engine_ids =
+              asset.engines
+                ?.map((e) => e.id)
+                .filter((id): id is number => typeof id === "number") || [];
           } else if (prog.applicability === "avionics") {
-            applicability.avionics_ids = asset.avionics?.map((a) => a.id) || [];
+            applicability.avionics_ids =
+              asset.avionics
+                ?.map((a) => a.id)
+                .filter((id): id is number => typeof id === "number") || [];
           }
 
           return applicability;
@@ -830,7 +969,7 @@ export const AssetDetailsPage = () => {
       </div>
 
       {/* Content */}
-      <div ref={contentRef} className="space-y-6">
+      <div className="space-y-6">
         {activeTab === "info" && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">

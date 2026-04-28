@@ -101,6 +101,8 @@ export type WorkOrderTask = {
   defect_id?: number | null;
   status?: "pending" | "completed" | string;
   personnel_id?: number | null;
+  assignedPersonnel?: WorkOrderTaskPersonnel[];
+  assigned_personnel?: WorkOrderTaskPersonnel[];
   component_id?: number | null;
   engine_id?: number | null;
   avionics_id?: number | null;
@@ -114,6 +116,21 @@ export type WorkOrderTask = {
   program?: MaintenanceProgram | null;
   defect?: DefectRecord | null;
   maintenanceInventories?: MaintenanceInventoryRecord[];
+};
+
+export type WorkOrderTaskPersonnel = {
+  id: number;
+  firstname?: string | null;
+  lastname?: string | null;
+  othernames?: string | null;
+  full_name?: string | null;
+  service_number?: string | null;
+  call_sign?: string | null;
+  rank?: {
+    id: number;
+    name?: string | null;
+    abbreviation?: string | null;
+  } | null;
 };
 
 export type MaintenanceInventoryRecord = {
@@ -157,6 +174,7 @@ export type UpdateWorkOrderTaskRequest = {
   description?: string | null;
   actual_labour_hours?: number | null;
   labour_rate?: number | null;
+  personnel_ids?: number[];
 };
 
 export type WorkOrderAsset = {
@@ -357,7 +375,7 @@ export const maintenanceApi = createApi({
         url: `/work-orders/${id}`,
         method: "GET",
       }),
-      providesTags: (result, error, id) => [{ type: "WorkOrders", id }],
+      providesTags: (_result, _error, id) => [{ type: "WorkOrders", id }],
     }),
     getComplianceRecords: builder.query<ComplianceRecord[], void>({
       query: () => ({

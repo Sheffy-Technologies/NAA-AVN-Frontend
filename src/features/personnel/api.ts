@@ -27,6 +27,20 @@ export type PersonnelRating = {
   deleted_at: string | null;
 };
 
+export type PersonnelRatingAssignment = {
+  id: number;
+  name: string;
+  pivot?: {
+    expiry_date?: string | null;
+  };
+};
+
+export type PersonnelFlightExperience = {
+  asset_id: number | null;
+  flight_hours: number;
+  notes?: string | null;
+};
+
 export type Deployment = {
   id: number;
   personnel_id: number;
@@ -72,6 +86,8 @@ export type Personnel = {
   unit: PersonnelBasicEntity;
   latest_deployment: Deployment | null;
   deployments: Deployment[];
+  ratings?: PersonnelRatingAssignment[];
+  flight_experiences?: PersonnelFlightExperience[];
 };
 
 export type Aircraft = {
@@ -106,11 +122,12 @@ export type CreatePersonnelRequest = {
   address: string;
   blood_group: string;
   call_sign: string;
+  status?: string;
   rating_type?: string;
   image?: string;
   ratings?: {
     rating_id: number;
-    expiry_date: string;
+    expiry_date: string | null;
   }[];
   flight_experiences?: {
     asset_id: number;

@@ -141,7 +141,6 @@ export const AddAssetPage = () => {
   });
 
   const [activeTab, setActiveTab] = useState<AircraftTabKey>("airframe");
-  const [airframeTrackBy, setAirframeTrackBy] = useState<TrackByKey>("both");
   const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
   const photoInputRef = useRef<HTMLInputElement | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState("");
@@ -151,22 +150,16 @@ export const AddAssetPage = () => {
   const isSaving = isCreating || isUpdating;
   const defaultEngineCategoryId = engineCategories[0]?.id ?? 1;
 
-  const getNormalizedAtaCategory = (
-    chapter: (typeof ataChapters)[number],
-  ): string[] => {
-    const maintenanceCategory = String(chapter.maintenance_category || "")
-      .trim()
-      .toLowerCase();
-    const applicability = String(chapter.applicability || "")
-      .trim()
-      .toLowerCase();
-    return [maintenanceCategory, applicability].filter(Boolean);
-  };
-
   const engineAtaChapters = useMemo(
     () =>
       ataChapters.filter((chapter) => {
-        const tokens = getNormalizedAtaCategory(chapter);
+        const maintenanceCategory = String(chapter.maintenance_category || "")
+          .trim()
+          .toLowerCase();
+        const applicability = String(chapter.applicability || "")
+          .trim()
+          .toLowerCase();
+        const tokens = [maintenanceCategory, applicability].filter(Boolean);
         return tokens.includes("engines") || tokens.includes("engine");
       }),
     [ataChapters],
@@ -174,7 +167,13 @@ export const AddAssetPage = () => {
   const componentAtaChapters = useMemo(
     () =>
       ataChapters.filter((chapter) => {
-        const tokens = getNormalizedAtaCategory(chapter);
+        const maintenanceCategory = String(chapter.maintenance_category || "")
+          .trim()
+          .toLowerCase();
+        const applicability = String(chapter.applicability || "")
+          .trim()
+          .toLowerCase();
+        const tokens = [maintenanceCategory, applicability].filter(Boolean);
         return tokens.includes("components") || tokens.includes("component");
       }),
     [ataChapters],
@@ -182,7 +181,13 @@ export const AddAssetPage = () => {
   const avionicAtaChapters = useMemo(
     () =>
       ataChapters.filter((chapter) => {
-        const tokens = getNormalizedAtaCategory(chapter);
+        const maintenanceCategory = String(chapter.maintenance_category || "")
+          .trim()
+          .toLowerCase();
+        const applicability = String(chapter.applicability || "")
+          .trim()
+          .toLowerCase();
+        const tokens = [maintenanceCategory, applicability].filter(Boolean);
         return tokens.includes("avionics") || tokens.includes("avionic");
       }),
     [ataChapters],
@@ -477,6 +482,7 @@ export const AddAssetPage = () => {
       (mappedEngines.length > 0 ? mappedEngines : [null]).map(() => [
         {
           component_type: "",
+          ata_chapter_id: "",
           track_by: "hours",
           part_number: "",
           serial_number: "",
@@ -500,6 +506,7 @@ export const AddAssetPage = () => {
       component_type: String(
         (component as { component_type_id?: number | string }).component_type_id || "",
       ),
+      ata_chapter_id: String(component.ata_chapter_id || ""),
       track_by:
         component.inspection_interval_unit === "cycle"
           ? ("cycles" as TrackByKey)
@@ -529,6 +536,7 @@ export const AddAssetPage = () => {
         : [
             {
               component_type: "",
+              ata_chapter_id: "",
               track_by: "hours",
               part_number: "",
               serial_number: "",
@@ -665,7 +673,6 @@ export const AddAssetPage = () => {
       default_maintenance_strategy: "hard-time",
     }));
 
-    setAirframeTrackBy("both");
     setActiveTab("airframe");
 
     setEngines([
@@ -782,68 +789,6 @@ export const AddAssetPage = () => {
       },
     ]);
   };
-
-  const airframeLifeRemainingHours = useMemo(() => {
-    const total = Number(formData.total_airframe_hours);
-    const limit = Number(formData.service_life_limit);
-    if (!limit || Number.isNaN(limit)) return "00 hrs";
-    const remaining = limit - (Number.isNaN(total) ? 0 : total);
-    const value = Math.max(0, remaining);
-    return `${value} hrs`;
-  }, [formData.service_life_limit, formData.total_airframe_hours]);
-
-  const airframeLifeRemainingCycles = useMemo(() => {
-    const total = Number(formData.airframe_cycles);
-    const limit = Number(formData.service_life_limit_cycles);
-    if (!limit || Number.isNaN(limit)) return "00 Cyc";
-    const remaining = limit - (Number.isNaN(total) ? 0 : total);
-    const value = Math.max(0, remaining);
-    return `${value} Cyc`;
-  }, [formData.service_life_limit_cycles, formData.airframe_cycles]);
-
-  const nextInspectionDueHours = useMemo(() => {
-    const last = Number(formData.last_major_inspection_hours);
-    const interval = Number(formData.inspection_interval);
-    if (!interval || Number.isNaN(interval)) {
-      return { label: "next inspection due", value: "00 hrs" };
-    }
-
-    const remaining = (Number.isNaN(last) ? 0 : last) - interval;
-
-    if (remaining < 0) {
-      return {
-        label: "inspection overdue by",
-        value: `${Math.abs(remaining)} hrs`,
-      };
-    }
-
-    return { label: "next inspection due", value: `${remaining} hrs` };
-  }, [
-    formData.inspection_interval,
-    formData.last_major_inspection_hours,
-  ]);
-
-  const nextInspectionDueCycles = useMemo(() => {
-    const last = Number(formData.last_inspection_cycles);
-    const interval = Number(formData.inspection_interval_cycles);
-    if (!interval || Number.isNaN(interval)) {
-      return { label: "next inspection due", value: "00 Cyc" };
-    }
-
-    const remaining = (Number.isNaN(last) ? 0 : last) - interval;
-
-    if (remaining < 0) {
-      return {
-        label: "inspection overdue by",
-        value: `${Math.abs(remaining)} Cyc`,
-      };
-    }
-
-    return { label: "next inspection due", value: `${remaining} Cyc` };
-  }, [
-    formData.inspection_interval_cycles,
-    formData.last_inspection_cycles,
-  ]);
 
   const handleInputChange = (
     field: string,
@@ -1003,12 +948,12 @@ export const AddAssetPage = () => {
         Number(formData.default_ata_chapter_id) || defaultAtaChapterId;
       const selectedComponentAtaChapterId = defaultComponentAtaChapterId;
       const selectedAvionicAtaChapterId = defaultAvionicAtaChapterId;
-      const selectedIntervalUnit =
+      const selectedIntervalUnit: CreateAssetPayload["engines"][number]["inspection_interval_unit"] =
         formData.default_inspection_interval_unit === "months" ||
         formData.default_inspection_interval_unit === "cycle"
           ? formData.default_inspection_interval_unit
           : "hours";
-      const selectedMaintenanceStrategy =
+      const selectedMaintenanceStrategy: CreateAssetPayload["engines"][number]["maintenance_strategy"] =
         formData.default_maintenance_strategy === "on-condition" ||
         formData.default_maintenance_strategy === "condition"
           ? formData.default_maintenance_strategy
@@ -1109,12 +1054,13 @@ export const AddAssetPage = () => {
               serial_number,
               time_since_new: Number(time_since_new) || 0,
               service_life_limit_hours: Number(life_limit_hours) || 0,
-              inspection_interval_unit:
+              inspection_interval_unit: (
                 track_by === "cycles" || track_by === "both"
                   ? "cycle"
                   : inspection_interval_unit === "months"
                     ? "months"
-                    : "hours",
+                    : "hours"
+              ) as CreateAssetPayload["components"][number]["inspection_interval_unit"],
               inspection_interval:
                 String(overhaul_limit || "").trim() === ""
                   ? null

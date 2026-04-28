@@ -17,11 +17,9 @@ type DocumentsViewMode = "table" | "grid";
 
 type DocumentRow = {
   id: number;
-  title: string;
   category: string;
   type: string;
   size: string;
-  uploadedBy: string;
   createdAt: string;
   status: string;
   fileUrl: string | null;
@@ -69,27 +67,11 @@ const formatFileSize = (value: number | string | null | undefined) => {
 };
 
 const mapDocumentRow = (document: DocumentItem): DocumentRow => {
-  const uploader = document.uploaded_by || document.user;
-  const uploadedBy =
-    [uploader?.firstname, uploader?.lastname]
-      .filter((value): value is string => Boolean(value && value.trim()))
-      .join(" ") ||
-    uploader?.name ||
-    uploader?.username ||
-    "-";
-
   return {
     id: document.id,
-    title:
-      document.title ||
-      document.name ||
-      document.file_name ||
-      document.filename ||
-      "Untitled",
     category: document.document_type?.name || "Uncategorized",
     type: document.file_type || document.mime_type || "-",
     size: formatFileSize(document.file_size ?? document.size),
-    uploadedBy,
     createdAt: formatDate(document.created_at),
     status: document.status || "Available",
     fileUrl: buildDocumentFileUrl(document),
@@ -387,11 +369,9 @@ export const DocumentsPage = () => {
               <table className="w-full min-w-130 text-left border-collapse text-xs sm:text-sm text-gray-200">
                 <thead>
                   <tr className="text-[11px] uppercase text-gray-400 border-b border-[#0A4D66]/30">
-                    <th className="py-2 pr-3 font-medium">Document</th>
                     <th className="py-2 pr-3 font-medium">Category</th>
                     <th className="py-2 pr-3 font-medium">Type</th>
                     <th className="py-2 pr-3 font-medium">Size</th>
-                    <th className="py-2 pr-3 font-medium">Uploaded By</th>
                     <th className="py-2 pr-3 font-medium">Created</th>
                     <th className="py-2 pr-3 font-medium">Status</th>
                     <th className="py-2 pr-3 font-medium">Action</th>
@@ -403,13 +383,9 @@ export const DocumentsPage = () => {
                       key={document.id}
                       className="border-b border-[#0A4D66]/20 last:border-b-0"
                     >
-                      <td className="py-2 pr-3 text-gray-100 font-medium">
-                        {document.title}
-                      </td>
                       <td className="py-2 pr-3 text-gray-300">{document.category}</td>
                       <td className="py-2 pr-3 text-gray-300">{document.type}</td>
                       <td className="py-2 pr-3 text-gray-300">{document.size}</td>
-                      <td className="py-2 pr-3 text-gray-300">{document.uploadedBy}</td>
                       <td className="py-2 pr-3 text-gray-300">{document.createdAt}</td>
                       <td className="py-2 pr-3">
                         <span className="inline-flex items-center gap-1.5 text-emerald-300">
@@ -456,7 +432,7 @@ export const DocumentsPage = () => {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-sm font-semibold text-white leading-5">
-                      {document.title}
+                      {document.category}
                     </h3>
                     <Icon icon="mdi:file-document-outline" className="w-5 h-5 text-[#7FD5FF]" />
                   </div>
@@ -464,7 +440,6 @@ export const DocumentsPage = () => {
                     <p>Category: {document.category}</p>
                     <p>Type: {document.type}</p>
                     <p>Size: {document.size}</p>
-                    <p>By: {document.uploadedBy}</p>
                     <p>Created: {document.createdAt}</p>
                   </div>
                 </article>

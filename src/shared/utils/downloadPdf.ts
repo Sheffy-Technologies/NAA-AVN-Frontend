@@ -156,7 +156,11 @@ export const downloadElementAsPdf = async ({
     let rendered: { canvas: HTMLCanvasElement; imageData: string };
 
     try {
-      rendered = await captureAsImageData(false, false);
+      // Always sanitize unsupported CSS color functions (e.g. oklab/oklch) on the
+      // first attempt. html2canvas parses the CSSOM before onclone can patch style
+      // tags, so these modern color functions cause a parse error if we don't
+      // proactively inline-override them.
+      rendered = await captureAsImageData(false, true);
     } catch (error) {
       console.error("PDF generation failed on first attempt", {
         fileName,
@@ -164,6 +168,8 @@ export const downloadElementAsPdf = async ({
       });
 
       if (isUnsupportedColorFunctionError(error)) {
+        // Fallback: retry is no-op in terms of strategy difference, but keeps the
+        // existing recovery path alive for edge-cases we haven't seen yet.
         console.warn(
           "Retrying PDF generation with unsupported color-function sanitization",
           { fileName },

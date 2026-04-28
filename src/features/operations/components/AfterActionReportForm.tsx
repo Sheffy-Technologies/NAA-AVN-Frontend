@@ -6,6 +6,7 @@ import {
   useUpdateOperationMutation,
   type CreateAfterActionReportRequest,
   type Contact,
+  type OperationAssignedAsset,
   type ResourceUtilization,
   type Operation,
 } from "../api";
@@ -134,7 +135,12 @@ export const AfterActionReportForm = ({
       reader.onloadend = () => {
         const base64String = reader.result as string;
         const newContacts = [...contacts];
-        newContacts[index].photos.push({ file: base64String });
+        const existingPhotos = newContacts[index]?.photos ?? [];
+        if (!newContacts[index]) return;
+        newContacts[index] = {
+          ...newContacts[index],
+          photos: [...existingPhotos, { file: base64String }],
+        };
         setContacts(newContacts);
       };
       reader.readAsDataURL(file);
@@ -143,7 +149,9 @@ export const AfterActionReportForm = ({
 
   const removePhoto = (contactIndex: number, photoIndex: number) => {
     const newContacts = [...contacts];
-    newContacts[contactIndex].photos = newContacts[contactIndex].photos.filter(
+    const currentContact = newContacts[contactIndex];
+    if (!currentContact) return;
+    currentContact.photos = (currentContact.photos ?? []).filter(
       (_, i) => i !== photoIndex,
     );
     setContacts(newContacts);
@@ -322,7 +330,7 @@ export const AfterActionReportForm = ({
             onChange={(e) =>
               setFormData({ ...formData, activities: e.target.value })
             }
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] min-h-[100px]"
+            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] min-h-25"
           />
         </div>
       </section>
@@ -391,7 +399,7 @@ export const AfterActionReportForm = ({
                               },
                             }))
                           }
-                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                         />
                       </div>
                       <div className="flex flex-col gap-2">
@@ -410,7 +418,7 @@ export const AfterActionReportForm = ({
                               },
                             }))
                           }
-                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                         />
                       </div>
                       <div className="flex flex-col gap-2">
@@ -448,7 +456,7 @@ export const AfterActionReportForm = ({
                               },
                             }))
                           }
-                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                         />
                       </div>
                       <div className="flex flex-col gap-2">
@@ -467,7 +475,7 @@ export const AfterActionReportForm = ({
                               },
                             }))
                           }
-                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                         />
                       </div>
                       <div className="flex flex-col gap-2">
@@ -611,7 +619,7 @@ export const AfterActionReportForm = ({
                             e.target.value,
                           )
                         }
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                       />
                     </div>
                   </div>
@@ -636,7 +644,7 @@ export const AfterActionReportForm = ({
                             e.target.value,
                           )
                         }
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                       />
                     </div>
                   </div>
@@ -793,7 +801,7 @@ export const AfterActionReportForm = ({
 
               {/* Photos */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {contact.photos.map((photo, photoIndex) => (
+                {(contact.photos ?? []).map((photo, photoIndex) => (
                   <div
                     key={photoIndex}
                     className="relative h-32 bg-[#001825] border border-[#0A4D66]/40 rounded-lg overflow-hidden group"

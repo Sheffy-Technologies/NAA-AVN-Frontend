@@ -18,14 +18,18 @@ type PersonnelDetail = {
   rank: string;
   bloodGroup: string;
   callSign: string;
-  rating: string;
+  ratings: {
+    name: string;
+    expiryDate: string | null;
+  }[];
   image: string | null;
   currentDeploymentDate: string;
   currentDeploymentUnit: string;
   lastDeploymentDate: string;
   lastDeploymentUnit: string;
   branch: string;
-  corps: string;
+  corpsName: string;
+  corpsDescription: string;
   specialty: string;
   status: PersonnelStatus;
   email: string;
@@ -199,6 +203,25 @@ export const PersonnelDetailPage = () => {
       });
     };
 
+    const mappedRatings = Array.isArray(apiPerson.ratings)
+      ? apiPerson.ratings
+          .filter((rating) => typeof rating.name === "string" && rating.name.trim().length > 0)
+          .map((rating) => ({
+            name: rating.name,
+            expiryDate: rating.pivot?.expiry_date
+              ? formatDate(rating.pivot.expiry_date)
+              : null,
+          }))
+      : [];
+
+    const fallbackRatings = apiPerson.rating_type
+      ? apiPerson.rating_type
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .map((name) => ({ name, expiryDate: null }))
+      : [];
+
     const sortedDeployments = [...apiPerson.deployments].sort(
       (a, b) =>
         new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
@@ -215,7 +238,7 @@ export const PersonnelDetailPage = () => {
       rank: apiPerson.rank.name,
       bloodGroup: apiPerson.blood_group,
       callSign: apiPerson.call_sign,
-      rating: apiPerson.rating_type,
+      ratings: mappedRatings.length > 0 ? mappedRatings : fallbackRatings,
       image: apiPerson.image,
       currentDeploymentDate: apiPerson.latest_deployment
         ? formatDate(apiPerson.latest_deployment.start_date)
@@ -227,7 +250,8 @@ export const PersonnelDetailPage = () => {
         : "N/A",
       lastDeploymentUnit: lastDeployment?.to_unit?.name || "N/A",
       branch: apiPerson.branch.name,
-      corps: apiPerson.corp.name,
+      corpsName: apiPerson.corp?.name || "N/A",
+      corpsDescription: apiPerson.corp?.description || "No corps details available",
       specialty: apiPerson.specialty.name,
       status: mapStatus(apiPerson.status),
       email: apiPerson.email,
@@ -475,7 +499,21 @@ export const PersonnelDetailPage = () => {
                       <span className="text-gray-400 whitespace-nowrap">
                         Rating:
                       </span>
-                      <span>{person.rating}</span>
+                      {person.ratings.length > 0 ? (
+                        <span className="flex flex-wrap gap-2">
+                          {person.ratings.map((rating) => (
+                            <span
+                              key={`${rating.name}-${rating.expiryDate ?? "none"}`}
+                              className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-0.5 text-[11px] text-[#C9F1FF]"
+                            >
+                              {rating.name}
+                              {rating.expiryDate ? ` (${rating.expiryDate})` : ""}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span>-</span>
+                      )}
                     </div>
                   </div>
 
@@ -591,7 +629,13 @@ export const PersonnelDetailPage = () => {
                         <span className="text-gray-400 whitespace-nowrap">
                           Corps:
                         </span>
-                        <span>{person.corps}</span>
+                        <span>{person.corpsName}</span>
+                      </div>
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0 lg:col-span-2">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Corps Details:
+                        </span>
+                        <span>{person.corpsDescription}</span>
                       </div>
                       <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
                         <span className="text-gray-400 whitespace-nowrap">

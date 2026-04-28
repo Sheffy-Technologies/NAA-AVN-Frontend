@@ -107,6 +107,18 @@ export type SyncUserRolesPayload = {
   roles: string[];
 };
 
+export type MeResponse = {
+  id: string | number;
+  firstname?: string | null;
+  lastname?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  roles: Array<{ id?: number; name: string; guard_name?: string }>;
+  role_names: string[];
+  permissions: string[];
+};
+
 type ActivityLogApiResponse =
   | ActivityLog[]
   | {
@@ -218,6 +230,12 @@ export const securityApi = createApi({
         { type: "UserRole", id: userId },
       ],
     }),
+    getMe: builder.query<MeResponse, void>({
+      query: () => ({
+        url: "/auth/me",
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -231,4 +249,5 @@ export const {
   useGetPermissionsQuery,
   useGetUserRolesQuery,
   useSyncUserRolesMutation,
+  useGetMeQuery,
 } = securityApi;

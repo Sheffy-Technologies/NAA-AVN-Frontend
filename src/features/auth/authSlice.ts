@@ -17,6 +17,7 @@ export interface User {
   username?: string;
   roles?: UserRole[];
   role_names?: string[];
+  permissions?: string[];
 }
 
 export interface AuthState {

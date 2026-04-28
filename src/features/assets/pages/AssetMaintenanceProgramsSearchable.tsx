@@ -1,6 +1,19 @@
 import { useState, useMemo } from "react";
+import { type NavigateFunction } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
+import { type MaintenanceProgram } from "@/features/maintenance/api";
+
+type AssetMaintenanceProgramsSearchableProps = {
+  maintenancePrograms: MaintenanceProgram[];
+  selectedProgramIds: Set<number>;
+  handleToggleProgramSelection: (programId: number) => void;
+  handleSelectAllPrograms: () => void;
+  handleDeselectAllPrograms: () => void;
+  handleCreateWorkOrder: () => void;
+  isCreatingWorkOrder: boolean;
+  navigate: NavigateFunction;
+};
 
 export default function AssetMaintenanceProgramsSearchable({
   maintenancePrograms,
@@ -11,17 +24,17 @@ export default function AssetMaintenanceProgramsSearchable({
   handleCreateWorkOrder,
   isCreatingWorkOrder,
   navigate,
-}) {
+}: AssetMaintenanceProgramsSearchableProps) {
   const [search, setSearch] = useState("");
 
   const filteredPrograms = useMemo(() => {
     if (!search.trim()) return maintenancePrograms;
     const q = search.toLowerCase();
     return maintenancePrograms.filter(
-      (p) =>
+      (p: MaintenanceProgram) =>
         p.name.toLowerCase().includes(q) ||
         (p.description?.toLowerCase().includes(q) ?? false) ||
-        (p.applicability?.toLowerCase().includes(q) ?? false)
+        (p.applicability?.toLowerCase().includes(q) ?? false),
     );
   }, [maintenancePrograms, search]);
 
@@ -31,7 +44,7 @@ export default function AssetMaintenanceProgramsSearchable({
         className="w-full mb-2 rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
         placeholder="Search tasks by name, description, or type..."
         value={search}
-        onChange={e => setSearch(e.target.value)}
+        onChange={(e) => setSearch(e.target.value)}
       />
       {/* Select All / Deselect All + Create CTA */}
       <div className="flex items-center justify-between gap-3 pb-2 border-b border-[#0A4D66]/30">
@@ -84,7 +97,7 @@ export default function AssetMaintenanceProgramsSearchable({
       {filteredPrograms.length === 0 ? (
         <div className="text-gray-400">No maintenance programs found for the selected filters.</div>
       ) : (
-        filteredPrograms.map((program) => (
+        filteredPrograms.map((program: MaintenanceProgram) => (
           <div
             key={program.id}
             className={cn(
