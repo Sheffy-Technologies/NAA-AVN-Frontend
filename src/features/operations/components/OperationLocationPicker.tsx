@@ -11,17 +11,24 @@ import {
 import { circleMarker, type LeafletMouseEvent } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-type LocationTarget = "departure" | "arrival";
+type LocationTarget = "departure" | "arrival" | "waypoint";
 
 type CoordinateValue = {
   latitude: string;
   longitude: string;
 };
 
+export type WaypointMarker = {
+  name?: string | null;
+  latitude: number | string;
+  longitude: number | string;
+};
+
 type OperationLocationPickerProps = {
   activeTarget?: LocationTarget;
   departure: CoordinateValue;
   arrival: CoordinateValue;
+  waypoints?: WaypointMarker[];
   onCoordinateSelect?: (
     target: LocationTarget,
     latitude: number,
@@ -68,6 +75,7 @@ export const OperationLocationPicker = ({
   activeTarget = "departure",
   departure,
   arrival,
+  waypoints = [],
   onCoordinateSelect,
   readOnly = false,
   className,
@@ -103,7 +111,17 @@ export const OperationLocationPicker = ({
 
   const departurePoint = parseCoordinatePair(departure);
   const arrivalPoint = parseCoordinatePair(arrival);
-  const routePoints = [departurePoint, arrivalPoint].filter(
+  const waypointPoints: [number, number][] = waypoints
+    .map((waypoint) => {
+      const lat = Number(waypoint.latitude);
+      const lng = Number(waypoint.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        return null;
+      }
+      return [lat, lng] as [number, number];
+    })
+    .filter((point): point is [number, number] => point !== null);
+  const routePoints = [departurePoint, ...waypointPoints, arrivalPoint].filter(
     (point): point is [number, number] => point !== null,
   );
 
@@ -123,6 +141,10 @@ export const OperationLocationPicker = ({
             <span className="mx-1 font-semibold uppercase text-[#22C55E]">
               green
             </span>
+            , waypoints are
+            <span className="mx-1 font-semibold uppercase text-[#F59E0B]">
+              amber
+            </span>
             and arrival is
             <span className="mx-1 font-semibold uppercase text-[#EF4444]">
               red
@@ -136,6 +158,11 @@ export const OperationLocationPicker = ({
               {activeTarget}
             </span>
             location.
+            {activeTarget === "waypoint" ? (
+              <span className="ml-1 text-gray-400">
+                Each click adds a checkpoint between departure and arrival.
+              </span>
+            ) : null}
           </>
         )}
       </div>
@@ -191,9 +218,26 @@ export const OperationLocationPicker = ({
           />
         ) : null}
 
-        {routePoints.length === 2 ? (
+        {routePoints.length >= 2 ? (
           <Polyline positions={routePoints} pathOptions={{ color: "#F59E0B", weight: 3 }} />
         ) : null}
+
+        {waypointPoints.map((point, index) => {
+          const label = waypoints[index]?.name?.trim();
+          return (
+            <CircleMarker
+              key={`waypoint-${index}-${point[0]}-${point[1]}`}
+              center={point}
+              radius={7}
+              pathOptions={{ color: "#F59E0B", fillColor: "#F59E0B", fillOpacity: 0.9 }}
+            >
+              <Tooltip direction="top" offset={[0, -8]} permanent>
+                {label ? `${label} ` : ""}CP-{index + 1}: {formatCoordinate(point[0])},{" "}
+                {formatCoordinate(point[1])}
+              </Tooltip>
+            </CircleMarker>
+          );
+        })}
 
         {departurePoint ? (
           <CircleMarker

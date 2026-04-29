@@ -10,6 +10,7 @@ import {
   type CreateOperationRequest,
   type Operation,
   type OperationAsset,
+  type OperationWaypointInput,
 } from "../api";
 import { OperationLocationPicker } from "./OperationLocationPicker";
 
@@ -39,6 +40,13 @@ type CoordinateTarget = "departure" | "arrival";
 type CoordinateAxis = "latitude" | "longitude";
 type CoordinateInputMode = "latlon" | "mgrs";
 type CoordinateErrorState = Record<CoordinateTarget, string>;
+type MapTarget = "departure" | "arrival" | "waypoint";
+
+type WaypointFormItem = {
+  name: string;
+  latitude: string;
+  longitude: string;
+};
 
 type OperationFormProps = {
   mode: OperationFormMode;
@@ -197,7 +205,7 @@ export const OperationForm = ({
   const navigate = useNavigate();
   const [coordinateInputMode, setCoordinateInputMode] =
     useState<CoordinateInputMode>("latlon");
-  const [activeMapTarget, setActiveMapTarget] = useState<"departure" | "arrival">(
+  const [activeMapTarget, setActiveMapTarget] = useState<MapTarget>(
     "departure",
   );
   const [coordinateErrors, setCoordinateErrors] = useState<CoordinateErrorState>({
@@ -206,6 +214,18 @@ export const OperationForm = ({
   });
   const [formData, setFormData] = useState<OperationFormData>(
     initialOperation ? mapOperationToFormData(initialOperation) : emptyFormData,
+  );
+  const [waypoints, setWaypoints] = useState<WaypointFormItem[]>(
+    initialOperation?.waypoints?.length
+      ? initialOperation.waypoints
+          .slice()
+          .sort((a, b) => a.sequence - b.sequence)
+          .map((w) => ({
+            name: w.name ?? "",
+            latitude: formatCoordinate(w.latitude),
+            longitude: formatCoordinate(w.longitude),
+          }))
+      : [],
   );
   const [assets, setAssets] = useState<OperationAsset[]>([
     { asset_id: 0, pilot_id: null, co_pilot_id: null },
@@ -344,10 +364,22 @@ export const OperationForm = ({
   };
 
   const handleCoordinateSelect = (
-    target: "departure" | "arrival",
+    target: MapTarget,
     latitude: number,
     longitude: number,
   ) => {
+    if (target === "waypoint") {
+      setWaypoints((prev) => [
+        ...prev,
+        {
+          name: "",
+          latitude: latitude.toFixed(6),
+          longitude: longitude.toFixed(6),
+        },
+      ]);
+      return;
+    }
+
     setTargetFromLatLon(target, latitude.toFixed(6), longitude.toFixed(6));
 
     if (
@@ -357,6 +389,36 @@ export const OperationForm = ({
     ) {
       setActiveMapTarget("arrival");
     }
+  };
+
+  const updateWaypoint = (
+    index: number,
+    patch: Partial<WaypointFormItem>,
+  ) => {
+    setWaypoints((prev) =>
+      prev.map((waypoint, i) => (i === index ? { ...waypoint, ...patch } : waypoint)),
+    );
+  };
+
+  const removeWaypoint = (index: number) => {
+    setWaypoints((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveWaypoint = (index: number, direction: -1 | 1) => {
+    setWaypoints((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
+  const addManualWaypoint = () => {
+    setWaypoints((prev) => [
+      ...prev,
+      { name: "", latitude: "", longitude: "" },
+    ]);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -396,6 +458,24 @@ export const OperationForm = ({
       status: formData.status,
       description: formData.description || undefined,
     };
+
+    const validWaypoints: OperationWaypointInput[] = waypoints
+      .map<OperationWaypointInput | null>((waypoint, index) => {
+        const lat = Number(waypoint.latitude);
+        const lng = Number(waypoint.longitude);
+        if (!waypoint.latitude || !waypoint.longitude || Number.isNaN(lat) || Number.isNaN(lng)) {
+          return null;
+        }
+        return {
+          sequence: index + 1,
+          name: waypoint.name.trim() || null,
+          latitude: lat,
+          longitude: lng,
+        };
+      })
+      .filter((waypoint): waypoint is OperationWaypointInput => waypoint !== null);
+
+    payload.waypoints = validWaypoints;
 
     if (isCreateMode) {
       payload.operation_assets = assets
@@ -692,6 +772,17 @@ export const OperationForm = ({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveMapTarget("waypoint")}
+                  className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
+                    activeMapTarget === "waypoint"
+                      ? "bg-[#F59E0B] text-[#001219]"
+                      : "bg-[#052333] text-gray-200 hover:bg-[#0A4D66]"
+                  }`}
+                >
+                  Add Waypoint
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveMapTarget("arrival")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "arrival"
@@ -719,8 +810,110 @@ export const OperationForm = ({
                   latitude: formData.arrival_latitude,
                   longitude: formData.arrival_longitude,
                 }}
+                waypoints={waypoints.map((waypoint) => ({
+                  name: waypoint.name,
+                  latitude: waypoint.latitude,
+                  longitude: waypoint.longitude,
+                }))}
                 onCoordinateSelect={handleCoordinateSelect}
               />
+
+              <div className="rounded-lg border border-[#0A4D66]/30 bg-[#031924] p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#7FD5FF]">
+                      Waypoints / Checkpoints
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      Stops the operation passes through, in order, between departure and arrival.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addManualWaypoint}
+                    className="inline-flex items-center gap-2 rounded-sm bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-gray-200"
+                  >
+                    <Icon icon="mdi:plus" className="h-4 w-4" />
+                    Add manually
+                  </button>
+                </div>
+
+                {waypoints.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    No waypoints yet. Switch the active target to{" "}
+                    <span className="font-semibold text-[#F59E0B]">Add Waypoint</span> and click on
+                    the map, or add one manually.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {waypoints.map((waypoint, index) => (
+                      <li
+                        key={index}
+                        className="grid grid-cols-1 gap-2 rounded border border-[#0A4D66]/30 bg-[#001219] p-3 md:grid-cols-[40px_1fr_1fr_1fr_auto] md:items-center"
+                      >
+                        <span className="text-xs font-semibold text-[#F59E0B]">
+                          CP-{index + 1}
+                        </span>
+                        <input
+                          type="text"
+                          value={waypoint.name}
+                          onChange={(e) => updateWaypoint(index, { name: e.target.value })}
+                          placeholder="Name (optional)"
+                          className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF]"
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          min={-90}
+                          max={90}
+                          value={waypoint.latitude}
+                          onChange={(e) => updateWaypoint(index, { latitude: e.target.value })}
+                          placeholder="Latitude"
+                          className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF]"
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          min={-180}
+                          max={180}
+                          value={waypoint.longitude}
+                          onChange={(e) => updateWaypoint(index, { longitude: e.target.value })}
+                          placeholder="Longitude"
+                          className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF]"
+                        />
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveWaypoint(index, -1)}
+                            disabled={index === 0}
+                            title="Move up"
+                            className="rounded p-1 text-gray-400 hover:bg-[#0A4D66]/40 hover:text-white disabled:opacity-30"
+                          >
+                            <Icon icon="mdi:arrow-up" className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveWaypoint(index, 1)}
+                            disabled={index === waypoints.length - 1}
+                            title="Move down"
+                            className="rounded p-1 text-gray-400 hover:bg-[#0A4D66]/40 hover:text-white disabled:opacity-30"
+                          >
+                            <Icon icon="mdi:arrow-down" className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeWaypoint(index)}
+                            title="Remove"
+                            className="rounded p-1 text-gray-400 hover:bg-red-500/20 hover:text-red-400"
+                          >
+                            <Icon icon="mdi:trash-can-outline" className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
             {coordinateInputMode === "latlon" ? (

@@ -376,6 +376,64 @@ export const AssetDetailsPage = () => {
     setIsEditingAvionics(false);
   };
 
+  const blankComponent = (): Component => ({
+    component_type_id: componentTypes[0]?.id,
+    ata_chapter_id: componentAtaChapters[0]?.id,
+    part_number: "",
+    serial_number: "",
+    time_since_new: "",
+    service_life_limit_hours: "",
+    inspection_interval_unit: "hours",
+    inspection_interval: "",
+    maintenance_strategy: "hard-time",
+    installed_at: "",
+    removed_at: "",
+  });
+
+  const blankEngine = (): Engine => ({
+    position_id: enginePositions[0]?.id ?? 1,
+    category_id: engineCategories[0]?.id,
+    ata_chapter_id: engineAtaChapters[0]?.id,
+    serial_number: "",
+    model: "",
+    installation_date: "",
+    time_since_new: "",
+    service_life_limit: "",
+    inspection_interval_unit: "hours",
+    inspection_interval: "",
+    maintenance_strategy: "hard-time",
+  });
+
+  const blankAvionic = (): Avionics => ({
+    avionic_category_id: avionicCategories[0]?.id,
+    ata_chapter_id: avionicsAtaChapters[0]?.id,
+    serial_number: "",
+    model: "",
+    manufacturer: "",
+    installed_at: "",
+    time_since_new: "",
+    service_life_limit: "",
+    inspection_interval_unit: "hours",
+    inspection_interval: "",
+    maintenance_strategy: "hard-time",
+    removed_at: "",
+  });
+
+  const startAddComponent = () => {
+    setComponentsDraft((prev) => [...prev, blankComponent()]);
+    setIsEditingComponents(true);
+  };
+
+  const startAddEngine = () => {
+    setEnginesDraft((prev) => [...prev, blankEngine()]);
+    setIsEditingEngines(true);
+  };
+
+  const startAddAvionic = () => {
+    setAvionicsDraft((prev) => [...prev, blankAvionic()]);
+    setIsEditingAvionics(true);
+  };
+
   const handleSaveComponents = async () => {
     if (!asset?.id) return;
 
@@ -1257,13 +1315,23 @@ export const AssetDetailsPage = () => {
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingComponents(true)}
-                      className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
-                    >
-                      Edit Components
+                    <>
+                      <button
+                        type="button"
+                        onClick={startAddComponent}
+                        className="inline-flex items-center gap-1 rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
+                      >
+                        <Icon icon="mdi:plus" className="h-3.5 w-3.5" />
+                        Add Component
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingComponents(true)}
+                        className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
+                      >
+                        Edit Components
                     </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -1620,13 +1688,23 @@ export const AssetDetailsPage = () => {
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingEngines(true)}
-                  className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
-                >
-                  Edit Engines
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={startAddEngine}
+                    className="inline-flex items-center gap-1 rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
+                  >
+                    <Icon icon="mdi:plus" className="h-3.5 w-3.5" />
+                    Add Engine
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingEngines(true)}
+                    className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
+                  >
+                    Edit Engines
+                  </button>
+                </>
               )}
             </div>
 
@@ -1967,13 +2045,23 @@ export const AssetDetailsPage = () => {
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsEditingAvionics(true)}
-                  className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
-                >
-                  Edit Avionics
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={startAddAvionic}
+                    className="inline-flex items-center gap-1 rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
+                  >
+                    <Icon icon="mdi:plus" className="h-3.5 w-3.5" />
+                    Add Avionics
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAvionics(true)}
+                    className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
+                  >
+                    Edit Avionics
+                  </button>
+                </>
               )}
             </div>
 

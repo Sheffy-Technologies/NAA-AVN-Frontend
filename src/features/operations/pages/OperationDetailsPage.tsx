@@ -159,6 +159,28 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
           <InfoRow label="Type" value={operation.operation_type?.name || "N/A"} />
           <InfoRow label="Departure" value={departureLabel} />
           <InfoRow label="Destination" value={arrivalLabel} />
+          {operation.waypoints && operation.waypoints.length > 0 ? (
+            <InfoRow
+              label="Waypoints"
+              value={
+                <div className="flex flex-col gap-1">
+                  {operation.waypoints
+                    .slice()
+                    .sort((a, b) => a.sequence - b.sequence)
+                    .map((waypoint) => (
+                      <span key={waypoint.id} className="text-xs text-gray-300">
+                        <span className="font-semibold text-[#F59E0B]">
+                          CP-{waypoint.sequence}
+                        </span>
+                        {waypoint.name ? ` ${waypoint.name}` : ""} —{" "}
+                        {Number(waypoint.latitude).toFixed(6)},{" "}
+                        {Number(waypoint.longitude).toFixed(6)}
+                      </span>
+                    ))}
+                </div>
+              }
+            />
+          ) : null}
           <InfoRow
             label="Status"
             value={
@@ -240,6 +262,14 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
                 ? ""
                 : String(operation.arrival_longitude),
           }}
+          waypoints={(operation.waypoints ?? [])
+            .slice()
+            .sort((a, b) => a.sequence - b.sequence)
+            .map((waypoint) => ({
+              name: waypoint.name,
+              latitude: waypoint.latitude,
+              longitude: waypoint.longitude,
+            }))}
           readOnly
           heightClassName="h-120"
         />

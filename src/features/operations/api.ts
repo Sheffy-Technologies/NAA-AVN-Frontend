@@ -86,6 +86,25 @@ export type CreateOperationRequest = {
   description?: string | null;
   asset_ids?: number[];
   operation_assets?: OperationAsset[];
+  waypoints?: OperationWaypointInput[];
+};
+
+export type OperationWaypointInput = {
+  sequence?: number;
+  name?: string | null;
+  latitude: number;
+  longitude: number;
+};
+
+export type OperationWaypoint = {
+  id: number;
+  operation_id: number;
+  sequence: number;
+  name: string | null;
+  latitude: number;
+  longitude: number;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type UpdateOperationRequest = {
@@ -181,6 +200,7 @@ export type Operation = {
   };
   departure_location: string | null;
   arrival_location: string | null;
+  waypoints?: OperationWaypoint[];
 };
 
 type OperationApiResponse = Omit<Operation, "afterActionReport"> & {
