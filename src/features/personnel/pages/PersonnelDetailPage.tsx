@@ -294,7 +294,7 @@ export const PersonnelDetailPage = () => {
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -375,7 +375,7 @@ export const PersonnelDetailPage = () => {
 
             {activeTab === "activity" && (
               <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#021a27] p-1">
+                <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#001219] p-1">
                   <button
                     type="button"
                     onClick={() => setActivityView("table")}
@@ -407,13 +407,13 @@ export const PersonnelDetailPage = () => {
                 </div>
                 <button
                   type="button"
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200"
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200"
                 >
                   {mockActivityLog.length}
                 </button>
                 <button
                   type="button"
-                  className="hidden md:inline-flex px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 whitespace-nowrap"
+                  className="hidden md:inline-flex px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 whitespace-nowrap"
                 >
                   Period
                 </button>
@@ -423,7 +423,7 @@ export const PersonnelDetailPage = () => {
                   disabled={isDownloadingPdf || !person}
                   aria-label="Download personnel details"
                   title="Download personnel details"
-                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-gray-300"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-gray-300"
                 >
                   <Icon
                     icon={isDownloadingPdf ? "mdi:loading" : "mdi:download-outline"}
@@ -504,7 +504,7 @@ export const PersonnelDetailPage = () => {
                           {person.ratings.map((rating) => (
                             <span
                               key={`${rating.name}-${rating.expiryDate ?? "none"}`}
-                              className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-0.5 text-[11px] text-[#C9F1FF]"
+                              className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-0.5 text-[11px] text-[#B7E6FF]"
                             >
                               {rating.name}
                               {rating.expiryDate ? ` (${rating.expiryDate})` : ""}
@@ -573,14 +573,14 @@ export const PersonnelDetailPage = () => {
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
                       Dialogue Box
                     </div>
-                    <p className="text-gray-100">{person.dialogue}</p>
+                    <p className="text-white">{person.dialogue}</p>
                   </div>
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
                       Unit
                     </div>
-                    <p className="text-gray-100">
+                    <p className="text-white">
                       {person.currentDeploymentUnit}
                     </p>
                   </div>
@@ -589,7 +589,7 @@ export const PersonnelDetailPage = () => {
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
                       Aircraft Rated On
                     </div>
-                    <p className="text-gray-100">{person.aircraftRatedOn}</p>
+                    <p className="text-white">{person.aircraftRatedOn}</p>
                   </div>
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
@@ -705,7 +705,7 @@ export const PersonnelDetailPage = () => {
                         >
                           <button
                             type="button"
-                            className="text-xs text-[#7FD5FF] hover:text-[#b3e6ff]"
+                            className="text-xs text-[#7FD5FF] hover:text-[#B7E6FF]"
                           >
                             {aircraft.name}
                           </button>
@@ -772,7 +772,7 @@ export const PersonnelDetailPage = () => {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-xs sm:text-sm text-gray-200">
                   <thead>
-                    <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
+                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
                       <th className="px-4 sm:px-6 py-3 text-left">Date</th>
                       <th className="px-4 py-3 text-left">Time</th>
                       <th className="px-4 py-3 text-left">Action Performed</th>
@@ -791,25 +791,25 @@ export const PersonnelDetailPage = () => {
                           index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                         )}
                       >
-                        <td className="px-4 sm:px-6 py-3 text-gray-100">
+                        <td className="px-4 sm:px-6 py-3 text-white">
                           {entry.date}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.time}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.action}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.oldRecord}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.newRecord}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.device}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">{entry.ip}</td>
+                        <td className="px-4 py-3 text-white">{entry.ip}</td>
                       </tr>
                     ))}
                   </tbody>

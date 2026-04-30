@@ -328,7 +328,7 @@ export const AddPersonnelPage = () => {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
+          className="p-2 hover:bg-[#001825]/5 rounded-full transition-colors text-gray-400 hover:text-white"
         >
           <Icon icon="mdi:arrow-left" className="w-6 h-6" />
         </button>
@@ -627,7 +627,7 @@ export const AddPersonnelPage = () => {
             {deployments.map((deployment, index) => (
               <div
                 key={index}
-                className="rounded-lg border border-white/10 bg-white/5 p-4"
+                className="rounded-lg border border-white/10 bg-[#001825]/5 p-4"
               >
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <span className="text-sm font-medium text-white">
@@ -723,7 +723,7 @@ export const AddPersonnelPage = () => {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full sm:w-auto px-12 py-3 bg-[#7FD5FF] text-black font-semibold rounded-md hover:bg-[#7FD5FF]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7FD5FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-lg"
+            className="w-full sm:w-auto px-12 py-3 bg-[#0369A1] text-black font-semibold rounded-md hover:bg-[#0369A1]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7FD5FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-lg"
           >
             {isSubmitting ? "Creating..." : "Save"}
           </button>

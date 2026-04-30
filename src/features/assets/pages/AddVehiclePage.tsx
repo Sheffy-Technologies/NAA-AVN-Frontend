@@ -170,7 +170,7 @@ export const AddVehiclePage = () => {
               value={values.name}
               onChange={handleTextChange("name")}
               placeholder="Enter vehicle name"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -180,7 +180,7 @@ export const AddVehiclePage = () => {
               aria-label="Vehicle type"
               value={values.vehicle_type_id === "" ? "" : String(values.vehicle_type_id)}
               onChange={handleSelectChange("vehicle_type_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
             >
               <option value="">Select vehicle type</option>
               {vehicleTypes.map((vehicleType) => (
@@ -198,7 +198,7 @@ export const AddVehiclePage = () => {
               value={values.registration_number}
               onChange={handleTextChange("registration_number")}
               placeholder="Enter registration number"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -209,7 +209,7 @@ export const AddVehiclePage = () => {
               value={values.serial_number}
               onChange={handleTextChange("serial_number")}
               placeholder="Enter serial number"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -219,7 +219,7 @@ export const AddVehiclePage = () => {
               aria-label="Vehicle unit"
               value={values.unit_id === "" ? "" : String(values.unit_id)}
               onChange={handleSelectChange("unit_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
             >
               <option value="">Select unit</option>
               {units.map((unit) => (
@@ -237,7 +237,7 @@ export const AddVehiclePage = () => {
               aria-label="Vehicle photo"
               accept="image/*"
               onChange={handlePhotoChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
             />
             {photoPreviewUrl ? (
               <div className="mt-2 rounded-md border border-[#0A4D66]/40 bg-[#001825] p-2">
@@ -263,8 +263,8 @@ export const AddVehiclePage = () => {
             className={cn(
               "px-6 sm:px-10 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
               isSubmitting
-                ? "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed"
-                : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
+                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
             )}
           >
             {isSubmitting ? "Saving..." : "Save Vehicle"}

@@ -59,7 +59,43 @@ const getPersonName = (person: unknown) => {
   return rank ? `${rank} ${fullName}` : fullName;
 };
 
-const renderAssetCard = (entry: OperationAssignedAsset, index: number) => {
+const getPersonId = (person: unknown): number | null => {
+  if (!person || typeof person !== "object") return null;
+  const id = (person as Record<string, unknown>).id;
+  return typeof id === "number" ? id : null;
+};
+
+const PersonLink = ({
+  person,
+  onNavigate,
+}: {
+  person: unknown;
+  onNavigate: (id: number) => void;
+}) => {
+  const name = getPersonName(person);
+  const id = getPersonId(person);
+  if (!id || name === "N/A") {
+    return <>{name}</>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onNavigate(id);
+      }}
+      className="text-left text-[#7FD5FF] hover:underline"
+    >
+      {name}
+    </button>
+  );
+};
+
+const renderAssetCard = (
+  entry: OperationAssignedAsset,
+  index: number,
+  navigate: (path: string) => void,
+) => {
   const baseAsset = (
     entry.asset && typeof entry.asset === "object"
       ? entry.asset
@@ -109,14 +145,32 @@ const renderAssetCard = (entry: OperationAssignedAsset, index: number) => {
       ? (baseAsset.co_pilot_details as Record<string, unknown>)
       : entry.co_pilot;
 
-  return (
-    <div
-      key={
-        entry.id ??
-        (typeof baseAsset.id === "number" ? baseAsset.id : `${entry.asset_id ?? "asset"}-${index}`)
-      }
-      className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4"
-    >
+  const assetIdValue =
+    (typeof baseAsset.id === "number" ? baseAsset.id : null) ??
+    entry.asset_id ??
+    null;
+  const goToAsset = () => {
+    if (assetIdValue) navigate(`/dashboard/assets/${assetIdValue}`);
+  };
+  const goToPerson = (personId: number) =>
+    navigate(`/dashboard/personnel/${personId}`);
+
+  const cardKey =
+    entry.id ??
+    (typeof baseAsset.id === "number"
+      ? baseAsset.id
+      : `${entry.asset_id ?? "asset"}-${index}`);
+
+  const cardContent = (
+    <>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] uppercase tracking-wide text-gray-500">
+          {assetIdValue ? "Click to view asset details" : ""}
+        </span>
+        {assetIdValue ? (
+          <Icon icon="mdi:chevron-right" className="w-4 h-4 text-[#7FD5FF]" />
+        ) : null}
+      </div>
       <InfoRow label="Name" value={assetName} />
       <InfoRow label="Type" value={String(assetType)} />
       <InfoRow label="Tail Number" value={String(tailNumber)} />
@@ -125,13 +179,47 @@ const renderAssetCard = (entry: OperationAssignedAsset, index: number) => {
       <InfoRow label="Next Inspection" value={String(nextInspection)} />
       <InfoRow label="Last Snag" value={String(lastSnag)} />
       <InfoRow label="Total Landings" value={String(totalLandings)} />
-      <InfoRow label="Pilot In Command" value={getPersonName(pilotDetails)} />
-      <InfoRow label="Co-Pilot" value={getPersonName(coPilotDetails)} />
+      <InfoRow
+        label="Pilot In Command"
+        value={<PersonLink person={pilotDetails} onNavigate={goToPerson} />}
+      />
+      <InfoRow
+        label="Co-Pilot"
+        value={<PersonLink person={coPilotDetails} onNavigate={goToPerson} />}
+      />
+    </>
+  );
+
+  if (assetIdValue) {
+    return (
+      <button
+        key={cardKey}
+        type="button"
+        onClick={goToAsset}
+        className="text-left w-full rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 cursor-pointer hover:border-[#7FD5FF]/70 transition-colors"
+      >
+        {cardContent}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      key={cardKey}
+      className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4"
+    >
+      {cardContent}
     </div>
   );
 };
 
-const OperationTab = ({ operation }: { operation: Operation }) => {
+const OperationTab = ({
+  operation,
+  navigate,
+}: {
+  operation: Operation;
+  navigate: (path: string) => void;
+}) => {
   if (!operation) return null;
 
   const departureLabel =
@@ -217,7 +305,9 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
           </h3>
           {operation.assets && operation.assets.length > 0 ? (
             <div className="space-y-4">
-              {operation.assets.map((entry, index) => renderAssetCard(entry, index))}
+              {operation.assets.map((entry, index) =>
+                renderAssetCard(entry, index, navigate),
+              )}
             </div>
           ) : (
             <div className="text-gray-400 text-sm">
@@ -292,7 +382,7 @@ const AARTab = ({
       <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-10 text-center text-white">
         <Icon
           icon="mdi:file-remove-outline"
-          className="w-10 h-10 text-gray-600 mx-auto mb-3"
+          className="w-10 h-10 text-gray-400 mx-auto mb-3"
         />
         <p className="text-base font-semibold">No after action report</p>
         <button
@@ -437,7 +527,7 @@ export const OperationDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#021019] text-[#7FD5FF]">
+      <div className="h-screen w-full flex items-center justify-center bg-[#001219] text-[#7FD5FF]">
         <Icon icon="mdi:loading" className="w-8 h-8 animate-spin" />
       </div>
     );
@@ -445,7 +535,7 @@ export const OperationDetailsPage = () => {
 
   if (!operation) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#021019] text-gray-400 gap-4">
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#001219] text-gray-400 gap-4">
         <p>Operation not found</p>
         <button
           onClick={() => navigate(-1)}
@@ -504,7 +594,7 @@ export const OperationDetailsPage = () => {
       await downloadElementAsPdf({
         element: contentRef.current,
         fileName: `${operation.name || "operation"}-${operation.id}`,
-        backgroundColor: "#021019",
+        backgroundColor: "#001219",
       });
       dispatch(showToast({ message: "PDF downloaded", type: "success" }));
     } catch (error) {
@@ -524,7 +614,7 @@ export const OperationDetailsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col p-6 space-y-6">
+    <div className="min-h-screen bg-[#001219] text-gray-200 flex flex-col p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -546,7 +636,7 @@ export const OperationDetailsPage = () => {
             <button
               onClick={handleDeleteOperation}
               disabled={isDeleting}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825] disabled:opacity-60"
             >
               <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
               {isDeleting ? "Deleting..." : "Delete"}
@@ -555,7 +645,7 @@ export const OperationDetailsPage = () => {
               <button
                 onClick={() => setIsStatusMenuOpen((prev) => !prev)}
                 disabled={isUpdatingStatus}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825] disabled:opacity-60"
                 type="button"
               >
                 <Icon icon="mdi:refresh" className="w-4 h-4" />
@@ -571,7 +661,7 @@ export const OperationDetailsPage = () => {
                       type="button"
                       onClick={() => handleUpdateStatus(status)}
                       className={cn(
-                        "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#002030] transition-colors",
+                        "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#001825] transition-colors",
                         operation.status === status ? "text-[#7FD5FF]" : "text-gray-300",
                       )}
                     >
@@ -583,7 +673,7 @@ export const OperationDetailsPage = () => {
             </div>
             <button
               onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030]"
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825]"
             >
               <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
             </button>
@@ -645,7 +735,7 @@ export const OperationDetailsPage = () => {
       {/* Content */}
       <div ref={contentRef} className="flex-1">
         {activeTab === "operation" ? (
-          <OperationTab operation={operation} />
+          <OperationTab operation={operation} navigate={navigate} />
         ) : (
           <AARTab operation={operation} onAddReport={handleAddAfterActionReport} />
         )}

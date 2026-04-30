@@ -10,7 +10,9 @@ import {
   type NavigationTarget,
   useGetNotificationsQuery,
 } from "@/features/notifications/api";
+import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { openCompose } from "@/features/messages/composeSlice";
 
 type HeaderProps = {
   onOpenSidebar?: () => void;
@@ -18,6 +20,12 @@ type HeaderProps = {
 
 export const Header = ({ onOpenSidebar }: HeaderProps) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const userPermissions = useAppSelector(
+    (state) => state.auth.user?.permissions ?? [],
+  );
+  const canViewMessages = userPermissions.includes("messages.viewAny");
+  const canCreateMessages = userPermissions.includes("messages.create");
   const [now, setNow] = useState(() => new Date());
   const [isEmergenciesOpen, setIsEmergenciesOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -209,12 +217,30 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
           <input
             type="text"
             placeholder="Search"
-            className="bg-[#00090D] border border-[#0A4D66]/50 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#7FD5FF] w-52 md:w-64 transition-colors"
+            className="bg-[#001219] border border-[#0A4D66]/50 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#7FD5FF] w-52 md:w-64 transition-colors"
           />
         </div>
 
         {/* Icons */}
         <div className="flex items-center gap-2 text-gray-400">
+          {canViewMessages && (
+            <button
+              className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors"
+              onClick={() => {
+                if (canCreateMessages) {
+                  dispatch(openCompose());
+                } else {
+                  navigate("/dashboard/messages");
+                }
+              }}
+              type="button"
+              aria-label="Compose message"
+              title="New message"
+            >
+              <Icon icon="mdi:email-outline" className="w-5 h-5" />
+            </button>
+          )}
+
           <div className="relative" ref={emergenciesRef}>
             <button
               className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors relative"
@@ -235,7 +261,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
             </button>
 
             {isEmergenciesOpen && (
-              <div className="absolute right-0 top-14 z-50 w-96 max-w-[calc(100vw-2rem)] bg-[#001D2B] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
+              <div className="absolute right-0 top-14 z-50 w-96 max-w-[calc(100vw-2rem)] bg-[#001825] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-5 border-b border-[#0A4D66]/30">
                   <h3 className="text-white text-2xl font-bold uppercase">
                     Emergencies
@@ -243,7 +269,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                   <button
                     type="button"
                     onClick={() => setIsEmergenciesOpen(false)}
-                    className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#00263A] flex items-center justify-center hover:opacity-90"
+                    className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#001219] flex items-center justify-center hover:opacity-90"
                     aria-label="Close emergencies"
                     title="Close emergencies"
                   >
@@ -397,7 +423,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
             </button>
 
             {isNotificationsOpen && (
-              <div className="absolute right-0 top-14 z-50 w-115 max-w-[calc(100vw-2rem)] bg-[#001D2B] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
+              <div className="absolute right-0 top-14 z-50 w-115 max-w-[calc(100vw-2rem)] bg-[#001825] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
                 <div className="flex items-center justify-between px-6 py-5 border-b border-[#0A4D66]/30">
                   <h3 className="text-white text-2xl font-bold uppercase">
                     Notification
@@ -405,7 +431,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                   <button
                     type="button"
                     onClick={() => setIsNotificationsOpen(false)}
-                    className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#00263A] flex items-center justify-center hover:opacity-90"
+                    className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#001219] flex items-center justify-center hover:opacity-90"
                     aria-label="Close notifications"
                     title="Close notifications"
                   >
@@ -434,7 +460,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                           disabled={!targetPath}
                           className={`${getClickableRowClassName(!targetPath)} grid-cols-[18px_minmax(0,1fr)_110px] border-[#0A4D66]/50 py-4`}
                         >
-                          <div className="w-3 h-3 bg-[#0A4D66] mt-1.5 group-hover:bg-[#7FD5FF] group-focus-visible:bg-[#7FD5FF] transition-colors" />
+                          <div className="w-3 h-3 bg-[#0A4D66] mt-1.5 group-hover:bg-[#0369A1] group-focus-visible:bg-[#0369A1] transition-colors" />
                           <p className="text-white text-sm leading-7">
                             {item.message}
                           </p>

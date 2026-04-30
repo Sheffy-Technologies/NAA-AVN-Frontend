@@ -127,7 +127,7 @@ export const AddAssetDefectPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+    <div className="min-h-screen bg-[#001219] text-white p-6 pb-20">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8 border-b border-[#0A4D66]/40 pb-4">
           <div>
@@ -314,7 +314,7 @@ export const AddAssetDefectPage = () => {
               type="button"
               onClick={handleSubmit}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 disabled:opacity-60 text-[#00090D] px-6 py-2 rounded text-sm font-bold transition-colors"
+              className="flex items-center gap-2 bg-[#0369A1] hover:bg-[#0369A1]/90 disabled:opacity-60 text-[#001219] px-6 py-2 rounded text-sm font-bold transition-colors"
             >
               <Icon icon="mdi:check" className="w-4 h-4" />
               <span>{isSaving ? "Saving..." : "Save Defect"}</span>

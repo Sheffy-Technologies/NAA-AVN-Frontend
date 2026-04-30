@@ -19,6 +19,9 @@ export type Engine = {
   inspection_interval_unit?: "hours" | "months" | "cycle";
   inspection_interval?: number | string | null;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  operation_flight_hours?: number;
+  current_time_since_new?: number;
+  current_time_since_new_label?: string;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
@@ -37,6 +40,9 @@ export type Component = {
   inspection_interval_unit?: "hours" | "months" | "cycle";
   inspection_interval?: number | string;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  operation_flight_hours?: number;
+  current_time_since_new?: number;
+  current_time_since_new_label?: string;
   installed_at: string;
   removed_at?: string | null;
   created_at?: string;
@@ -80,6 +86,9 @@ export type Avionics = {
   inspection_interval_unit?: "hours" | "months" | "cycle";
   inspection_interval?: number | string;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  operation_flight_hours?: number;
+  current_time_since_new?: number;
+  current_time_since_new_label?: string;
   removed_at?: string | null;
   created_at?: string;
   updated_at?: string;

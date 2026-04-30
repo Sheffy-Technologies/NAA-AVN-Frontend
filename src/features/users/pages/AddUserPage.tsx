@@ -50,7 +50,7 @@ export const AddUserPage = () => {
   };
 
   const inputClassName =
-    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors";
+    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors";
 
   return (
     <div className="p-6">
@@ -135,7 +135,7 @@ export const AddUserPage = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-[#7FD5FF] text-[#00263A] rounded px-4 py-2 font-medium"
+            className="bg-[#0369A1] text-[#001219] rounded px-4 py-2 font-medium"
           >
             {isLoading ? "Creating..." : "Create User"}
           </button>

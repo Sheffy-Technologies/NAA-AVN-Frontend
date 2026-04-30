@@ -1192,14 +1192,14 @@ export const AddAssetPage = () => {
 
   if (canEdit && isLoadingEditAsset && !editAsset) {
     return (
-      <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+      <div className="min-h-screen bg-[#001219] text-white p-6 pb-20">
         <div className="p-8 text-center text-gray-400">Loading asset details...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+    <div className="min-h-screen bg-[#001219] text-white p-6 pb-20">
       {/* Header */}
       <div className="flex items-center justify-between mb-8 border-b border-[#0A4D66]/40 pb-4">
         <div className="flex items-center gap-3">
@@ -1220,7 +1220,7 @@ export const AddAssetPage = () => {
             <button
               type="button"
               onClick={handleFillTestValues}
-              className="flex items-center space-x-2 border border-[#0A4D66]/50 bg-[#021a27] hover:bg-[#0A4D66]/30 text-white px-4 py-2 rounded text-sm font-semibold transition-colors"
+              className="flex items-center space-x-2 border border-[#0A4D66]/50 bg-[#001219] hover:bg-[#0A4D66]/30 text-white px-4 py-2 rounded text-sm font-semibold transition-colors"
             >
               <Icon icon="mdi:flask-outline" className="w-5 h-5" />
               <span>Fill Test Data</span>
@@ -1229,7 +1229,7 @@ export const AddAssetPage = () => {
           <button
             onClick={handleSubmit}
             disabled={isSaving || isUploadingPhoto}
-            className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-6 py-2 rounded text-sm font-bold transition-colors"
+            className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-6 py-2 rounded text-sm font-bold transition-colors"
           >
             <Icon icon="mdi:check" className="w-5 h-5" />
             <span>
@@ -1548,7 +1548,7 @@ export const AddAssetPage = () => {
                       installed_at: "",
                     })
                   }
-                  className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+                  className="flex items-center gap-1 bg-[#001825] text-[#001219] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
                 >
                   <Icon icon="mdi:plus" className="w-3 h-3" />
                   Add Component
@@ -1637,7 +1637,7 @@ export const AddAssetPage = () => {
                               className={[
                                 "w-3.5 h-3.5 rounded-full border",
                                 comp.track_by === option.key
-                                  ? "border-[#7FD5FF] bg-[#7FD5FF]"
+                                  ? "border-[#7FD5FF] bg-[#0369A1]"
                                   : "border-gray-500 bg-transparent",
                               ].join(" ")}
                             />
@@ -2618,7 +2618,7 @@ export const AddAssetPage = () => {
                     <button
                       type="button"
                       onClick={addEngineComponent}
-                      className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+                      className="flex items-center gap-1 bg-[#001825] text-[#001219] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
                     >
                       <Icon icon="mdi:plus" className="w-3 h-3" />
                       Add Component
@@ -3281,7 +3281,7 @@ export const AddAssetPage = () => {
                     overhaul_limit_cycles: "",
                   })
                 }
-                className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+                className="flex items-center gap-1 bg-[#001825] text-[#001219] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
               >
                 <Icon icon="mdi:plus" className="w-3 h-3" />
                 Add
@@ -3820,7 +3820,7 @@ export const AddAssetPage = () => {
                     certifying_engineer: "",
                   })
                 }
-                className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+                className="flex items-center gap-1 bg-[#001825] text-[#001219] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
               >
                 <Icon icon="mdi:plus" className="w-3 h-3" />
                 Add Snag
@@ -4096,7 +4096,7 @@ export const AddAssetPage = () => {
                     expiry_date: "",
                   })
                 }
-                className="flex items-center gap-1 bg-white text-[#00090D] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
+                className="flex items-center gap-1 bg-[#001825] text-[#001219] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
               >
                 <Icon icon="mdi:plus" className="w-3 h-3" />
                 Add Document
@@ -4235,7 +4235,7 @@ export const AddAssetPage = () => {
           <button
             onClick={handleSubmit}
             disabled={isSaving || isUploadingPhoto}
-            className="w-full md:w-auto bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-8 py-3 rounded text-sm font-bold transition-colors uppercase tracking-widest"
+            className="w-full md:w-auto bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-8 py-3 rounded text-sm font-bold transition-colors uppercase tracking-widest"
           >
             {isSaving ? "Saving..." : isUploadingPhoto ? "Uploading..." : "Save"}
           </button>

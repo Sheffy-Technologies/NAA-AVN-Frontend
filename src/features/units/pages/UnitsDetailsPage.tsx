@@ -39,7 +39,7 @@ const CardItem = ({ card }: { card: Card }) => (
       )}
     </div>
     {card.icon && (
-      <div className="w-10 h-10 rounded bg-[#021a27] flex items-center justify-center">
+      <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
         <Icon icon={card.icon} className="w-5 h-5 text-cyan-300" />
       </div>
     )}
@@ -157,7 +157,7 @@ export const UnitsDetailsPage = () => {
     return (
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18] flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={() => navigate(-1)}
@@ -188,7 +188,7 @@ export const UnitsDetailsPage = () => {
     return (
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18] flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={() => navigate(-1)}
@@ -218,7 +218,7 @@ export const UnitsDetailsPage = () => {
   return (
     <div className="px-2 sm:px-0 space-y-6">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219]">
           <button
             type="button"
             onClick={() => navigate(-1)}

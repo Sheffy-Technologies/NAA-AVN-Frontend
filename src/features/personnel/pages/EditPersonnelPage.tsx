@@ -531,7 +531,7 @@ export const EditPersonnelPage = () => {
           onClick={() => navigate(-1)}
           title="Go back"
           aria-label="Go back"
-          className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
+          className="p-2 hover:bg-[#001825]/5 rounded-full transition-colors text-gray-400 hover:text-white"
         >
           <Icon icon="mdi:arrow-left" className="w-6 h-6" />
         </button>
@@ -828,7 +828,7 @@ export const EditPersonnelPage = () => {
             {deployments.map((deployment, index) => (
               <div
                 key={index}
-                className="rounded-lg border border-white/10 bg-white/5 p-4"
+                className="rounded-lg border border-white/10 bg-[#001825]/5 p-4"
               >
                 <div className="mb-4 flex items-center justify-between gap-4">
                   <span className="text-sm font-medium text-white">

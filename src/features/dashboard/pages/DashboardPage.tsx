@@ -106,7 +106,7 @@ const CardItem = ({ card }: { card: Card }) => (
       <div
         className={cn(
           "w-9 h-9 rounded flex items-center justify-center",
-          card.iconClass || "bg-[#021a27]",
+          card.iconClass || "bg-[#001219]",
         )}
       >
         <Icon icon={card.icon} className="w-5 h-5 text-white/90" />
@@ -179,7 +179,7 @@ const TableToolbar = ({
     <button
       type="button"
       onClick={onResetFilter}
-      className="inline-flex items-center gap-2 text-xs text-[#7FD5FF] hover:text-[#b3e6ff] transition-colors"
+      className="inline-flex items-center gap-2 text-xs text-[#7FD5FF] hover:text-[#B7E6FF] transition-colors"
     >
       <span className="w-5 h-5 rounded-full bg-[#0A4D66]/50 text-white text-[10px] flex items-center justify-center">
         {resetCount ?? 0}
@@ -191,7 +191,7 @@ const TableToolbar = ({
         <select
           value={selectedUnit}
           onChange={(event) => onChangeUnit(event.target.value)}
-          className="appearance-none inline-flex items-center gap-2 pl-3 pr-8 py-2 rounded bg-[#00090D] border border-[#0A4D66]/50 text-xs text-gray-200 hover:border-[#7FD5FF]/60 transition-colors focus:outline-none focus:border-[#7FD5FF]"
+          className="appearance-none inline-flex items-center gap-2 pl-3 pr-8 py-2 rounded bg-[#001219] border border-[#0A4D66]/50 text-xs text-gray-200 hover:border-[#7FD5FF]/60 transition-colors focus:outline-none focus:border-[#7FD5FF]"
           title="Filter by unit"
           aria-label="Filter by unit"
         >
@@ -280,28 +280,28 @@ export const DashboardPage = () => {
         label: "Total Expense",
         value: `₦${total.toLocaleString()}`,
         icon: "mdi:cash-fast",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Monthly",
         value: `₦${monthly.toLocaleString()}`,
         icon: "mdi:calendar-month",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Quarterly",
         value: `₦${quarterly.toLocaleString()}`,
         icon: "mdi:calendar-range",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Budget",
         value: `₦${budget.toLocaleString()}${pct !== undefined ? `  ` : ""}`,
         icon: "mdi:account-cash",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
     ];
@@ -313,28 +313,28 @@ export const DashboardPage = () => {
         label: "Total In Stock",
         value: inventories?.total_stock ?? 0,
         icon: "mdi:warehouse",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Low Stock Items",
         value: inventories?.low_stock ?? 0,
         icon: "mdi:alert",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#6b4b00]/60",
       },
       {
         label: "Expired Items",
         value: inventories?.expired_items ?? 0,
         icon: "mdi:alert-octagon",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#5a0a0a]/60",
       },
       {
         label: "Critical",
         value: inventories?.critical_stock ?? 0,
         icon: "mdi:alert-decagram",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#7a0000]/60",
       },
     ];
@@ -346,14 +346,14 @@ export const DashboardPage = () => {
         label: "Planned",
         value: operations?.planned ?? 0,
         icon: "mdi:database",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Completed",
         value: operations?.completed ?? 0,
         icon: "mdi:database-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
         iconClass: "bg-emerald-700/50",
       },
       {
@@ -379,14 +379,14 @@ export const DashboardPage = () => {
         label: "Total",
         value: maintenance?.total_aircraft ?? 0,
         icon: "mdi:airplane",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Serviceable",
         value: maintenance?.maintenance_events?.serviceable ?? 0,
         icon: "mdi:airplane-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
         iconClass: "bg-emerald-700/50",
       },
       {
@@ -412,14 +412,14 @@ export const DashboardPage = () => {
         label: "Total",
         value: personnel?.total_personnel ?? 0,
         icon: "mdi:account-group",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Active",
         value: personnel?.active ?? 0,
         icon: "mdi:account-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
         iconClass: "bg-emerald-700/50",
       },
       {
@@ -927,7 +927,7 @@ export const DashboardPage = () => {
                         </td>
                         <td className="px-4 py-3 font-medium text-white">
                           <div className="flex items-center gap-3">
-                            <span className="w-9 h-7 rounded bg-[#021a27] border border-[#0A4D66]/40 flex items-center justify-center">
+                            <span className="w-9 h-7 rounded bg-[#001219] border border-[#0A4D66]/40 flex items-center justify-center">
                               <Icon
                                 icon="mdi:airplane"
                                 className="w-5 h-5 text-gray-200"

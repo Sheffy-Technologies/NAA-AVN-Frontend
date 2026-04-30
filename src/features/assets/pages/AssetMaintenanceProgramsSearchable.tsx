@@ -56,7 +56,7 @@ export default function AssetMaintenanceProgramsSearchable({
           >
             Select all
           </button>
-          <span className="text-gray-600 text-xs">|</span>
+          <span className="text-gray-400 text-xs">|</span>
           <button
             type="button"
             onClick={handleDeselectAllPrograms}
@@ -114,12 +114,12 @@ export default function AssetMaintenanceProgramsSearchable({
                 className={cn(
                   "w-4 h-4 rounded border flex items-center justify-center transition-colors",
                   selectedProgramIds.has(program.id)
-                    ? "bg-[#7FD5FF] border-[#7FD5FF]"
+                    ? "bg-[#0369A1] border-[#7FD5FF]"
                     : "border-gray-500 bg-transparent",
                 )}
               >
                 {selectedProgramIds.has(program.id) && (
-                  <Icon icon="mdi:check" className="w-3 h-3 text-[#00090D]" />
+                  <Icon icon="mdi:check" className="w-3 h-3 text-[#001219]" />
                 )}
               </div>
             </div>

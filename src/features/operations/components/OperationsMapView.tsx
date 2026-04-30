@@ -18,18 +18,18 @@ const mapOptions: google.maps.MapOptions = {
   disableDefaultUI: true,
   zoomControl: true,
   styles: [
-    { elementType: "geometry", stylers: [{ color: "#021019" }] },
+    { elementType: "geometry", stylers: [{ color: "#001219" }] },
     { elementType: "labels.text.fill", stylers: [{ color: "#6b8ca8" }] },
     { elementType: "labels.text.stroke", stylers: [{ color: "#01070c" }] },
     {
       featureType: "road",
       elementType: "geometry",
-      stylers: [{ color: "#052333" }],
+      stylers: [{ color: "#001219" }],
     },
     {
       featureType: "water",
       elementType: "geometry",
-      stylers: [{ color: "#052333" }],
+      stylers: [{ color: "#001219" }],
     },
   ],
 };
@@ -185,7 +185,7 @@ export const OperationsMapView = ({
           value={mapProvider}
           onChange={(e) => setMapProvider(e.target.value as MapProvider)}
           aria-label="Map provider"
-          className="px-3 py-1.5 rounded border border-[#0A4D66]/60 bg-[#021a27] text-xs text-gray-200 focus:outline-none"
+          className="px-3 py-1.5 rounded border border-[#0A4D66]/60 bg-[#001219] text-xs text-gray-200 focus:outline-none"
         >
           <option value="qgis">QGIS Map</option>
           <option value="google">Google Map</option>

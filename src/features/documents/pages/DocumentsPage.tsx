@@ -150,7 +150,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
       <div className="w-full max-w-2xl bg-[#001219] border border-[#0A4D66]/60 rounded-xl shadow-2xl">
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-2">
             <Icon icon="mdi:file-plus-outline" className="w-4 h-4 text-[#7FD5FF]" />
             <span className="text-xs sm:text-sm font-semibold tracking-wide text-white uppercase">
@@ -177,7 +177,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
                 setDocumentTypeId(event.target.value);
                 setSubmitError(null);
               }}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-white outline-none appearance-none"
             >
               <option value="">Select document type</option>
               {documentTypes.map((documentType) => (
@@ -197,7 +197,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
                 setAssetId(event.target.value);
                 setSubmitError(null);
               }}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-white outline-none appearance-none"
             >
               <option value="">Select asset</option>
               {assets.map((asset) => (
@@ -214,7 +214,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
               type="file"
               aria-label="Document file"
               onChange={handleFileChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-gray-100 outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
             />
           </div>
 
@@ -228,7 +228,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
                 setIssueDate(event.target.value);
                 setSubmitError(null);
               }}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-gray-100 outline-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-white outline-none"
             />
           </div>
 
@@ -242,7 +242,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
                 setExpiryDate(event.target.value);
                 setSubmitError(null);
               }}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-gray-100 outline-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-white outline-none"
             />
           </div>
 
@@ -251,7 +251,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
           ) : null}
         </div>
 
-        <div className="px-4 sm:px-5 py-3 border-t border-[#0A4D66]/40 bg-[#000f18] flex justify-end gap-2">
+        <div className="px-4 sm:px-5 py-3 border-t border-[#0A4D66]/40 bg-[#001219] flex justify-end gap-2">
           <button
             type="button"
             onClick={() => onClose(false)}
@@ -266,8 +266,8 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
             className={cn(
               "px-3 py-1.5 rounded text-xs sm:text-sm font-medium transition-colors",
               isLoading
-                ? "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed"
-                : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
+                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
             )}
           >
             {isLoading ? "Saving..." : "Add Document"}
@@ -291,7 +291,7 @@ export const DocumentsPage = () => {
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-90">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -299,7 +299,7 @@ export const DocumentsPage = () => {
             >
               Documents
             </button>
-            <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#021a27] p-1">
+            <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#001219] p-1">
               <button
                 type="button"
                 aria-label="Table view"
@@ -326,13 +326,13 @@ export const DocumentsPage = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200">
+            <span className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200">
               {documents.length}
             </span>
             <button
               type="button"
               onClick={() => setIsCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               <span>Add Document</span>
@@ -340,7 +340,7 @@ export const DocumentsPage = () => {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:refresh" className="w-4 h-4" />
               <span>Refresh</span>

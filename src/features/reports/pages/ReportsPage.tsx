@@ -261,7 +261,7 @@ export const ReportsPage = () => {
                 {String(card.value)}
               </p>
             </div>
-            <div className="w-10 h-10 rounded bg-[#021a27] flex items-center justify-center">
+            <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
               <Icon icon="mdi:chart-box-outline" className="w-5 h-5 text-white" />
             </div>
           </div>
@@ -269,7 +269,7 @@ export const ReportsPage = () => {
       </section>
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-90">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -293,7 +293,7 @@ export const ReportsPage = () => {
                     resourceKey: event.target.value,
                   }))
                 }
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 <option value="">Select table</option>
                 {resources.map((resource) => (
@@ -313,7 +313,7 @@ export const ReportsPage = () => {
                   setDraft((current) => ({ ...current, search: event.target.value }))
                 }
                 placeholder="Search term"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -328,7 +328,7 @@ export const ReportsPage = () => {
                     perPage: Number(event.target.value),
                   }))
                 }
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 {[25, 50, 100, 250].map((value) => (
                   <option key={value} value={value}>
@@ -350,7 +350,7 @@ export const ReportsPage = () => {
                   }))
                 }
                 placeholder="user,unit"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -366,7 +366,7 @@ export const ReportsPage = () => {
                   }))
                 }
                 placeholder="id,name,created_at"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -382,7 +382,7 @@ export const ReportsPage = () => {
                   }))
                 }
                 placeholder="name,email"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -396,7 +396,7 @@ export const ReportsPage = () => {
                   setDraft((current) => ({ ...current, sortBy: event.target.value }))
                 }
                 placeholder="id"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -411,7 +411,7 @@ export const ReportsPage = () => {
                     sortDir: event.target.value as "asc" | "desc",
                   }))
                 }
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 <option value="desc">Descending</option>
                 <option value="asc">Ascending</option>
@@ -434,7 +434,7 @@ export const ReportsPage = () => {
               <button
                 type="button"
                 onClick={handleAddFilter}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#7FD5FF] text-black text-xs font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs font-medium hover:bg-[#0369A1]/90 transition-colors"
               >
                 <Icon icon="mdi:plus" className="w-4 h-4" />
                 <span>Add Filter</span>
@@ -455,7 +455,7 @@ export const ReportsPage = () => {
                         handleUpdateFilter(filter.id, { field: event.target.value })
                       }
                       placeholder="field"
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                     />
                     <select
                       aria-label="Filter operator"
@@ -465,7 +465,7 @@ export const ReportsPage = () => {
                           operator: event.target.value as ReportFilterOperator,
                         })
                       }
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
                     >
                       {FILTER_OPERATORS.map((operator) => (
                         <option key={operator} value={operator}>
@@ -481,7 +481,7 @@ export const ReportsPage = () => {
                         handleUpdateFilter(filter.id, { value: event.target.value })
                       }
                       placeholder={filter.operator === "between" ? "start,end" : "value"}
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 disabled:opacity-40"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 disabled:opacity-40"
                     />
                     <button
                       type="button"
@@ -505,8 +505,8 @@ export const ReportsPage = () => {
               className={cn(
                 "inline-flex items-center gap-2 px-3 py-1.5 rounded text-black text-xs sm:text-sm font-medium transition-colors",
                 selectedResource
-                  ? "bg-[#7FD5FF] hover:bg-[#7FD5FF]/90"
-                  : "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed",
+                  ? "bg-[#0369A1] hover:bg-[#0369A1]/90"
+                  : "bg-[#0369A1]/40 text-black/60 cursor-not-allowed",
               )}
             >
               <Icon icon="mdi:play-circle-outline" className="w-4 h-4" />
@@ -519,8 +519,8 @@ export const ReportsPage = () => {
               className={cn(
                 "inline-flex items-center gap-2 px-3 py-1.5 rounded text-black text-xs sm:text-sm font-medium transition-colors",
                 appliedArgs && !isExporting
-                  ? "bg-[#7FD5FF] hover:bg-[#7FD5FF]/90"
-                  : "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed",
+                  ? "bg-[#0369A1] hover:bg-[#0369A1]/90"
+                  : "bg-[#0369A1]/40 text-black/60 cursor-not-allowed",
               )}
             >
               <Icon icon="mdi:file-delimited-outline" className="w-4 h-4" />
@@ -587,7 +587,7 @@ export const ReportsPage = () => {
                       )}
                     >
                       {columns.map((column) => (
-                        <td key={`${index}-${column}`} className="py-2 pr-3 align-top text-gray-100 whitespace-pre-wrap">
+                        <td key={`${index}-${column}`} className="py-2 pr-3 align-top text-white whitespace-pre-wrap">
                           {formatCellValue(row[column])}
                         </td>
                       ))}
@@ -607,19 +607,19 @@ export const ReportsPage = () => {
                 type="button"
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
                 disabled={!appliedArgs || currentPage <= 1 || isQueryLoading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 disabled:opacity-40"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 disabled:opacity-40"
               >
                 <Icon icon="mdi:chevron-left" className="w-4 h-4" />
                 <span>Prev</span>
               </button>
-              <span className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200">
+              <span className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200">
                 {currentPage}
               </span>
               <button
                 type="button"
                 onClick={() => setPage((current) => Math.min(lastPage, current + 1))}
                 disabled={!appliedArgs || currentPage >= lastPage || isQueryLoading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 disabled:opacity-40"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 disabled:opacity-40"
               >
                 <span>Next</span>
                 <Icon icon="mdi:chevron-right" className="w-4 h-4" />

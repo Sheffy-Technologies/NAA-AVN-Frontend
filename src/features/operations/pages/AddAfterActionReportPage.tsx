@@ -13,7 +13,7 @@ export const AddAfterActionReportPage = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#021019] text-[#7FD5FF]">
+      <div className="h-screen w-full flex items-center justify-center bg-[#001219] text-[#7FD5FF]">
         <Icon icon="mdi:loading" className="w-8 h-8 animate-spin" />
       </div>
     );
@@ -21,7 +21,7 @@ export const AddAfterActionReportPage = () => {
 
   if (!operation || !id) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#021019] text-gray-400 gap-4">
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#001219] text-gray-400 gap-4">
         <p>Operation not found</p>
         <button
           onClick={() => navigate("/dashboard/operations")}
@@ -34,7 +34,7 @@ export const AddAfterActionReportPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#021019] text-white px-6 py-8">
+    <div className="min-h-screen bg-[#001219] text-white px-6 py-8">
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
           <button

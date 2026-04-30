@@ -171,7 +171,7 @@ export const MaintenanceProgramsCrudPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#00090D] p-6">
+    <div className="min-h-screen bg-[#001219] p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         <button
           type="button"

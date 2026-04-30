@@ -9,6 +9,13 @@
   --font-primary: var(--font-primary), sans-serif;
 }
 
+html,
+body,
+#root {
+  background-color: #001219;
+  color: #ffffff;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
@@ -28,6 +35,13 @@
   background: #5dbced;
 }
 
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #0A4D66;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
+
 input[type="date"] {
   color-scheme: light;
 }
@@ -35,4 +49,9 @@ input[type="date"] {
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(1.2);
   opacity: 1;
+}
+
+html[data-theme="light"] input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.7;
 }

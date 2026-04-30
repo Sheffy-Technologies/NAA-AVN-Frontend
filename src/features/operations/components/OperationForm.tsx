@@ -491,7 +491,7 @@ export const OperationForm = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col">
+    <div className="min-h-screen bg-[#001219] text-gray-200 flex flex-col">
       <div className="bg-[#0A4D66] px-6 py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
           {isCreateMode ? (
@@ -730,13 +730,13 @@ export const OperationForm = ({
               Coordinates (Optional)
             </h2>
             <div className="mb-6 space-y-4">
-              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#0A4D66]/30 bg-[#031924] p-2">
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#0A4D66]/30 bg-[#001219] p-2">
                 <button
                   type="button"
                   onClick={() => setCoordinateInputMode("latlon")}
                   className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
                     coordinateInputMode === "latlon"
-                      ? "bg-[#7FD5FF] text-[#001219]"
+                      ? "bg-[#0369A1] text-[#001219]"
                       : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
                   }`}
                 >
@@ -747,7 +747,7 @@ export const OperationForm = ({
                   onClick={() => setCoordinateInputMode("mgrs")}
                   className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
                     coordinateInputMode === "mgrs"
-                      ? "bg-[#7FD5FF] text-[#001219]"
+                      ? "bg-[#0369A1] text-[#001219]"
                       : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
                   }`}
                 >
@@ -764,8 +764,8 @@ export const OperationForm = ({
                   onClick={() => setActiveMapTarget("departure")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "departure"
-                      ? "bg-[#7FD5FF] text-[#001219]"
-                      : "bg-[#052333] text-gray-200 hover:bg-[#0A4D66]"
+                      ? "bg-[#0369A1] text-[#001219]"
+                      : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
                   Pick Departure
@@ -776,7 +776,7 @@ export const OperationForm = ({
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "waypoint"
                       ? "bg-[#F59E0B] text-[#001219]"
-                      : "bg-[#052333] text-gray-200 hover:bg-[#0A4D66]"
+                      : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
                   Add Waypoint
@@ -786,8 +786,8 @@ export const OperationForm = ({
                   onClick={() => setActiveMapTarget("arrival")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "arrival"
-                      ? "bg-[#7FD5FF] text-[#001219]"
-                      : "bg-[#052333] text-gray-200 hover:bg-[#0A4D66]"
+                      ? "bg-[#0369A1] text-[#001219]"
+                      : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
                   Pick Arrival
@@ -818,7 +818,7 @@ export const OperationForm = ({
                 onCoordinateSelect={handleCoordinateSelect}
               />
 
-              <div className="rounded-lg border border-[#0A4D66]/30 bg-[#031924] p-4">
+              <div className="rounded-lg border border-[#0A4D66]/30 bg-[#001219] p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#7FD5FF]">
@@ -831,7 +831,7 @@ export const OperationForm = ({
                   <button
                     type="button"
                     onClick={addManualWaypoint}
-                    className="inline-flex items-center gap-2 rounded-sm bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-gray-200"
+                    className="inline-flex items-center gap-2 rounded-sm bg-[#001825] px-3 py-1.5 text-xs font-semibold text-black hover:bg-gray-200"
                   >
                     <Icon icon="mdi:plus" className="h-4 w-4" />
                     Add manually
@@ -1033,7 +1033,7 @@ export const OperationForm = ({
                 <button
                   type="button"
                   onClick={addAsset}
-                  className="inline-flex items-center gap-2 rounded-sm bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-sm bg-[#001825] px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 transition-colors"
                 >
                   <Icon icon="mdi:plus-circle" className="h-4 w-4" />
                   Add Aircraft
@@ -1134,7 +1134,7 @@ export const OperationForm = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-16 w-full max-w-130 bg-[#7FD5FF] text-[#00090D] text-2xl font-semibold rounded-sm hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
+              className="h-16 w-full max-w-130 bg-[#0369A1] text-[#001219] text-2xl font-semibold rounded-sm hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : submitLabel}
             </button>

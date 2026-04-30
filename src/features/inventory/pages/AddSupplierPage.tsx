@@ -99,8 +99,8 @@ export const AddSupplierPage = () => {
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
             isLoading
-              ? "bg-[#7FD5FF]/50 text-black cursor-not-allowed"
-              : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+              ? "bg-[#0369A1]/50 text-black cursor-not-allowed"
+              : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
           )}
         >
           <span>{isLoading ? "Saving..." : "Save & Exit"}</span>
@@ -115,7 +115,7 @@ export const AddSupplierPage = () => {
       )}
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219]">
           <h2 className="text-sm sm:text-base font-semibold text-white uppercase tracking-wide">
             Supplier Details
           </h2>
@@ -133,7 +133,7 @@ export const AddSupplierPage = () => {
                 onChange={handleChange("name")}
                 title="Supplier name"
                 placeholder="Enter supplier name"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
               />
               {errors.name && (
                 <p className="text-[11px] text-red-400">{errors.name}</p>
@@ -150,7 +150,7 @@ export const AddSupplierPage = () => {
                 onChange={handleChange("contact")}
                 title="Supplier contact"
                 placeholder="Enter contact person"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
               />
             </div>
 
@@ -164,7 +164,7 @@ export const AddSupplierPage = () => {
                 onChange={handleChange("email")}
                 title="Supplier email"
                 placeholder="Enter supplier email"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
               />
               {errors.email && (
                 <p className="text-[11px] text-red-400">{errors.email}</p>
@@ -181,7 +181,7 @@ export const AddSupplierPage = () => {
                 onChange={handleChange("address")}
                 title="Supplier address"
                 placeholder="Enter supplier address"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
               />
             </div>
           </div>

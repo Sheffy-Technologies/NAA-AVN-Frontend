@@ -247,7 +247,7 @@ const InventoryFormContent = ({
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <h2 className="text-sm sm:text-base font-semibold tracking-wide text-white uppercase">
             {pageTitle}
           </h2>
@@ -361,7 +361,7 @@ const InventoryFormContent = ({
                   onChange={handleChange("asset_id")}
                   title="Aircraft"
                   className={cn(
-                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
+                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none",
                     isAssetTypesLoading && "opacity-70 cursor-not-allowed",
                   )}
                   disabled={isAssetTypesLoading}
@@ -393,7 +393,7 @@ const InventoryFormContent = ({
                 type="text"
                 value={values.description}
                 onChange={handleChange("description")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Item Description"
               />
               {errors.description && (
@@ -409,7 +409,7 @@ const InventoryFormContent = ({
                 type="text"
                 value={values.serial_number}
                 onChange={handleChange("serial_number")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Serial No."
               />
               {errors.serial_number && (
@@ -429,7 +429,7 @@ const InventoryFormContent = ({
                   onChange={handleChange("expense_category_id")}
                   title="Category"
                   className={cn(
-                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none",
+                    "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none",
                     isCategoriesLoading && "opacity-70 cursor-not-allowed",
                   )}
                   disabled={isCategoriesLoading}
@@ -463,7 +463,7 @@ const InventoryFormContent = ({
                 type="number"
                 value={values.current_stock}
                 onChange={handleChange("current_stock")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Current Stock"
               />
               {errors.current_stock && (
@@ -482,7 +482,7 @@ const InventoryFormContent = ({
                   value={values.unit_id}
                   onChange={handleChange("unit_id")}
                   title="Unit"
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
                 >
                   <option value="">
                     {isUnitsLoading ? "Loading units..." : "Select Unit"}
@@ -512,7 +512,7 @@ const InventoryFormContent = ({
                 value={values.part_number}
                 onChange={handleChange("part_number")}
                 className={cn(
-                  "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none",
+                  "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none",
                   "placeholder:text-gray-500",
                 )}
                 placeholder="Enter Part No."
@@ -530,7 +530,7 @@ const InventoryFormContent = ({
                 type="text"
                 value={values.measurement_unit}
                 onChange={handleChange("measurement_unit")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Units/Measurement"
               />
               {errors.measurement_unit && (
@@ -571,7 +571,7 @@ const InventoryFormContent = ({
                 type="number"
                 value={values.re_order_level}
                 onChange={handleChange("re_order_level")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Re-Order Level"
               />
               {errors.re_order_level && (
@@ -591,7 +591,7 @@ const InventoryFormContent = ({
                 onChange={handleChange("expiry_date")}
                 title="Expiry Date"
                 placeholder="Select expiry date"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -605,7 +605,7 @@ const InventoryFormContent = ({
                 onChange={handleChange("date_received")}
                 title="Date Received"
                 placeholder="Select date received"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -617,7 +617,7 @@ const InventoryFormContent = ({
                 type="text"
                 value={values.remark}
                 onChange={handleChange("remark")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Remark"
               />
             </div>
@@ -632,7 +632,7 @@ const InventoryFormContent = ({
               type="button"
               onClick={() => handleSubmitInternal(true)}
               className={cn(
-                "inline-flex items-center justify-center px-6 py-2 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
+                "inline-flex items-center justify-center px-6 py-2 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
                 isSubmitting && "opacity-70 cursor-not-allowed",
               )}
               disabled={isSubmitting}
@@ -677,7 +677,7 @@ export const InventoryFormPage = () => {
     return (
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18] flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={handleBack}
@@ -699,7 +699,7 @@ export const InventoryFormPage = () => {
     return (
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18] flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={handleBack}

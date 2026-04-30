@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { useAppDispatch } from "@/app/store";
+import { useAppDispatch, useAppSelector } from "@/app/store";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { showToast } from "@/shared/store/toastSlice";
 import {
@@ -28,11 +28,12 @@ import {
 } from "../api";
 import { cn } from "@/shared/utils/cn";
 import AssetMaintenanceProgramsSearchable from "./AssetMaintenanceProgramsSearchable";
+import { getEchoClient } from "@/shared/realtime/echo";
 
 
 const TABS = [
   { id: "info", label: "Aircraft Information" },
-  { id: "airframe", label: "Airframe" },
+  { id: "components", label: "Components" },
   { id: "engines", label: "Engines" },
   { id: "avionics", label: "Avionics" },
   { id: "discrepancies", label: "Discrepancies" },
@@ -117,19 +118,6 @@ const formatInspectionInterval = (
   return suffix ? `${formatted} ${suffix}` : formatted;
 };
 
-const formatDifference = (
-  limit: number | string | null | undefined,
-  current: number | string | null | undefined,
-  suffix: string,
-) => {
-  const limitValue = Number(limit);
-  const currentValue = Number(current);
-
-  if (Number.isNaN(limitValue) || Number.isNaN(currentValue)) return "-";
-
-  return `${Math.max(limitValue - currentValue, 0).toLocaleString()} ${suffix}`;
-};
-
 const parseConfiguration = (configuration: unknown) => {
   // coerce to string[]
   const list = Array.isArray(configuration)
@@ -196,6 +184,17 @@ const toNumber = (value: number | string | null | undefined) => {
   return Number.isNaN(parsed) ? 0 : parsed;
 };
 
+const getCurrentServiceHours = (value: {
+  current_time_since_new?: number;
+  time_since_new?: number | string;
+}) => {
+  return value.current_time_since_new ?? toNumeric(value.time_since_new);
+};
+
+const getOperationFlightHours = (value: { operation_flight_hours?: number }) => {
+  return toNumeric(value.operation_flight_hours);
+};
+
 const cloneEngine = (engine: Engine): Engine => ({
   ...engine,
   position_id: Number(engine.position_id) || 1,
@@ -244,7 +243,8 @@ export const AssetDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { data: asset, isLoading } = useGetAssetByIdQuery(id || "");
+  const authToken = useAppSelector((state) => state.auth.token);
+  const { data: asset, isLoading, refetch: refetchAsset } = useGetAssetByIdQuery(id || "");
   const { data: units = [] } = useGetUnitsQuery();
   const { data: assetTypes = [] } = useGetAssetTypesQuery();
   const { data: enginePositions = [] } = useGetEnginePositionsQuery();
@@ -357,6 +357,30 @@ export const AssetDetailsPage = () => {
     setEnginesDraft((asset.engines || []).map(cloneEngine));
     setAvionicsDraft((asset.avionics || []).map(cloneAvionic));
   }, [asset]);
+
+  useEffect(() => {
+    if (!asset?.id || !authToken) {
+      return;
+    }
+
+    const echo = getEchoClient(authToken);
+
+    if (!echo) {
+      return;
+    }
+
+    const channelName = `asset.${asset.id}`;
+    const privateChannelName = `private-${channelName}`;
+    const eventName = ".asset.usage-hours-updated";
+
+    echo.private(channelName).listen(eventName, () => {
+      void refetchAsset();
+    });
+
+    return () => {
+      echo.leaveChannel(privateChannelName);
+    };
+  }, [asset?.id, authToken, refetchAsset]);
 
   const inputClass =
     "w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]";
@@ -592,7 +616,9 @@ export const AssetDetailsPage = () => {
         "ATA Chapter": ataChapterMap.get(component.ata_chapter_id || 0) || "-",
         "Part Number": component.part_number || "-",
         "Serial Number": component.serial_number || "-",
-        "Time Since New": formatHours(component.time_since_new),
+        "Baseline Time Since New": formatHours(component.time_since_new),
+        "Operation Flight Hours": formatHours(component.operation_flight_hours),
+        "Current Service Hours": formatHours(getCurrentServiceHours(component)),
         "Service Life Limit": formatHours(component.service_life_limit_hours),
         "Inspection Interval": formatInspectionInterval(
           component.inspection_interval,
@@ -608,7 +634,9 @@ export const AssetDetailsPage = () => {
         "ATA Chapter": ataChapterMap.get(engine.ata_chapter_id || 0) || "-",
         Model: engine.model || "-",
         "Serial Number": engine.serial_number || "-",
-        "Time Since New": formatHours(engine.time_since_new),
+        "Baseline Time Since New": formatHours(engine.time_since_new),
+        "Operation Flight Hours": formatHours(engine.operation_flight_hours),
+        "Current Service Hours": formatHours(getCurrentServiceHours(engine)),
         "Service Life Limit": formatHours(engine.service_life_limit),
         "Inspection Interval": formatInspectionInterval(
           engine.inspection_interval,
@@ -624,7 +652,9 @@ export const AssetDetailsPage = () => {
         Model: avionic.model || "-",
         Manufacturer: avionic.manufacturer || "-",
         "Serial Number": avionic.serial_number || "-",
-        "Time Since New": formatHours(avionic.time_since_new),
+        "Baseline Time Since New": formatHours(avionic.time_since_new),
+        "Operation Flight Hours": formatHours(avionic.operation_flight_hours),
+        "Current Service Hours": formatHours(getCurrentServiceHours(avionic)),
         "Service Life Limit": formatHours(avionic.service_life_limit),
         "Inspection Interval": formatInspectionInterval(
           avionic.inspection_interval,
@@ -740,16 +770,6 @@ export const AssetDetailsPage = () => {
   );
   const configuration = parseConfiguration(asset.configuration);
   const latestOperation = asset.operations[0] ?? null;
-  const nextHoursInspection = formatDifference(
-    asset.inspection_interval,
-    asset.last_inspection_hours,
-    "hrs",
-  );
-  const nextCycleInspection = formatDifference(
-    asset.inspection_interval_cycle,
-    asset.last_inspection_cycles,
-    "cyc",
-  );
   const defects = asset.defects ?? [];
   const maintenanceEvents = asset.maintenance_events ?? [];
   const assetTaskIds = new Set(
@@ -768,7 +788,7 @@ export const AssetDetailsPage = () => {
 
   const dueTrackingRows = [
     ...asset.engines.map((engine, index) => {
-      const current = toNumeric(engine.time_since_new);
+      const current = getCurrentServiceHours(engine);
       const lastInspection = toNumeric(engine.last_inspection) ?? 0;
       const interval = toNumeric(engine.inspection_interval);
       const unit = String(engine.inspection_interval_unit || "hours").toLowerCase();
@@ -791,7 +811,7 @@ export const AssetDetailsPage = () => {
       };
     }),
     ...asset.components.map((component, index) => {
-      const current = toNumeric(component.time_since_new);
+      const current = getCurrentServiceHours(component);
       const lastInspection = toNumeric(component.last_inspection) ?? 0;
       const interval = toNumeric(component.inspection_interval);
       const unit = String(component.inspection_interval_unit || "hours").toLowerCase();
@@ -817,7 +837,7 @@ export const AssetDetailsPage = () => {
       };
     }),
     ...asset.avionics.map((avionic, index) => {
-      const current = toNumeric(avionic.time_since_new);
+      const current = getCurrentServiceHours(avionic);
       const lastInspection = toNumeric(avionic.last_inspection) ?? 0;
       const interval = toNumeric(avionic.inspection_interval);
       const unit = String(avionic.inspection_interval_unit || "hours").toLowerCase();
@@ -942,7 +962,7 @@ export const AssetDetailsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+    <div className="min-h-screen bg-[#001219] text-white p-6 pb-20">
       {/* Ad-hoc Task Modal removed */}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -1020,7 +1040,7 @@ export const AssetDetailsPage = () => {
           >
             {tab.label}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7FD5FF] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
             )}
           </button>
         ))}
@@ -1041,7 +1061,7 @@ export const AssetDetailsPage = () => {
                 ) : (
                   <Icon
                     icon="mdi:helicopter"
-                    className="w-32 h-32 text-gray-600"
+                    className="w-32 h-32 text-gray-400"
                   />
                 )}
               </div>
@@ -1174,102 +1194,12 @@ export const AssetDetailsPage = () => {
           </div>
         )}
 
-        {activeTab === "airframe" && (
+        {activeTab === "components" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
-                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
-                  Hours Tracking
-                </h3>
-                <div className="space-y-4">
-                  <DetailRow
-                    label="Total Flight Hrs"
-                    value={formatHours(asset.total_airframe_hours)}
-                  />
-                  <DetailRow
-                    label="Service Life Limit hrs"
-                    value={formatHours(asset.service_life_limit)}
-                  />
-                  <DetailRow
-                    label="Life Remaining"
-                    value={formatDifference(
-                      asset.service_life_limit,
-                      asset.total_airframe_hours,
-                      "hrs",
-                    )}
-                  />
-                  <DetailRow
-                    label="Last Inspection hrs"
-                    value={formatHours(asset.last_inspection_hours)}
-                  />
-                  <DetailRow
-                    label="Inspection Interval"
-                    value={formatHours(asset.inspection_interval)}
-                  />
-                  <DetailRow
-                    label="Next Inspection Due"
-                    value={nextHoursInspection}
-                  />
-                </div>
-              </div>
-
-              <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
-                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-6">
-                  Cycles & Inspections
-                </h3>
-                <div className="space-y-4">
-                  <DetailRow
-                    label="Total Cycles"
-                    value={formatCycles(asset.total_cycles)}
-                  />
-                  <DetailRow
-                    label="Cycle Limit"
-                    value={formatCycles(asset.cycle_limit)}
-                  />
-                  <DetailRow
-                    label="Cycles Remaining"
-                    value={formatDifference(
-                      asset.cycle_limit,
-                      asset.total_cycles,
-                      "cyc",
-                    )}
-                  />
-                  <DetailRow
-                    label="Last Inspection Cycles"
-                    value={formatCycles(asset.last_inspection_cycles)}
-                  />
-                  <DetailRow
-                    label="Inspection Interval (Cycles)"
-                    value={formatCycles(asset.inspection_interval_cycle)}
-                  />
-                  <DetailRow
-                    label="Next Cycle Inspection Due"
-                    value={nextCycleInspection}
-                  />
-                  <DetailRow
-                    label="Last Major Inspection Date"
-                    value={formatDate(asset.last_inspection_date)}
-                  />
-                  <DetailRow
-                    label="Next Type of Inspection"
-                    value={asset.next_type_of_inspection || "-"}
-                  />
-                  <DetailRow
-                    label="Next Annual Inspection"
-                    value={formatDate(asset.next_annual_inspection_date)}
-                  />
-                  <DetailRow
-                    label="Landings"
-                    value={formatNumber(asset.landings)}
-                  />
-                </div>
-              </div>
-            </div>
-
             <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
               <div className="mb-6 flex items-center justify-between gap-3">
                 <h3 className="text-[#7FD5FF] text-sm font-bold uppercase">
-                  Airframe Components
+                  Components
                 </h3>
                 <div className="flex items-center gap-2">
                   {isEditingComponents ? (
@@ -1336,7 +1266,7 @@ export const AssetDetailsPage = () => {
                 </div>
               </div>
               {componentsDraft.length === 0 ? (
-                <EmptyState message="No airframe components found." />
+                <EmptyState message="No components found." />
               ) : (
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   {componentsDraft.map((component, index) => (
@@ -1597,8 +1527,16 @@ export const AssetDetailsPage = () => {
                             value={component.serial_number || "-"}
                           />
                           <DetailRow
-                            label="Total Service Hours"
+                            label="Baseline Hours"
                             value={formatHours(component.time_since_new)}
+                          />
+                          <DetailRow
+                            label="Operation Flight Hours"
+                            value={formatHours(getOperationFlightHours(component))}
+                          />
+                          <DetailRow
+                            label="Current Service Hours"
+                            value={formatHours(getCurrentServiceHours(component))}
                           />
                           <DetailRow
                             label="Service Life Limit"
@@ -1968,8 +1906,16 @@ export const AssetDetailsPage = () => {
                       value={enginePositionMap.get(engine.position_id) ?? "-"}
                     />
                     <DetailRow
-                      label="Total Service Hours"
+                      label="Baseline Hours"
                       value={formatHours(engine.time_since_new)}
+                    />
+                    <DetailRow
+                      label="Operation Flight Hours"
+                      value={formatHours(getOperationFlightHours(engine))}
+                    />
+                    <DetailRow
+                      label="Current Service Hours"
+                      value={formatHours(getCurrentServiceHours(engine))}
                     />
                     <DetailRow
                       label="Service Life Limit"
@@ -2337,8 +2283,16 @@ export const AssetDetailsPage = () => {
                       value={avionic.manufacturer || "-"}
                     />
                     <DetailRow
-                      label="Total Service Hours"
+                      label="Baseline Hours"
                       value={formatHours(avionic.time_since_new)}
+                    />
+                    <DetailRow
+                      label="Operation Flight Hours"
+                      value={formatHours(getOperationFlightHours(avionic))}
+                    />
+                    <DetailRow
+                      label="Current Service Hours"
+                      value={formatHours(getCurrentServiceHours(avionic))}
                     />
                     <DetailRow
                       label="Service Life Limit"
@@ -2434,7 +2388,7 @@ export const AssetDetailsPage = () => {
           <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm text-gray-200">
-                <thead className="bg-[#021a27] text-gray-400 uppercase text-xs">
+                <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
                   <tr>
                     <th className="text-left px-6 py-3 font-medium">Purpose</th>
                     <th className="text-left px-4 py-3 font-medium">Type</th>
@@ -2568,7 +2522,7 @@ export const AssetDetailsPage = () => {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm text-gray-200">
-                    <thead className="bg-[#021a27] text-gray-400 uppercase text-xs">
+                    <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium">Task</th>
                         <th className="text-left px-4 py-3 font-medium">Completed On</th>
@@ -2674,7 +2628,7 @@ export const AssetDetailsPage = () => {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm text-gray-200">
-                    <thead className="bg-[#021a27] text-gray-400 uppercase text-xs">
+                    <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
                       <tr>
                         <th className="text-left px-4 py-3 font-medium">Category</th>
                         <th className="text-left px-4 py-3 font-medium">Item</th>
@@ -2972,7 +2926,7 @@ export const AssetDetailsPage = () => {
               </div>
             ) : (
               <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-10 flex flex-col items-center justify-center gap-3 text-center">
-                <Icon icon="mdi:file-remove-outline" className="w-10 h-10 text-gray-600" />
+                <Icon icon="mdi:file-remove-outline" className="w-10 h-10 text-gray-400" />
                 <p className="text-white text-sm font-medium">No report submitted</p>
                 <p className="text-gray-400 text-xs">
                   {!latestOperation

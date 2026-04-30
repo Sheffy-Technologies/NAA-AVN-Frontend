@@ -45,7 +45,7 @@ export const ToastContainer = () => {
   return (
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
       <div
-        className={`flex items-center gap-3 px-4 sm:px-5 py-3 rounded-full border shadow-lg shadow-black/40 text-sm text-gray-100 min-w-[280px] max-w-[90vw] ${bgColors[type]}`}
+        className={`flex items-center gap-3 px-4 sm:px-5 py-3 rounded-full border shadow-lg shadow-black/40 text-sm text-white min-w-[280px] max-w-[90vw] ${bgColors[type]}`}
       >
         <span
           className={`flex items-center justify-center w-7 h-7 rounded-full ${iconColors[type]}`}

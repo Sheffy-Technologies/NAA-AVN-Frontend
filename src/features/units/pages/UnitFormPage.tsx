@@ -128,8 +128,8 @@ export const UnitFormPage = () => {
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
             isSubmitting
-              ? "bg-[#7FD5FF]/50 text-black cursor-not-allowed"
-              : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+              ? "bg-[#0369A1]/50 text-black cursor-not-allowed"
+              : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
           )}
         >
           <span>{isSubmitting ? "Saving..." : "Save & Exit"}</span>
@@ -144,7 +144,7 @@ export const UnitFormPage = () => {
       )}
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219]">
           <h2 className="text-sm sm:text-base font-semibold text-white uppercase tracking-wide">
             Unit Details
           </h2>
@@ -159,7 +159,7 @@ export const UnitFormPage = () => {
                 type="text"
                 value={values.name}
                 onChange={handleChange("name")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                 placeholder="Enter Unit Name"
               />
             </div>
@@ -173,7 +173,7 @@ export const UnitFormPage = () => {
                   onChange={handleSelectChange("facility_id")}
                 disabled={isLoadingFacilities}
                   aria-label="Select Facility"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none focus:border-[#7FD5FF]/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF]/40 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <option value="">
                     {isLoadingFacilities ? "Loading facilities..." : "Select Facility"}
@@ -195,7 +195,7 @@ export const UnitFormPage = () => {
                 type="text"
                 value={values.description}
                 onChange={handleChange("description")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                 placeholder="Enter Description"
               />
             </div>

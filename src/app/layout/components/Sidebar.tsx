@@ -77,12 +77,12 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const MAINTENANCE_ITEMS: NavItem[] = [
+const MESSAGING_ITEMS: NavItem[] = [
   {
-    name: "Maintenance Hub",
-    path: "/dashboard/maintenance",
-    icon: "mdi:wrench-cog-outline",
-    requiredPermissions: ["dashboard.maintenance.view", "work-orders.viewAny", "maintenance-programs.viewAny"],
+    name: "Messages",
+    path: "/dashboard/messages",
+    icon: "mdi:email-outline",
+    requiredPermissions: ["messages.viewAny"],
   },
 ];
 
@@ -108,7 +108,7 @@ export const Sidebar = () => {
   };
 
   const visibleNavItems = NAV_ITEMS.filter(canAccess);
-  const visibleMaintenanceItems = MAINTENANCE_ITEMS.filter(canAccess);
+  const visibleMessagingItems = MESSAGING_ITEMS.filter(canAccess);
   const visibleBottomItems = BOTTOM_ITEMS.filter(canAccess);
 
   const toTitleCase = (value: string) =>
@@ -187,7 +187,7 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="w-64 bg-[#00090D] border-r border-[#0A4D66]/30 flex flex-col h-screen text-gray-300">
+    <aside className="w-64 bg-[#001219] border-r border-[#0A4D66]/30 flex flex-col h-screen text-gray-300">
       {/* Logo Area */}
       <div className="p-6 flex items-center gap-3">
         <div className="w-9 h-9 rounded-full overflow-hidden bg-[#001219] flex items-center justify-center">
@@ -230,10 +230,10 @@ export const Sidebar = () => {
 
         <div className="pt-3 mt-3 border-t border-[#0A4D66]/30">
           <div className="px-4 pb-2 text-[10px] uppercase tracking-widest text-gray-500">
-            Maintenance
+            Messaging
           </div>
           <div className="space-y-1">
-            {visibleMaintenanceItems.map((item) => (
+            {visibleMessagingItems.map((item) => (
               <NavLink
                 key={item.path}
                 to={item.path}
@@ -255,7 +255,7 @@ export const Sidebar = () => {
       </nav>
 
       {/* Bottom Section */}
-      <div className="p-3 mt-auto border-t border-[#0A4D66]/30 bg-[#00090D]">
+      <div className="p-3 mt-auto border-t border-[#0A4D66]/30 bg-[#001219]">
         <div className="space-y-1 mb-4">
           {visibleBottomItems.map((item) => (
             <NavLink

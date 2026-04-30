@@ -477,14 +477,14 @@ export const WorkOrderDetailsPage = () => {
 
   if (!workOrderId) {
     return (
-      <div className="min-h-screen bg-[#00090D] p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-[#001219] p-6 flex items-center justify-center">
         <div className="text-red-300">Invalid work order ID</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#00090D] p-6">
+    <div className="min-h-screen bg-[#001219] p-6">
       <div className="max-w-4xl mx-auto">
         <button
           type="button"
@@ -646,7 +646,7 @@ export const WorkOrderDetailsPage = () => {
                           </div>
                           <div className="mt-2">
                             {getTaskAssignedPersonnel(task).length > 0 ? (
-                              <span className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-1 text-[11px] text-[#C9F1FF]">
+                              <span className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-1 text-[11px] text-[#B7E6FF]">
                                 Assigned ({getTaskAssignedPersonnel(task).length})
                               </span>
                             ) : (
@@ -776,7 +776,7 @@ export const WorkOrderDetailsPage = () => {
                               {getTaskAssignedPersonnel(task).map((person) => (
                                 <span
                                   key={person.id}
-                                  className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-1 text-[11px] text-[#C9F1FF]"
+                                  className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-1 text-[11px] text-[#B7E6FF]"
                                 >
                                   {formatPersonnelName(person)}
                                 </span>

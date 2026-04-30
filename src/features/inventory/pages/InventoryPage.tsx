@@ -317,7 +317,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
       <div className="w-full max-w-md bg-[#001219] border border-[#0A4D66]/60 rounded-xl shadow-2xl">
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-2">
             <Icon icon="mdi:database-plus" className="w-4 h-4 text-[#7FD5FF]" />
             <span className="text-xs sm:text-sm font-semibold tracking-wide text-white uppercase">
@@ -396,7 +396,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
               type="number"
               value={quantity}
               onChange={handleQuantityChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="Enter Quantity"
               min={1}
             />
@@ -419,7 +419,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
               type="text"
               value={reason}
               onChange={handleReasonChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="Enter Reason"
             />
           </div>
@@ -432,7 +432,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
             type="button"
             onClick={handleSubmit}
             className={cn(
-              "w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
+              "w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
               (isLoading || isQuantityInvalid) &&
                 "opacity-70 cursor-not-allowed",
             )}
@@ -637,7 +637,7 @@ export const InventoryPage = () => {
     {
       label: "Total Items",
       value: filteredInventoryRows.length,
-      color: "bg-[#7FD5FF]",
+      color: "bg-[#0369A1]",
     },
     {
       label: "Total In Stock",
@@ -992,7 +992,7 @@ export const InventoryPage = () => {
               <Icon icon={tab.icon} className="w-5 h-5" />
               <span>{tab.label}</span>
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7FD5FF] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
               )}
             </button>
           ))}
@@ -1014,7 +1014,7 @@ export const InventoryPage = () => {
                 </button>
               </div>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   {STOCK_SUB_TABS.map((subTab) => (
                     <button
                       key={subTab.id}
@@ -1023,8 +1023,8 @@ export const InventoryPage = () => {
                       className={cn(
                         "px-3 py-1.5 rounded text-xs font-medium transition-colors",
                         activeSubTab === subTab.id
-                          ? "bg-[#0A4D66] text-white"
-                          : "text-gray-400 hover:text-white",
+                          ? "bg-[#001825] text-white shadow-sm"
+                          : "text-gray-300 hover:text-white",
                       )}
                     >
                       {subTab.label}
@@ -1032,7 +1032,7 @@ export const InventoryPage = () => {
                   ))}
                 </div>
 
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
@@ -1041,8 +1041,8 @@ export const InventoryPage = () => {
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "table"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:table" className="w-4 h-4" />
@@ -1055,8 +1055,8 @@ export const InventoryPage = () => {
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "grid"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:view-grid" className="w-4 h-4" />
@@ -1137,7 +1137,7 @@ export const InventoryPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate("/dashboard/inventory/add")}
-                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Inventory</span>
@@ -1351,13 +1351,13 @@ export const InventoryPage = () => {
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
-                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
+                  <button className="px-3 py-1.5 bg-[#001825] text-white rounded text-xs font-medium shadow-sm">
                     Requisitions
                   </button>
                 </div>
 
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
@@ -1366,8 +1366,8 @@ export const InventoryPage = () => {
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "table"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:table" className="w-4 h-4" />
@@ -1380,8 +1380,8 @@ export const InventoryPage = () => {
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "grid"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:view-grid" className="w-4 h-4" />
@@ -1430,7 +1430,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/requisitions/add"
-                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Request</span>
@@ -1443,7 +1443,7 @@ export const InventoryPage = () => {
                     {
                       label: "Total Requests",
                       value: requisitionStats.total,
-                      color: "bg-[#7FD5FF]",
+                      color: "bg-[#0369A1]",
                     },
                     {
                       label: "Approved",
@@ -1479,7 +1479,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/procurement-lifecycle"
-                  className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#7FD5FF]/10 px-3 py-2 text-xs font-medium text-[#7FD5FF] transition-colors hover:bg-[#7FD5FF]/20"
+                  className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#0369A1]/10 px-3 py-2 text-xs font-medium text-[#7FD5FF] transition-colors hover:bg-[#0369A1]/20"
                 >
                   <Icon icon="mdi:source-merge" className="h-4 w-4" />
                   Procurement Lifecycle
@@ -1730,7 +1730,7 @@ export const InventoryPage = () => {
                         className={cn(
                           "rounded px-2 py-1 text-xs transition-colors",
                           selected
-                            ? "bg-[#7FD5FF] text-black"
+                            ? "bg-[#0369A1] text-black"
                             : "bg-[#0A4D66]/30 text-gray-200 hover:bg-[#0A4D66]/50",
                         )}
                         onClick={() => handleToggleSupplierForRfq(supplier.id)}
@@ -1834,7 +1834,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/purchase-orders/new"
-                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Create Purchase Order</span>
@@ -1843,7 +1843,7 @@ export const InventoryPage = () => {
 
               <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
                 <div className="flex items-center space-x-2 whitespace-nowrap">
-                  <div className="w-2 h-2 rounded-full bg-[#7FD5FF]" />
+                  <div className="w-2 h-2 rounded-full bg-[#0369A1]" />
                   <span className="text-gray-400">Total Purchase Orders:</span>
                   <span className="text-white font-bold">{purchaseOrdersData.length}</span>
                 </div>
@@ -1945,7 +1945,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/suppliers/add"
-                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Supplier</span>
@@ -1957,7 +1957,7 @@ export const InventoryPage = () => {
                   {
                     label: "Total Suppliers",
                     value: supplierStats.total,
-                    color: "bg-[#7FD5FF]",
+                    color: "bg-[#0369A1]",
                   },
                   {
                     label: "With Contact",

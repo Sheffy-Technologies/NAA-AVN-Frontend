@@ -519,7 +519,7 @@ export const AfterActionReportForm = ({
           <button
             type="button"
             onClick={addContact}
-            className="bg-white text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+            className="bg-[#001825] text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" /> Add Contact
           </button>
@@ -822,8 +822,8 @@ export const AfterActionReportForm = ({
                     </button>
                   </div>
                 ))}
-                <label className="flex flex-col items-center justify-center gap-2 h-32 bg-[#001825] border border-dashed border-[#0A4D66]/40 rounded-lg hover:bg-[#002030] transition-colors cursor-pointer">
-                  <div className="p-2 bg-[#7FD5FF]/10 rounded-full text-[#7FD5FF]">
+                <label className="flex flex-col items-center justify-center gap-2 h-32 bg-[#001825] border border-dashed border-[#0A4D66]/40 rounded-lg hover:bg-[#001825] transition-colors cursor-pointer">
+                  <div className="p-2 bg-[#0369A1]/10 rounded-full text-[#7FD5FF]">
                     <Icon icon="mdi:plus" className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-white">
@@ -851,7 +851,7 @@ export const AfterActionReportForm = ({
           <button
             type="button"
             onClick={addResource}
-            className="bg-white text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+            className="bg-[#001825] text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" /> Add Resource Used
           </button>
@@ -982,7 +982,7 @@ export const AfterActionReportForm = ({
         <button
           type="submit"
           disabled={isLoading}
-          className="bg-[#7FD5FF] text-black font-bold py-3 px-12 rounded hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
+          className="bg-[#0369A1] text-black font-bold py-3 px-12 rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
         >
           {isLoading ? "Saving..." : "Save"}
         </button>

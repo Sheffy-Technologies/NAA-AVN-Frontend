@@ -22,7 +22,7 @@ import { cn } from "@/shared/utils/cn";
 type SecurityTab = "activity" | "device" | "user" | "rbac";
 
 const searchInputClassName =
-  "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors";
+  "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors";
 
 const panelClassName =
   "rounded-xl border border-[#0A4D66]/40 bg-[linear-gradient(180deg,rgba(0,42,64,0.95)_0%,rgba(0,22,34,0.98)_100%)]";
@@ -36,6 +36,8 @@ export const SecurityPage = () => {
   const [permissionFilter, setPermissionFilter] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
+  const [assignRolesUserId, setAssignRolesUserId] = useState<number | null>(null);
+  const [assignRolesDraft, setAssignRolesDraft] = useState<string[]>([]);
 
   const { data: logs = [], isLoading } = useGetActivityLogsQuery();
   const { data: devices = [], isLoading: isDevicesLoading } = useGetDevicesQuery();
@@ -330,6 +332,37 @@ export const SecurityPage = () => {
     }
   };
 
+  const openAssignRolesModal = (userId: number, currentRoles: string[]) => {
+    setAssignRolesUserId(userId);
+    setAssignRolesDraft(currentRoles);
+  };
+
+  const closeAssignRolesModal = () => {
+    setAssignRolesUserId(null);
+    setAssignRolesDraft([]);
+  };
+
+  const handleAssignRolesSave = async () => {
+    if (assignRolesUserId === null) return;
+    try {
+      await syncUserRoles({
+        userId: assignRolesUserId,
+        roles: assignRolesDraft,
+      }).unwrap();
+      await Promise.all([refetchUsers(), refetchRoles()]);
+      dispatch(showToast({ message: "User roles updated", type: "success" }));
+      closeAssignRolesModal();
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to update user roles", type: "error" }));
+    }
+  };
+
+  const assignRolesUser = useMemo(
+    () => userRows.find((row) => row.id === assignRolesUserId) ?? null,
+    [assignRolesUserId, userRows],
+  );
+
   const renderTabButton = (tab: SecurityTab, label: string) => (
     <button
       onClick={() => setActiveTab(tab)}
@@ -369,7 +402,7 @@ export const SecurityPage = () => {
             </div>
           </div>
           {isSelected ? (
-            <span className="rounded-full bg-[#7FD5FF]/15 px-2 py-1 text-[11px] font-medium text-[#7FD5FF]">
+            <span className="rounded-full bg-[#0369A1]/15 px-2 py-1 text-[11px] font-medium text-[#7FD5FF]">
               Selected
             </span>
           ) : null}
@@ -381,14 +414,14 @@ export const SecurityPage = () => {
             permissionNames.slice(0, 6).map((permission) => (
               <span
                 key={permission}
-                className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-[11px] text-gray-200"
+                className="rounded-full border border-[#0A4D66]/40 bg-[#001219] px-2.5 py-1 text-[11px] text-gray-200"
               >
                 {permission}
               </span>
             ))
           )}
           {permissionNames.length > 6 ? (
-            <span className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-[11px] text-gray-400">
+            <span className="rounded-full border border-[#0A4D66]/40 bg-[#001219] px-2.5 py-1 text-[11px] text-gray-400">
               +{permissionNames.length - 6} more
             </span>
           ) : null}
@@ -433,7 +466,7 @@ export const SecurityPage = () => {
         {renderTabButton("rbac", "Access Control")}
       </div>
 
-      <div className="overflow-hidden rounded-sm border border-[#0A4D66]/40 bg-[#001D2B]">
+      <div className="overflow-hidden rounded-sm border border-[#0A4D66]/40 bg-[#001825]">
         <div className="flex items-center justify-between border-b border-[#0A4D66]/30 px-6 py-4">
           <h2 className="text-3xl font-bold uppercase text-white">
             {activeTab === "user"
@@ -448,7 +481,7 @@ export const SecurityPage = () => {
             {activeTab === "user" ? (
               <button
                 onClick={() => navigate("/dashboard/users/add")}
-                className="flex items-center gap-2 rounded bg-[#7FD5FF] px-3 py-1.5 text-sm font-medium text-[#00263A] hover:opacity-90"
+                className="flex items-center gap-2 rounded bg-[#0369A1] px-3 py-1.5 text-sm font-medium text-[#001219] hover:opacity-90"
                 aria-label="Add user"
                 title="Add user"
               >
@@ -495,7 +528,7 @@ export const SecurityPage = () => {
                       key={row.id}
                       className={cn(
                         "border-b border-[#0A4D66]/20 text-white",
-                        index % 2 === 0 ? "bg-[#002336]" : "bg-[#002A40]",
+                        index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
                       )}
                     >
                       <td className="px-6 py-4">{row.date}</td>
@@ -547,7 +580,7 @@ export const SecurityPage = () => {
                       key={row.id}
                       className={cn(
                         "border-b border-[#0A4D66]/20 text-white",
-                        index % 2 === 0 ? "bg-[#002336]" : "bg-[#002A40]",
+                        index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
                       )}
                     >
                       <td className="px-6 py-4">{row.name}</td>
@@ -567,7 +600,7 @@ export const SecurityPage = () => {
                         </button>
 
                         {openDeviceActionId === row.id ? (
-                          <div className="absolute right-6 top-12 z-50 w-32 overflow-hidden rounded-md border border-[#0A4D66]/50 bg-[#001D2B] shadow-xl">
+                          <div className="absolute right-6 top-12 z-50 w-32 overflow-hidden rounded-md border border-[#0A4D66]/50 bg-[#001825] shadow-xl">
                             <button
                               onClick={() => handleDeviceAction(row.id, 1)}
                               className="w-full px-3 py-2 text-left text-xs text-emerald-300 hover:bg-[#0A4D66]/40 disabled:opacity-50"
@@ -623,7 +656,7 @@ export const SecurityPage = () => {
                       key={row.id}
                       className={cn(
                         "border-b border-[#0A4D66]/20 text-white",
-                        index % 2 === 0 ? "bg-[#002336]" : "bg-[#002A40]",
+                        index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
                       )}
                     >
                       <td className="px-6 py-4">{row.name}</td>
@@ -647,7 +680,17 @@ export const SecurityPage = () => {
                       </td>
                       <td className="px-6 py-4">{row.created}</td>
                       <td className="px-6 py-4 text-right">
-                        <button className="text-gray-300 hover:text-white">View</button>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openAssignRolesModal(row.id, row.roles)}
+                            className="inline-flex items-center gap-1 rounded border border-[#7FD5FF]/40 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/30"
+                          >
+                            <Icon icon="mdi:account-key-outline" className="h-3.5 w-3.5" />
+                            Assign Roles
+                          </button>
+                          <button className="text-gray-300 hover:text-white">View</button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -734,7 +777,7 @@ export const SecurityPage = () => {
                   <button
                     type="submit"
                     disabled={isCreatingRole}
-                    className="inline-flex items-center gap-2 rounded-md bg-[#7FD5FF] px-4 py-2 text-sm font-semibold text-[#00263A] disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-[#001219] disabled:opacity-60"
                   >
                     <Icon icon="mdi:shield-plus" className="h-4 w-4" />
                     {isCreatingRole ? "Creating..." : "Create Role"}
@@ -789,7 +832,7 @@ export const SecurityPage = () => {
                     </p>
                   </div>
                   {selectedRole ? (
-                    <span className="rounded-full bg-[#7FD5FF]/10 px-3 py-1 text-xs font-medium text-[#7FD5FF]">
+                    <span className="rounded-full bg-[#0369A1]/10 px-3 py-1 text-xs font-medium text-[#7FD5FF]">
                       {selectedRole.name}
                     </span>
                   ) : null}
@@ -826,7 +869,7 @@ export const SecurityPage = () => {
                     type="button"
                     onClick={handleSaveRolePermissions}
                     disabled={!selectedRole || isSavingRolePermissions}
-                    className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#04273A] px-4 py-2 text-sm font-semibold text-[#7FD5FF] disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#001219] px-4 py-2 text-sm font-semibold text-[#7FD5FF] disabled:opacity-60"
                   >
                     <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
                     {isSavingRolePermissions ? "Saving..." : "Save Permissions"}
@@ -879,7 +922,7 @@ export const SecurityPage = () => {
                       type="button"
                       onClick={handleSaveUserRoles}
                       disabled={selectedUserId === null || isSavingUserRoles}
-                      className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#04273A] px-4 py-2 text-sm font-semibold text-[#7FD5FF] disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#001219] px-4 py-2 text-sm font-semibold text-[#7FD5FF] disabled:opacity-60"
                     >
                       <Icon icon="mdi:account-key-outline" className="h-4 w-4" />
                       {isSavingUserRoles ? "Saving..." : "Assign Roles"}
@@ -903,7 +946,7 @@ export const SecurityPage = () => {
                               selectedUserSummary.roles.map((role) => (
                                 <span
                                   key={role}
-                                  className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-xs text-[#7FD5FF]"
+                                  className="rounded-full border border-[#0A4D66]/40 bg-[#001219] px-2.5 py-1 text-xs text-[#7FD5FF]"
                                 >
                                   {role}
                                 </span>
@@ -924,7 +967,7 @@ export const SecurityPage = () => {
                                 selectedUserSummary.effectivePermissions.map((permission) => (
                                   <span
                                     key={permission}
-                                    className="rounded-full border border-[#0A4D66]/40 bg-[#02131D] px-2.5 py-1 text-[11px] text-gray-200"
+                                    className="rounded-full border border-[#0A4D66]/40 bg-[#001219] px-2.5 py-1 text-[11px] text-gray-200"
                                   >
                                     {permission}
                                   </span>
@@ -944,6 +987,74 @@ export const SecurityPage = () => {
           </div>
         )}
       </div>
+
+      {assignRolesUserId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeAssignRolesModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl border border-[#0A4D66]/50 bg-[#001825] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Assign Roles</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  {assignRolesUser
+                    ? `Update the roles assigned to ${assignRolesUser.name}.`
+                    : "Update the roles assigned to this user."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAssignRolesModal}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                <Icon icon="mdi:close" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <MultiSelect
+                label="Roles"
+                placeholder={isRolesLoading ? "Loading roles..." : "Select roles"}
+                options={roleOptions}
+                selectedValues={assignRolesDraft}
+                onChange={(selected) => setAssignRolesDraft(selected as string[])}
+                disabled={isRolesLoading || roles.length === 0}
+              />
+              {roles.length === 0 && !isRolesLoading ? (
+                <p className="mt-2 text-xs text-amber-300">
+                  No roles available. Create a role first under Access Control.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeAssignRolesModal}
+                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignRolesSave}
+                disabled={isSavingUserRoles}
+                className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-[#001219] disabled:opacity-60"
+              >
+                <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                {isSavingUserRoles ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

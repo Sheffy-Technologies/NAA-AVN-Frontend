@@ -4,7 +4,7 @@
   --text-inverse-black-neutral: #000000;
   
   /* Backgrounds */
-  --auth-bg-gradient: linear-gradient(335.25deg, #00090D 9.91%, #002A36 50.24%, #063F4B 89.79%);
+  --auth-bg-gradient: linear-gradient(335.25deg, #001219 9.91%, #002A36 50.24%, #063F4B 89.79%);
 
   /* Typography - just placeholders for now based on request */
   --font-primary: 'Inter', system-ui, sans-serif;

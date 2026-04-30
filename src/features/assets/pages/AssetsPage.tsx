@@ -271,14 +271,6 @@ export const AssetsPage = () => {
         })
       : [];
 
-  const calculateHoursToLimit = (next: string, current: string) => {
-    const nextVal = parseFloat(next);
-    const currentVal = parseFloat(current);
-    if (isNaN(nextVal) || isNaN(currentVal)) return "-";
-    const diff = nextVal - currentVal;
-    return diff > 0 ? `${diff.toFixed(0)} hrs` : "0 hrs";
-  };
-
   const getAssetImageUrl = (asset: Asset) =>
     asset.image_url || asset.image || "";
 
@@ -308,28 +300,17 @@ export const AssetsPage = () => {
     }
 
     const headers = [
-      "Tail No",
       "Name",
       "Type",
       "Unit",
-      "Airframe Hrs",
-      "Hrs to Limiting Item",
-      "Limiting Item",
       "Serviceability Status",
       "Operation Status",
     ];
 
     const rows = filteredAssets.map((asset) => [
-      asset.tail_number,
       asset.name,
       asset.model,
       getUnitName(asset.unit_id),
-      `${parseFloat(asset.total_airframe_hours).toLocaleString()} hrs`,
-      calculateHoursToLimit(
-        asset.next_annual_inspection_date,
-        asset.total_airframe_hours,
-      ),
-      asset.next_type_of_inspection,
       formatStatus(asset.serviceability_status),
       formatStatus(asset.operation_status),
     ]);
@@ -370,7 +351,7 @@ export const AssetsPage = () => {
               <Icon icon={tab.icon} className="w-5 h-5" />
               <span>{tab.label}</span>
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7FD5FF] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
               )}
             </button>
           ))}
@@ -426,9 +407,16 @@ export const AssetsPage = () => {
 
             {/* Filters */}
             <div className="flex items-center gap-2 overflow-x-auto max-w-full">
-              <span className="text-xs text-[#7FD5FF] cursor-pointer hover:underline whitespace-nowrap bg-[#001825] px-2 py-1 rounded-full border border-[#0A4D66]/40">
-               Reset Filter
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedUnitId("all");
+                  setSelectedOperationStatus("all");
+                }}
+                className="text-xs text-[#7FD5FF] cursor-pointer hover:underline whitespace-nowrap bg-[#001825] px-2 py-1 rounded-full border border-[#0A4D66]/40"
+              >
+                Reset Filter
+              </button>
               <select
                 title="Filter assets by unit"
                 aria-label="Filter assets by unit"
@@ -475,7 +463,7 @@ export const AssetsPage = () => {
                     ? "/dashboard/assets/facilities/add"
                   : "/dashboard/assets/add"
               }
-              className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+              className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               <span>
@@ -487,7 +475,7 @@ export const AssetsPage = () => {
           {/* Stats Row */}
           <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
             <div className="flex items-center space-x-2 whitespace-nowrap">
-              <div className="w-2 h-2 rounded-full bg-[#7FD5FF]" />
+              <div className="w-2 h-2 rounded-full bg-[#0369A1]" />
               <span className="text-gray-400">Total:</span>
               <span className="text-white font-bold">{total}</span>
             </div>
@@ -626,15 +614,9 @@ export const AssetsPage = () => {
               <table className="w-full text-left border-collapse min-w-[1100px]">
                 <thead>
                   <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                    <th className="px-6 py-4 font-medium">Tail No.</th>
                     <th className="px-6 py-4 font-medium"> Name</th>
                     <th className="px-6 py-4 font-medium">Type</th>
                     <th className="px-6 py-4 font-medium">Unit</th>
-                    <th className="px-6 py-4 font-medium">Airframe Hrs</th>
-                    <th className="px-6 py-4 font-medium">
-                      Hrs to Limiting Item
-                    </th>
-                    <th className="px-6 py-4 font-medium">Limiting Item</th>
                     <th className="px-6 py-4 font-medium">Defects</th>
                     <th className="px-6 py-4 font-medium">Status</th>
                     <th className="px-6 py-4 font-medium text-right">Action</th>
@@ -644,7 +626,7 @@ export const AssetsPage = () => {
                   {isLoading ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={6}
                         className="px-6 py-8 text-center text-gray-500"
                       >
                         Loading...
@@ -653,7 +635,7 @@ export const AssetsPage = () => {
                   ) : filteredAssets.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={10}
+                        colSpan={6}
                         className="px-6 py-8 text-center text-gray-500"
                       >
                         No assets found
@@ -668,9 +650,6 @@ export const AssetsPage = () => {
                           idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                         )}
                       >
-                        <td className="px-6 py-4 font-medium text-white">
-                          {asset.tail_number}
-                        </td>
                         <td className="px-6 py-4 flex items-center gap-3">
                           <div className="w-8 h-8 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
                             {getAssetImageUrl(asset) ? (
@@ -697,21 +676,6 @@ export const AssetsPage = () => {
                         <td className="px-6 py-4 text-gray-300">{asset.model}</td>
                         <td className="px-6 py-4 text-gray-300">
                           {getUnitName(asset.unit_id)}
-                        </td>
-                        <td className="px-6 py-4 text-gray-300">
-                          {parseFloat(
-                            asset.total_airframe_hours,
-                          ).toLocaleString()}{" "}
-                          hrs
-                        </td>
-                        <td className="px-6 py-4 text-gray-300">
-                          {calculateHoursToLimit(
-                            asset.next_annual_inspection_date,
-                            asset.total_airframe_hours,
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-gray-300">
-                          {asset.next_type_of_inspection}
                         </td>
                         <td className="px-6 py-4 text-gray-300">No</td>
                         <td className="px-6 py-4">
@@ -942,13 +906,7 @@ export const AssetsPage = () => {
                   </div>
 
                   {/* Details Grid */}
-                  <div className="grid grid-cols-3 gap-2 pl-2 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
-                    <div>
-                      <span className="text-gray-500 block mb-1">Tail No.</span>
-                      <span className="text-white font-medium">
-                        {asset.tail_number}
-                      </span>
-                    </div>
+                  <div className="grid grid-cols-2 gap-2 pl-2 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
                     <div>
                       <span className="text-gray-500 block mb-1">Type</span>
                       <span className="text-white font-medium">

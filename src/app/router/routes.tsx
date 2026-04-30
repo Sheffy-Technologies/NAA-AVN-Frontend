@@ -265,9 +265,14 @@ const AddUserPage = lazy(() =>
     default: module.AddUserPage,
   })),
 );
+const MessagesPage = lazy(() =>
+  import("@/features/messages/pages/MessagesPage").then((module) => ({
+    default: module.MessagesPage,
+  })),
+);
 
 const loadingElement = (
-  <div className="h-screen w-full flex items-center justify-center bg-[#00090D] text-primary-med">
+  <div className="h-screen w-full flex items-center justify-center bg-[#001219] text-primary-med">
     <div className="animate-spin h-8 w-8 border-2 border-primary-med border-t-transparent rounded-full" />
   </div>
 );
@@ -277,6 +282,7 @@ const ASSETS_ROUTE_PERMISSIONS = ["assets.viewAny", "dashboard.home.view"];
 const OPERATIONS_ROUTE_PERMISSIONS = ["dashboard.operations.view", "operations.viewAny"];
 const PERSONNEL_ROUTE_PERMISSIONS = ["dashboard.personnel.view", "personnel.viewAny"];
 const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.viewAny"];
+const MESSAGES_ROUTE_PERMISSIONS = ["messages.viewAny"];
 const FINANCE_ROUTE_PERMISSIONS = ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"];
 const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"];
 const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
@@ -759,6 +765,14 @@ export const router = createBrowserRouter([
             </Suspense>
           </RequireRole>
         ),
+      },
+      {
+        path: "messages",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MessagesPage />
+          </Suspense>
+        ), MESSAGES_ROUTE_PERMISSIONS),
       },
       {
         path: "*",

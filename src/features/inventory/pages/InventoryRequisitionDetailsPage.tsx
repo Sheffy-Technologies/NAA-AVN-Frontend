@@ -295,7 +295,7 @@ export const InventoryRequisitionDetailsPage = () => {
         ref={contentRef}
         className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
       >
-        <div className="px-4 sm:px-6 py-3 bg-[#000f18] border-b border-[#0A4D66]/40">
+        <div className="px-4 sm:px-6 py-3 bg-[#001219] border-b border-[#0A4D66]/40">
           <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm">
             <div className="flex items-center gap-2">
               <span className="text-[#7FD5FF]">Requesting Location:</span>
@@ -371,7 +371,7 @@ export const InventoryRequisitionDetailsPage = () => {
                           onChange={(e) =>
                             handleChangeApproved(row.id, e.target.value)
                           }
-                          className="w-full bg-[#001219] border border-[#0A4D66]/40 focus:border-[#7FD5FF] rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none"
+                          className="w-full bg-[#001219] border border-[#0A4D66]/40 focus:border-[#7FD5FF] rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none"
                         />
                         <div className="mt-1 text-[11px] text-gray-400">
                           {row.approved.unit}
@@ -413,7 +413,7 @@ export const InventoryRequisitionDetailsPage = () => {
                 setHasEditedRemark(true);
                 setRemark(e.target.value);
               }}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-3 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-3 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
               placeholder="Enter Reason"
             />
           </div>

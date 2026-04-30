@@ -487,7 +487,7 @@ export const ProcurementLifecyclePage = () => {
                   type="button"
                   key={supplier.id}
                   className={`rounded px-2 py-1 text-xs ${
-                    selected ? "bg-[#7FD5FF] text-black" : "bg-[#0A4D66]/30 text-gray-200"
+                    selected ? "bg-[#0369A1] text-black" : "bg-[#0A4D66]/30 text-gray-200"
                   }`}
                   onClick={() =>
                     setRfqForm((state) => ({
@@ -559,7 +559,7 @@ export const ProcurementLifecyclePage = () => {
           />
           <button
             type="button"
-            className="rounded bg-[#7FD5FF] text-black text-sm font-semibold px-3 py-2 hover:bg-[#68c8f6] disabled:opacity-60"
+            className="rounded bg-[#0369A1] text-black text-sm font-semibold px-3 py-2 hover:bg-[#68c8f6] disabled:opacity-60"
             onClick={handleCreateQuotation}
             disabled={isCreatingQuotation}
           >
@@ -701,7 +701,7 @@ export const ProcurementLifecyclePage = () => {
           </select>
           <button
             type="button"
-            className="rounded border border-[#7FD5FF]/40 px-3 py-2 text-sm text-[#7FD5FF] hover:bg-[#7FD5FF]/10"
+            className="rounded border border-[#7FD5FF]/40 px-3 py-2 text-sm text-[#7FD5FF] hover:bg-[#0369A1]/10"
             onClick={handlePrepareGrnItems}
           >
             Prepare GRN Lines from PO
@@ -818,7 +818,7 @@ export const ProcurementLifecyclePage = () => {
                       <td className="px-3 py-2">{row.po ? `PO #${row.po.id}` : "-"}</td>
                       <td className="px-3 py-2">{row.grn ? row.grn.grn_number : "-"}</td>
                       <td className="px-3 py-2">
-                        <span className="inline-flex rounded-full border border-[#7FD5FF]/40 bg-[#7FD5FF]/10 px-2 py-1 text-xs text-[#7FD5FF]">
+                        <span className="inline-flex rounded-full border border-[#7FD5FF]/40 bg-[#0369A1]/10 px-2 py-1 text-xs text-[#7FD5FF]">
                           {stage}
                         </span>
                       </td>
@@ -826,7 +826,7 @@ export const ProcurementLifecyclePage = () => {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-[#7FD5FF]/40 px-2 py-1 text-xs text-[#7FD5FF] hover:bg-[#7FD5FF]/10"
+                            className="inline-flex items-center gap-1 rounded border border-[#7FD5FF]/40 px-2 py-1 text-xs text-[#7FD5FF] hover:bg-[#0369A1]/10"
                             onClick={() => handleOpenRfq(row.rfq?.id)}
                           >
                             <Icon icon="mdi:file-document-edit-outline" className="h-3.5 w-3.5" />

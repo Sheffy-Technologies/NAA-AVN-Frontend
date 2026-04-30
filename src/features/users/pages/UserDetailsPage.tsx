@@ -171,8 +171,8 @@ export const UserDetailsPage = () => {
             className={cn(
               "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
               isUpdating || isLoading || !selectedUser
-                ? "bg-[#7FD5FF]/50 text-black cursor-not-allowed"
-                : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+                ? "bg-[#0369A1]/50 text-black cursor-not-allowed"
+                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
             )}
           >
             <span>{isUpdating ? "Saving..." : "Save Changes"}</span>
@@ -197,7 +197,7 @@ export const UserDetailsPage = () => {
         ref={contentRef}
         className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
       >
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219]">
           <h2 className="text-sm sm:text-base font-semibold text-white uppercase tracking-wide">
             User Information
           </h2>
@@ -216,7 +216,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.firstname}
                   onChange={handleChange("firstname")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="First name"
                 />
               </div>
@@ -227,7 +227,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.lastname}
                   onChange={handleChange("lastname")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Last name"
                 />
               </div>
@@ -238,7 +238,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.username}
                   onChange={handleChange("username")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Username"
                 />
               </div>
@@ -249,7 +249,7 @@ export const UserDetailsPage = () => {
                   type="email"
                   value={values.email}
                   onChange={handleChange("email")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Email"
                 />
               </div>
@@ -260,7 +260,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.phone_number}
                   onChange={handleChange("phone_number")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Phone number"
                 />
               </div>
@@ -271,7 +271,7 @@ export const UserDetailsPage = () => {
                   type="password"
                   value={values.password}
                   onChange={handleChange("password")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Enter new password"
                 />
               </div>

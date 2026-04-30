@@ -6,6 +6,7 @@ import { useAppUpdater } from "@/shared/hooks/useAppUpdater";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { setCredentials } from "@/features/auth/authSlice";
 import { useGetMeQuery } from "@/features/security/api";
+import { ComposeMessageModal } from "@/features/messages/components/ComposeMessageModal";
 
 export const DashboardLayout = () => {
   useAppUpdater();
@@ -37,7 +38,7 @@ export const DashboardLayout = () => {
   }, [me, token, dispatch]);
 
   return (
-    <div className="flex h-screen bg-[#00090D] overflow-hidden">
+    <div className="flex h-screen bg-[#001219] overflow-hidden">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
@@ -46,7 +47,7 @@ export const DashboardLayout = () => {
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
-          <div className="w-64 h-full bg-[#00090D] border-r border-[#0A4D66]/30 shadow-xl flex">
+          <div className="w-64 h-full bg-[#001219] border-r border-[#0A4D66]/30 shadow-xl flex">
             <Sidebar />
           </div>
           <button
@@ -71,6 +72,8 @@ export const DashboardLayout = () => {
           </div>
         </main>
       </div>
+
+      <ComposeMessageModal />
     </div>
   );
 };

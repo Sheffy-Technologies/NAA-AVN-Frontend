@@ -134,7 +134,7 @@ export const OperationLocationPicker = ({
     <div
       className={`overflow-hidden rounded-xl border border-[#0A4D66]/40 bg-[#001219] ${className ?? ""}`.trim()}
     >
-      <div className="border-b border-[#0A4D66]/40 bg-[#031924] px-4 py-3 text-xs text-gray-300">
+      <div className="border-b border-[#0A4D66]/40 bg-[#001219] px-4 py-3 text-xs text-gray-300">
         {readOnly ? (
           <>
             Operation route view using the CEFO aerodrome map. Departure is

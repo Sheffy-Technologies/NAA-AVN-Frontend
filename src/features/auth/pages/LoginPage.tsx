@@ -195,7 +195,7 @@ export const LoginPage = () => {
 
           <Button
             type="submit"
-            className="w-full bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90"
+            className="w-full bg-[#0369A1] text-black hover:bg-[#0369A1]/90"
             isLoading={isLoading}
           >
             Login
@@ -217,7 +217,7 @@ export const LoginPage = () => {
           </span>
           <button
             type="button"
-            className="underline underline-offset-2 hover:text-[#b3e6ff]"
+            className="underline underline-offset-2 hover:text-[#B7E6FF]"
           >
             Help &amp; Support
           </button>
