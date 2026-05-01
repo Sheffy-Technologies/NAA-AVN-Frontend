@@ -52,6 +52,16 @@ const NAV_ITEMS: NavItem[] = [
     requiredPermissions: ["dashboard.inventories.view", "inventories.viewAny"],
   },
   {
+    name: "Maintenance Hub",
+    path: "/dashboard/maintenance",
+    icon: "mdi:wrench-outline",
+    requiredPermissions: [
+      "dashboard.maintenance.view",
+      "work-orders.viewAny",
+      "maintenance-programs.viewAny",
+    ],
+  },
+  {
     name: "Finances",
     path: "/dashboard/finance",
     icon: "mdi:wallet-outline",

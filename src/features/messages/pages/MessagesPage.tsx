@@ -527,8 +527,8 @@ export const MessagesPage = () => {
                       key={message.id}
                       className={`max-w-[90%] rounded-lg border px-3 py-2 ${
                         isMine
-                          ? "ml-auto border-[#1E6E59]/70 bg-transparent"
-                          : "mr-auto border-[#0A4D66]/40 bg-transparent"
+                          ? "ml-auto border-[#1E6E59]/70 bg-[#0A4D66]/25"
+                          : "mr-auto border-[#0A4D66]/40 bg-[#0A4D66]/15"
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-3">
@@ -800,6 +800,24 @@ export const MessagesPage = () => {
           )}
         </div>
       </div>
+
+      {canCreateMessages && (
+        <button
+          type="button"
+          onClick={() => {
+            if (!selectedConversationUserId && conversations.length > 0) {
+              setSelectedConversationUserId(conversations[0].user.id);
+            }
+            setIsRecipientPickerOpen(true);
+            setIsAttachPickerOpen(false);
+          }}
+          className="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#29D6B5]/45 bg-[#128C7E] text-white shadow-[0_18px_40px_rgba(0,0,0,0.35)] transition-colors hover:bg-[#20a193]"
+          aria-label="Compose message"
+          title="Compose message"
+        >
+          <Icon icon="mdi:message-plus-outline" className="h-6 w-6" />
+        </button>
+      )}
     </div>
   );
 };

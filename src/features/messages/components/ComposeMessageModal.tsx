@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
+import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import {
   useSendMessageMutation,
   type MessageAttachableType,
@@ -48,20 +50,29 @@ const userName = (user?: {
 
 export const ComposeMessageModal = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const isOpen = useAppSelector((state) => state.messageCompose.isOpen);
   const authUser = useAppSelector((state) => state.auth.user);
   const userPermissions = authUser?.permissions ?? [];
   const canCreateMessages = userPermissions.includes("messages.create");
+  const currentUserId = Number(authUser?.id || 0);
 
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<number[]>(
     [],
   );
-  const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [attachableType, setAttachableType] = useState<
     MessageAttachableType | ""
   >("");
   const [attachableId, setAttachableId] = useState<string>("");
+  const [isRecipientPickerOpen, setIsRecipientPickerOpen] = useState(false);
+  const [isAttachPickerOpen, setIsAttachPickerOpen] = useState(false);
+
+  const recipientPickerRef = useRef<HTMLDivElement>(null);
+  const attachPickerRef = useRef<HTMLDivElement>(null);
+
+  useClickOutside(recipientPickerRef, () => setIsRecipientPickerOpen(false));
+  useClickOutside(attachPickerRef, () => setIsAttachPickerOpen(false));
 
   const { data: users = [] } = useGetUsersQuery(undefined, {
     skip: !isOpen || !canCreateMessages,
@@ -127,12 +138,24 @@ export const ComposeMessageModal = () => {
     inventoryItems,
   ]);
 
+  const selectedAttachableOption = useMemo(() => {
+    if (!attachableType || !attachableId) return null;
+    const id = Number(attachableId);
+    const match = attachableSelectionOptions.find((option) => option.id === id);
+    if (!match) return null;
+    const typeLabel =
+      ATTACHABLE_OPTIONS.find((option) => option.value === attachableType)
+        ?.label ?? attachableType;
+    return { ...match, label: `${typeLabel}: ${match.label}` };
+  }, [attachableType, attachableId, attachableSelectionOptions]);
+
   const resetComposeForm = () => {
     setSelectedRecipientIds([]);
-    setSubject("");
     setBody("");
     setAttachableType("");
     setAttachableId("");
+    setIsRecipientPickerOpen(false);
+    setIsAttachPickerOpen(false);
   };
 
   useEffect(() => {
@@ -143,6 +166,11 @@ export const ComposeMessageModal = () => {
 
   const handleClose = () => {
     dispatch(closeCompose());
+  };
+
+  const handleOpenMessagesPage = () => {
+    handleClose();
+    navigate("/dashboard/messages");
   };
 
   const handleSend = async () => {
@@ -172,7 +200,7 @@ export const ComposeMessageModal = () => {
 
     try {
       await sendMessage({
-        subject: subject.trim() || null,
+        subject: null,
         body: body.trim(),
         recipient_ids: selectedRecipientIds,
         attachable_type: attachableType || null,
@@ -192,113 +220,235 @@ export const ComposeMessageModal = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-3xl rounded-xl border border-[#0A4D66]/40 bg-[#001219] p-5">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="w-full max-w-2xl rounded-xl border border-[#0A4D66]/40 bg-[#001219] p-5">
+        <div className="mb-4 flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold text-white">
             Compose Message
           </h2>
-          <button
-            type="button"
-            title="Close compose dialog"
-            aria-label="Close compose dialog"
-            onClick={handleClose}
-            className="text-gray-400 hover:text-white"
-          >
-            <Icon icon="mdi:close" className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleOpenMessagesPage}
+              className="inline-flex items-center gap-1.5 rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20"
+              title="Open messages page"
+              aria-label="Open messages page"
+            >
+              <Icon icon="mdi:open-in-new" className="h-4 w-4" />
+              Open Messages
+            </button>
+            <button
+              type="button"
+              title="Close compose dialog"
+              aria-label="Close compose dialog"
+              onClick={handleClose}
+              className="text-gray-400 hover:text-white"
+            >
+              <Icon icon="mdi:close" className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <MultiSelect
-              label="Recipients"
-              placeholder={
-                users.length === 0
-                  ? "No users available"
-                  : "Select recipients..."
-              }
-              searchable
-              searchPlaceholder="Search users..."
-              options={users.map((user) => ({
-                value: user.id,
-                label: userName(user),
-              }))}
-              selectedValues={selectedRecipientIds}
-              onChange={(values) =>
-                setSelectedRecipientIds(values.map((v) => Number(v)))
-              }
-              disabled={users.length === 0}
-            />
-          </div>
+        <div className="space-y-2">
+          <label className="text-xs text-gray-300">Message</label>
+          <div className="relative flex items-end gap-2 rounded-2xl border border-[#0A4D66]/40 bg-[#061A24] p-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsRecipientPickerOpen((value) => !value);
+                setIsAttachPickerOpen(false);
+              }}
+              className={`rounded-xl p-2 transition-colors ${
+                isRecipientPickerOpen || selectedRecipientIds.length > 0
+                  ? "bg-[#0A4D66]/50 text-[#7FD5FF]"
+                  : "text-gray-400 hover:bg-[#0A4D66]/25"
+              }`}
+              title="Select recipients"
+              aria-label="Select recipients"
+            >
+              <Icon
+                icon="mdi:account-multiple-plus-outline"
+                className="h-5 w-5"
+              />
+            </button>
 
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs text-gray-300">Subject</label>
-            <input
-              value={subject}
-              onChange={(event) => setSubject(event.target.value)}
-              className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
-              placeholder="Subject (optional)"
-            />
-          </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAttachPickerOpen((value) => !value);
+                setIsRecipientPickerOpen(false);
+              }}
+              className={`rounded-xl p-2 transition-colors ${
+                isAttachPickerOpen || attachableType
+                  ? "bg-[#0A4D66]/50 text-[#7FD5FF]"
+                  : "text-gray-400 hover:bg-[#0A4D66]/25"
+              }`}
+              title="Attach model"
+              aria-label="Attach model"
+            >
+              <Icon icon="mdi:paperclip" className="h-5 w-5" />
+            </button>
 
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-xs text-gray-300">Message</label>
             <textarea
               value={body}
               onChange={(event) => setBody(event.target.value)}
-              className="h-28 w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
-              placeholder="Type your message"
+              className="h-24 w-full resize-none rounded-xl border border-transparent bg-transparent px-2 py-2 text-sm text-white focus:border-[#0A4D66]/40 focus:outline-none"
+              placeholder="Type a message"
             />
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-xs text-gray-300">Attachable Type</label>
-            <select
-              title="Attachable type"
-              value={attachableType}
-              onChange={(event) => {
-                setAttachableType(
-                  event.target.value as MessageAttachableType | "",
-                );
-                setAttachableId("");
-              }}
-              className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+            <button
+              type="button"
+              onClick={() => void handleSend()}
+              disabled={isSending || !canCreateMessages}
+              className="rounded-xl bg-[#128C7E] p-2 text-white transition-colors hover:bg-[#20a193] disabled:opacity-60"
+              title="Send"
+              aria-label="Send"
             >
-              <option value="">None</option>
-              {ATTACHABLE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
+              <Icon icon="mdi:send" className="h-4 w-4" />
+            </button>
 
-          <div className="space-y-2">
-            <label className="text-xs text-gray-300">Attachable Item</label>
-            {attachableSelectionOptions.length > 0 ? (
-              <select
-                title="Attachable item"
-                value={attachableId}
-                onChange={(event) => setAttachableId(event.target.value)}
-                className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+            {isAttachPickerOpen && (
+              <div
+                ref={attachPickerRef}
+                className="absolute bottom-[110%] left-0 z-20 w-full rounded-xl border border-[#0A4D66]/45 bg-[#03151E] p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)]"
               >
-                <option value="">Select item</option>
-                {attachableSelectionOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                value={attachableId}
-                onChange={(event) => setAttachableId(event.target.value)}
-                className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
-                placeholder="Attachable ID (optional)"
-                type="number"
-              />
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-200">
+                    Attach a model
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsAttachPickerOpen(false)}
+                    className="text-gray-400 hover:text-white"
+                    title="Close attachment picker"
+                    aria-label="Close attachment picker"
+                  >
+                    <Icon icon="mdi:close" className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {ATTACHABLE_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        setAttachableType(option.value);
+                        setAttachableId("");
+                      }}
+                      className={`rounded-lg border px-2 py-1.5 text-xs transition-colors ${
+                        attachableType === option.value
+                          ? "border-[#7FD5FF]/70 bg-[#0A4D66]/40 text-[#C9F1FF]"
+                          : "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/25"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                {attachableType && (
+                  <div className="space-y-2">
+                    <label className="text-xs text-gray-300">Select item</label>
+                    {attachableSelectionOptions.length > 0 ? (
+                      <select
+                        title="Attachable item"
+                        value={attachableId}
+                        onChange={(event) => setAttachableId(event.target.value)}
+                        className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+                      >
+                        <option value="">Select item</option>
+                        {attachableSelectionOptions.map((option) => (
+                          <option key={option.id} value={option.id}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={attachableId}
+                        onChange={(event) => setAttachableId(event.target.value)}
+                        className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+                        placeholder="Attachable ID"
+                        type="number"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isRecipientPickerOpen && (
+              <div
+                ref={recipientPickerRef}
+                className="absolute bottom-[110%] left-0 z-20 w-full rounded-xl border border-[#0A4D66]/45 bg-[#03151E] p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)]"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-medium text-gray-200">
+                    Choose recipients
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsRecipientPickerOpen(false)}
+                    className="text-gray-400 hover:text-white"
+                    title="Close recipient picker"
+                    aria-label="Close recipient picker"
+                  >
+                    <Icon icon="mdi:close" className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <MultiSelect
+                  label="Recipients"
+                  placeholder={
+                    users.length === 0
+                      ? "No users available"
+                      : "Select recipients..."
+                  }
+                  searchable
+                  searchPlaceholder="Search users..."
+                  options={users
+                    .filter((user) => user.id !== currentUserId)
+                    .map((user) => ({
+                      value: user.id,
+                      label: userName(user),
+                    }))}
+                  selectedValues={selectedRecipientIds}
+                  onChange={(values) =>
+                    setSelectedRecipientIds(values.map((v) => Number(v)))
+                  }
+                  disabled={!canCreateMessages || users.length === 0}
+                />
+              </div>
             )}
           </div>
+
+          {selectedRecipientIds.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {selectedRecipientIds.map((recipientId) => {
+                const recipient = users.find(
+                  (user) => user.id === recipientId,
+                );
+                if (!recipient) return null;
+
+                return (
+                  <span
+                    key={recipientId}
+                    className="inline-flex items-center gap-1 rounded-full border border-[#0A4D66]/45 bg-[#0A4D66]/15 px-2 py-0.5 text-[11px] text-[#A6E7FF]"
+                  >
+                    <Icon icon="mdi:account" className="h-3 w-3" />
+                    {userName(recipient)}
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {selectedAttachableOption && (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#128C7E]/45 bg-[#128C7E]/15 px-2.5 py-1 text-xs text-[#8FF3E6]">
+              <Icon icon="mdi:link-variant" className="h-3.5 w-3.5" />
+              <span>{selectedAttachableOption.label}</span>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 flex justify-end gap-2">
@@ -308,14 +458,6 @@ export const ComposeMessageModal = () => {
             className="rounded border border-[#0A4D66]/40 px-3 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/20"
           >
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleSend()}
-            disabled={isSending}
-            className="rounded border border-[#7FD5FF]/50 px-3 py-2 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 disabled:opacity-60"
-          >
-            {isSending ? "Sending..." : "Send"}
           </button>
         </div>
       </div>

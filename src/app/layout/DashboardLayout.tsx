@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { Icon } from "@iconify/react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { useAppUpdater } from "@/shared/hooks/useAppUpdater";
@@ -7,12 +8,20 @@ import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { setCredentials } from "@/features/auth/authSlice";
 import { useGetMeQuery } from "@/features/security/api";
 import { ComposeMessageModal } from "@/features/messages/components/ComposeMessageModal";
+import { openCompose } from "@/features/messages/composeSlice";
 
 export const DashboardLayout = () => {
   useAppUpdater();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.auth.token);
+  const location = useLocation();
+  const userPermissions = useAppSelector(
+    (state) => state.auth.user?.permissions ?? [],
+  );
+  const canCreateMessages = userPermissions.includes("messages.create");
+  const isMessagesRoute = location.pathname.startsWith("/dashboard/messages");
+  const showComposeFab = canCreateMessages && !isMessagesRoute;
 
   const { data: me } = useGetMeQuery(undefined, { skip: !token });
 
@@ -74,6 +83,18 @@ export const DashboardLayout = () => {
       </div>
 
       <ComposeMessageModal />
+
+      {showComposeFab && (
+        <button
+          type="button"
+          onClick={() => dispatch(openCompose())}
+          title="New message"
+          aria-label="New message"
+          className="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[#128C7E] text-white shadow-[0_15px_40px_rgba(0,0,0,0.45)] transition-colors hover:bg-[#20a193]"
+        >
+          <Icon icon="mdi:message-plus-outline" className="h-6 w-6" />
+        </button>
+      )}
     </div>
   );
 };

@@ -10,9 +10,9 @@ import {
   type NavigationTarget,
   useGetNotificationsQuery,
 } from "@/features/notifications/api";
-import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
+import { useGetMessagesQuery } from "@/features/messages/api";
+import { useAppSelector } from "@/shared/hooks/redux";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
-import { openCompose } from "@/features/messages/composeSlice";
 
 type HeaderProps = {
   onOpenSidebar?: () => void;
@@ -20,17 +20,17 @@ type HeaderProps = {
 
 export const Header = ({ onOpenSidebar }: HeaderProps) => {
   const navigate = useNavigate();
-  const dispatch = useAppDispatch();
   const userPermissions = useAppSelector(
     (state) => state.auth.user?.permissions ?? [],
   );
   const canViewMessages = userPermissions.includes("messages.viewAny");
-  const canCreateMessages = userPermissions.includes("messages.create");
   const [now, setNow] = useState(() => new Date());
   const [isEmergenciesOpen, setIsEmergenciesOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const emergenciesRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const { data: emergencySummary = {}, isLoading: isEmergenciesLoading } =
     useGetEmergencySummaryQuery(undefined, {
       skip: !isEmergenciesOpen,
@@ -39,6 +39,15 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
     useGetNotificationsQuery(undefined, {
       skip: !isNotificationsOpen,
     });
+  const { data: inboxMessages = [], isFetching: isMessagesLoading } =
+    useGetMessagesQuery(
+      { box: "inbox" },
+      {
+        skip: !canViewMessages,
+        refetchOnFocus: true,
+        refetchOnReconnect: true,
+      },
+    );
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -91,6 +100,34 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
       };
     });
   }, [notifications]);
+
+  const unreadMessages = useMemo(
+    () => inboxMessages.filter((message) => message.is_read === false),
+    [inboxMessages],
+  );
+
+  const unreadMessageItems = useMemo(() => {
+    return unreadMessages.slice(0, 10).map((message) => {
+      const senderName = [message.sender?.firstname, message.sender?.lastname]
+        .filter(Boolean)
+        .join(" ")
+        .trim() || message.sender?.username || message.sender?.email || "Unknown sender";
+
+      const preview = message.body?.trim() || "(No content)";
+      const dateLabel = message.created_at
+        ? new Date(message.created_at).toLocaleDateString("en-US")
+        : "-";
+
+      return {
+        id: message.id,
+        senderName,
+        preview,
+        dateLabel,
+      };
+    });
+  }, [unreadMessages]);
+
+  const unreadMessagesCount = unreadMessages.length;
 
   const referenceDate = useMemo(() => {
     if (!emergencySummary.reference_date) return "-";
@@ -165,6 +202,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
 
     setIsEmergenciesOpen(false);
     setIsNotificationsOpen(false);
+    setIsMessagesOpen(false);
     navigate(path);
   };
 
@@ -186,6 +224,12 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
     notificationsRef,
     () => setIsNotificationsOpen(false),
     isNotificationsOpen,
+  );
+
+  useClickOutside(
+    messagesRef,
+    () => setIsMessagesOpen(false),
+    isMessagesOpen,
   );
 
   return (
@@ -224,21 +268,91 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
         {/* Icons */}
         <div className="flex items-center gap-2 text-gray-400">
           {canViewMessages && (
-            <button
-              className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors"
-              onClick={() => {
-                if (canCreateMessages) {
-                  dispatch(openCompose());
-                } else {
-                  navigate("/dashboard/messages");
-                }
-              }}
-              type="button"
-              aria-label="Compose message"
-              title="New message"
-            >
-              <Icon icon="mdi:email-outline" className="w-5 h-5" />
-            </button>
+            <div className="relative" ref={messagesRef}>
+              <button
+                className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors relative"
+                onClick={() => {
+                  setIsMessagesOpen((current) => !current);
+                  setIsNotificationsOpen(false);
+                  setIsEmergenciesOpen(false);
+                }}
+                type="button"
+                aria-label="Unread messages"
+                title="Unread messages"
+              >
+                <Icon icon="mdi:message-text-outline" className="w-5 h-5" />
+                {unreadMessagesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[10px] leading-4 text-center font-semibold">
+                    {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
+                  </span>
+                )}
+              </button>
+
+              {isMessagesOpen && (
+                <div className="absolute right-0 top-14 z-50 w-110 max-w-[calc(100vw-2rem)] bg-[#001825] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
+                  <div className="flex items-center justify-between px-6 py-5 border-b border-[#0A4D66]/30">
+                    <h3 className="text-white text-2xl font-bold uppercase">
+                      Unread Messages
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsMessagesOpen(false)}
+                      className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#001219] flex items-center justify-center hover:opacity-90"
+                      aria-label="Close unread messages"
+                      title="Close unread messages"
+                    >
+                      <Icon icon="mdi:close" className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="px-6 py-2 max-h-105 overflow-y-auto">
+                    {isMessagesLoading ? (
+                      <div className="py-8 text-center text-gray-300">
+                        Loading unread messages...
+                      </div>
+                    ) : unreadMessageItems.length === 0 ? (
+                      <div className="py-8 text-center text-gray-300">
+                        No unread messages
+                      </div>
+                    ) : (
+                      unreadMessageItems.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setIsMessagesOpen(false);
+                            navigate("/dashboard/messages");
+                          }}
+                          className="group grid w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b border-[#0A4D66]/40 py-3 text-left last:border-b-0 transition-all duration-150 hover:bg-[#0A4D66]/20 hover:shadow-[inset_3px_0_0_0_#7FD5FF]"
+                        >
+                          <div>
+                            <p className="text-xs text-[#7FD5FF]">{item.senderName}</p>
+                            <p className="text-sm text-white line-clamp-2">{item.preview}</p>
+                          </div>
+                          <div className="flex items-center justify-end gap-2 text-right text-xs text-gray-400 whitespace-nowrap group-hover:text-[#B7E6FF]">
+                            <Icon icon="mdi:open-in-new" className="w-3.5 h-3.5" />
+                            <span>{item.dateLabel}</span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="border-t border-[#0A4D66]/30 px-6 py-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMessagesOpen(false);
+                        navigate("/dashboard/messages");
+                      }}
+                      className="text-xs text-[#7FD5FF] hover:underline"
+                    >
+                      Open messages page
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="relative" ref={emergenciesRef}>
