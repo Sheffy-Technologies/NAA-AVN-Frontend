@@ -1137,7 +1137,7 @@ export const InventoryPage = () => {
                 <button
                   type="button"
                   onClick={() => navigate("/dashboard/inventory/add")}
-                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Inventory</span>
@@ -1430,7 +1430,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/requisitions/add"
-                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Request</span>
@@ -1834,7 +1834,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/purchase-orders/new"
-                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Create Purchase Order</span>
@@ -1945,7 +1945,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/suppliers/add"
-                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Supplier</span>

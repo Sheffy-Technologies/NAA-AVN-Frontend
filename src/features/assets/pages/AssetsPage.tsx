@@ -463,7 +463,7 @@ export const AssetsPage = () => {
                     ? "/dashboard/assets/facilities/add"
                   : "/dashboard/assets/add"
               }
-              className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+              className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               <span>

@@ -736,7 +736,7 @@ export const OperationForm = ({
                   onClick={() => setCoordinateInputMode("latlon")}
                   className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
                     coordinateInputMode === "latlon"
-                      ? "bg-[#0369A1] text-[#001219]"
+                      ? "bg-[#0369A1] text-white"
                       : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
                   }`}
                 >
@@ -747,7 +747,7 @@ export const OperationForm = ({
                   onClick={() => setCoordinateInputMode("mgrs")}
                   className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
                     coordinateInputMode === "mgrs"
-                      ? "bg-[#0369A1] text-[#001219]"
+                      ? "bg-[#0369A1] text-white"
                       : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
                   }`}
                 >
@@ -764,7 +764,7 @@ export const OperationForm = ({
                   onClick={() => setActiveMapTarget("departure")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "departure"
-                      ? "bg-[#0369A1] text-[#001219]"
+                      ? "bg-[#0369A1] text-white"
                       : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
@@ -775,7 +775,7 @@ export const OperationForm = ({
                   onClick={() => setActiveMapTarget("waypoint")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "waypoint"
-                      ? "bg-[#F59E0B] text-[#001219]"
+                      ? "bg-[#F59E0B] text-white"
                       : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
@@ -786,7 +786,7 @@ export const OperationForm = ({
                   onClick={() => setActiveMapTarget("arrival")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "arrival"
-                      ? "bg-[#0369A1] text-[#001219]"
+                      ? "bg-[#0369A1] text-white"
                       : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
@@ -1134,7 +1134,7 @@ export const OperationForm = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-16 w-full max-w-130 bg-[#0369A1] text-[#001219] text-2xl font-semibold rounded-sm hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+              className="h-16 w-full max-w-130 bg-[#0369A1] text-white text-2xl font-semibold rounded-sm hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : submitLabel}
             </button>

@@ -481,7 +481,7 @@ export const SecurityPage = () => {
             {activeTab === "user" ? (
               <button
                 onClick={() => navigate("/dashboard/users/add")}
-                className="flex items-center gap-2 rounded bg-[#0369A1] px-3 py-1.5 text-sm font-medium text-[#001219] hover:opacity-90"
+                className="flex items-center gap-2 rounded bg-[#0369A1] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
                 aria-label="Add user"
                 title="Add user"
               >
@@ -777,7 +777,7 @@ export const SecurityPage = () => {
                   <button
                     type="submit"
                     disabled={isCreatingRole}
-                    className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-[#001219] disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
                     <Icon icon="mdi:shield-plus" className="h-4 w-4" />
                     {isCreatingRole ? "Creating..." : "Create Role"}
@@ -1046,7 +1046,7 @@ export const SecurityPage = () => {
                 type="button"
                 onClick={handleAssignRolesSave}
                 disabled={isSavingUserRoles}
-                className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-[#001219] disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
                 {isSavingUserRoles ? "Saving..." : "Save"}

@@ -5,6 +5,7 @@ import { Input } from "@/shared/ui/input/Input";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { setCredentials } from "../authSlice";
 import { showToast } from "@/shared/store/toastSlice";
+import { useTheme } from "@/context/ThemeContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const DEVICE_ID_KEY = "naavn_device_id";
@@ -39,6 +40,13 @@ const extractErrorMessage = (raw: unknown): string | null => {
 export const LoginPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { isDark } = useTheme();
+  const loginInputClass = isDark
+    ? "text-white placeholder:font-semibold placeholder:text-gray-300"
+    : "text-gray-900 placeholder:font-semibold placeholder:text-gray-800";
+  const loginLabelClass = isDark
+    ? "font-semibold text-gray-200"
+    : "font-semibold text-gray-800";
   const [formData, setFormData] = useState({
     login: "",
     password: "",
@@ -149,24 +157,26 @@ export const LoginPage = () => {
     <div className="flex flex-col items-center gap-10">
 
       <div className="flex flex-col items-center gap-4 mt-6">
-        <div className="w-20 h-20 rounded-full overflow-hidden bg-[#001219] flex items-center justify-center">
+        <div className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}>
           <img
             src="/images/logo.png"
             alt="Nigerian Army Aviation logo"
             className="w-full h-full object-contain"
           />
         </div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-white">
+        <h1 className={`text-xl sm:text-2xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
           Nigerian Army Aviation Database
         </h1>
       </div>
 
-      <div className="w-full max-w-md bg-[#001219] border border-[#0A4D66]/50 rounded-lg px-8 py-10">
+      <div className={`w-full max-w-md rounded-lg px-8 py-10 border ${isDark ? "bg-[#001219] border-[#0A4D66]/50" : "bg-white border-gray-200 shadow-sm"}`}>
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
             label="Username or Email"
             placeholder="Enter Username or Email"
             value={formData.login}
+            className={loginInputClass}
+            labelClassName={loginLabelClass}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, login: e.target.value }))
             }
@@ -178,6 +188,8 @@ export const LoginPage = () => {
             type="password"
             placeholder="Enter Password"
             value={formData.password}
+            className={loginInputClass}
+            labelClassName={loginLabelClass}
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, password: e.target.value }))
             }
@@ -195,7 +207,7 @@ export const LoginPage = () => {
 
           <Button
             type="submit"
-            className="w-full bg-[#0369A1] text-black hover:bg-[#0369A1]/90"
+            className="w-full bg-[#0369A1] text-white hover:bg-[#0369A1]/90"
             isLoading={isLoading}
           >
             Login

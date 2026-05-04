@@ -1229,7 +1229,7 @@ export const AddAssetPage = () => {
           <button
             onClick={handleSubmit}
             disabled={isSaving || isUploadingPhoto}
-            className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-6 py-2 rounded text-sm font-bold transition-colors"
+            className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-6 py-2 rounded text-sm font-bold transition-colors"
           >
             <Icon icon="mdi:check" className="w-5 h-5" />
             <span>
@@ -4235,7 +4235,7 @@ export const AddAssetPage = () => {
           <button
             onClick={handleSubmit}
             disabled={isSaving || isUploadingPhoto}
-            className="w-full md:w-auto bg-[#0369A1] hover:bg-[#0369A1]/90 text-[#001219] px-8 py-3 rounded text-sm font-bold transition-colors uppercase tracking-widest"
+            className="w-full md:w-auto bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-8 py-3 rounded text-sm font-bold transition-colors uppercase tracking-widest"
           >
             {isSaving ? "Saving..." : isUploadingPhoto ? "Uploading..." : "Save"}
           </button>

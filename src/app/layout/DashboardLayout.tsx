@@ -9,6 +9,7 @@ import { setCredentials } from "@/features/auth/authSlice";
 import { useGetMeQuery } from "@/features/security/api";
 import { ComposeMessageModal } from "@/features/messages/components/ComposeMessageModal";
 import { openCompose } from "@/features/messages/composeSlice";
+import { useTheme } from "@/context/ThemeContext";
 
 export const DashboardLayout = () => {
   useAppUpdater();
@@ -19,6 +20,7 @@ export const DashboardLayout = () => {
   const userPermissions = useAppSelector(
     (state) => state.auth.user?.permissions ?? [],
   );
+  const { isDark } = useTheme();
   const canCreateMessages = userPermissions.includes("messages.create");
   const isMessagesRoute = location.pathname.startsWith("/dashboard/messages");
   const showComposeFab = canCreateMessages && !isMessagesRoute;
@@ -47,7 +49,7 @@ export const DashboardLayout = () => {
   }, [me, token, dispatch]);
 
   return (
-    <div className="flex h-screen bg-[#001219] overflow-hidden">
+    <div className={`flex h-screen overflow-hidden ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}>
       {/* Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar />
@@ -56,13 +58,15 @@ export const DashboardLayout = () => {
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
-          <div className="w-64 h-full bg-[#001219] border-r border-[#0A4D66]/30 shadow-xl flex">
+          <div className={`w-64 h-full shadow-xl flex ${isDark ? "bg-[#001219] border-r border-[#0A4D66]/30" : "bg-white border-r border-gray-200"}`}>
             <Sidebar />
           </div>
           <button
             type="button"
             onClick={() => setIsSidebarOpen(false)}
             className="flex-1 bg-black/50"
+            aria-label="Close sidebar"
+            title="Close sidebar"
           />
         </div>
       )}
@@ -72,11 +76,8 @@ export const DashboardLayout = () => {
         <Header onOpenSidebar={() => setIsSidebarOpen(true)} />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-[#0A4D66] scrollbar-track-transparent">
-          <div
-            className="min-h-full p-6"
-            style={{ background: "var(--auth-bg-gradient)" }}
-          >
+        <main className="flex-1 overflow-y-auto main-content-bg">
+          <div className="min-h-full p-6">
             <Outlet />
           </div>
         </main>

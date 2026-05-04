@@ -13,6 +13,7 @@ import {
 import { useGetMessagesQuery } from "@/features/messages/api";
 import { useAppSelector } from "@/shared/hooks/redux";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { useTheme } from "@/context/ThemeContext";
 
 type HeaderProps = {
   onOpenSidebar?: () => void;
@@ -20,6 +21,7 @@ type HeaderProps = {
 
 export const Header = ({ onOpenSidebar }: HeaderProps) => {
   const navigate = useNavigate();
+  const { isDark, toggleTheme } = useTheme();
   const userPermissions = useAppSelector(
     (state) => state.auth.user?.permissions ?? [],
   );
@@ -232,20 +234,45 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
     isMessagesOpen,
   );
 
+  /* ── theme-derived class helpers ─────────────────────── */
+  const hdrBg     = isDark ? "bg-[#001219] border-[#0A4D66]/30" : "bg-white border-gray-200";
+  const hdrText   = isDark ? "text-gray-400" : "text-gray-500";
+  const iconBtn   = isDark ? "hover:bg-[#0A4D66]/30 text-gray-400" : "hover:bg-gray-100 text-gray-500";
+  const searchCls = isDark
+    ? "bg-[#001219] border border-[#0A4D66]/50 text-white placeholder-gray-500 focus:border-[#7FD5FF]"
+    : "bg-gray-100 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-[#0369A1]";
+  const dropdownCls = isDark
+    ? "bg-[#001825] border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)]"
+    : "bg-white border-gray-200 shadow-[0_8px_32px_rgba(0,0,0,0.12)]";
+  const dropdownHeader = isDark ? "border-[#0A4D66]/30" : "border-gray-100";
+  const dropdownTitle  = isDark ? "text-white" : "text-gray-900";
+  const dropdownBody   = isDark ? "text-gray-300" : "text-gray-500";
+  const dropdownRow    = isDark
+    ? "border-[#0A4D66]/40 hover:bg-[#0A4D66]/20 hover:shadow-[inset_3px_0_0_0_#7FD5FF]"
+    : "border-gray-100 hover:bg-gray-50 hover:shadow-[inset_3px_0_0_0_#0369A1]";
+  const dropdownRowText  = isDark ? "text-white" : "text-gray-800";
+  const dropdownRowMuted = isDark ? "text-gray-400" : "text-gray-400";
+  const dropdownAccent   = isDark ? "text-[#7FD5FF]" : "text-[#0369A1]";
+  const dropdownFooter   = isDark ? "border-[#0A4D66]/30" : "border-gray-100";
+  const closeBtnCls = isDark
+    ? "bg-[#B7E6FF] text-[#001219]"
+    : "bg-[#0369A1] text-white";
+  const mainIconSize = "w-6 h-6";
+
   return (
-    <header className="h-16 bg-[#001219] border-b border-[#0A4D66]/30 px-4 md:px-6 flex items-center justify-between">
+    <header className={`h-16 border-b px-4 md:px-6 flex items-center justify-between ${hdrBg}`}>
       {/* Left: Mobile menu + Date/Time */}
       <div className="flex items-center gap-3">
         <button
           type="button"
-          className="lg:hidden p-2 rounded-full hover:bg-[#0A4D66]/30 text-gray-300"
+          className={`lg:hidden p-2 rounded-full transition-colors ${iconBtn}`}
           onClick={onOpenSidebar}
           aria-label="Open sidebar"
           title="Open sidebar"
         >
-          <Icon icon="mdi:menu" className="w-5 h-5" />
+          <Icon icon="mdi:menu" className={mainIconSize} />
         </button>
-        <div className="text-gray-400 text-xs sm:text-sm font-medium truncate">
+        <div className={`text-xs sm:text-sm font-medium truncate ${hdrText}`}>
           {dateTimeLabel}
         </div>
       </div>
@@ -256,21 +283,21 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
         <div className="relative hidden sm:block">
           <Icon
             icon="mdi:magnify"
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5"
+            className={`absolute left-3 top-1/2 -translate-y-1/2 ${mainIconSize} ${isDark ? "text-gray-500" : "text-gray-400"}`}
           />
           <input
             type="text"
             placeholder="Search"
-            className="bg-[#001219] border border-[#0A4D66]/50 rounded-lg pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#7FD5FF] w-52 md:w-64 transition-colors"
+            className={`rounded-lg pl-11 pr-4 py-2 text-sm focus:outline-none w-52 md:w-64 transition-colors ${searchCls}`}
           />
         </div>
 
         {/* Icons */}
-        <div className="flex items-center gap-2 text-gray-400">
+        <div className={`flex items-center gap-2 ${isDark ? "text-gray-400" : "text-gray-500"}`}>
           {canViewMessages && (
             <div className="relative" ref={messagesRef}>
               <button
-                className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors relative"
+                className={`p-2 rounded-full transition-colors relative ${iconBtn}`}
                 onClick={() => {
                   setIsMessagesOpen((current) => !current);
                   setIsNotificationsOpen(false);
@@ -280,7 +307,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                 aria-label="Unread messages"
                 title="Unread messages"
               >
-                <Icon icon="mdi:message-text-outline" className="w-5 h-5" />
+                <Icon icon="mdi:message-text-outline" className={mainIconSize} />
                 {unreadMessagesCount > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-emerald-500 text-white text-[10px] leading-4 text-center font-semibold">
                     {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
@@ -289,15 +316,15 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
               </button>
 
               {isMessagesOpen && (
-                <div className="absolute right-0 top-14 z-50 w-110 max-w-[calc(100vw-2rem)] bg-[#001825] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
-                  <div className="flex items-center justify-between px-6 py-5 border-b border-[#0A4D66]/30">
-                    <h3 className="text-white text-2xl font-bold uppercase">
+                <div className={`absolute right-0 top-14 z-50 w-110 max-w-[calc(100vw-2rem)] border rounded-sm overflow-hidden ${dropdownCls}`}>
+                  <div className={`flex items-center justify-between px-6 py-5 border-b ${dropdownHeader}`}>
+                    <h3 className={`text-2xl font-bold uppercase ${dropdownTitle}`}>
                       Unread Messages
                     </h3>
                     <button
                       type="button"
                       onClick={() => setIsMessagesOpen(false)}
-                      className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#001219] flex items-center justify-center hover:opacity-90"
+                      className={`w-7 h-7 rounded-full flex items-center justify-center hover:opacity-90 ${closeBtnCls}`}
                       aria-label="Close unread messages"
                       title="Close unread messages"
                     >
@@ -307,11 +334,11 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
 
                   <div className="px-6 py-2 max-h-105 overflow-y-auto">
                     {isMessagesLoading ? (
-                      <div className="py-8 text-center text-gray-300">
+                      <div className={`py-8 text-center ${dropdownBody}`}>
                         Loading unread messages...
                       </div>
                     ) : unreadMessageItems.length === 0 ? (
-                      <div className="py-8 text-center text-gray-300">
+                      <div className={`py-8 text-center ${dropdownBody}`}>
                         No unread messages
                       </div>
                     ) : (
@@ -323,13 +350,13 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                             setIsMessagesOpen(false);
                             navigate("/dashboard/messages");
                           }}
-                          className="group grid w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b border-[#0A4D66]/40 py-3 text-left last:border-b-0 transition-all duration-150 hover:bg-[#0A4D66]/20 hover:shadow-[inset_3px_0_0_0_#7FD5FF]"
+                          className={`group grid w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b py-3 text-left last:border-b-0 transition-all duration-150 ${dropdownRow}`}
                         >
                           <div>
-                            <p className="text-xs text-[#7FD5FF]">{item.senderName}</p>
-                            <p className="text-sm text-white line-clamp-2">{item.preview}</p>
+                            <p className={`text-xs ${dropdownAccent}`}>{item.senderName}</p>
+                            <p className={`text-sm line-clamp-2 ${dropdownRowText}`}>{item.preview}</p>
                           </div>
-                          <div className="flex items-center justify-end gap-2 text-right text-xs text-gray-400 whitespace-nowrap group-hover:text-[#B7E6FF]">
+                          <div className={`flex items-center justify-end gap-2 text-right text-xs whitespace-nowrap ${dropdownRowMuted}`}>
                             <Icon icon="mdi:open-in-new" className="w-3.5 h-3.5" />
                             <span>{item.dateLabel}</span>
                           </div>
@@ -338,14 +365,14 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                     )}
                   </div>
 
-                  <div className="border-t border-[#0A4D66]/30 px-6 py-3">
+                  <div className={`border-t px-6 py-3 ${dropdownFooter}`}>
                     <button
                       type="button"
                       onClick={() => {
                         setIsMessagesOpen(false);
                         navigate("/dashboard/messages");
                       }}
-                      className="text-xs text-[#7FD5FF] hover:underline"
+                      className={`text-xs hover:underline ${dropdownAccent}`}
                     >
                       Open messages page
                     </button>
@@ -356,16 +383,16 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
           )}
 
           <div className="relative" ref={emergenciesRef}>
-            <button
-              className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors relative"
-              onClick={() => setIsEmergenciesOpen((current) => !current)}
-              type="button"
-              aria-label="Emergencies"
-              title="Emergencies"
-            >
+          <button
+            className={`p-2 rounded-full transition-colors relative ${iconBtn}`}
+            onClick={() => setIsEmergenciesOpen((current) => !current)}
+            type="button"
+            aria-label="Emergencies"
+            title="Emergencies"
+          >
               <Icon
                 icon="material-symbols:e911-emergency-outline"
-                className="w-5 h-5"
+                className={mainIconSize}
               />
               {emergencyBadgeCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] leading-4 text-center font-semibold">
@@ -375,15 +402,15 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
             </button>
 
             {isEmergenciesOpen && (
-              <div className="absolute right-0 top-14 z-50 w-96 max-w-[calc(100vw-2rem)] bg-[#001825] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-5 border-b border-[#0A4D66]/30">
-                  <h3 className="text-white text-2xl font-bold uppercase">
+              <div className={`absolute right-0 top-14 z-50 w-96 max-w-[calc(100vw-2rem)] border rounded-sm overflow-hidden ${dropdownCls}`}>
+                <div className={`flex items-center justify-between px-6 py-5 border-b ${dropdownHeader}`}>
+                  <h3 className={`text-2xl font-bold uppercase ${dropdownTitle}`}>
                     Emergencies
                   </h3>
                   <button
                     type="button"
                     onClick={() => setIsEmergenciesOpen(false)}
-                    className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#001219] flex items-center justify-center hover:opacity-90"
+                    className={`w-7 h-7 rounded-full flex items-center justify-center hover:opacity-90 ${closeBtnCls}`}
                     aria-label="Close emergencies"
                     title="Close emergencies"
                   >
@@ -393,38 +420,38 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
 
                 <div className="px-6 py-2 max-h-105 overflow-y-auto">
                   {isEmergenciesLoading ? (
-                    <div className="py-8 text-center text-gray-300">
+                    <div className={`py-8 text-center ${dropdownBody}`}>
                       Loading emergency summary...
                     </div>
                   ) : !emergencySummary.reference_date &&
                     !emergencySummary.assets_due_for_inspection &&
                     !emergencySummary.low_stock_inventories ? (
-                    <div className="py-8 text-center text-gray-300">
+                    <div className={`py-8 text-center ${dropdownBody}`}>
                       No emergency summary found
                     </div>
                   ) : (
                     <>
-                      <div className="py-4 border-b border-[#0A4D66]/50">
-                        <p className="text-xs uppercase tracking-wider text-gray-400">
+                      <div className={`py-4 border-b ${dropdownHeader}`}>
+                        <p className={`text-xs uppercase tracking-wider ${dropdownRowMuted}`}>
                           Reference Date
                         </p>
-                        <p className="text-white text-sm mt-1">{referenceDate}</p>
+                        <p className={`text-sm mt-1 ${dropdownRowText}`}>{referenceDate}</p>
                       </div>
 
-                      <div className="py-4 border-b border-[#0A4D66]/50">
-                        <p className="text-xs uppercase tracking-wider text-gray-400">
+                      <div className={`py-4 border-b ${dropdownHeader}`}>
+                        <p className={`text-xs uppercase tracking-wider ${dropdownRowMuted}`}>
                           Assets Due For Inspection
                         </p>
-                        <p className="text-[#7FD5FF] text-base font-semibold mt-1">
+                        <p className={`text-base font-semibold mt-1 ${dropdownAccent}`}>
                           {emergencySummary.assets_due_for_inspection?.count ?? 0}
                         </p>
                       </div>
 
-                      <div className="py-4 border-b border-[#0A4D66]/50">
-                        <p className="text-xs uppercase tracking-wider text-gray-400">
+                      <div className={`py-4 border-b ${dropdownHeader}`}>
+                        <p className={`text-xs uppercase tracking-wider ${dropdownRowMuted}`}>
                           Low Stock Inventories
                         </p>
-                        <p className="text-[#7FD5FF] text-base font-semibold mt-1">
+                        <p className={`text-base font-semibold mt-1 ${dropdownAccent}`}>
                           {emergencySummary.low_stock_inventories?.count ?? 0}
                         </p>
                       </div>
@@ -526,26 +553,26 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
           </div>
           <div className="relative" ref={notificationsRef}>
             <button
-              className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors relative"
+              className={`p-2 rounded-full transition-colors relative ${iconBtn}`}
               onClick={() => setIsNotificationsOpen((current) => !current)}
               aria-label="View notifications"
               title="View notifications"
               type="button"
             >
-              <Icon icon="mdi:bell-outline" className="w-5 h-5" />
+              <Icon icon="mdi:bell-outline" className={mainIconSize} />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
 
             {isNotificationsOpen && (
-              <div className="absolute right-0 top-14 z-50 w-115 max-w-[calc(100vw-2rem)] bg-[#001825] border border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)] rounded-sm overflow-hidden">
-                <div className="flex items-center justify-between px-6 py-5 border-b border-[#0A4D66]/30">
-                  <h3 className="text-white text-2xl font-bold uppercase">
+              <div className={`absolute right-0 top-14 z-50 w-115 max-w-[calc(100vw-2rem)] border rounded-sm overflow-hidden ${dropdownCls}`}>
+                <div className={`flex items-center justify-between px-6 py-5 border-b ${dropdownHeader}`}>
+                  <h3 className={`text-2xl font-bold uppercase ${dropdownTitle}`}>
                     Notification
                   </h3>
                   <button
                     type="button"
                     onClick={() => setIsNotificationsOpen(false)}
-                    className="w-7 h-7 rounded-full bg-[#B7E6FF] text-[#001219] flex items-center justify-center hover:opacity-90"
+                    className={`w-7 h-7 rounded-full flex items-center justify-center hover:opacity-90 ${closeBtnCls}`}
                     aria-label="Close notifications"
                     title="Close notifications"
                   >
@@ -555,11 +582,11 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
 
                 <div className="px-6 py-2 max-h-105 overflow-y-auto">
                   {isNotificationsLoading ? (
-                    <div className="py-8 text-center text-gray-300">
+                    <div className={`py-8 text-center ${dropdownBody}`}>
                       Loading notifications...
                     </div>
                   ) : notificationItems.length === 0 ? (
-                    <div className="py-8 text-center text-gray-300">
+                    <div className={`py-8 text-center ${dropdownBody}`}>
                       No notifications found
                     </div>
                   ) : (
@@ -572,13 +599,13 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
                           type="button"
                           onClick={() => handleNavigation(item.navigation)}
                           disabled={!targetPath}
-                          className={`${getClickableRowClassName(!targetPath)} grid-cols-[18px_minmax(0,1fr)_110px] border-[#0A4D66]/50 py-4`}
+                          className={`${getClickableRowClassName(!targetPath)} grid-cols-[18px_minmax(0,1fr)_110px] py-4 ${isDark ? "border-[#0A4D66]/50" : "border-gray-100"}`}
                         >
-                          <div className="w-3 h-3 bg-[#0A4D66] mt-1.5 group-hover:bg-[#0369A1] group-focus-visible:bg-[#0369A1] transition-colors" />
-                          <p className="text-white text-sm leading-7">
+                          <div className={`w-3 h-3 mt-1.5 transition-colors ${isDark ? "bg-[#0A4D66] group-hover:bg-[#0369A1] group-focus-visible:bg-[#0369A1]" : "bg-gray-300 group-hover:bg-[#0369A1] group-focus-visible:bg-[#0369A1]"}`} />
+                          <p className={`text-sm leading-7 ${dropdownRowText}`}>
                             {item.message}
                           </p>
-                          <div className="flex items-center justify-end gap-2 text-right text-white text-sm font-semibold whitespace-nowrap">
+                          <div className={`flex items-center justify-end gap-2 text-right text-sm font-semibold whitespace-nowrap ${dropdownRowText}`}>
                             {targetPath && (
                               <Icon
                                 icon="mdi:open-in-new"
@@ -598,13 +625,25 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
             )}
           </div>
           <button
-            className="p-2 hover:bg-[#0A4D66]/30 rounded-full transition-colors relative"
+            className={`p-2 rounded-full transition-colors relative ${iconBtn}`}
+            type="button"
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            onClick={toggleTheme}
+          >
+            <Icon
+              icon={isDark ? "mdi:weather-sunny" : "mdi:weather-night"}
+              className={mainIconSize}
+            />
+          </button>
+          <button
+            className={`p-2 rounded-full transition-colors relative ${iconBtn}`}
             type="button"
             aria-label="Profile"
             title="Profile"
             onClick={() => navigate("/dashboard/users")}
           >
-            <Icon icon="mdi:account-circle-outline" className="w-5 h-5" />
+            <Icon icon="mdi:account-circle-outline" className={mainIconSize} />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
         </div>

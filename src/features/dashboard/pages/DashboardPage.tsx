@@ -687,20 +687,23 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-8 border-b border-[#0A4D66]/40">
+      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "py-3 text-sm font-medium transition-colors",
+              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
               activeTab === tab.id
-                ? "text-white border-b-2 border-[#7FD5FF]"
-                : "text-gray-400 hover:text-white",
+                ? "text-[#7FD5FF]"
+                : "text-gray-400 hover:text-gray-300",
             )}
           >
             {tab.label}
+            {activeTab === tab.id && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+            )}
           </button>
         ))}
       </div>

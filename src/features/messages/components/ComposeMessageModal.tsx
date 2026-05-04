@@ -18,6 +18,7 @@ import {
   useGetInventoriesQuery,
 } from "@/features/inventory/api";
 import { closeCompose } from "@/features/messages/composeSlice";
+import { useTheme } from "@/context/ThemeContext";
 
 const ATTACHABLE_OPTIONS: Array<{
   value: MessageAttachableType;
@@ -51,6 +52,7 @@ const userName = (user?: {
 export const ComposeMessageModal = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { isDark } = useTheme();
   const isOpen = useAppSelector((state) => state.messageCompose.isOpen);
   const authUser = useAppSelector((state) => state.auth.user);
   const userPermissions = authUser?.permissions ?? [];
@@ -218,18 +220,45 @@ export const ComposeMessageModal = () => {
 
   if (!isOpen) return null;
 
+  const cardCls = isDark
+    ? "border-[#0A4D66]/40 bg-[#001219]"
+    : "border-[#E5E7EB] bg-white shadow-[0_10px_25px_rgba(0,0,0,0.12)]";
+  const headingCls = isDark ? "text-white" : "text-[#111827]";
+  const labelCls = isDark ? "text-gray-300" : "text-[#6B7280]";
+  const inputAreaCls = isDark
+    ? "border-[#0A4D66]/40 bg-[#061A24]"
+    : "border-[#D1D5DB] bg-[#F9FAFB]";
+  const inputCls = isDark
+    ? "border-[#0A4D66]/40 bg-[#001825] text-white focus:border-[#7FD5FF]"
+    : "border-[#D1D5DB] bg-white text-[#111827] focus:border-[#2563EB]";
+  const textareaCls = isDark
+    ? "text-white focus:border-[#0A4D66]/40"
+    : "text-[#111827] focus:border-[#2563EB]";
+  const accentCls = isDark ? "text-[#7FD5FF]" : "text-[#0369A1]";
+  const accentBorderCls = isDark ? "border-[#7FD5FF]/50" : "border-[#0369A1]/50";
+  const popupCls = isDark
+    ? "border-[#0A4D66]/45 bg-[#03151E]"
+    : "border-[#E5E7EB] bg-white shadow-lg";
+  const popupTextCls = isDark ? "text-gray-200" : "text-[#374151]";
+  const iconBtnActiveCls = isDark
+    ? "bg-[#0A4D66]/50 text-[#7FD5FF]"
+    : "bg-blue-100 text-[#0369A1]";
+  const iconBtnIdleCls = isDark
+    ? "text-gray-400 hover:bg-[#0A4D66]/25"
+    : "text-gray-500 hover:bg-gray-100";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-2xl rounded-xl border border-[#0A4D66]/40 bg-[#001219] p-5">
+      <div className={`w-full max-w-2xl rounded-xl border p-5 ${cardCls}`}>
         <div className="mb-4 flex items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-white">
+          <h2 className={`text-base font-semibold ${headingCls}`}>
             Compose Message
           </h2>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleOpenMessagesPage}
-              className="inline-flex items-center gap-1.5 rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20"
+              className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs hover:bg-[#0A4D66]/20 ${accentBorderCls} ${accentCls}`}
               title="Open messages page"
               aria-label="Open messages page"
             >
@@ -241,7 +270,7 @@ export const ComposeMessageModal = () => {
               title="Close compose dialog"
               aria-label="Close compose dialog"
               onClick={handleClose}
-              className="text-gray-400 hover:text-white"
+              className={isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-[#111827]"}
             >
               <Icon icon="mdi:close" className="h-5 w-5" />
             </button>
@@ -249,8 +278,8 @@ export const ComposeMessageModal = () => {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs text-gray-300">Message</label>
-          <div className="relative flex items-end gap-2 rounded-2xl border border-[#0A4D66]/40 bg-[#061A24] p-2">
+          <label className={`text-xs ${labelCls}`}>Message</label>
+          <div className={`relative flex items-end gap-2 rounded-2xl border p-2 ${inputAreaCls}`}>
             <button
               type="button"
               onClick={() => {
@@ -259,8 +288,8 @@ export const ComposeMessageModal = () => {
               }}
               className={`rounded-xl p-2 transition-colors ${
                 isRecipientPickerOpen || selectedRecipientIds.length > 0
-                  ? "bg-[#0A4D66]/50 text-[#7FD5FF]"
-                  : "text-gray-400 hover:bg-[#0A4D66]/25"
+                  ? iconBtnActiveCls
+                  : iconBtnIdleCls
               }`}
               title="Select recipients"
               aria-label="Select recipients"
@@ -279,8 +308,8 @@ export const ComposeMessageModal = () => {
               }}
               className={`rounded-xl p-2 transition-colors ${
                 isAttachPickerOpen || attachableType
-                  ? "bg-[#0A4D66]/50 text-[#7FD5FF]"
-                  : "text-gray-400 hover:bg-[#0A4D66]/25"
+                  ? iconBtnActiveCls
+                  : iconBtnIdleCls
               }`}
               title="Attach model"
               aria-label="Attach model"
@@ -291,7 +320,7 @@ export const ComposeMessageModal = () => {
             <textarea
               value={body}
               onChange={(event) => setBody(event.target.value)}
-              className="h-24 w-full resize-none rounded-xl border border-transparent bg-transparent px-2 py-2 text-sm text-white focus:border-[#0A4D66]/40 focus:outline-none"
+              className={`h-24 w-full resize-none rounded-xl border border-transparent bg-transparent px-2 py-2 text-sm focus:outline-none placeholder-gray-400 ${textareaCls}`}
               placeholder="Type a message"
             />
 
@@ -309,16 +338,16 @@ export const ComposeMessageModal = () => {
             {isAttachPickerOpen && (
               <div
                 ref={attachPickerRef}
-                className="absolute bottom-[110%] left-0 z-20 w-full rounded-xl border border-[#0A4D66]/45 bg-[#03151E] p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)]"
+                className={`absolute bottom-[110%] left-0 z-20 w-full rounded-xl border p-3 ${popupCls}`}
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-200">
+                  <p className={`text-xs font-medium ${popupTextCls}`}>
                     Attach a model
                   </p>
                   <button
                     type="button"
                     onClick={() => setIsAttachPickerOpen(false)}
-                    className="text-gray-400 hover:text-white"
+                    className={isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-[#111827]"}
                     title="Close attachment picker"
                     aria-label="Close attachment picker"
                   >
@@ -337,8 +366,12 @@ export const ComposeMessageModal = () => {
                       }}
                       className={`rounded-lg border px-2 py-1.5 text-xs transition-colors ${
                         attachableType === option.value
-                          ? "border-[#7FD5FF]/70 bg-[#0A4D66]/40 text-[#C9F1FF]"
-                          : "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/25"
+                          ? isDark
+                            ? "border-[#7FD5FF]/70 bg-[#0A4D66]/40 text-[#C9F1FF]"
+                            : "border-[#2563EB]/70 bg-blue-50 text-[#1D4ED8]"
+                          : isDark
+                            ? "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/25"
+                            : "border-[#D1D5DB] text-[#374151] hover:bg-gray-50"
                       }`}
                     >
                       {option.label}
@@ -348,13 +381,13 @@ export const ComposeMessageModal = () => {
 
                 {attachableType && (
                   <div className="space-y-2">
-                    <label className="text-xs text-gray-300">Select item</label>
+                    <label className={`text-xs ${labelCls}`}>Select item</label>
                     {attachableSelectionOptions.length > 0 ? (
                       <select
                         title="Attachable item"
                         value={attachableId}
                         onChange={(event) => setAttachableId(event.target.value)}
-                        className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+                        className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${inputCls}`}
                       >
                         <option value="">Select item</option>
                         {attachableSelectionOptions.map((option) => (
@@ -367,7 +400,7 @@ export const ComposeMessageModal = () => {
                       <input
                         value={attachableId}
                         onChange={(event) => setAttachableId(event.target.value)}
-                        className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+                        className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${inputCls}`}
                         placeholder="Attachable ID"
                         type="number"
                       />
@@ -380,16 +413,16 @@ export const ComposeMessageModal = () => {
             {isRecipientPickerOpen && (
               <div
                 ref={recipientPickerRef}
-                className="absolute bottom-[110%] left-0 z-20 w-full rounded-xl border border-[#0A4D66]/45 bg-[#03151E] p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)]"
+                className={`absolute bottom-[110%] left-0 z-20 w-full rounded-xl border p-3 ${popupCls}`}
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-medium text-gray-200">
+                  <p className={`text-xs font-medium ${popupTextCls}`}>
                     Choose recipients
                   </p>
                   <button
                     type="button"
                     onClick={() => setIsRecipientPickerOpen(false)}
-                    className="text-gray-400 hover:text-white"
+                    className={isDark ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-[#111827]"}
                     title="Close recipient picker"
                     aria-label="Close recipient picker"
                   >
@@ -433,7 +466,11 @@ export const ComposeMessageModal = () => {
                 return (
                   <span
                     key={recipientId}
-                    className="inline-flex items-center gap-1 rounded-full border border-[#0A4D66]/45 bg-[#0A4D66]/15 px-2 py-0.5 text-[11px] text-[#A6E7FF]"
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                      isDark
+                        ? "border-[#0A4D66]/45 bg-[#0A4D66]/15 text-[#A6E7FF]"
+                        : "border-blue-200 bg-blue-50 text-[#1D4ED8]"
+                    }`}
                   >
                     <Icon icon="mdi:account" className="h-3 w-3" />
                     {userName(recipient)}
@@ -444,7 +481,11 @@ export const ComposeMessageModal = () => {
           )}
 
           {selectedAttachableOption && (
-            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#128C7E]/45 bg-[#128C7E]/15 px-2.5 py-1 text-xs text-[#8FF3E6]">
+            <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
+              isDark
+                ? "border-[#128C7E]/45 bg-[#128C7E]/15 text-[#8FF3E6]"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}>
               <Icon icon="mdi:link-variant" className="h-3.5 w-3.5" />
               <span>{selectedAttachableOption.label}</span>
             </div>

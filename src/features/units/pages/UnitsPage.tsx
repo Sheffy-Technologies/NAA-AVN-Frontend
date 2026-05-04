@@ -94,7 +94,7 @@ export const UnitsPage = () => {
             </div>
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
               onClick={handleAddUnit}
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />

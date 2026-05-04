@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { AUTH_STORAGE_KEY, logout } from "@/features/auth/authSlice";
+import { useTheme } from "@/context/ThemeContext";
 
 type NavItem = {
   name: string;
@@ -108,6 +109,7 @@ const BOTTOM_ITEMS: NavItem[] = [
 export const Sidebar = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { isDark } = useTheme();
   const userPermissions = useAppSelector(
     (state) => state.auth.user?.permissions ?? [],
   );
@@ -196,11 +198,60 @@ export const Sidebar = () => {
     navigate("/auth/login");
   };
 
+  /* ── theme-derived classes ─────────────────────────── */
+  const sidebarBg   = isDark ? "bg-[#001219] border-[#0A4D66]/30" : "bg-white border-gray-200";
+  const defaultText = isDark ? "text-gray-400" : "text-gray-600";
+  const logoTitle   = isDark ? "text-white" : "text-gray-900";
+  const logoSub     = isDark ? "text-gray-500" : "text-gray-400";
+  const sectionLbl  = isDark ? "text-gray-500" : "text-gray-400";
+  const dividerCls  = isDark ? "border-[#0A4D66]/30" : "border-gray-200";
+  const profileCard = isDark
+    ? "bg-[#001219] border-[#0A4D66]/30 hover:bg-[#0A4D66]/30"
+    : "bg-gray-50 border-gray-200 hover:bg-gray-100";
+  const profileName = isDark ? "text-white" : "text-gray-900";
+  const profileRole = isDark ? "text-gray-500" : "text-gray-500";
+
+  const navItemCls = (isActive: boolean) =>
+    cn(
+      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200",
+      isActive
+        ? isDark
+          ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-2 border-[#7FD5FF]"
+          : "bg-blue-50 text-[#0369A1] border-l-2 border-[#0369A1]"
+        : isDark
+          ? `hover:bg-[#0A4D66]/50 hover:text-white ${defaultText}`
+          : `hover:bg-gray-100 hover:text-gray-900 ${defaultText}`,
+    );
+
+  const navItemSmCls = (isActive: boolean) =>
+    cn(
+      "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200",
+      isActive
+        ? isDark
+          ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-2 border-[#7FD5FF]"
+          : "bg-blue-50 text-[#0369A1] border-l-2 border-[#0369A1]"
+        : isDark
+          ? `hover:bg-[#0A4D66]/50 hover:text-white ${defaultText}`
+          : `hover:bg-gray-100 hover:text-gray-900 ${defaultText}`,
+    );
+
+  const bottomItemCls = (isActive: boolean) =>
+    cn(
+      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200",
+      isActive
+        ? isDark
+          ? "bg-[#0A4D66] text-white"
+          : "bg-blue-50 text-[#0369A1] border-l-2 border-[#0369A1]"
+        : isDark
+          ? `hover:bg-[#0A4D66]/50 hover:text-white ${defaultText}`
+          : `hover:bg-gray-100 hover:text-gray-900 ${defaultText}`,
+    );
+
   return (
-    <aside className="w-64 bg-[#001219] border-r border-[#0A4D66]/30 flex flex-col h-screen text-gray-300">
+    <aside className={`w-64 border-r flex flex-col h-screen ${sidebarBg} ${defaultText}`}>
       {/* Logo Area */}
       <div className="p-6 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-full overflow-hidden bg-[#001219] flex items-center justify-center">
+        <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}>
           <img
             src="/images/logo.png"
             alt="NA AVN logo"
@@ -208,10 +259,10 @@ export const Sidebar = () => {
           />
         </div>
         <div>
-          <h1 className="text-white font-bold text-lg tracking-wider">
+          <h1 className={`font-bold text-lg tracking-wider ${logoTitle}`}>
             NA AVN
           </h1>
-          <p className="text-[10px] text-gray-500 uppercase tracking-widest">
+          <p className={`text-[10px] uppercase tracking-widest ${logoSub}`}>
             Digital Data Base Management System
           </p>
         </div>
@@ -223,23 +274,16 @@ export const Sidebar = () => {
           <NavLink
             key={item.path}
             to={item.path}
-            end={item.path === "/dashboard"} // Only exact match for dashboard root if needed, but usually dashboard is exact
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200",
-                isActive
-                  ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-2 border-[#7FD5FF]"
-                  : "hover:bg-[#0A4D66]/50 hover:text-white text-gray-400",
-              )
-            }
+            end={item.path === "/dashboard"}
+            className={({ isActive }) => navItemCls(isActive)}
           >
             <Icon icon={item.icon} className="w-5 h-5" />
             <span>{item.name}</span>
           </NavLink>
         ))}
 
-        <div className="pt-3 mt-3 border-t border-[#0A4D66]/30">
-          <div className="px-4 pb-2 text-[10px] uppercase tracking-widest text-gray-500">
+        <div className={`pt-3 mt-3 border-t ${dividerCls}`}>
+          <div className={`px-4 pb-2 text-[10px] uppercase tracking-widest ${sectionLbl}`}>
             Messaging
           </div>
           <div className="space-y-1">
@@ -247,14 +291,7 @@ export const Sidebar = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
-                className={({ isActive }) =>
-                  cn(
-                    "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200",
-                    isActive
-                      ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-2 border-[#7FD5FF]"
-                      : "hover:bg-[#0A4D66]/50 hover:text-white text-gray-400",
-                  )
-                }
+                className={({ isActive }) => navItemSmCls(isActive)}
               >
                 <Icon icon={item.icon} className="w-5 h-5" />
                 <span>{item.name}</span>
@@ -265,20 +302,13 @@ export const Sidebar = () => {
       </nav>
 
       {/* Bottom Section */}
-      <div className="p-3 mt-auto border-t border-[#0A4D66]/30 bg-[#001219]">
+      <div className={`p-3 mt-auto border-t ${dividerCls} ${isDark ? "bg-[#001219]" : "bg-white"}`}>
         <div className="space-y-1 mb-4">
           {visibleBottomItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200",
-                  isActive
-                    ? "bg-[#0A4D66] text-white"
-                    : "hover:bg-[#0A4D66]/50 hover:text-white text-gray-400",
-                )
-              }
+              className={({ isActive }) => bottomItemCls(isActive)}
             >
               <Icon icon={item.icon} className="w-5 h-5" />
               <span>{item.name}</span>
@@ -287,7 +317,7 @@ export const Sidebar = () => {
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-1 w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 text-gray-400 hover:bg-red-700/30 hover:text-red-400"
+            className={`mt-1 w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200 hover:bg-red-500/10 hover:text-red-500 ${defaultText}`}
           >
             <Icon icon="mdi:logout" className="w-5 h-5" />
             <span>Logout</span>
@@ -295,15 +325,14 @@ export const Sidebar = () => {
         </div>
 
         {/* User Profile */}
-        <div className="mx-2 p-3 rounded-lg bg-[#001219] border border-[#0A4D66]/30 flex items-center gap-3 cursor-pointer hover:bg-[#0A4D66]/30 transition-colors">
-          <div className="w-8 h-8 rounded-full bg-gray-600 shrink-0" />
+        <div className={`mx-2 p-3 rounded-lg border flex items-center gap-3 cursor-pointer transition-colors ${profileCard}`}>
+          <div className="w-8 h-8 rounded-full bg-gray-400 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">
+            <p className={`text-sm font-medium truncate ${profileName}`}>
               {signedInUser.name}
             </p>
-            <p className="text-xs text-gray-500 truncate">{signedInUser.rolesLabel}</p>
+            <p className={`text-xs truncate ${profileRole}`}>{signedInUser.rolesLabel}</p>
           </div>
-          {/* <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" /> */}
         </div>
       </div>
     </aside>

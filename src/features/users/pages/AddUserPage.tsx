@@ -135,7 +135,7 @@ export const AddUserPage = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-[#0369A1] text-[#001219] rounded px-4 py-2 font-medium"
+            className="bg-[#0369A1] text-white rounded px-4 py-2 font-medium"
           >
             {isLoading ? "Creating..." : "Create User"}
           </button>
