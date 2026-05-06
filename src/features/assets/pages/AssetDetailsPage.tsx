@@ -1070,26 +1070,32 @@ export const AssetDetailsPage = () => {
                 <StatCard
                   label="TOTAL ENGINES"
                   value={String(asset.engines.length)}
+                  onClick={() => setActiveTab("engines")}
                 />
                 <StatCard
                   label="TOTAL AVIONICS"
                   value={String(asset.avionics.length)}
+                  onClick={() => setActiveTab("avionics")}
                 />
                 <StatCard
                   label="TOTAL COMPONENTS"
                   value={String(asset.components.length)}
+                  onClick={() => setActiveTab("components")}
                 />
                 <StatCard
                   label="TOTAL OPERATIONS"
                   value={String(asset.operations_count ?? asset.operations.length)}
+                  onClick={() => setActiveTab("operations")}
                 />
                 <StatCard
                   label="TOTAL WORK ORDERS"
                   value={String(assetWorkOrders.length)}
+                  onClick={() => setActiveTab("maintenance")}
                 />
                 <StatCard
                   label="TOTAL DISCREPANCIES"
                   value={String(defects.length)}
+                  onClick={() => setActiveTab("discrepancies")}
                 />
               </div>
             </div>
@@ -1108,7 +1114,17 @@ export const AssetDetailsPage = () => {
                     label="Serial Number (Airframe SN)"
                     value={asset.serial_number}
                   />
-                  <DetailRow label="Assigned Unit" value={unitName} />
+                  <DetailRow label="Assigned Unit" value={
+                    asset.unit_id ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/dashboard/units/${asset.unit_id}`)}
+                        className="text-[#7FD5FF] hover:underline font-medium"
+                      >
+                        {unitName}
+                      </button>
+                    ) : unitName
+                  } />
                   <DetailRow label="Role" value={configuration.role} />
                   <DetailRow label="Seats" value={configuration.seats} />
                   <DetailRow
@@ -2942,14 +2958,31 @@ export const AssetDetailsPage = () => {
   );
 };
 
-const StatCard = ({ label, value }: { label: string; value: string }) => (
-  <div className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-    <div className="text-[10px] text-gray-400 font-bold uppercase mb-1">
-      {label}
+const StatCard = ({ label, value, onClick }: { label: string; value: string; onClick?: () => void }) => {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="group bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40 text-left w-full hover:border-[#7FD5FF]/50 transition-colors"
+      >
+        <div className="text-[10px] text-gray-400 font-bold uppercase mb-1 flex items-center justify-between">
+          {label}
+          <Icon icon="mdi:arrow-top-right" className="w-3 h-3 text-[#7FD5FF]/40 group-hover:text-[#7FD5FF] transition-colors" />
+        </div>
+        <div className="text-xl font-bold text-white">{value}</div>
+      </button>
+    );
+  }
+  return (
+    <div className="bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+      <div className="text-[10px] text-gray-400 font-bold uppercase mb-1">
+        {label}
+      </div>
+      <div className="text-xl font-bold text-white">{value}</div>
     </div>
-    <div className="text-xl font-bold text-white">{value}</div>
-  </div>
-);
+  );
+};
 
 const DetailRow = ({ label, value }: { label: string; value: ReactNode }) => (
   <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2 last:border-0 last:pb-0">

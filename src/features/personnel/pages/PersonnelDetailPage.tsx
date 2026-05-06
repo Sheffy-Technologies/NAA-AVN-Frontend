@@ -533,7 +533,23 @@ export const PersonnelDetailPage = () => {
                         icon="mdi:office-building"
                         className="w-4 h-4 text-gray-400"
                       />
-                      <span>{person.lastDeploymentUnit}</span>
+                      {(() => {
+                        const sortedDeps = [...(apiPerson?.deployments ?? [])].sort(
+                          (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
+                        );
+                        const lastUnitId = sortedDeps[0]?.to_unit_id;
+                        return lastUnitId ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/dashboard/units/${lastUnitId}`)}
+                            className="text-left text-[#7FD5FF] hover:underline"
+                          >
+                            {person.lastDeploymentUnit}
+                          </button>
+                        ) : (
+                          <span>{person.lastDeploymentUnit}</span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -580,9 +596,19 @@ export const PersonnelDetailPage = () => {
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
                       Unit
                     </div>
-                    <p className="text-white">
-                      {person.currentDeploymentUnit}
-                    </p>
+                    {apiPerson?.unit?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/dashboard/units/${apiPerson.unit.id}`)}
+                        className="text-left text-[#7FD5FF] hover:underline font-medium"
+                      >
+                        {person.currentDeploymentUnit}
+                      </button>
+                    ) : (
+                      <p className="text-white">
+                        {person.currentDeploymentUnit}
+                      </p>
+                    )}
                   </div>
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
@@ -608,7 +634,17 @@ export const PersonnelDetailPage = () => {
                         icon="mdi:office-building"
                         className="w-4 h-4 text-gray-400"
                       />
-                      <span>{person.currentDeploymentUnit}</span>
+                      {apiPerson?.latest_deployment?.to_unit_id ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/dashboard/units/${apiPerson.latest_deployment!.to_unit_id}`)}
+                          className="text-left text-[#7FD5FF] hover:underline"
+                        >
+                          {person.currentDeploymentUnit}
+                        </button>
+                      ) : (
+                        <span>{person.currentDeploymentUnit}</span>
+                      )}
                     </div>
                   </div>
                 </div>

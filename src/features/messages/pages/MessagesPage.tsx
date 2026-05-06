@@ -22,6 +22,7 @@ import {
 } from "@/features/inventory/api";
 import { getEchoClient } from "@/shared/realtime/echo";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { useTheme } from "@/context/ThemeContext";
 
 const ATTACHABLE_OPTIONS: Array<{
   value: MessageAttachableType;
@@ -100,6 +101,51 @@ export const MessagesPage = () => {
   const canCreateMessages = userPermissions.includes("messages.create");
   const canUpdateMessages = userPermissions.includes("messages.update");
   const canDeleteMessages = userPermissions.includes("messages.delete");
+
+  const { isDark } = useTheme();
+
+  /* ── theme helpers ───────────────────────────────────── */
+  const panelBg       = isDark ? "bg-[#04131A] border-[#0A4D66]/30" : "bg-white border-gray-200";
+  const panelDivider  = isDark ? "border-[#0A4D66]/30" : "border-gray-200";
+  const listDivider   = isDark ? "divide-[#0A4D66]/20" : "divide-gray-100";
+  const titleText     = isDark ? "text-white" : "text-gray-900";
+  const mutedText     = isDark ? "text-gray-400" : "text-gray-500";
+  const subtleText    = isDark ? "text-gray-500" : "text-gray-400";
+  const convActive    = isDark ? "border-l-[#7FD5FF] bg-[#0A4D66]/35" : "border-l-[#0369A1] bg-blue-50";
+  const convInactive  = isDark ? "hover:bg-[#0A4D66]/15 hover:border-l-[#0A4D66]/70" : "hover:bg-gray-50 hover:border-l-gray-300";
+  const msgAreaBg     = isDark
+    ? "bg-[radial-gradient(circle_at_top_right,rgba(10,77,102,0.08),transparent_45%),radial-gradient(circle_at_bottom_left,rgba(127,213,255,0.05),transparent_40%)]"
+    : "bg-gray-50";
+  const myBubble      = isDark ? "border-[#1E6E59]/70 bg-[#0A4D66]/25" : "border-blue-200 bg-blue-50";
+  const theirBubble   = isDark ? "border-[#0A4D66]/40 bg-[#0A4D66]/15" : "border-gray-200 bg-white";
+  const msgBodyText   = isDark ? "text-gray-200" : "text-gray-800";
+  const replyFooter   = isDark ? `border-[#0A4D66]/30 bg-[#04131A]/92` : "border-gray-200 bg-white/95";
+  const composeBox    = isDark ? "border-[#0A4D66]/40 bg-[#061A24]" : "border-gray-200 bg-gray-50";
+  const textareaText  = isDark ? "text-white placeholder-gray-500" : "text-gray-900 placeholder-gray-400";
+  const pickerBg      = isDark ? "border-[#0A4D66]/45 bg-[#03151E]" : "border-gray-200 bg-white";
+  const pickerTitle   = isDark ? "text-gray-200" : "text-gray-700";
+  const pickerClose   = isDark ? "text-gray-400 hover:text-white" : "text-gray-400 hover:text-gray-700";
+  const pickerInput   = isDark
+    ? "border-[#0A4D66]/40 bg-[#001825] text-white focus:border-[#7FD5FF]"
+    : "border-gray-200 bg-white text-gray-900 focus:border-[#0369A1]";
+  const typeChipInactive = isDark
+    ? "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/25"
+    : "border-gray-200 text-gray-600 hover:bg-gray-100";
+  const attachLink    = isDark
+    ? "border-[#0A4D66]/60 bg-[#001825] text-[#7FD5FF] hover:border-[#7FD5FF]/60 hover:bg-[#0A4D66]/20"
+    : "border-blue-200 bg-blue-50 text-[#0369A1] hover:border-[#0369A1]/60 hover:bg-blue-100";
+  const attachSpan    = isDark
+    ? "border-[#0A4D66]/40 bg-[#001825] text-gray-300"
+    : "border-gray-200 bg-gray-100 text-gray-600";
+  const markReadBtn   = isDark
+    ? "border-[#0A4D66]/40 text-[#7FD5FF] hover:bg-[#0A4D66]/20"
+    : "border-blue-200 text-[#0369A1] hover:bg-blue-50";
+  const clearBtn      = isDark
+    ? "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/20"
+    : "border-gray-200 text-gray-600 hover:bg-gray-100";
+  const recipientTag  = isDark
+    ? "border-[#0A4D66]/45 bg-[#0A4D66]/15 text-[#A6E7FF]"
+    : "border-blue-200 bg-blue-50 text-[#0369A1]";
 
   const [selectedConversationUserId, setSelectedConversationUserId] = useState<number | null>(null);
   const [replyRecipientIds, setReplyRecipientIds] = useState<number[]>([]);
@@ -430,7 +476,7 @@ export const MessagesPage = () => {
 
   if (!canViewMessages) {
     return (
-      <div className="rounded-xl border border-[#0A4D66]/30 bg-[#001219] p-6 text-sm text-gray-300">
+      <div className={`rounded-xl border p-6 text-sm ${isDark ? "border-[#0A4D66]/30 bg-[#001219] text-gray-300" : "border-gray-200 bg-white text-gray-600"}`}>
         You do not have permission to view messages.
       </div>
     );
@@ -440,29 +486,29 @@ export const MessagesPage = () => {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white">Messages</h1>
-          <p className="text-xs text-gray-400">Private-style chats with optional extra recipients and smart attachments.</p>
+          <h1 className={`text-xl font-semibold ${titleText}`}>Messages</h1>
+          <p className={`text-xs ${mutedText}`}>Private-style chats with optional extra recipients and smart attachments.</p>
         </div>
-        <div className="text-xs text-gray-400">
+        <div className={`text-xs ${mutedText}`}>
           {unreadCount > 0 ? `${unreadCount} unread messages` : "No unread messages"}
         </div>
       </div>
 
       <div className="grid h-[calc(100vh-190px)] grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="rounded-2xl border border-[#0A4D66]/30 bg-[#04131A] shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
-          <div className="border-b border-[#0A4D66]/30 px-4 py-3 text-xs text-gray-400">
+        <div className={`rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.35)] ${panelBg}`}>
+          <div className={`border-b px-4 py-3 text-xs ${mutedText} ${panelDivider}`}>
             Conversations ({conversations.length})
           </div>
 
           {(isInboxFetching || isSentFetching) && (
-            <div className="px-4 py-3 text-xs text-gray-500">Loading conversations...</div>
+            <div className={`px-4 py-3 text-xs ${subtleText}`}>Loading conversations...</div>
           )}
 
           {!isInboxFetching && !isSentFetching && conversations.length === 0 && (
-            <div className="px-4 py-8 text-sm text-gray-500">No conversations yet.</div>
+            <div className={`px-4 py-8 text-sm ${subtleText}`}>No conversations yet.</div>
           )}
 
-          <div className="h-[calc(100%-44px)] overflow-y-auto divide-y divide-[#0A4D66]/20">
+          <div className={`h-[calc(100%-44px)] overflow-y-auto ${listDivider}`}>
             {conversations.map((conversation) => {
               const lastMessage = conversation.messages[conversation.messages.length - 1];
               const isActive = selectedConversationUserId === conversation.user.id;
@@ -473,19 +519,17 @@ export const MessagesPage = () => {
                   key={conversation.user.id}
                   type="button"
                   onClick={() => setSelectedConversationUserId(conversation.user.id)}
-                  className={`w-full border-l-2 border-transparent px-4 py-3 text-left transition-colors ${
-                    isActive
-                      ? "border-l-[#7FD5FF] bg-[#0A4D66]/35"
-                      : "bg-transparent hover:bg-[#0A4D66]/15 hover:border-l-[#0A4D66]/70"
+                  className={`w-full border-l-2 border-transparent px-4 py-3 text-left transition-colors divide-y ${
+                    isActive ? convActive : `bg-transparent ${convInactive}`
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-medium text-white">{userName(conversation.user)}</p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-gray-400">{preview}</p>
+                      <p className={`text-sm font-medium ${titleText}`}>{userName(conversation.user)}</p>
+                      <p className={`mt-0.5 line-clamp-2 text-xs ${mutedText}`}>{preview}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] text-gray-500">{formatDateTime(lastMessage?.created_at)}</p>
+                      <p className={`text-[10px] ${subtleText}`}>{formatDateTime(lastMessage?.created_at)}</p>
                       {conversation.unreadCount > 0 && (
                         <span className="mt-1 inline-flex min-w-5 justify-center rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300">
                           {conversation.unreadCount}
@@ -499,21 +543,21 @@ export const MessagesPage = () => {
           </div>
         </div>
 
-        <div className="flex h-full min-h-0 flex-col rounded-2xl border border-[#0A4D66]/30 bg-transparent shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
+        <div className={`flex h-full min-h-0 flex-col rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.2)] ${panelBg}`}>
           {!selectedConversation ? (
-            <div className="px-6 py-10 text-center text-sm text-gray-400">
+            <div className={`px-6 py-10 text-center text-sm ${mutedText}`}>
               Select a user to view chat history.
             </div>
           ) : (
             <>
-              <div className="border-b border-[#0A4D66]/30 bg-[#04131A] px-4 py-3">
-                <p className="text-sm font-semibold text-white">{userName(selectedConversation.user)}</p>
-                <p className="text-xs text-gray-400">
+              <div className={`border-b px-4 py-3 ${panelDivider} ${isDark ? "bg-[#04131A]" : "bg-gray-50"}`}>
+                <p className={`text-sm font-semibold ${titleText}`}>{userName(selectedConversation.user)}</p>
+                <p className={`text-xs ${mutedText}`}>
                   {selectedConversation.messages.length} messages in this thread
                 </p>
               </div>
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[radial-gradient(circle_at_top_right,rgba(10,77,102,0.08),transparent_45%),radial-gradient(circle_at_bottom_left,rgba(127,213,255,0.05),transparent_40%)] px-4 py-4">
+              <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 ${msgAreaBg}`}>
                 {selectedConversation.messages.map((message) => {
                   const isMine = message.sender_id === currentUserId;
                   const attachablePath = getAttachablePath(message.attachable_type, message.attachable_id);
@@ -526,22 +570,20 @@ export const MessagesPage = () => {
                     <div
                       key={message.id}
                       className={`max-w-[90%] rounded-lg border px-3 py-2 ${
-                        isMine
-                          ? "ml-auto border-[#1E6E59]/70 bg-[#0A4D66]/25"
-                          : "mr-auto border-[#0A4D66]/40 bg-[#0A4D66]/15"
+                        isMine ? `ml-auto ${myBubble}` : `mr-auto ${theirBubble}`
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-3">
-                        <span className="text-[11px] text-gray-400">
+                        <span className={`text-[11px] ${mutedText}`}>
                           {isMine ? "You" : userName(message.sender || undefined)}
                         </span>
-                        <span className="text-[10px] text-gray-500">{formatDateTime(message.created_at)}</span>
+                        <span className={`text-[10px] ${subtleText}`}>{formatDateTime(message.created_at)}</span>
                       </div>
 
-                      <p className="whitespace-pre-wrap text-sm text-gray-200">{message.body}</p>
+                      <p className={`whitespace-pre-wrap text-sm ${msgBodyText}`}>{message.body}</p>
 
                       {copiedUsers.length > 0 && (
-                        <p className="mt-2 text-[11px] text-gray-400">
+                        <p className={`mt-2 text-[11px] ${mutedText}`}>
                           CC: {copiedUsers.map((user) => userName(user)).join(", ")}
                         </p>
                       )}
@@ -552,7 +594,7 @@ export const MessagesPage = () => {
                             <button
                               type="button"
                               onClick={() => navigate(attachablePath)}
-                              className="inline-flex items-center gap-1.5 rounded border border-[#0A4D66]/60 bg-[#001825] px-2.5 py-1 text-xs text-[#7FD5FF] hover:border-[#7FD5FF]/60 hover:bg-[#0A4D66]/20"
+                              className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs ${attachLink}`}
                             >
                               <Icon icon="mdi:paperclip" className="h-3.5 w-3.5 shrink-0" />
                               <span>
@@ -560,12 +602,12 @@ export const MessagesPage = () => {
                                   `${message.attachable_type ?? ""} #${message.attachable_id ?? ""}`}
                               </span>
                               {message.attachable_details?.reference && (
-                                <span className="text-gray-400">· {message.attachable_details.reference}</span>
+                                <span className={mutedText}>· {message.attachable_details.reference}</span>
                               )}
                               <Icon icon="mdi:arrow-top-right" className="h-3 w-3 shrink-0 opacity-60" />
                             </button>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded border border-[#0A4D66]/40 bg-[#001825] px-2.5 py-1 text-xs text-gray-300">
+                            <span className={`inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs ${attachSpan}`}>
                               <Icon icon="mdi:paperclip" className="h-3.5 w-3.5 shrink-0" />
                               <span>
                                 {message.attachable_details?.label ||
@@ -582,7 +624,7 @@ export const MessagesPage = () => {
                             type="button"
                             onClick={() => void handleToggleRead(message)}
                             disabled={isUpdating}
-                            className="rounded border border-[#0A4D66]/40 px-2 py-0.5 text-[11px] text-[#7FD5FF] hover:bg-[#0A4D66]/20 disabled:opacity-60"
+                            className={`rounded border px-2 py-0.5 text-[11px] disabled:opacity-60 ${markReadBtn}`}
                           >
                             {message.is_read ? "Mark Unread" : "Mark Read"}
                           </button>
@@ -593,7 +635,7 @@ export const MessagesPage = () => {
                             type="button"
                             onClick={() => void handleDelete(message)}
                             disabled={isDeleting}
-                            className="rounded border border-red-500/40 px-2 py-0.5 text-[11px] text-red-300 hover:bg-red-500/10 disabled:opacity-60"
+                            className="rounded border border-red-500/40 px-2 py-0.5 text-[11px] text-red-400 hover:bg-red-500/10 disabled:opacity-60"
                           >
                             Delete
                           </button>
@@ -604,11 +646,11 @@ export const MessagesPage = () => {
                 })}
               </div>
 
-              <div className="sticky bottom-0 border-t border-[#0A4D66]/30 bg-[#04131A]/92 px-4 py-4 backdrop-blur-sm">
+              <div className={`sticky bottom-0 border-t px-4 py-4 backdrop-blur-sm ${replyFooter}`}>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-xs text-gray-300">Message</label>
-                    <div className="relative flex items-end gap-2 rounded-2xl border border-[#0A4D66]/40 bg-[#061A24] p-2">
+                    <label className={`text-xs ${mutedText}`}>Message</label>
+                    <div className={`relative flex items-end gap-2 rounded-2xl border p-2 ${composeBox}`}>
                       <button
                         type="button"
                         onClick={() => {
@@ -646,7 +688,7 @@ export const MessagesPage = () => {
                       <textarea
                         value={replyBody}
                         onChange={(event) => setReplyBody(event.target.value)}
-                        className="h-24 w-full resize-none rounded-xl border border-transparent bg-transparent px-2 py-2 text-sm text-white focus:border-[#0A4D66]/40 focus:outline-none"
+                        className={`h-24 w-full resize-none rounded-xl border border-transparent bg-transparent px-2 py-2 text-sm focus:border-[#0A4D66]/40 focus:outline-none ${textareaText}`}
                         placeholder="Type a message"
                       />
 
@@ -662,13 +704,13 @@ export const MessagesPage = () => {
                       </button>
 
                       {isAttachPickerOpen && (
-                        <div className="absolute bottom-[110%] left-0 z-20 w-full rounded-xl border border-[#0A4D66]/45 bg-[#03151E] p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
+                        <div className={`absolute bottom-[110%] left-0 z-20 w-full rounded-xl border p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)] ${pickerBg}`}>
                           <div className="mb-2 flex items-center justify-between">
-                            <p className="text-xs font-medium text-gray-200">Attach a model</p>
+                            <p className={`text-xs font-medium ${pickerTitle}`}>Attach a model</p>
                             <button
                               type="button"
                               onClick={() => setIsAttachPickerOpen(false)}
-                              className="text-gray-400 hover:text-white"
+                              className={pickerClose}
                               title="Close attachment picker"
                               aria-label="Close attachment picker"
                             >
@@ -688,7 +730,7 @@ export const MessagesPage = () => {
                                 className={`rounded-lg border px-2 py-1.5 text-xs transition-colors ${
                                   attachableType === option.value
                                     ? "border-[#7FD5FF]/70 bg-[#0A4D66]/40 text-[#C9F1FF]"
-                                    : "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/25"
+                                    : typeChipInactive
                                 }`}
                               >
                                 {option.label}
@@ -698,13 +740,13 @@ export const MessagesPage = () => {
 
                           {attachableType && (
                             <div className="space-y-2">
-                              <label className="text-xs text-gray-300">Select item</label>
+                              <label className={`text-xs ${mutedText}`}>Select item</label>
                               {attachableSelectionOptions.length > 0 ? (
                                 <select
                                   title="Attachable item"
                                   value={attachableId}
                                   onChange={(event) => setAttachableId(event.target.value)}
-                                  className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+                                  className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${pickerInput}`}
                                 >
                                   <option value="">Select item</option>
                                   {attachableSelectionOptions.map((option) => (
@@ -717,7 +759,7 @@ export const MessagesPage = () => {
                                 <input
                                   value={attachableId}
                                   onChange={(event) => setAttachableId(event.target.value)}
-                                  className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:border-[#7FD5FF] focus:outline-none"
+                                  className={`w-full rounded border px-3 py-2 text-sm focus:outline-none ${pickerInput}`}
                                   placeholder="Attachable ID"
                                   type="number"
                                 />
@@ -728,13 +770,13 @@ export const MessagesPage = () => {
                       )}
 
                       {isRecipientPickerOpen && (
-                        <div className="absolute bottom-[110%] left-0 z-20 w-full rounded-xl border border-[#0A4D66]/45 bg-[#03151E] p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
+                        <div className={`absolute bottom-[110%] left-0 z-20 w-full rounded-xl border p-3 shadow-[0_15px_40px_rgba(0,0,0,0.45)] ${pickerBg}`}>
                           <div className="mb-2 flex items-center justify-between">
-                            <p className="text-xs font-medium text-gray-200">Choose recipients</p>
+                            <p className={`text-xs font-medium ${pickerTitle}`}>Choose recipients</p>
                             <button
                               type="button"
                               onClick={() => setIsRecipientPickerOpen(false)}
-                              className="text-gray-400 hover:text-white"
+                              className={pickerClose}
                               title="Close recipient picker"
                               aria-label="Close recipient picker"
                             >
@@ -767,7 +809,7 @@ export const MessagesPage = () => {
                           return (
                             <span
                               key={recipientId}
-                              className="inline-flex items-center gap-1 rounded-full border border-[#0A4D66]/45 bg-[#0A4D66]/15 px-2 py-0.5 text-[11px] text-[#A6E7FF]"
+                              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${recipientTag}`}
                             >
                               <Icon icon="mdi:account" className="h-3 w-3" />
                               {userName(recipient)}
@@ -790,7 +832,7 @@ export const MessagesPage = () => {
                   <button
                     type="button"
                     onClick={resetReplyForm}
-                    className="rounded border border-[#0A4D66]/40 px-3 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/20"
+                    className={`rounded border px-3 py-2 text-xs ${clearBtn}`}
                   >
                     Clear
                   </button>

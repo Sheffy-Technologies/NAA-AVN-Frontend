@@ -245,6 +245,22 @@ const OperationTab = ({
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
           <InfoRow label="Purpose" value={operation.name} />
           <InfoRow label="Type" value={operation.operation_type?.name || "N/A"} />
+          <InfoRow
+            label="Unit"
+            value={
+              operation.unit?.id ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/dashboard/units/${operation.unit.id}`)}
+                  className="text-left text-[#7FD5FF] hover:underline font-bold text-sm"
+                >
+                  {operation.unit.name}
+                </button>
+              ) : (
+                operation.unit?.name || "N/A"
+              )
+            }
+          />
           <InfoRow label="Departure" value={departureLabel} />
           <InfoRow label="Destination" value={arrivalLabel} />
           {operation.waypoints && operation.waypoints.length > 0 ? (

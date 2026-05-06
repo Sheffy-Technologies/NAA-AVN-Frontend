@@ -15,36 +15,65 @@ type Card = {
   textColor?: string;
   subText?: string;
   alert?: boolean;
+  onClick?: () => void;
 };
 
-const CardItem = ({ card }: { card: Card }) => (
-  <div
-    className={cn(
-      "rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between",
-      card.bgClass || "bg-[#001219]",
-    )}
-  >
-    <div>
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">
-        {card.label}
-      </p>
-      <p className={cn("text-2xl font-semibold mt-1", card.textColor || "text-white")}>
-        {card.value}
-      </p>
-      {card.subText && (
-        <p className="text-[10px] text-yellow-400 mt-1 flex items-center gap-1">
-           {card.alert && <Icon icon="mdi:alert" className="w-3 h-3" />}
-           {card.subText}
+const CardItem = ({ card }: { card: Card }) => {
+  const inner = (
+    <>
+      <div>
+        <p className="text-[11px] uppercase tracking-wide text-gray-400">
+          {card.label}
         </p>
-      )}
-    </div>
-    {card.icon && (
-      <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
-        <Icon icon={card.icon} className="w-5 h-5 text-cyan-300" />
+        <p className={cn("text-2xl font-semibold mt-1", card.textColor || "text-white")}>
+          {card.value}
+        </p>
+        {card.subText && (
+          <p className="text-[10px] text-yellow-400 mt-1 flex items-center gap-1">
+            {card.alert && <Icon icon="mdi:alert" className="w-3 h-3" />}
+            {card.subText}
+          </p>
+        )}
       </div>
-    )}
-  </div>
-);
+      <div className="flex items-center gap-2">
+        {card.icon && (
+          <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
+            <Icon icon={card.icon} className="w-5 h-5 text-cyan-300" />
+          </div>
+        )}
+        {card.onClick && (
+          <Icon icon="mdi:arrow-top-right" className="w-4 h-4 text-[#7FD5FF]/60 group-hover:text-[#7FD5FF] transition-colors" />
+        )}
+      </div>
+    </>
+  );
+
+  if (card.onClick) {
+    return (
+      <button
+        type="button"
+        onClick={card.onClick}
+        className={cn(
+          "group rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between w-full text-left hover:border-[#7FD5FF]/50 transition-colors",
+          card.bgClass || "bg-[#001219]",
+        )}
+      >
+        {inner}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between",
+        card.bgClass || "bg-[#001219]",
+      )}
+    >
+      {inner}
+    </div>
+  );
+};
 
 export const UnitsDetailsPage = () => {
   const navigate = useNavigate();
@@ -81,26 +110,31 @@ export const UnitsDetailsPage = () => {
       label: "ASSETS",
       value: formatCount(unit?.assets_count),
       icon: "mdi:helicopter",
+      onClick: () => navigate("/dashboard/assets"),
     },
     {
       label: "OPERATIONS",
       value: formatCount(unit?.operations_count),
       icon: "mdi:clipboard-text-clock-outline",
+      onClick: () => navigate("/dashboard/operations"),
     },
     {
       label: "PERSONNEL",
       value: formatCount(unit?.personnel_count),
       icon: "mdi:account-hard-hat",
+      onClick: () => navigate("/dashboard/personnel"),
     },
     {
       label: "INVENTORY ITEMS",
       value: formatCount(unit?.inventory_count),
       icon: "mdi:package-variant",
+      onClick: () => navigate("/dashboard/inventory"),
     },
     {
       label: "FINANCE RECORDS",
       value: formatCount(unit?.finances_count),
       icon: "mdi:cash-multiple",
+      onClick: () => navigate("/dashboard/finance"),
     },
   ];
 
@@ -111,6 +145,7 @@ export const UnitsDetailsPage = () => {
       bgClass: "bg-green-900/20 border-green-800/50",
       icon: "mdi:package-variant-closed",
       textColor: "text-white",
+      onClick: () => navigate("/dashboard/inventory"),
     },
     {
       label: "LOW STOCK ITEMS",
@@ -118,6 +153,7 @@ export const UnitsDetailsPage = () => {
       bgClass: "bg-yellow-900/20 border-yellow-800/50",
       icon: "mdi:clipboard-alert",
       textColor: "text-white",
+      onClick: () => navigate("/dashboard/inventory"),
     },
     {
       label: "EXPIRED ITEMS",
@@ -125,6 +161,7 @@ export const UnitsDetailsPage = () => {
       bgClass: "bg-red-900/20 border-red-800/50",
       icon: "mdi:alert-octagon",
       textColor: "text-white",
+      onClick: () => navigate("/dashboard/inventory"),
     },
     {
       label: "CRITICAL STOCK",
@@ -132,6 +169,7 @@ export const UnitsDetailsPage = () => {
       bgClass: "bg-orange-900/20 border-orange-800/50",
       icon: "mdi:calendar-clock",
       textColor: "text-white",
+      onClick: () => navigate("/dashboard/inventory"),
     },
   ];
 

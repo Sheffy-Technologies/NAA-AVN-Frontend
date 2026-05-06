@@ -835,30 +835,44 @@ export const AssetsPage = () => {
                 No assets found
               </div>
             ) : (
-              filteredAssets.map((asset) => (
-                <div
-                  key={asset.id}
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden group hover:border-[#7FD5FF]/50 transition-colors"
-                >
-                  {/* Status Strip */}
-                  <div
-                    className={cn(
-                      "absolute top-0 left-0 w-1 h-full",
-                      asset.serviceability_status === "serviceable"
-                        ? "bg-emerald-500"
-                        : asset.serviceability_status === "under_maintenance"
-                          ? "bg-amber-500"
-                          : "bg-red-500",
-                    )}
-                  />
+              filteredAssets.map((asset) => {
+                const imageUrl = getAssetImageUrl(asset);
+                const assetTypeLabel =
+                  activeTab === "vehicle"
+                    ? getVehicleTypeName(
+                        (vehicles ?? []).find((v) => v.id === asset.id)
+                          ?.vehicle_type_id,
+                      )
+                    : asset.model || "-";
+                const registrationLabel =
+                  asset.tail_number && asset.tail_number !== "-"
+                    ? asset.tail_number
+                    : asset.type === "facility"
+                      ? "N/A"
+                      : "-";
 
-                  {/* Header */}
-                  <div className="flex items-start justify-between pl-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
-                        {getAssetImageUrl(asset) ? (
+                return (
+                  <div
+                    key={asset.id}
+                    className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden group hover:border-[#7FD5FF]/50 transition-colors"
+                  >
+                    {/* Status Strip */}
+                    <div
+                      className={cn(
+                        "absolute top-0 left-0 w-1 h-full",
+                        asset.serviceability_status === "serviceable"
+                          ? "bg-emerald-500"
+                          : asset.serviceability_status === "under_maintenance"
+                            ? "bg-amber-500"
+                            : "bg-red-500",
+                      )}
+                    />
+
+                    <div className="pl-2">
+                      <div className="h-36 rounded-lg border border-[#0A4D66]/25 bg-[#001825] overflow-hidden flex items-center justify-center">
+                        {imageUrl ? (
                           <img
-                            src={getAssetImageUrl(asset)}
+                            src={imageUrl}
                             alt={asset.name}
                             className="w-full h-full object-cover"
                           />
@@ -867,59 +881,93 @@ export const AssetsPage = () => {
                             icon={
                               asset.type === "aircraft"
                                 ? "mdi:helicopter"
-                                : "mdi:cube"
+                                : asset.type === "vehicle"
+                                  ? "mdi:car"
+                                  : "mdi:office-building"
                             }
-                            className="w-8 h-8 text-[#7FD5FF]"
+                            className="w-12 h-12 text-[#7FD5FF]"
                           />
                         )}
                       </div>
+                    </div>
+
+                    {/* Header */}
+                    <div className="flex items-start justify-between pl-2">
                       <div>
-                        <h3 className="text-white font-bold text-lg">
+                        <h3 className="text-white font-bold text-base leading-tight">
                           {asset.name}
                         </h3>
-                        <p className="text-xs text-gray-400">{asset.model}</p>
+                        <p className="text-xs text-gray-400 mt-1">{assetTypeLabel}</p>
                       </div>
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs font-medium flex items-center gap-1.5",
-                        asset.serviceability_status === "serviceable"
-                          ? "text-emerald-400"
-                          : asset.serviceability_status === "under_maintenance"
-                            ? "text-amber-400"
-                            : "text-red-400",
-                      )}
-                    >
-                      {formatStatus(asset.serviceability_status)}
-                      <div
+                      <span
                         className={cn(
-                          "w-1.5 h-1.5 rounded-full",
+                          "text-xs font-medium flex items-center gap-1.5",
                           asset.serviceability_status === "serviceable"
-                            ? "bg-emerald-500"
-                            : asset.serviceability_status ===
-                                "under_maintenance"
-                              ? "bg-amber-500"
-                              : "bg-red-500",
+                            ? "text-emerald-400"
+                            : asset.serviceability_status === "under_maintenance"
+                              ? "text-amber-400"
+                              : "text-red-400",
                         )}
-                      />
-                    </span>
-                  </div>
-
-                  {/* Details Grid */}
-                  <div className="grid grid-cols-2 gap-2 pl-2 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
-                    <div>
-                      <span className="text-gray-500 block mb-1">Type</span>
-                      <span className="text-white font-medium">
-                        {asset.model}
+                      >
+                        {formatStatus(asset.serviceability_status)}
+                        <div
+                          className={cn(
+                            "w-1.5 h-1.5 rounded-full",
+                            asset.serviceability_status === "serviceable"
+                              ? "bg-emerald-500"
+                              : asset.serviceability_status === "under_maintenance"
+                                ? "bg-amber-500"
+                                : "bg-red-500",
+                          )}
+                        />
                       </span>
                     </div>
-                    <div>
-                      <span className="text-gray-500 block mb-1">Defect</span>
-                      <span className="text-white font-medium">No</span>
+
+                    {/* Details Grid */}
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 pl-2 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
+                      <div>
+                        <span className="text-gray-500 block mb-1">Unit</span>
+                        <span className="text-white font-medium">
+                          {getUnitName(asset.unit_id)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block mb-1">Operation</span>
+                        <span className="text-white font-medium">
+                          {formatStatus(asset.operation_status)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block mb-1">
+                          {asset.type === "aircraft"
+                            ? "Tail Number"
+                            : asset.type === "vehicle"
+                              ? "Registration"
+                              : "Identifier"}
+                        </span>
+                        <span className="text-white font-medium">{registrationLabel}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500 block mb-1">Serial Number</span>
+                        <span className="text-white font-medium">
+                          {asset.serial_number || "-"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pl-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenDetail(asset.id)}
+                        className="inline-flex items-center gap-1 text-xs text-[#7FD5FF] hover:text-white"
+                      >
+                        <Icon icon="mdi:open-in-new" className="w-4 h-4" />
+                        View details
+                      </button>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
