@@ -7,7 +7,13 @@ import {
   useUpdateInventoryStockMutation,
   useDeleteInventoryMutation,
   useGetInventoryRequisitionsQuery,
+  useGetStockMovementsQuery,
+  useGetRfqsQuery,
+  useCreateRfqMutation,
+  useGetSupplierQuotationsQuery,
+  useGetGoodsReceivedNotesQuery,
   useGetSuppliersQuery,
+  useGetPurchaseOrdersQuery,
 } from "@/features/inventory/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
@@ -43,6 +49,14 @@ type InventoryRow = {
   measurementUnit: string;
 };
 
+type PurchaseOrderListRow = {
+  id: number;
+  name?: string | null;
+  status?: string | null;
+  order_date?: string | null;
+  expected_date_of_delivery?: string | null;
+};
+
 type MultiFilterState<T> = {
   all: boolean;
   selected: T[];
@@ -54,6 +68,16 @@ const INVENTORY_TABS = [
     id: "Requisitions",
     label: "Requisitions",
     icon: "mdi:file-document-outline",
+  },
+  {
+    id: "Parts Requisitions",
+    label: "Parts Requisitions",
+    icon: "mdi:wrench-clock",
+  },
+  {
+    id: "Purchase Orders",
+    label: "Purchase Orders",
+    icon: "mdi:cart-outline",
   },
   {
     id: "Suppliers",
@@ -293,7 +317,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
       <div className="w-full max-w-md bg-[#001219] border border-[#0A4D66]/60 rounded-xl shadow-2xl">
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-2">
             <Icon icon="mdi:database-plus" className="w-4 h-4 text-[#7FD5FF]" />
             <span className="text-xs sm:text-sm font-semibold tracking-wide text-white uppercase">
@@ -303,6 +327,8 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
           <button
             type="button"
             onClick={() => onClose(false)}
+            title="Close update stock modal"
+            aria-label="Close update stock modal"
             className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
           >
             <Icon icon="mdi:close" className="w-4 h-4" />
@@ -370,7 +396,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
               type="number"
               value={quantity}
               onChange={handleQuantityChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="Enter Quantity"
               min={1}
             />
@@ -393,7 +419,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
               type="text"
               value={reason}
               onChange={handleReasonChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="Enter Reason"
             />
           </div>
@@ -406,7 +432,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
             type="button"
             onClick={handleSubmit}
             className={cn(
-              "w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
+              "w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
               (isLoading || isQuantityInvalid) &&
                 "opacity-70 cursor-not-allowed",
             )}
@@ -448,9 +474,14 @@ export const InventoryPage = () => {
     "all" | "month" | "quarter" | "year"
   >("all");
   const [requisitionUnitId, setRequisitionUnitId] = useState<number | "">("");
+  const [selectedPartRequisitionIds, setSelectedPartRequisitionIds] = useState<
+    number[]
+  >([]);
+  const [selectedRfqSupplierIds, setSelectedRfqSupplierIds] = useState<number[]>([]);
 
   const navigate = useNavigate();
   const [deleteInventory] = useDeleteInventoryMutation();
+  const [createRfq, { isLoading: isCreatingPartsRfq }] = useCreateRfqMutation();
 
   const handleDeleteInventory = async (id: number, name: string) => {
     if (!window.confirm(`Delete "${name}"? This action cannot be undone.`)) return;
@@ -500,8 +531,39 @@ export const InventoryPage = () => {
 
   const { data: suppliersData = [], isLoading: isSuppliersLoading } =
     useGetSuppliersQuery(undefined, {
-      skip: activeTab !== "Suppliers",
+      skip: activeTab !== "Suppliers" && activeTab !== "Parts Requisitions",
     });
+
+  const {
+    data: stockMovementsData = [],
+    isLoading: isPartsRequisitionsLoading,
+    refetch: refetchStockMovements,
+  } = useGetStockMovementsQuery(undefined, {
+    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+  });
+
+  const { data: rfqsData = [], refetch: refetchRfqs } = useGetRfqsQuery(undefined, {
+    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+  });
+
+  const { data: quotationsData = [] } = useGetSupplierQuotationsQuery(undefined, {
+    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+  });
+
+  const { data: goodsReceivedNotesData = [] } = useGetGoodsReceivedNotesQuery(undefined, {
+    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+  });
+
+  const {
+    data: purchaseOrdersData = [],
+    isLoading: isPurchaseOrdersLoading,
+    isError: isPurchaseOrdersError,
+  } = useGetPurchaseOrdersQuery(undefined, {
+    skip:
+      activeTab !== "Purchase Orders" &&
+      activeTab !== "Parts Requisitions" &&
+      activeTab !== "Requisitions",
+  });
 
   // Handlers
   const handleToggleAll =
@@ -550,7 +612,7 @@ export const InventoryPage = () => {
         stockLevel: mapStockLevel(item.stock_level),
         currentStock: item.current_stock,
         reorderLevel: item.re_order_level,
-        type: item.type,
+        type: item.type ?? "unknown",
         assetId: item.asset_id,
         description: item.description,
         remark: item.remark,
@@ -575,7 +637,7 @@ export const InventoryPage = () => {
     {
       label: "Total Items",
       value: filteredInventoryRows.length,
-      color: "bg-[#7FD5FF]",
+      color: "bg-[#0369A1]",
     },
     {
       label: "Total In Stock",
@@ -651,6 +713,180 @@ export const InventoryPage = () => {
       withAddress,
     };
   }, [suppliersData]);
+
+  const partRequisitions = useMemo(() => {
+    return [...stockMovementsData]
+      .filter((movement) => movement.movement_type === "issue")
+      .sort((a, b) => b.id - a.id);
+  }, [stockMovementsData]);
+
+  const existingRfqStockMovementIds = useMemo(
+    () => new Set(rfqsData.map((rfq) => Number(rfq.stock_movement_id))),
+    [rfqsData],
+  );
+
+  const lifecycleCardData = useMemo(
+    () => [
+      {
+        title: "1. Parts Requisition",
+        description: "Create or review parts requisitions from work orders",
+        count: partRequisitions.length,
+        color: "text-[#7FD5FF]",
+        hash: "#requisition-section",
+      },
+      {
+        title: "2. RFQ",
+        description: "Issue RFQs to multiple suppliers",
+        count: rfqsData.length,
+        color: "text-emerald-300",
+        hash: "#rfq-section",
+      },
+      {
+        title: "3. Supplier Quotation",
+        description: "Capture and approve quotations",
+        count: quotationsData.length,
+        color: "text-amber-300",
+        hash: "#rfq-section",
+      },
+      {
+        title: "4. Purchase Order",
+        description: "Create PO from approved quotation",
+        count: purchaseOrdersData.length,
+        color: "text-sky-300",
+        hash: "#po-section",
+      },
+      {
+        title: "5. GRN",
+        description: "Post goods received notes and update stock",
+        count: goodsReceivedNotesData.length,
+        color: "text-fuchsia-300",
+        hash: "#grn-section",
+      },
+    ],
+    [
+      goodsReceivedNotesData.length,
+      partRequisitions.length,
+      purchaseOrdersData.length,
+      quotationsData.length,
+      rfqsData.length,
+    ],
+  );
+
+  const handleTogglePartRequisition = (id: number, checked: boolean) => {
+    setSelectedPartRequisitionIds((current) => {
+      if (checked) {
+        if (current.includes(id)) return current;
+        return [...current, id];
+      }
+      return current.filter((itemId) => itemId !== id);
+    });
+  };
+
+  const handleToggleSupplierForRfq = (supplierId: number) => {
+    setSelectedRfqSupplierIds((current) =>
+      current.includes(supplierId)
+        ? current.filter((id) => id !== supplierId)
+        : [...current, supplierId],
+    );
+  };
+
+  const handleRequestRfqFromPartsRequisitions = async () => {
+    if (selectedPartRequisitionIds.length === 0) {
+      dispatch(
+        showToast({
+          message: "Select at least one parts requisition.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    if (selectedRfqSupplierIds.length === 0) {
+      dispatch(
+        showToast({
+          message: "Select at least one supplier for RFQ.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    const pendingIds = selectedPartRequisitionIds.filter(
+      (id) => !existingRfqStockMovementIds.has(id),
+    );
+
+    if (pendingIds.length === 0) {
+      dispatch(
+        showToast({
+          message: "All selected requisitions already have RFQs.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    let successCount = 0;
+    for (const stockMovementId of pendingIds) {
+      try {
+        await createRfq({
+          stock_movement_id: stockMovementId,
+          supplier_ids: selectedRfqSupplierIds,
+          status: "sent",
+          issued_at: new Date().toISOString(),
+          notes: `Bulk RFQ request from parts requisitions on ${new Date().toLocaleString()}`,
+        }).unwrap();
+        successCount += 1;
+      } catch {
+        // Continue and report aggregated result.
+      }
+    }
+
+    if (successCount > 0) {
+      dispatch(
+        showToast({
+          message: `RFQ requested for ${successCount} requisition${successCount > 1 ? "s" : ""}.`,
+          type: "success",
+        }),
+      );
+      setSelectedPartRequisitionIds([]);
+      refetchStockMovements();
+      refetchRfqs();
+    } else {
+      dispatch(
+        showToast({
+          message: "Failed to request RFQ for selected requisitions.",
+          type: "error",
+        }),
+      );
+    }
+  };
+
+  const renderLifecycleCards = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 border-t border-[#0A4D66]/40 pt-4">
+      {lifecycleCardData.map((item) => (
+        <button
+          key={item.title}
+          type="button"
+          onClick={() =>
+            navigate(`/dashboard/inventory/procurement-lifecycle${item.hash}`)
+          }
+          className="text-left rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-3 hover:border-[#7FD5FF]/50 transition-colors"
+        >
+          <div className="text-xs text-gray-400">{item.title}</div>
+          <div className={cn("text-2xl font-bold mt-1", item.color)}>
+            {item.count}
+          </div>
+          <div className="text-[11px] text-gray-500 mt-1 line-clamp-2">
+            {item.description}
+          </div>
+          <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-[#7FD5FF]">
+            <span>Open Stage</span>
+            <Icon icon="mdi:arrow-right" className="w-3.5 h-3.5" />
+          </div>
+        </button>
+      ))}
+    </div>
+  );
 
   const resetFilters = () => {
     setUnitFilter({ all: true, selected: [] });
@@ -735,6 +971,7 @@ export const InventoryPage = () => {
 
   return (
     <div className="space-y-6">
+
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
           {INVENTORY_TABS.map((tab) => (
@@ -755,7 +992,7 @@ export const InventoryPage = () => {
               <Icon icon={tab.icon} className="w-5 h-5" />
               <span>{tab.label}</span>
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7FD5FF] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
               )}
             </button>
           ))}
@@ -766,8 +1003,18 @@ export const InventoryPage = () => {
         {activeTab === "Stocks" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex justify-end mb-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-500 text-black text-xs font-semibold shadow hover:bg-emerald-600 transition-colors"
+                  onClick={() => navigate("/dashboard/inventory/purchase-orders/new")}
+                >
+                  <Icon icon="mdi:cart-plus" className="w-4 h-4" />
+                  Create Purchase Order
+                </button>
+              </div>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   {STOCK_SUB_TABS.map((subTab) => (
                     <button
                       key={subTab.id}
@@ -776,8 +1023,8 @@ export const InventoryPage = () => {
                       className={cn(
                         "px-3 py-1.5 rounded text-xs font-medium transition-colors",
                         activeSubTab === subTab.id
-                          ? "bg-[#0A4D66] text-white"
-                          : "text-gray-400 hover:text-white",
+                          ? "bg-[#001825] text-white shadow-sm"
+                          : "text-gray-300 hover:text-white",
                       )}
                     >
                       {subTab.label}
@@ -785,15 +1032,17 @@ export const InventoryPage = () => {
                   ))}
                 </div>
 
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
+                    title="Table view"
+                    aria-label="Table view"
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "table"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:table" className="w-4 h-4" />
@@ -801,11 +1050,13 @@ export const InventoryPage = () => {
                   <button
                     type="button"
                     onClick={() => setViewMode("grid")}
+                    title="Grid view"
+                    aria-label="Grid view"
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "grid"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:view-grid" className="w-4 h-4" />
@@ -883,13 +1134,14 @@ export const InventoryPage = () => {
                   </div>
                 </div>
 
-                <Link
-                  to="/dashboard/inventory/add"
-                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                <button
+                  type="button"
+                  onClick={() => navigate("/dashboard/inventory/add")}
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
-                  <span>Add Stock</span>
-                </Link>
+                  <span>Add Inventory</span>
+                </button>
               </div>
 
               <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
@@ -1019,6 +1271,8 @@ export const InventoryPage = () => {
                             }}
                             type="button"
                             onClick={() => handleToggleActions(row.id)}
+                            title="Open inventory actions"
+                            aria-label="Open inventory actions"
                             className="p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
                           >
                             <Icon
@@ -1097,21 +1351,23 @@ export const InventoryPage = () => {
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
-                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
+                  <button className="px-3 py-1.5 bg-[#001825] text-white rounded text-xs font-medium shadow-sm">
                     Requisitions
                   </button>
                 </div>
 
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
+                    title="Table view"
+                    aria-label="Table view"
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "table"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:table" className="w-4 h-4" />
@@ -1119,11 +1375,13 @@ export const InventoryPage = () => {
                   <button
                     type="button"
                     onClick={() => setViewMode("grid")}
+                    title="Grid view"
+                    aria-label="Grid view"
                     className={cn(
                       "p-1.5 rounded transition-colors",
                       viewMode === "grid"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? "bg-[#001825] text-white shadow-sm"
+                        : "text-gray-300 hover:text-white",
                     )}
                   >
                     <Icon icon="mdi:view-grid" className="w-4 h-4" />
@@ -1134,6 +1392,8 @@ export const InventoryPage = () => {
 
                 <div className="flex flex-wrap items-center gap-2 max-w-full">
                   <select
+                    title="Filter requisitions by period"
+                    aria-label="Filter requisitions by period"
                     value={requisitionPeriod}
                     onChange={(e) =>
                       setRequisitionPeriod(
@@ -1149,6 +1409,8 @@ export const InventoryPage = () => {
                   </select>
 
                   <select
+                    title="Filter requisitions by location"
+                    aria-label="Filter requisitions by location"
                     value={requisitionUnitId}
                     onChange={(e) =>
                       setRequisitionUnitId(
@@ -1168,51 +1430,63 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/requisitions/add"
-                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Request</span>
                 </Link>
               </div>
 
-              <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
-                {[
-                  {
-                    label: "Total Requests",
-                    value: requisitionStats.total,
-                    color: "bg-[#7FD5FF]",
-                  },
-                  {
-                    label: "Approved",
-                    value: requisitionStats.approved,
-                    color: requisitionStatusDotColor.Approved,
-                  },
-                  {
-                    label: "Under Review",
-                    value: requisitionStats.underReview,
-                    color: requisitionStatusDotColor["Under Review"],
-                  },
-                  {
-                    label: "Rejected",
-                    value: requisitionStats.rejected,
-                    color: requisitionStatusDotColor.Rejected,
-                  },
-                  {
-                    label: "Received",
-                    value: requisitionStats.received,
-                    color: requisitionStatusDotColor.Received,
-                  },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex items-center space-x-2 whitespace-nowrap"
-                  >
-                    <div className={cn("w-2 h-2 rounded-full", stat.color)} />
-                    <span className="text-gray-400">{stat.label}:</span>
-                    <span className="text-white font-bold">{stat.value}</span>
-                  </div>
-                ))}
+              <div className="flex flex-wrap items-center justify-between gap-3 text-sm border-t border-[#0A4D66]/40 pt-4">
+                <div className="flex items-center gap-6 overflow-x-auto">
+                  {[
+                    {
+                      label: "Total Requests",
+                      value: requisitionStats.total,
+                      color: "bg-[#0369A1]",
+                    },
+                    {
+                      label: "Approved",
+                      value: requisitionStats.approved,
+                      color: requisitionStatusDotColor.Approved,
+                    },
+                    {
+                      label: "Under Review",
+                      value: requisitionStats.underReview,
+                      color: requisitionStatusDotColor["Under Review"],
+                    },
+                    {
+                      label: "Rejected",
+                      value: requisitionStats.rejected,
+                      color: requisitionStatusDotColor.Rejected,
+                    },
+                    {
+                      label: "Received",
+                      value: requisitionStats.received,
+                      color: requisitionStatusDotColor.Received,
+                    },
+                  ].map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="flex items-center space-x-2 whitespace-nowrap"
+                    >
+                      <div className={cn("w-2 h-2 rounded-full", stat.color)} />
+                      <span className="text-gray-400">{stat.label}:</span>
+                      <span className="text-white font-bold">{stat.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <Link
+                  to="/dashboard/inventory/procurement-lifecycle"
+                  className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#0369A1]/10 px-3 py-2 text-xs font-medium text-[#7FD5FF] transition-colors hover:bg-[#0369A1]/20"
+                >
+                  <Icon icon="mdi:source-merge" className="h-4 w-4" />
+                  Procurement Lifecycle
+                </Link>
               </div>
+
+              {renderLifecycleCards()}
             </div>
 
             {viewMode === "table" ? (
@@ -1310,6 +1584,8 @@ export const InventoryPage = () => {
                                     `/dashboard/inventory/requisitions/${requisition.id}`,
                                   )
                                 }
+                                title="View requisition"
+                                aria-label="View requisition"
                                 className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
                               >
                                 <Icon icon="mdi:eye" className="w-4 h-4" />
@@ -1407,6 +1683,227 @@ export const InventoryPage = () => {
               </div>
             )}
           </>
+        ) : activeTab === "Parts Requisitions" ? (
+          <>
+            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                    Parts Requisitions
+                  </button>
+                </div>
+
+                <div className="flex-1" />
+
+                <button
+                  type="button"
+                  onClick={handleRequestRfqFromPartsRequisitions}
+                  disabled={
+                    isCreatingPartsRfq ||
+                    selectedPartRequisitionIds.length === 0 ||
+                    selectedRfqSupplierIds.length === 0
+                  }
+                  className="flex items-center space-x-2 bg-emerald-400 hover:bg-emerald-500 text-black px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Icon icon="mdi:send" className="w-4 h-4" />
+                  <span>
+                    {isCreatingPartsRfq
+                      ? "Requesting RFQ..."
+                      : `Request RFQ (${selectedPartRequisitionIds.length})`}
+                  </span>
+                </button>
+              </div>
+
+              {renderLifecycleCards()}
+
+              <div className="border-t border-[#0A4D66]/40 pt-4">
+                <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">
+                  Select Suppliers for RFQ
+                </div>
+                <div className="flex flex-wrap gap-2 rounded border border-[#0A4D66]/40 bg-[#001825] p-2">
+                  {suppliersData.map((supplier) => {
+                    const selected = selectedRfqSupplierIds.includes(supplier.id);
+                    return (
+                      <button
+                        type="button"
+                        key={supplier.id}
+                        className={cn(
+                          "rounded px-2 py-1 text-xs transition-colors",
+                          selected
+                            ? "bg-[#0369A1] text-black"
+                            : "bg-[#0A4D66]/30 text-gray-200 hover:bg-[#0A4D66]/50",
+                        )}
+                        onClick={() => handleToggleSupplierForRfq(supplier.id)}
+                      >
+                        {supplier.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-250">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-6 py-4 font-medium">Select</th>
+                    <th className="px-6 py-4 font-medium">Requisition ID</th>
+                    <th className="px-6 py-4 font-medium">Work Order</th>
+                    <th className="px-6 py-4 font-medium">Requested Qty</th>
+                    <th className="px-6 py-4 font-medium">Created</th>
+                    <th className="px-6 py-4 font-medium">RFQ Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {isPartsRequisitionsLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                        Loading parts requisitions...
+                      </td>
+                    </tr>
+                  ) : partRequisitions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                        No parts requisitions found.
+                      </td>
+                    </tr>
+                  ) : (
+                    partRequisitions.map((req, idx) => {
+                      const hasRfq = existingRfqStockMovementIds.has(req.id);
+                      const selected = selectedPartRequisitionIds.includes(req.id);
+                      return (
+                        <tr
+                          key={req.id}
+                          className={cn(
+                            "hover:bg-[#0A4D66]/20 transition-colors",
+                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )}
+                        >
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              disabled={hasRfq}
+                              onChange={(e) =>
+                                handleTogglePartRequisition(req.id, e.target.checked)
+                              }
+                              className="h-4 w-4 rounded border-[#0A4D66]/60 bg-[#001825] text-[#7FD5FF]"
+                              title={`Select requisition ${req.id}`}
+                            />
+                          </td>
+                          <td className="px-6 py-4 text-white font-medium">REQ #{req.id}</td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {req.work_order_id ? `WO #${req.work_order_id}` : "-"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">{req.quantity}</td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {formatDateShort(req.created_at)} {formatTimeShort(req.created_at)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={cn(
+                                "inline-flex rounded-full border px-2 py-1 text-xs",
+                                hasRfq
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                  : "border-amber-500/40 bg-amber-500/10 text-amber-300",
+                              )}
+                            >
+                              {hasRfq ? "RFQ Requested" : "Pending RFQ"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : activeTab === "Purchase Orders" ? (
+          <>
+            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                    Purchase Orders
+                  </button>
+                </div>
+
+                <div className="flex-1" />
+
+                <Link
+                  to="/dashboard/inventory/purchase-orders/new"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  <span>Create Purchase Order</span>
+                </Link>
+              </div>
+
+              <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
+                <div className="flex items-center space-x-2 whitespace-nowrap">
+                  <div className="w-2 h-2 rounded-full bg-[#0369A1]" />
+                  <span className="text-gray-400">Total Purchase Orders:</span>
+                  <span className="text-white font-bold">{purchaseOrdersData.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-250">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-6 py-4 font-medium">PO ID</th>
+                    <th className="px-6 py-4 font-medium">Name</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                    <th className="px-6 py-4 font-medium">Order Date</th>
+                    <th className="px-6 py-4 font-medium">Expected Delivery</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {isPurchaseOrdersLoading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        Loading purchase orders...
+                      </td>
+                    </tr>
+                  ) : isPurchaseOrdersError ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-red-400">
+                        Failed to load purchase orders.
+                      </td>
+                    </tr>
+                  ) : purchaseOrdersData.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                        No purchase orders found.
+                      </td>
+                    </tr>
+                  ) : (
+                    (purchaseOrdersData as PurchaseOrderListRow[]).map((order, idx) => (
+                      <tr
+                        key={order.id}
+                        className={cn(
+                          "hover:bg-[#0A4D66]/20 transition-colors cursor-pointer",
+                          idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                        )}
+                        onClick={() => navigate(`/dashboard/inventory/purchase-orders/${order.id}`)}
+                      >
+                        <td className="px-6 py-4 text-gray-200">#{order.id}</td>
+                        <td className="px-6 py-4 text-white">{order.name || `PO #${order.id}`}</td>
+                        <td className="px-6 py-4 text-gray-300">{order.status || "-"}</td>
+                        <td className="px-6 py-4 text-gray-300">{formatDateShort(order.order_date)}</td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {formatDateShort(order.expected_date_of_delivery)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         ) : activeTab === "Suppliers" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
@@ -1448,7 +1945,7 @@ export const InventoryPage = () => {
 
                 <Link
                   to="/dashboard/inventory/suppliers/add"
-                  className="flex items-center space-x-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 text-[#00090D] px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Supplier</span>
@@ -1460,7 +1957,7 @@ export const InventoryPage = () => {
                   {
                     label: "Total Suppliers",
                     value: supplierStats.total,
-                    color: "bg-[#7FD5FF]",
+                    color: "bg-[#0369A1]",
                   },
                   {
                     label: "With Contact",

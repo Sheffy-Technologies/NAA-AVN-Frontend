@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useGetInventoryRequisitionByIdQuery,
   useUpdateInventoryRequisitionMutation,
@@ -58,7 +61,10 @@ const toNumber = (value: number | string | null | undefined) => {
 
 export const InventoryRequisitionDetailsPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const {
     data: detail,
@@ -215,6 +221,24 @@ export const InventoryRequisitionDetailsPage = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !detail || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `inventory-requisition-${detail.id}`,
+        backgroundColor: "#001219",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   if (!id) {
     return (
       <div className="p-6 text-center text-gray-400">Invalid request.</div>
@@ -239,22 +263,39 @@ export const InventoryRequisitionDetailsPage = () => {
         <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
           REQUEST DETAILS
         </h1>
-        <button
-          type="button"
-          onClick={handleSaveAndExit}
-          className={cn(
-            "inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white",
-            isSaving && "opacity-70 cursor-not-allowed",
-          )}
-          disabled={isSaving}
-        >
-          <Icon icon="mdi:close-circle-outline" className="w-4 h-4" />
-          <span>Save &amp; Exit</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white disabled:opacity-70"
+          >
+            <Icon
+              icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+              className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+            />
+            <span>{isDownloadingPdf ? "Downloading..." : "Download"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveAndExit}
+            className={cn(
+              "inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white",
+              isSaving && "opacity-70 cursor-not-allowed",
+            )}
+            disabled={isSaving}
+          >
+            <Icon icon="mdi:close-circle-outline" className="w-4 h-4" />
+            <span>Save &amp; Exit</span>
+          </button>
+        </div>
       </div>
 
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-3 bg-[#000f18] border-b border-[#0A4D66]/40">
+      <section
+        ref={contentRef}
+        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
+      >
+        <div className="px-4 sm:px-6 py-3 bg-[#001219] border-b border-[#0A4D66]/40">
           <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm">
             <div className="flex items-center gap-2">
               <span className="text-[#7FD5FF]">Requesting Location:</span>
@@ -330,7 +371,7 @@ export const InventoryRequisitionDetailsPage = () => {
                           onChange={(e) =>
                             handleChangeApproved(row.id, e.target.value)
                           }
-                          className="w-full bg-[#001219] border border-[#0A4D66]/40 focus:border-[#7FD5FF] rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none"
+                          className="w-full bg-[#001219] border border-[#0A4D66]/40 focus:border-[#7FD5FF] rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none"
                         />
                         <div className="mt-1 text-[11px] text-gray-400">
                           {row.approved.unit}
@@ -372,7 +413,7 @@ export const InventoryRequisitionDetailsPage = () => {
                 setHasEditedRemark(true);
                 setRemark(e.target.value);
               }}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-3 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-3 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
               placeholder="Enter Reason"
             />
           </div>

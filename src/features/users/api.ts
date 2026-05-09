@@ -8,6 +8,11 @@ export type UserRecord = {
   username?: string | null;
   email?: string | null;
   phone_number?: string | null;
+  roles?: Array<{
+    id?: number;
+    name?: string | null;
+    guard_name?: string | null;
+  }>;
   created_at?: string | null;
   updated_at?: string | null;
 };

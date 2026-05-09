@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetPersonnelByIdQuery, useDeletePersonnelMutation } from "@/features/personnel/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -17,14 +18,18 @@ type PersonnelDetail = {
   rank: string;
   bloodGroup: string;
   callSign: string;
-  rating: string;
+  ratings: {
+    name: string;
+    expiryDate: string | null;
+  }[];
   image: string | null;
   currentDeploymentDate: string;
   currentDeploymentUnit: string;
   lastDeploymentDate: string;
   lastDeploymentUnit: string;
   branch: string;
-  corps: string;
+  corpsName: string;
+  corpsDescription: string;
   specialty: string;
   status: PersonnelStatus;
   email: string;
@@ -161,6 +166,8 @@ export const PersonnelDetailPage = () => {
   const [deletePersonnel, { isLoading: isDeleting }] = useDeletePersonnelMutation();
   const [activeTab, setActiveTab] = useState<"bio" | "activity">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const handleDeletePersonnel = async () => {
     if (!id || isDeleting) return;
@@ -196,6 +203,25 @@ export const PersonnelDetailPage = () => {
       });
     };
 
+    const mappedRatings = Array.isArray(apiPerson.ratings)
+      ? apiPerson.ratings
+          .filter((rating) => typeof rating.name === "string" && rating.name.trim().length > 0)
+          .map((rating) => ({
+            name: rating.name,
+            expiryDate: rating.pivot?.expiry_date
+              ? formatDate(rating.pivot.expiry_date)
+              : null,
+          }))
+      : [];
+
+    const fallbackRatings = apiPerson.rating_type
+      ? apiPerson.rating_type
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .map((name) => ({ name, expiryDate: null }))
+      : [];
+
     const sortedDeployments = [...apiPerson.deployments].sort(
       (a, b) =>
         new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
@@ -212,7 +238,7 @@ export const PersonnelDetailPage = () => {
       rank: apiPerson.rank.name,
       bloodGroup: apiPerson.blood_group,
       callSign: apiPerson.call_sign,
-      rating: apiPerson.rating_type,
+      ratings: mappedRatings.length > 0 ? mappedRatings : fallbackRatings,
       image: apiPerson.image,
       currentDeploymentDate: apiPerson.latest_deployment
         ? formatDate(apiPerson.latest_deployment.start_date)
@@ -224,7 +250,8 @@ export const PersonnelDetailPage = () => {
         : "N/A",
       lastDeploymentUnit: lastDeployment?.to_unit?.name || "N/A",
       branch: apiPerson.branch.name,
-      corps: apiPerson.corp.name,
+      corpsName: apiPerson.corp?.name || "N/A",
+      corpsDescription: apiPerson.corp?.description || "No corps details available",
       specialty: apiPerson.specialty.name,
       status: mapStatus(apiPerson.status),
       email: apiPerson.email,
@@ -241,10 +268,33 @@ export const PersonnelDetailPage = () => {
     navigate("/dashboard/personnel");
   };
 
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !person || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `${person.firstName}-${person.lastName}-${person.id}`,
+        backgroundColor: "#001219",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch (error) {
+      console.error("Failed to download personnel PDF", {
+        personnelId: person.id,
+        fileName: `${person.firstName}-${person.lastName}-${person.id}`,
+        error,
+      });
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
@@ -255,6 +305,14 @@ export const PersonnelDetailPage = () => {
               <span>Back</span>
             </button>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadPdf}
+                disabled={isDownloadingPdf || !person}
+                className="px-3 py-1.5 rounded border border-[#0A4D66]/60 text-xs text-white hover:bg-red-900/30 disabled:opacity-50"
+              >
+                {isDownloadingPdf ? "Downloading..." : "Download"}
+              </button>
               <button
                 type="button"
                 onClick={handleDeletePersonnel}
@@ -317,10 +375,12 @@ export const PersonnelDetailPage = () => {
 
             {activeTab === "activity" && (
               <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#021a27] p-1">
+                <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#001219] p-1">
                   <button
                     type="button"
                     onClick={() => setActivityView("table")}
+                    aria-label="Switch to table view"
+                    title="Table view"
                     className={cn(
                       "px-2 py-1 rounded-sm flex items-center justify-center",
                       activityView === "table"
@@ -333,6 +393,8 @@ export const PersonnelDetailPage = () => {
                   <button
                     type="button"
                     onClick={() => setActivityView("grid")}
+                    aria-label="Switch to grid view"
+                    title="Grid view"
                     className={cn(
                       "px-2 py-1 rounded-sm flex items-center justify-center",
                       activityView === "grid"
@@ -345,21 +407,28 @@ export const PersonnelDetailPage = () => {
                 </div>
                 <button
                   type="button"
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200"
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200"
                 >
                   {mockActivityLog.length}
                 </button>
                 <button
                   type="button"
-                  className="hidden md:inline-flex px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 whitespace-nowrap"
+                  className="hidden md:inline-flex px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 whitespace-nowrap"
                 >
                   Period
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-gray-300"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf || !person}
+                  aria-label="Download personnel details"
+                  title="Download personnel details"
+                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-gray-300"
                 >
-                  <Icon icon="mdi:download-outline" className="w-4 h-4" />
+                  <Icon
+                    icon={isDownloadingPdf ? "mdi:loading" : "mdi:download-outline"}
+                    className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+                  />
                 </button>
               </div>
             )}
@@ -367,7 +436,7 @@ export const PersonnelDetailPage = () => {
         </div>
 
         {activeTab === "bio" && (
-          <div className="p-4 sm:p-6">
+          <div ref={contentRef} className="p-4 sm:p-6">
             {isPersonLoading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="inline-flex items-center gap-2 text-gray-200">
@@ -430,7 +499,21 @@ export const PersonnelDetailPage = () => {
                       <span className="text-gray-400 whitespace-nowrap">
                         Rating:
                       </span>
-                      <span>{person.rating}</span>
+                      {person.ratings.length > 0 ? (
+                        <span className="flex flex-wrap gap-2">
+                          {person.ratings.map((rating) => (
+                            <span
+                              key={`${rating.name}-${rating.expiryDate ?? "none"}`}
+                              className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-0.5 text-[11px] text-[#B7E6FF]"
+                            >
+                              {rating.name}
+                              {rating.expiryDate ? ` (${rating.expiryDate})` : ""}
+                            </span>
+                          ))}
+                        </span>
+                      ) : (
+                        <span>-</span>
+                      )}
                     </div>
                   </div>
 
@@ -450,7 +533,23 @@ export const PersonnelDetailPage = () => {
                         icon="mdi:office-building"
                         className="w-4 h-4 text-gray-400"
                       />
-                      <span>{person.lastDeploymentUnit}</span>
+                      {(() => {
+                        const sortedDeps = [...(apiPerson?.deployments ?? [])].sort(
+                          (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
+                        );
+                        const lastUnitId = sortedDeps[0]?.to_unit_id;
+                        return lastUnitId ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/dashboard/units/${lastUnitId}`)}
+                            className="text-left text-[#7FD5FF] hover:underline"
+                          >
+                            {person.lastDeploymentUnit}
+                          </button>
+                        ) : (
+                          <span>{person.lastDeploymentUnit}</span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -490,23 +589,33 @@ export const PersonnelDetailPage = () => {
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
                       Dialogue Box
                     </div>
-                    <p className="text-gray-100">{person.dialogue}</p>
+                    <p className="text-white">{person.dialogue}</p>
                   </div>
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
                       Unit
                     </div>
-                    <p className="text-gray-100">
-                      {person.currentDeploymentUnit}
-                    </p>
+                    {apiPerson?.unit?.id ? (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/dashboard/units/${apiPerson.unit.id}`)}
+                        className="text-left text-[#7FD5FF] hover:underline font-medium"
+                      >
+                        {person.currentDeploymentUnit}
+                      </button>
+                    ) : (
+                      <p className="text-white">
+                        {person.currentDeploymentUnit}
+                      </p>
+                    )}
                   </div>
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
                       Aircraft Rated On
                     </div>
-                    <p className="text-gray-100">{person.aircraftRatedOn}</p>
+                    <p className="text-white">{person.aircraftRatedOn}</p>
                   </div>
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
@@ -525,7 +634,17 @@ export const PersonnelDetailPage = () => {
                         icon="mdi:office-building"
                         className="w-4 h-4 text-gray-400"
                       />
-                      <span>{person.currentDeploymentUnit}</span>
+                      {apiPerson?.latest_deployment?.to_unit_id ? (
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/dashboard/units/${apiPerson.latest_deployment!.to_unit_id}`)}
+                          className="text-left text-[#7FD5FF] hover:underline"
+                        >
+                          {person.currentDeploymentUnit}
+                        </button>
+                      ) : (
+                        <span>{person.currentDeploymentUnit}</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -546,7 +665,13 @@ export const PersonnelDetailPage = () => {
                         <span className="text-gray-400 whitespace-nowrap">
                           Corps:
                         </span>
-                        <span>{person.corps}</span>
+                        <span>{person.corpsName}</span>
+                      </div>
+                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0 lg:col-span-2">
+                        <span className="text-gray-400 whitespace-nowrap">
+                          Corps Details:
+                        </span>
+                        <span>{person.corpsDescription}</span>
                       </div>
                       <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
                         <span className="text-gray-400 whitespace-nowrap">
@@ -616,7 +741,7 @@ export const PersonnelDetailPage = () => {
                         >
                           <button
                             type="button"
-                            className="text-xs text-[#7FD5FF] hover:text-[#b3e6ff]"
+                            className="text-xs text-[#7FD5FF] hover:text-[#B7E6FF]"
                           >
                             {aircraft.name}
                           </button>
@@ -632,7 +757,7 @@ export const PersonnelDetailPage = () => {
         )}
 
         {activeTab === "activity" && (
-          <div className="p-4 sm:p-6">
+          <div ref={contentRef} className="p-4 sm:p-6">
             {activityView === "grid" && (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {mockActivityLog.map((entry) => (
@@ -683,7 +808,7 @@ export const PersonnelDetailPage = () => {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-xs sm:text-sm text-gray-200">
                   <thead>
-                    <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
+                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
                       <th className="px-4 sm:px-6 py-3 text-left">Date</th>
                       <th className="px-4 py-3 text-left">Time</th>
                       <th className="px-4 py-3 text-left">Action Performed</th>
@@ -702,25 +827,25 @@ export const PersonnelDetailPage = () => {
                           index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                         )}
                       >
-                        <td className="px-4 sm:px-6 py-3 text-gray-100">
+                        <td className="px-4 sm:px-6 py-3 text-white">
                           {entry.date}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.time}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.action}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.oldRecord}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.newRecord}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">
+                        <td className="px-4 py-3 text-white">
                           {entry.device}
                         </td>
-                        <td className="px-4 py-3 text-gray-100">{entry.ip}</td>
+                        <td className="px-4 py-3 text-white">{entry.ip}</td>
                       </tr>
                     ))}
                   </tbody>

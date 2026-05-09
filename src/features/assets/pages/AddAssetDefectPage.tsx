@@ -10,6 +10,7 @@ import {
   type MultiSelectOption,
 } from "@/shared/ui/multi-select/MultiSelect";
 import {
+  type CreateDefectPayload,
   useCreateDefectMutation,
   useGetAssetByIdQuery,
 } from "../api";
@@ -48,7 +49,6 @@ export const AddAssetDefectPage = () => {
     defect_reported: "",
     date_of_defect: "",
     operation_id: "",
-    location: "",
     defect_description: "",
     remark: "",
     rectified: false,
@@ -61,10 +61,10 @@ export const AddAssetDefectPage = () => {
   const handleSubmit = async () => {
     if (!canLoad) return;
 
-    if (!defect.operation_id || (!defect.defect_reported && !defect.defect_description)) {
+    if (!defect.defect_reported && !defect.defect_description) {
       dispatch(
         showToast({
-          message: "Please provide operation and defect details",
+          message: "Please provide defect details",
           type: "error",
         }),
       );
@@ -86,15 +86,20 @@ export const AddAssetDefectPage = () => {
       : undefined;
 
     try {
-      await createDefect({
+      const payload: CreateDefectPayload = {
         asset_id: assetId,
         title: defect.defect_reported || defect.defect_description,
         description: defect.defect_description || defect.defect_reported,
         remarks: defect.remark,
-        operation_id: Number(defect.operation_id),
         personnel_ids: personnel,
         maintenance_events: maintenanceEvents,
-      }).unwrap();
+      };
+
+      if (defect.operation_id) {
+        payload.operation_id = Number(defect.operation_id);
+      }
+
+      await createDefect(payload).unwrap();
 
       dispatch(
         showToast({
@@ -102,7 +107,7 @@ export const AddAssetDefectPage = () => {
           type: "success",
         }),
       );
-      navigate(`/dashboard/assets/${assetId}`);
+      navigate("/dashboard/maintenance/defects");
     } catch {
       dispatch(
         showToast({
@@ -122,7 +127,7 @@ export const AddAssetDefectPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#00090D] text-white p-6 pb-20">
+    <div className="min-h-screen bg-[#001219] text-white p-6 pb-20">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8 border-b border-[#0A4D66]/40 pb-4">
           <div>
@@ -185,18 +190,7 @@ export const AddAssetDefectPage = () => {
                 ))}
               </select>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs text-gray-400">Location</label>
-              <input
-                type="text"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                placeholder="Enter Location"
-                value={defect.location}
-                onChange={(e) =>
-                  setDefect((prev) => ({ ...prev, location: e.target.value }))
-                }
-              />
-            </div>
+            {/* Location removed per requirement */}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -224,6 +218,7 @@ export const AddAssetDefectPage = () => {
             </div>
           </div>
 
+          {/*
           <div className="flex items-center gap-4">
             <span className="text-xs font-bold text-white">Rectified?</span>
             <label className="flex items-center gap-2 text-sm text-gray-400">
@@ -247,6 +242,7 @@ export const AddAssetDefectPage = () => {
               No
             </label>
           </div>
+          */}
 
           {defect.rectified && (
             <div className="space-y-4">
@@ -318,7 +314,7 @@ export const AddAssetDefectPage = () => {
               type="button"
               onClick={handleSubmit}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-[#7FD5FF] hover:bg-[#7FD5FF]/90 disabled:opacity-60 text-[#00090D] px-6 py-2 rounded text-sm font-bold transition-colors"
+              className="flex items-center gap-2 bg-[#0369A1] hover:bg-[#0369A1]/90 disabled:opacity-60 text-white px-6 py-2 rounded text-sm font-bold transition-colors"
             >
               <Icon icon="mdi:check" className="w-4 h-4" />
               <span>{isSaving ? "Saving..." : "Save Defect"}</span>

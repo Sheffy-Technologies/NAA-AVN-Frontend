@@ -80,9 +80,19 @@ export const AddFacilityPage = () => {
   return (
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          Add Facility
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white"
+          >
+            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
+            Add Facility
+          </h1>
+        </div>
         <button
           type="button"
           onClick={() => navigate("/dashboard/assets")}
@@ -102,7 +112,7 @@ export const AddFacilityPage = () => {
               value={values.name}
               onChange={handleTextChange("name")}
               placeholder="Enter facility name"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -113,7 +123,7 @@ export const AddFacilityPage = () => {
               accept="image/*"
               aria-label="Facility image"
               onChange={handleImageChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
             />
           </div>
 
@@ -124,7 +134,7 @@ export const AddFacilityPage = () => {
               value={values.description}
               onChange={handleTextChange("description")}
               placeholder="Enter facility description"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 resize-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 resize-none"
             />
           </div>
 
@@ -135,7 +145,7 @@ export const AddFacilityPage = () => {
               value={values.longitude}
               onChange={handleTextChange("longitude")}
               placeholder="e.g. 3.3792"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -146,7 +156,7 @@ export const AddFacilityPage = () => {
               value={values.latitude}
               onChange={handleTextChange("latitude")}
               placeholder="e.g. 6.5244"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
         </div>
@@ -163,8 +173,8 @@ export const AddFacilityPage = () => {
             className={cn(
               "px-6 sm:px-10 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
               isSubmitting
-                ? "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed"
-                : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
+                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
             )}
           >
             {isSubmitting ? "Saving..." : "Save Facility"}

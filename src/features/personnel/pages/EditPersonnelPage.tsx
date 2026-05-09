@@ -1,4 +1,4 @@
-import { useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -13,12 +13,13 @@ import {
   useGetPersonnelSpecialtiesQuery,
   useGetPersonnelBranchesQuery,
   useGetPersonnelCorpsQuery,
-  useGetAircraftsQuery,
+  useGetPersonnelRatingsQuery,
   useUpdatePersonnelMutation,
   useUploadPersonnelImageMutation,
   type CreatePersonnelRequest,
 } from "@/features/personnel/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
+import { useGetAssetsQuery } from "@/features/assets/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 
@@ -28,20 +29,19 @@ interface ApiError {
   };
 }
 
-const RATING_OPTIONS: MultiSelectOption[] = [
-  { label: "PPL", value: "PPL" },
-  { label: "CPL", value: "CPL" },
-  { label: "ATPL", value: "ATPL" },
-  { label: "IR", value: "IR" },
-  { label: "ME", value: "ME" },
-  { label: "NVG", value: "NVG" },
-  { label: "Tactical", value: "Tactical" },
-  { label: "QFI", value: "QFI" },
-  { label: "Cat A", value: "Cat A" },
-  { label: "B1", value: "B1" },
-  { label: "B2", value: "B2" },
-  { label: "C", value: "C" },
-];
+type DeploymentFormData = {
+  from_unit_id: string;
+  to_unit_id: string;
+  start_date: string;
+  end_date: string;
+};
+
+const createEmptyDeployment = (): DeploymentFormData => ({
+  from_unit_id: "",
+  to_unit_id: "",
+  start_date: "",
+  end_date: "",
+});
 
 // Reusable Components within the page for simplicity
 
@@ -66,24 +66,35 @@ const SelectField = ({
   children,
   className,
   ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) => (
-  <div className={className}>
-    <label className="block text-sm font-medium text-gray-300 mb-1">
-      {label}
-    </label>
-    <div className="relative">
-      <select
-        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-3 text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#7FD5FF]/40 transition-all cursor-pointer disabled:opacity-50"
-        {...props}
+}: React.SelectHTMLAttributes<HTMLSelectElement> & { label: string }) => {
+  const selectId =
+    props.id ?? (typeof props.name === "string" ? props.name : undefined);
+
+  return (
+    <div className={className}>
+      <label
+        htmlFor={selectId}
+        className="block text-sm font-medium text-gray-300 mb-1"
       >
-        {children}
-      </select>
-      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-        <Icon icon="mdi:chevron-down" className="w-5 h-5 text-gray-400" />
+        {label}
+      </label>
+      <div className="relative">
+        <select
+          id={selectId}
+          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-3 text-sm text-white appearance-none focus:outline-none focus:ring-2 focus:ring-[#7FD5FF]/40 transition-all cursor-pointer disabled:opacity-50"
+          {...props}
+          title={label}
+          aria-label={label}
+        >
+          {children}
+        </select>
+        <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+          <Icon icon="mdi:chevron-down" className="w-5 h-5 text-gray-400" />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const EditPersonnelPage = () => {
   const navigate = useNavigate();
@@ -104,9 +115,11 @@ export const EditPersonnelPage = () => {
   const { data: specialties } = useGetPersonnelSpecialtiesQuery();
   const { data: branches } = useGetPersonnelBranchesQuery();
   const { data: corps } = useGetPersonnelCorpsQuery();
+  const { data: ratings = [], isLoading: isLoadingRatings } =
+    useGetPersonnelRatingsQuery();
   const { data: units } = useGetUnitsQuery();
-  const { data: aircrafts, isLoading: isLoadingAircrafts } =
-    useGetAircraftsQuery();
+  const { data: aircraftAssets = [], isLoading: isLoadingAircraftAssets } =
+    useGetAssetsQuery({ type: "aircraft" });
 
   // Form State
   const [formData, setFormData] = useState<CreatePersonnelRequest>({
@@ -131,9 +144,9 @@ export const EditPersonnelPage = () => {
   const [selectedAircraftIds, setSelectedAircraftIds] = useState<number[]>([]);
   const [flightHours, setFlightHours] = useState<Record<number, string>>({});
 
-  const [selectedRatings, setSelectedRatings] = useState<string[]>([]);
+  const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
   const [ratingExpiryDates, setRatingExpiryDates] = useState<
-    Record<string, string>
+    Record<number, string>
   >({});
 
   // Image Upload State
@@ -144,17 +157,21 @@ export const EditPersonnelPage = () => {
   // useClickOutside removed as it was for custom dropdown
 
   const [status, setStatus] = useState<string>("");
-  const [currentDeploymentUnitId, setCurrentDeploymentUnitId] =
-    useState<string>("");
-  const [currentDeploymentDate, setCurrentDeploymentDate] =
-    useState<string>("");
-  const [lastDeploymentUnitId, setLastDeploymentUnitId] = useState<string>("");
-  const [lastDeploymentDate, setLastDeploymentDate] = useState<string>("");
-  const [tosDate, setTosDate] = useState<string>("");
+  const [deployments, setDeployments] = useState<DeploymentFormData[]>([
+    createEmptyDeployment(),
+  ]);
   const [initializedId, setInitializedId] = useState<string | null>(null);
 
-  // Populate form data when personnel and aircraft data are loaded
-  if (personnel && aircrafts && String(personnel.id) !== initializedId) {
+  useEffect(() => {
+    if (!personnel || String(personnel.id) === initializedId) return;
+    if (
+      isLoadingRatings &&
+      personnel.rating_type &&
+      (!Array.isArray(personnel.ratings) || personnel.ratings.length === 0)
+    ) {
+      return;
+    }
+
     setFormData({
       service_number: personnel.service_number,
       firstname: personnel.firstname,
@@ -173,61 +190,107 @@ export const EditPersonnelPage = () => {
       corp_id: personnel.corp_id,
     });
 
-    // Populate selected ratings and aircrafts
-    if (personnel.rating_type) {
-      const allRatings = personnel.rating_type.split(",").map((r) => r.trim());
-
-      const standardRatings = allRatings.filter((r) =>
-        RATING_OPTIONS.some((opt) => opt.value === r),
+    if (Array.isArray(personnel.ratings) && personnel.ratings.length > 0) {
+      setSelectedRatings(personnel.ratings.map((rating) => rating.id));
+      setRatingExpiryDates(
+        personnel.ratings.reduce<Record<number, string>>((acc, rating) => {
+          acc[rating.id] = rating.pivot?.expiry_date || "";
+          return acc;
+        }, {}),
       );
-      setSelectedRatings(standardRatings);
+    } else if (personnel.rating_type) {
+      const allRatings = personnel.rating_type
+        .split(",")
+        .map((r) => r.trim().toLowerCase())
+        .filter(Boolean);
 
+      const ratingIdsFromNames = ratings
+        .filter((rating) => allRatings.includes(rating.name.trim().toLowerCase()))
+        .map((rating) => rating.id);
+      const ratingIdsFromNumbers = allRatings
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0);
+
+      setSelectedRatings(
+        ratingIdsFromNames.length > 0 ? ratingIdsFromNames : ratingIdsFromNumbers,
+      );
+    }
+
+    if (
+      Array.isArray(personnel.flight_experiences) &&
+      personnel.flight_experiences.length > 0
+    ) {
+      setSelectedAircraftIds(
+        personnel.flight_experiences
+          .map((experience) => experience.asset_id)
+          .filter((assetId): assetId is number => typeof assetId === "number"),
+      );
+      setFlightHours(
+        personnel.flight_experiences.reduce<Record<number, string>>(
+          (acc, experience) => {
+            if (typeof experience.asset_id === "number") {
+              acc[experience.asset_id] = String(experience.flight_hours ?? 0);
+            }
+            return acc;
+          },
+          {},
+        ),
+      );
+    } else if (personnel.rating_type && aircraftAssets.length > 0) {
+      const allRatings = personnel.rating_type
+        .split(",")
+        .map((r) => r.trim().toLowerCase())
+        .filter(Boolean);
       const aircraftIds = allRatings
-        .map((r) => aircrafts.find((a) => a.name === r)?.id)
-        .filter((id): id is number => id !== undefined);
+        .map(
+          (name) =>
+            aircraftAssets.find((asset) => asset.name.trim().toLowerCase() === name)
+              ?.id,
+        )
+        .filter((assetId): assetId is number => typeof assetId === "number");
       setSelectedAircraftIds(aircraftIds);
     }
 
-    setStatus(personnel.status);
+    setStatus((personnel.status || "").toLowerCase());
 
     if (personnel.image) {
       setImagePreview(personnel.image);
       setImageUrl(personnel.image);
     }
 
-    // Populate deployment data if available
-    if (personnel.latest_deployment) {
-      setCurrentDeploymentDate(
-        personnel.latest_deployment.start_date.split("T")[0],
-      ); // Ensure YYYY-MM-DD
-      if (personnel.latest_deployment.to_unit_id) {
-        setCurrentDeploymentUnitId(
-          String(personnel.latest_deployment.to_unit_id),
-        );
-      }
+    setDeployments(
+      personnel.deployments.length
+        ? [...personnel.deployments]
+            .sort(
+              (a, b) =>
+                new Date(a.start_date).getTime() -
+                new Date(b.start_date).getTime(),
+            )
+            .map((deployment) => ({
+              from_unit_id: deployment.from_unit_id
+                ? String(deployment.from_unit_id)
+                : "",
+              to_unit_id: deployment.to_unit_id
+                ? String(deployment.to_unit_id)
+                : "",
+              start_date: deployment.start_date
+                ? deployment.start_date.split("T")[0]
+                : "",
+              end_date: deployment.end_date
+                ? deployment.end_date.split("T")[0]
+                : "",
+            }))
+        : [createEmptyDeployment()],
+    );
 
-      // Try to find previous deployment
-      // Sort deployments by start_date descending, skip the latest one
-      const previousDeployments = [...personnel.deployments]
-        .filter((d) => d.id !== personnel.latest_deployment?.id)
-        .sort(
-          (a, b) =>
-            new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
-        );
-
-      if (previousDeployments.length > 0) {
-        const prev = previousDeployments[0];
-        setLastDeploymentDate(prev.start_date.split("T")[0]);
-        if (prev.to_unit_id) {
-          setLastDeploymentUnitId(String(prev.to_unit_id));
-        } else if (prev.from_unit_id) {
-          // Fallback if to_unit_id is missing, though unlikely for a completed deployment
-          setLastDeploymentUnitId(String(prev.from_unit_id));
-        }
-      }
-    }
     setInitializedId(String(personnel.id));
-  }
+  }, [
+    aircraftAssets,
+    initializedId,
+    isLoadingRatings,
+    personnel,
+    ratings,
+  ]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -287,26 +350,53 @@ export const EditPersonnelPage = () => {
   };
 
   const handleRatingChange = (selected: (string | number)[]) => {
-    const ratings = selected as string[];
-    setSelectedRatings(ratings);
+    const ratingIds = selected as number[];
+    setSelectedRatings(ratingIds);
 
     // Clean up expiry dates for deselected ratings
     setRatingExpiryDates((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((key) => {
-        if (!ratings.includes(key)) {
-          delete next[key];
+        const ratingId = Number(key);
+        if (!ratingIds.includes(ratingId)) {
+          delete next[ratingId];
         }
       });
       return next;
     });
   };
 
-  const handleRatingExpiryChange = (rating: string, value: string) => {
+  const handleRatingExpiryChange = (ratingId: number, value: string) => {
     setRatingExpiryDates((prev) => ({
       ...prev,
-      [rating]: value,
+      [ratingId]: value,
     }));
+  };
+
+  const handleDeploymentChange = (
+    index: number,
+    field: keyof DeploymentFormData,
+    value: string,
+  ) => {
+    setDeployments((prev) =>
+      prev.map((deployment, deploymentIndex) =>
+        deploymentIndex === index
+          ? { ...deployment, [field]: value }
+          : deployment,
+      ),
+    );
+  };
+
+  const addDeploymentRow = () => {
+    setDeployments((prev) => [...prev, createEmptyDeployment()]);
+  };
+
+  const removeDeploymentRow = (index: number) => {
+    setDeployments((prev) =>
+      prev.length === 1
+        ? [createEmptyDeployment()]
+        : prev.filter((_, deploymentIndex) => deploymentIndex !== index),
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -315,12 +405,41 @@ export const EditPersonnelPage = () => {
 
     try {
       const aircraftNames = selectedAircraftIds
-        .map((id) => aircrafts?.find((a) => a.id === id)?.name)
+        .map((assetId) =>
+          aircraftAssets.find((asset) => asset.id === assetId)?.name,
+        )
         .filter(Boolean) as string[];
+      const selectedRatingNames = selectedRatings
+        .map((ratingId) => ratings.find((rating) => rating.id === ratingId)?.name)
+        .filter(Boolean) as string[];
+      const normalizedDeployments = deployments
+        .filter((deployment) =>
+          Object.values(deployment).some((value) => Boolean(value)),
+        )
+        .map((deployment) => ({
+          from_unit_id: deployment.from_unit_id
+            ? Number(deployment.from_unit_id)
+            : null,
+          to_unit_id: deployment.to_unit_id
+            ? Number(deployment.to_unit_id)
+            : null,
+          start_date: deployment.start_date || null,
+          end_date: deployment.end_date || null,
+        }));
 
       const payload: CreatePersonnelRequest = {
         ...formData,
-        rating_type: [...selectedRatings, ...aircraftNames].join(","), // Join selected ratings and aircraft names
+        rating_type: [...selectedRatingNames, ...aircraftNames].join(","),
+        status: status || undefined,
+        ratings: selectedRatings.map((ratingId) => ({
+          rating_id: ratingId,
+          expiry_date: ratingExpiryDates[ratingId] || null,
+        })),
+        flight_experiences: selectedAircraftIds.map((assetId) => ({
+          asset_id: assetId,
+          flight_hours: Number(flightHours[assetId] || 0),
+          notes: "",
+        })),
         // Ensure numeric fields are numbers
         rank_id: Number(formData.rank_id),
         unit_id: Number(formData.unit_id),
@@ -328,20 +447,9 @@ export const EditPersonnelPage = () => {
         specialty_id: Number(formData.specialty_id),
         corp_id: Number(formData.corp_id),
         image: imageUrl || undefined,
-        deployments:
-          currentDeploymentUnitId &&
-          lastDeploymentUnitId &&
-          currentDeploymentDate &&
-          lastDeploymentDate
-            ? [
-                {
-                  from_unit_id: String(lastDeploymentUnitId),
-                  to_unit_id: String(currentDeploymentUnitId),
-                  start_date: lastDeploymentDate,
-                  end_date: currentDeploymentDate,
-                },
-              ]
-            : [],
+        deployments: normalizedDeployments.length
+          ? normalizedDeployments
+          : undefined,
       };
 
       await updatePersonnel({ id, data: payload }).unwrap();
@@ -380,10 +488,32 @@ export const EditPersonnelPage = () => {
   };
 
   const aircraftOptions: MultiSelectOption[] = useMemo(() => {
-    return aircrafts?.map((a) => ({ label: a.name, value: a.id })) || [];
-  }, [aircrafts]);
+    if (isLoadingAircraftAssets) return [];
 
-  if (isLoadingPersonnel || isLoadingAircrafts) {
+    return aircraftAssets.map((a) => ({
+      label: `${a.name}${a.tail_number ? ` (${a.tail_number})` : ""}`,
+      value: a.id,
+    }));
+  }, [aircraftAssets, isLoadingAircraftAssets]);
+
+  const ratingOptions: MultiSelectOption[] = useMemo(
+    () =>
+      ratings.map((rating) => ({
+        label: rating.name,
+        value: rating.id,
+      })),
+    [ratings],
+  );
+
+  const ratingLabelById = useMemo(
+    () =>
+      new Map(
+        ratingOptions.map((option) => [Number(option.value), option.label]),
+      ),
+    [ratingOptions],
+  );
+
+  if (isLoadingPersonnel || isLoadingAircraftAssets) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <Icon
@@ -399,7 +529,9 @@ export const EditPersonnelPage = () => {
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
+          title="Go back"
+          aria-label="Go back"
+          className="p-2 hover:bg-[#001825]/5 rounded-full transition-colors text-gray-400 hover:text-white"
         >
           <Icon icon="mdi:arrow-left" className="w-6 h-6" />
         </button>
@@ -414,12 +546,14 @@ export const EditPersonnelPage = () => {
           </h2>
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Image Upload */}
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleImageChange}
                 accept="image/*"
+                title="Upload personnel photo"
+                aria-label="Upload personnel photo"
                 className="hidden"
               />
               <div
@@ -467,7 +601,7 @@ export const EditPersonnelPage = () => {
             </div>
 
             {/* Identification Fields */}
-            <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <InputField
                 label="First Name"
                 name="firstname"
@@ -544,11 +678,12 @@ export const EditPersonnelPage = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
             <MultiSelect
-              label="Type of Rating"
-              placeholder="Select Type of rating"
-              options={RATING_OPTIONS}
+              label="Type of License"
+              placeholder="Select Type of License"
+              options={ratingOptions}
               selectedValues={selectedRatings}
               onChange={handleRatingChange}
+              disabled={isLoadingRatings}
             />
             <MultiSelect
               label="Aircraft Rated On"
@@ -570,7 +705,7 @@ export const EditPersonnelPage = () => {
               {selectedRatings.map((rating) => (
                 <InputField
                   key={rating}
-                  label={`${rating} Expiry Date`}
+                  label={`${ratingLabelById.get(rating) || "Rating"} Expiry Date`}
                   type="date"
                   value={ratingExpiryDates[rating] || ""}
                   onChange={(e) =>
@@ -591,17 +726,19 @@ export const EditPersonnelPage = () => {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {selectedAircraftIds.map((aircraftId) => {
-                const aircraft = aircrafts?.find((a) => a.id === aircraftId);
+                const aircraft = aircraftAssets.find((a) => a.id === aircraftId);
                 return (
                   <InputField
                     key={aircraftId}
                     label={aircraft?.name || "Unknown Aircraft"}
-                    type="text"
+                    type="number"
                     value={flightHours[aircraftId] || ""}
                     onChange={(e) =>
                       handleFlightHourChange(aircraftId, e.target.value)
                     }
                     placeholder="Enter Total Flight Hours"
+                    min="0"
+                    step="0.1"
                   />
                 );
               })}
@@ -643,77 +780,109 @@ export const EditPersonnelPage = () => {
               onChange={(e) => setStatus(e.target.value)}
             >
               <option value="">Select Status</option>
-              <option value="Active">Active</option>
-              <option value="Grounded">Grounded</option>
-              <option value="Medical">Medical</option>
+              <option value="active">Active</option>
+              <option value="grounded">Grounded</option>
+              <option value="medical">Medical</option>
             </SelectField>
 
-            <div className="hidden">
-              <SelectField
-                label="Unit"
-                name="unit_id"
-                value={formData.unit_id}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Unit</option>
-                {renderOptions(units)}
-              </SelectField>
+            <SelectField
+              label="Unit"
+              name="unit_id"
+              value={formData.unit_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Unit</option>
+              {renderOptions(units)}
+            </SelectField>
 
-              <SelectField
-                label="Corp"
-                name="corp_id"
-                value={formData.corp_id}
-                onChange={handleChange}
-                required
-              >
-                <option value="">Select Corp</option>
-                {renderOptions(corps)}
-              </SelectField>
-            </div>
+            <SelectField
+              label="Corp"
+              name="corp_id"
+              value={formData.corp_id}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select Corp</option>
+              {renderOptions(corps)}
+            </SelectField>
           </div>
         </div>
 
         {/* Deployment Section */}
         <div className="space-y-4">
-          <h2 className="text-lg font-medium text-cyan-400 border-b border-white/10 pb-2 uppercase">
-            Deployment
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SelectField
-              label="Current Deployment Unit"
-              value={currentDeploymentUnitId}
-              onChange={(e) => setCurrentDeploymentUnitId(e.target.value)}
+          <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-2">
+            <h2 className="text-lg font-medium text-cyan-400 uppercase">
+              Deployment
+            </h2>
+            <button
+              type="button"
+              onClick={addDeploymentRow}
+              className="inline-flex items-center gap-2 rounded-md border border-cyan-500/40 px-3 py-2 text-sm font-medium text-cyan-300 transition-colors hover:bg-cyan-500/10"
             >
-              <option value="">Select Unit</option>
-              {renderOptions(units)}
-            </SelectField>
-            <InputField
-              label="Current Deployment Date"
-              type="date"
-              value={currentDeploymentDate}
-              onChange={(e) => setCurrentDeploymentDate(e.target.value)}
-            />
-            <SelectField
-              label="Last Deployment Unit"
-              value={lastDeploymentUnitId}
-              onChange={(e) => setLastDeploymentUnitId(e.target.value)}
-            >
-              <option value="">Select Unit</option>
-              {renderOptions(units)}
-            </SelectField>
-            <InputField
-              label="Last Deployment Date"
-              type="date"
-              value={lastDeploymentDate}
-              onChange={(e) => setLastDeploymentDate(e.target.value)}
-            />
-            <InputField
-              label="Date Taken on Strength (TOS)"
-              type="date"
-              value={tosDate}
-              onChange={(e) => setTosDate(e.target.value)}
-            />
+              <Icon icon="mdi:plus" className="h-4 w-4" />
+              Add Deployment
+            </button>
+          </div>
+          <div className="space-y-4">
+            {deployments.map((deployment, index) => (
+              <div
+                key={index}
+                className="rounded-lg border border-white/10 bg-[#001825]/5 p-4"
+              >
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <span className="text-sm font-medium text-white">
+                    Deployment {index + 1}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeDeploymentRow(index)}
+                    className="inline-flex items-center gap-2 rounded-md border border-red-500/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10"
+                  >
+                    <Icon icon="mdi:trash-can-outline" className="h-4 w-4" />
+                    Remove
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <SelectField
+                    label="From Unit"
+                    value={deployment.from_unit_id}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "from_unit_id", e.target.value)
+                    }
+                  >
+                    <option value="">Select Unit</option>
+                    {renderOptions(units)}
+                  </SelectField>
+                  <SelectField
+                    label="To Unit"
+                    value={deployment.to_unit_id}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "to_unit_id", e.target.value)
+                    }
+                  >
+                    <option value="">Select Unit</option>
+                    {renderOptions(units)}
+                  </SelectField>
+                  <InputField
+                    label="Start Date"
+                    type="date"
+                    value={deployment.start_date}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "start_date", e.target.value)
+                    }
+                  />
+                  <InputField
+                    label="End Date"
+                    type="date"
+                    value={deployment.end_date}
+                    onChange={(e) =>
+                      handleDeploymentChange(index, "end_date", e.target.value)
+                    }
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

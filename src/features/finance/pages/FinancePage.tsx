@@ -332,10 +332,10 @@ export const FinancePage = () => {
                 className="h-24 sm:h-28 bg-[#001219] border border-[#0A4D66]/40 rounded-xl flex items-center justify-between px-4"
               >
                 <div className="space-y-2 flex-1">
-                  <div className="h-3 w-24 bg-[#021a27] rounded-full animate-pulse" />
-                  <div className="h-6 w-20 bg-[#021a27] rounded-full animate-pulse" />
+                  <div className="h-3 w-24 bg-[#001219] rounded-full animate-pulse" />
+                  <div className="h-6 w-20 bg-[#001219] rounded-full animate-pulse" />
                 </div>
-                <div className="w-10 h-10 rounded bg-[#021a27] animate-pulse" />
+                <div className="w-10 h-10 rounded bg-[#001219] animate-pulse" />
               </div>
             ))
           : summaryCards.map((card) => (
@@ -354,7 +354,7 @@ export const FinancePage = () => {
                     {isSummaryError ? "₦—" : card.value}
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded bg-[#021a27] flex items-center justify-center">
+                <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
                   <Icon icon={card.icon} className="w-5 h-5 text-white" />
                 </div>
               </div>
@@ -362,7 +362,7 @@ export const FinancePage = () => {
       </section>
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-visible min-h-90">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
               <button
@@ -390,7 +390,7 @@ export const FinancePage = () => {
                 Budget
               </button>
             </div>
-            <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#021a27] p-1">
+            <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#001219] p-1">
               <button
                 type="button"
                 onClick={() =>
@@ -429,7 +429,7 @@ export const FinancePage = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200"
+              className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200"
             >
               {activeTab === "expenses"
                 ? filteredExpenses.length
@@ -448,7 +448,7 @@ export const FinancePage = () => {
                         e.target.value === "" ? "" : Number(e.target.value),
                       )
                     }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
                   >
                     <option value="">All Category</option>
                     {expenseCategories.map((category) => (
@@ -471,7 +471,7 @@ export const FinancePage = () => {
                         e.target.value === "" ? "" : Number(e.target.value),
                       )
                     }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
                   >
                     <option value="">All Units</option>
                     {unitOptions.map((unit) => (
@@ -494,7 +494,7 @@ export const FinancePage = () => {
                         e.target.value === "" ? "" : Number(e.target.value),
                       )
                     }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
                   >
                     <option value="">All Budget</option>
                     {budgets.map((budget) => (
@@ -515,7 +515,7 @@ export const FinancePage = () => {
                     onChange={(e) =>
                       setFilterPeriod(e.target.value as PeriodFilterKey)
                     }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
                   >
                     <option value="all">Period</option>
                     <option value="month">This Month</option>
@@ -542,7 +542,7 @@ export const FinancePage = () => {
                         e.target.value === "" ? "" : Number(e.target.value),
                       )
                     }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
                   >
                     <option value="">All Category</option>
                     {expenseCategories.map((category) => (
@@ -565,7 +565,7 @@ export const FinancePage = () => {
                         e.target.value === "" ? "" : Number(e.target.value),
                       )
                     }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
                   >
                     <option value="">All Units</option>
                     {unitOptions.map((unit) => (
@@ -586,7 +586,7 @@ export const FinancePage = () => {
                     onChange={(e) =>
                       setFilterPeriod(e.target.value as PeriodFilterKey)
                     }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 outline-none appearance-none"
+                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
                   >
                     <option value="all">Period</option>
                     <option value="month">This Month</option>
@@ -603,14 +603,14 @@ export const FinancePage = () => {
 
             <button
               type="button"
-              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#021a27] text-gray-300"
+              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-gray-300"
             >
               <Icon icon="mdi:download-outline" className="w-4 h-4" />
             </button>
 
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
               onClick={handleOpenPrimaryAction}
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
@@ -625,7 +625,7 @@ export const FinancePage = () => {
           <div ref={expensesTableRef} className="overflow-x-auto">
             <table className="min-w-full text-xs sm:text-sm text-gray-200">
               <thead>
-                <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
+                <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
                   <th className="px-4 sm:px-6 py-3 text-left">
                     Item Description
                   </th>
@@ -674,28 +674,28 @@ export const FinancePage = () => {
                         index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                       )}
                     >
-                      <td className="px-4 sm:px-6 py-3 align-middle text-gray-100">
+                      <td className="px-4 sm:px-6 py-3 align-middle text-white">
                         {row.partName}
                       </td>
-                      <td className="px-4 sm:px-6 py-3 align-middle text-gray-100">
+                      <td className="px-4 sm:px-6 py-3 align-middle text-white">
                         {row.expenseId}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {row.category}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {row.quantity}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         ₦{row.unitCost.toLocaleString()}
                       </td>
-                      <td className="px-4 sm:px-6 py-3 align-middle text-right text-gray-100">
+                      <td className="px-4 sm:px-6 py-3 align-middle text-right text-white">
                         ₦{row.totalCost.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {row.budgetName}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {row.date}
                       </td>
                       <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
@@ -771,9 +771,9 @@ export const FinancePage = () => {
                     key={index}
                     className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-3"
                   >
-                    <div className="h-4 w-32 bg-[#021a27] rounded-full animate-pulse" />
-                    <div className="h-3 w-40 bg-[#021a27] rounded-full animate-pulse" />
-                    <div className="h-3 w-24 bg-[#021a27] rounded-full animate-pulse" />
+                    <div className="h-4 w-32 bg-[#001219] rounded-full animate-pulse" />
+                    <div className="h-3 w-40 bg-[#001219] rounded-full animate-pulse" />
+                    <div className="h-3 w-24 bg-[#001219] rounded-full animate-pulse" />
                   </div>
                 ))
               : filteredExpenses.map((row) => (
@@ -825,7 +825,7 @@ export const FinancePage = () => {
           <div ref={budgetsTableRef} className="overflow-x-auto">
             <table className="min-w-full text-xs sm:text-sm text-gray-200">
               <thead>
-                <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
+                <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
                   <th className="px-4 sm:px-6 py-3 text-left">Budget ID</th>
                   <th className="px-4 py-3 text-left">Budget Name</th>
                   <th className="px-4 py-3 text-left">Category</th>
@@ -873,25 +873,25 @@ export const FinancePage = () => {
                         index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                       )}
                     >
-                      <td className="px-4 sm:px-6 py-3 align-middle text-gray-100">
+                      <td className="px-4 sm:px-6 py-3 align-middle text-white">
                         {`BUD-${budget.id.toString().padStart(5, "0")}`}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {budget.name}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {budget.category}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         ₦{budget.amount.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         ₦{budget.amount.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         Active
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {new Date(budget.startDate).toLocaleDateString(
                           "en-GB",
                           {
@@ -901,14 +901,14 @@ export const FinancePage = () => {
                           },
                         )}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {new Date(budget.endDate).toLocaleDateString("en-GB", {
                           day: "2-digit",
                           month: "short",
                           year: "numeric",
                         })}
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {new Date(budget.createdAt).toLocaleDateString(
                           "en-GB",
                           {
@@ -992,9 +992,9 @@ export const FinancePage = () => {
                     key={index}
                     className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-3"
                   >
-                    <div className="h-4 w-32 bg-[#021a27] rounded-full animate-pulse" />
-                    <div className="h-3 w-40 bg-[#021a27] rounded-full animate-pulse" />
-                    <div className="h-3 w-24 bg-[#021a27] rounded-full animate-pulse" />
+                    <div className="h-4 w-32 bg-[#001219] rounded-full animate-pulse" />
+                    <div className="h-3 w-40 bg-[#001219] rounded-full animate-pulse" />
+                    <div className="h-3 w-24 bg-[#001219] rounded-full animate-pulse" />
                   </div>
                 ))
               : filteredBudgets.map((budget) => (

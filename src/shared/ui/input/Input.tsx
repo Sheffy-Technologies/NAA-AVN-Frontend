@@ -4,6 +4,7 @@ import { Icon } from "@/shared/icons/Icon";
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  labelClassName?: string;
   error?: string;
   leftIcon?: string;
   rightIcon?: string;
@@ -15,6 +16,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     {
       className,
       label,
+      labelClassName,
       error,
       leftIcon,
       rightIcon,
@@ -32,7 +34,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-gray-300 mb-1"
+            className={cn("block text-sm font-medium text-gray-300 mb-1", labelClassName)}
           >
             {label}
           </label>

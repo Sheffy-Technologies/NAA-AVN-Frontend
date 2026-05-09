@@ -45,7 +45,8 @@ export type InventoryStock = {
 
 export type InventoryItem = {
   id: number;
-  type: string;
+  store: "bonded" | "quarantine" | "flammable" | "rubber" | "others";
+  type?: string;
   asset_id: number;
   expense_category_id: number;
   unit_id: number;
@@ -55,8 +56,6 @@ export type InventoryItem = {
   re_order_level: number;
   unit_cost: string;
   measurement_unit: string;
-  supplier_id?: number | null;
-  vendor?: string;
   expiry_date: string | null;
   date_received: string | null;
   remark: string;
@@ -66,7 +65,6 @@ export type InventoryItem = {
   stock_level: string;
   expense_category: InventoryExpenseCategory;
   unit: InventoryUnit;
-  supplier?: InventorySupplier | null;
   stocks: InventoryStock[];
   // Legacy fields that might still be needed or can be removed if verified
   part_name?: string;
@@ -89,11 +87,11 @@ export type InventoryFilters = {
 };
 
 export type CreateInventoryPayload = {
-  type:
-    | "aircraft_spares"
-    | "consumables"
-    | "ground_support"
-    | "general"
+  store:
+    | "bonded"
+    | "quarantine"
+    | "flammable"
+    | "rubber"
     | "others"
     | string;
   asset_id: number | null;
@@ -105,12 +103,10 @@ export type CreateInventoryPayload = {
   re_order_level: number;
   unit_cost: number;
   measurement_unit: string;
-  supplier_id: number;
   expiry_date: string | null;
   date_received: string | null;
   remark: string;
   description: string;
-  quantity: number;
 };
 
 export type UpdateInventoryPayload = CreateInventoryPayload;
@@ -183,6 +179,165 @@ export type UpdateInventoryRequisitionPayload = {
     id?: number;
     inventory_id: number;
     approved_quantity: number;
+  }>;
+};
+
+export type PurchaseOrderItem = {
+  id: number;
+  purchase_order_id?: number;
+  inventory_id: number;
+  part_number?: string | null;
+  quantity_ordered?: number | null;
+  quantity_received?: number | null;
+  unit_price?: number | string | null;
+  created_at?: string;
+  updated_at?: string;
+  inventory?: InventoryItem;
+};
+
+export type PurchaseOrder = {
+  id: number;
+  supplier_id?: number | null;
+  rfq_id?: number | null;
+  name?: string | null;
+  order_date?: string | null;
+  expected_date_of_delivery?: string | null;
+  status?: "draft" | "sent" | "received" | string | null;
+  created_at?: string;
+  updated_at?: string;
+  items?: PurchaseOrderItem[];
+  supplier?: InventorySupplier | null;
+};
+
+export type UpdatePurchaseOrderPayload = {
+  supplier_id?: number | null;
+  rfq_id?: number | null;
+  name?: string | null;
+  order_date?: string | null;
+  expected_date_of_delivery?: string | null;
+  status?: "draft" | "sent" | "received";
+  items?: Array<{
+    inventory_id: number;
+    part_number?: string | null;
+    quantity_ordered?: number;
+    quantity_received?: number | null;
+    unit_price?: number | null;
+  }>;
+};
+
+export type StockMovementLine = {
+  id?: number;
+  inventory_id?: number | null;
+  spare_id?: number | null;
+  quantity_requested: number;
+  quantity_approved?: number | null;
+  inventory?: InventoryItem;
+};
+
+export type StockMovement = {
+  id: number;
+  quantity: number;
+  movement_type: "issue" | "receipt";
+  work_order_id?: number | null;
+  requesting_unit_id?: number | null;
+  performed_by?: number | null;
+  notes?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  stocks?: StockMovementLine[];
+};
+
+export type CreateStockMovementPayload = {
+  quantity: number;
+  movement_type: "issue" | "receipt";
+  work_order_id?: number | null;
+  requesting_unit_id?: number | null;
+  performed_by?: number | null;
+  notes?: string | null;
+  stocks: Array<{
+    inventory_id?: number | null;
+    spare_id?: number | null;
+    quantity_requested: number;
+    quantity_approved?: number | null;
+  }>;
+};
+
+export type SupplierQuotation = {
+  id: number;
+  rfq_id: number;
+  supplier_id: number;
+  quotation_number?: string | null;
+  total_amount?: number | string | null;
+  currency?: string | null;
+  valid_until?: string | null;
+  status?: "submitted" | "approved" | "rejected" | string;
+  notes?: string | null;
+  quoted_at?: string | null;
+  supplier?: InventorySupplier;
+};
+
+export type Rfq = {
+  id: number;
+  stock_movement_id: number;
+  rfq_number: string;
+  requested_by?: number | null;
+  status?: "draft" | "sent" | "closed" | "cancelled" | string;
+  notes?: string | null;
+  issued_at?: string | null;
+  suppliers?: InventorySupplier[];
+  quotations?: SupplierQuotation[];
+  stock_movement?: StockMovement;
+};
+
+export type CreateRfqPayload = {
+  stock_movement_id: number;
+  rfq_number?: string;
+  status?: "draft" | "sent" | "closed" | "cancelled";
+  notes?: string | null;
+  issued_at?: string | null;
+  supplier_ids: number[];
+};
+
+export type CreateSupplierQuotationPayload = {
+  rfq_id: number;
+  supplier_id: number;
+  quotation_number?: string | null;
+  total_amount?: number | null;
+  currency?: string | null;
+  valid_until?: string | null;
+  status?: "submitted" | "approved" | "rejected";
+  notes?: string | null;
+  quoted_at?: string | null;
+};
+
+export type GoodsReceivedNoteItem = {
+  id: number;
+  purchase_order_item_id?: number | null;
+  inventory_id: number;
+  quantity_received: number;
+  batch_number?: string | null;
+};
+
+export type GoodsReceivedNote = {
+  id: number;
+  purchase_order_id: number;
+  grn_number: string;
+  received_by?: number | null;
+  received_at?: string | null;
+  notes?: string | null;
+  items?: GoodsReceivedNoteItem[];
+};
+
+export type CreateGoodsReceivedNotePayload = {
+  purchase_order_id: number;
+  grn_number?: string;
+  received_at?: string | null;
+  notes?: string | null;
+  items: Array<{
+    purchase_order_item_id?: number | null;
+    inventory_id: number;
+    quantity_received: number;
+    batch_number?: string | null;
   }>;
 };
 
@@ -300,6 +455,104 @@ export const inventoryApi = createApi({
         data: body,
       }),
     }),
+    getPurchaseOrders: builder.query<PurchaseOrder[], void>({
+      query: () => ({
+        url: "/purchase-orders",
+        method: "GET",
+      }),
+    }),
+    getStockMovements: builder.query<StockMovement[], void>({
+      query: () => ({
+        url: "/stock-movements",
+        method: "GET",
+      }),
+    }),
+    createStockMovement: builder.mutation<StockMovement, CreateStockMovementPayload>({
+      query: (body) => ({
+        url: "/stock-movements",
+        method: "POST",
+        data: body,
+      }),
+    }),
+    getRfqs: builder.query<Rfq[], void>({
+      query: () => ({
+        url: "/rfqs",
+        method: "GET",
+      }),
+    }),
+    createRfq: builder.mutation<Rfq, CreateRfqPayload>({
+      query: (body) => ({
+        url: "/rfqs",
+        method: "POST",
+        data: body,
+      }),
+    }),
+    updateRfq: builder.mutation<Rfq, { id: number | string; body: Partial<CreateRfqPayload> }>({
+      query: ({ id, body }) => ({
+        url: `/rfqs/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+    }),
+    getSupplierQuotations: builder.query<SupplierQuotation[], { rfq_id?: number } | void>({
+      query: (params) => ({
+        url: "/supplier-quotations",
+        method: "GET",
+        params: params || undefined,
+      }),
+    }),
+    createSupplierQuotation: builder.mutation<SupplierQuotation, CreateSupplierQuotationPayload>({
+      query: (body) => ({
+        url: "/supplier-quotations",
+        method: "POST",
+        data: body,
+      }),
+    }),
+    approveSupplierQuotation: builder.mutation<SupplierQuotation, number | string>({
+      query: (id) => ({
+        url: `/supplier-quotations/${id}/approve`,
+        method: "PUT",
+      }),
+    }),
+    getPurchaseOrderById: builder.query<PurchaseOrder, number | string>({
+      query: (id) => ({
+        url: `/purchase-orders/${id}`,
+        method: "GET",
+      }),
+    }),
+    createPurchaseOrder: builder.mutation<PurchaseOrder, unknown>({
+      query: (body) => ({
+        url: "/purchase-orders",
+        method: "POST",
+        data: body,
+      }),
+    }),
+    updatePurchaseOrder: builder.mutation<
+      PurchaseOrder,
+      { id: number | string; body: UpdatePurchaseOrderPayload }
+    >({
+      query: ({ id, body }) => ({
+        url: `/purchase-orders/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+    }),
+    getGoodsReceivedNotes: builder.query<GoodsReceivedNote[], void>({
+      query: () => ({
+        url: "/goods-received-notes",
+        method: "GET",
+      }),
+    }),
+    createGoodsReceivedNote: builder.mutation<
+      GoodsReceivedNote,
+      CreateGoodsReceivedNotePayload
+    >({
+      query: (body) => ({
+        url: "/goods-received-notes",
+        method: "POST",
+        data: body,
+      }),
+    }),
   }),
 });
 
@@ -318,4 +571,18 @@ export const {
   useCreateInventoryRequisitionMutation,
   useGetInventoryRequisitionByIdQuery,
   useUpdateInventoryRequisitionMutation,
+  useGetPurchaseOrdersQuery,
+  useGetStockMovementsQuery,
+  useCreateStockMovementMutation,
+  useGetRfqsQuery,
+  useCreateRfqMutation,
+  useUpdateRfqMutation,
+  useGetSupplierQuotationsQuery,
+  useCreateSupplierQuotationMutation,
+  useApproveSupplierQuotationMutation,
+  useGetPurchaseOrderByIdQuery,
+  useCreatePurchaseOrderMutation,
+  useUpdatePurchaseOrderMutation,
+  useGetGoodsReceivedNotesQuery,
+  useCreateGoodsReceivedNoteMutation,
 } = inventoryApi;

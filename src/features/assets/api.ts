@@ -9,13 +9,19 @@ export type Engine = {
   asset_id?: number;
   position_id: number;
   category_id?: number;
+  ata_chapter_id?: number;
   serial_number: string;
   model: string;
   installation_date: string;
   time_since_new: number | string;
-  time_since_overhaul: number | string;
+  last_inspection?: number | string | null;
   service_life_limit: number | string;
-  overhaul_limit: number | string;
+  inspection_interval_unit?: "hours" | "months" | "cycle";
+  inspection_interval?: number | string | null;
+  maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  operation_flight_hours?: number;
+  current_time_since_new?: number;
+  current_time_since_new_label?: string;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
@@ -25,16 +31,18 @@ export type Component = {
   id?: number;
   asset_id?: number;
   component_type_id?: number;
+  ata_chapter_id?: number;
   part_number: string;
   serial_number: string;
-  total_service_hours?: number | string;
-  service_life_limit_hours?: number | string;
-  last_overhaul_hours?: number | string;
-  overhaul_limit: number | string;
-  life_limit_hours?: number | string;
-  time_since_overhaul?: number | string;
   time_since_new?: number | string;
-  hours_used?: number | string;
+  service_life_limit_hours?: number | string;
+  last_inspection?: number | string | null;
+  inspection_interval_unit?: "hours" | "months" | "cycle";
+  inspection_interval?: number | string;
+  maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  operation_flight_hours?: number;
+  current_time_since_new?: number;
+  current_time_since_new_label?: string;
   installed_at: string;
   removed_at?: string | null;
   created_at?: string;
@@ -67,14 +75,20 @@ export type Avionics = {
   id?: number;
   asset_id?: number;
   avionic_category_id?: number;
+  ata_chapter_id?: number;
   serial_number: string;
   model: string;
   manufacturer?: string | null;
   installed_at: string;
-  total_service_hours?: number | string;
+  time_since_new?: number | string;
   service_life_limit?: number | string;
-  last_overhaul_hours?: number | string;
-  overhaul_limit?: number | string;
+  last_inspection?: number | string | null;
+  inspection_interval_unit?: "hours" | "months" | "cycle";
+  inspection_interval?: number | string;
+  maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  operation_flight_hours?: number;
+  current_time_since_new?: number;
+  current_time_since_new_label?: string;
   removed_at?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -85,6 +99,9 @@ export type Defect = {
   id?: number;
   asset_id?: number;
   operation_id: number;
+  component_id?: number | null;
+  engine_id?: number | null;
+  avionics_id?: number | null;
   title: string;
   description: string;
   reported_at: string;
@@ -150,6 +167,18 @@ export type EngineCategory = {
   updated_at: string;
 };
 
+export type AtaChapter = {
+  id: number;
+  chapter_number?: string;
+  chapter_name?: string;
+  name?: string;
+  description?: string | null;
+  maintenance_category?: "engines" | "avionics" | "components" | string | null;
+  applicability?: "component" | "engine" | "avionics" | string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type AvionicCategory = {
   id: number;
   name: string;
@@ -184,6 +213,7 @@ export type Vehicle = {
   photo?: string | null;
   photo_url?: string | null;
   serviceability_status?: Asset["serviceability_status"] | null;
+  operation_status?: string | null;
   status?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -197,6 +227,7 @@ export type Facility = {
   image?: string | null;
   image_url?: string | null;
   serviceability_status?: Asset["serviceability_status"] | null;
+  operation_status?: string | null;
   status?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -243,24 +274,29 @@ export type DocumentUpload = {
 export type CreateAssetComponentPayload = {
   asset_id?: number;
   component_type_id: number;
+  ata_chapter_id: number;
   part_number: string;
   serial_number: string;
-  total_service_hours: number;
+  time_since_new: number;
   service_life_limit_hours: number;
-  last_overhaul_hours: number;
-  overhaul_limit: number;
+  inspection_interval_unit: "hours" | "months" | "cycle";
+  inspection_interval: number | null;
+  maintenance_strategy: "hard-time" | "on-condition" | "condition";
   installed_at: string;
   removed_at: string | null;
 };
 
 export type CreateAssetAvionicsPayload = {
-  component_type_id: number;
+  avionic_category_id: number;
+  ata_chapter_id: number;
   serial_number: string;
   model: string;
-  total_service_hours: number;
+  manufacturer?: string | null;
+  time_since_new: number;
   service_life_limit: number;
-  last_overhaul_hours: number;
-  overhaul_limit: number;
+  inspection_interval_unit: "hours" | "months" | "cycle";
+  inspection_interval: number | null;
+  maintenance_strategy: "hard-time" | "on-condition" | "condition";
   installed_at: string;
   removed_at: string | null;
 };
@@ -277,7 +313,7 @@ export type CreateDefectPayload = {
   title: string;
   description: string;
   remarks: string;
-  operation_id: number;
+  operation_id?: number;
   personnel_ids: number[];
   maintenance_events?: Array<{
     inspection_name: string;
@@ -318,18 +354,21 @@ export type CreateAssetPayload = {
   operation_status: string;
   engines: Array<{
     position_id: number;
+    category_id: number;
+    ata_chapter_id: number;
     serial_number: string;
     model: string;
     installation_date: string;
     time_since_new: number;
-    time_since_overhaul: number;
     service_life_limit: number;
-    overhaul_limit: number;
+    inspection_interval_unit: "hours" | "months" | "cycle";
+    inspection_interval: number | null;
+    maintenance_strategy: "hard-time" | "on-condition" | "condition";
   }>;
   components: CreateAssetComponentPayload[];
   documents: CreateAssetDocumentPayload[];
   maintenance_events: Array<{
-    component_id: number;
+    component_id?: number;
     performed_by: number;
     event_type: string;
     description: string;
@@ -355,8 +394,18 @@ export type CreateVehiclePayload = {
   name: string;
   vehicle_type_id: number;
   registration_number: string;
-  serial_number: string;
+  serial_number?: string;
   unit_id: number;
+  photo?: File | null;
+};
+
+export type UpdateVehiclePayload = {
+  id: number;
+  name?: string;
+  vehicle_type_id?: number;
+  registration_number?: string;
+  serial_number?: string;
+  unit_id?: number;
   photo?: File | null;
 };
 
@@ -481,6 +530,13 @@ export const assetsApi = createApi({
       }),
       providesTags: ["EngineCategories"],
     }),
+    getAtaChapters: builder.query<AtaChapter[], void>({
+      query: () => ({
+        url: "/ata-chapters",
+        method: "GET",
+      }),
+      providesTags: ["EngineCategories"],
+    }),
     getAvionicCategories: builder.query<AvionicCategory[], void>({
       query: () => ({
         url: "/avionic-categories",
@@ -594,7 +650,9 @@ export const assetsApi = createApi({
         formData.append("name", body.name);
         formData.append("vehicle_type_id", String(body.vehicle_type_id));
         formData.append("registration_number", body.registration_number);
-        formData.append("serial_number", body.serial_number);
+        if (body.serial_number) {
+          formData.append("serial_number", body.serial_number);
+        }
         formData.append("unit_id", String(body.unit_id));
 
         if (body.photo) {
@@ -609,6 +667,46 @@ export const assetsApi = createApi({
         };
       },
       invalidatesTags: [{ type: "Assets", id: "LIST" }],
+    }),
+    updateVehicle: builder.mutation<unknown, UpdateVehiclePayload>({
+      query: ({ id, ...body }) => {
+        const formData = new FormData();
+
+        if (body.name !== undefined) {
+          formData.append("name", body.name);
+        }
+        if (body.vehicle_type_id !== undefined) {
+          formData.append("vehicle_type_id", String(body.vehicle_type_id));
+        }
+        if (body.registration_number !== undefined) {
+          formData.append("registration_number", body.registration_number);
+        }
+        if (body.serial_number !== undefined) {
+          formData.append("serial_number", body.serial_number);
+        }
+        if (body.unit_id !== undefined) {
+          formData.append("unit_id", String(body.unit_id));
+        }
+        if (body.photo) {
+          formData.append("photo", body.photo);
+        }
+
+        return {
+          url: `/vehicles/${id}`,
+          method: "POST",
+          data: formData,
+          params: { _method: "PUT" },
+          headers: { "Content-Type": "multipart/form-data" },
+        };
+      },
+      invalidatesTags: (result, error, body) => {
+        void result;
+        void error;
+        return [
+          { type: "Assets", id: body.id },
+          { type: "Assets", id: "LIST" },
+        ];
+      },
     }),
     createFacility: builder.mutation<unknown, CreateFacilityPayload>({
       query: (body) => {
@@ -688,6 +786,7 @@ export const {
   useGetEnginePositionsQuery,
   useGetComponentTypesQuery,
   useGetEngineCategoriesQuery,
+  useGetAtaChaptersQuery,
   useGetAvionicCategoriesQuery,
   useGetDocumentTypesQuery,
   useCreateDocumentMutation,
@@ -697,6 +796,7 @@ export const {
   useGetAssetByIdQuery,
   useCreateAssetMutation,
   useCreateVehicleMutation,
+  useUpdateVehicleMutation,
   useCreateFacilityMutation,
   useUpdateAssetMutation,
   useDeleteAssetMutation,

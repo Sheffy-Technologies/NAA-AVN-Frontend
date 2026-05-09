@@ -1,6 +1,14 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
 
+export type NavigationTarget = {
+  resource?: string;
+  resource_id?: number;
+  href?: string;
+  api_path?: string;
+  api_url?: string;
+};
+
 export type NotificationItem = {
   id: number;
   title?: string | null;
@@ -10,6 +18,7 @@ export type NotificationItem = {
   read_at?: string | null;
   created_at?: string | null;
   date?: string | null;
+  navigation?: NavigationTarget | null;
 };
 
 type NotificationsApiResponse =

@@ -13,8 +13,11 @@ import { emergenciesApi } from "@/features/emergencies/api";
 import { notificationsApi } from "@/features/notifications/api";
 import { securityApi } from "@/features/security/api";
 import { usersApi } from "@/features/users/api";
+import { maintenanceApi } from "@/features/maintenance/api";
 import { documentsApi } from "@/features/documents/api";
 import { reportsApi } from "@/features/reports/api";
+import { messagesApi } from "@/features/messages/api";
+import messageComposeReducer from "@/features/messages/composeSlice";
 import { unitsApi } from "@/shared/api/units";
 import toastReducer from "@/shared/store/toastSlice";
 
@@ -43,6 +46,7 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     toast: toastReducer,
+    messageCompose: messageComposeReducer,
     [dashboardApi.reducerPath]: dashboardApi.reducer,
     [personnelApi.reducerPath]: personnelApi.reducer,
     [inventoryApi.reducerPath]: inventoryApi.reducer,
@@ -53,7 +57,9 @@ export const store = configureStore({
     [notificationsApi.reducerPath]: notificationsApi.reducer,
     [securityApi.reducerPath]: securityApi.reducer,
     [usersApi.reducerPath]: usersApi.reducer,
+    [maintenanceApi.reducerPath]: maintenanceApi.reducer,
     [documentsApi.reducerPath]: documentsApi.reducer,
+    [messagesApi.reducerPath]: messagesApi.reducer,
     [reportsApi.reducerPath]: reportsApi.reducer,
     [unitsApi.reducerPath]: unitsApi.reducer,
   },
@@ -69,7 +75,9 @@ export const store = configureStore({
       notificationsApi.middleware,
       securityApi.middleware,
       usersApi.middleware,
+      maintenanceApi.middleware,
       documentsApi.middleware,
+      messagesApi.middleware,
       reportsApi.middleware,
       unitsApi.middleware,
     ),

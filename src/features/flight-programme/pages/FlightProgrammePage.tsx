@@ -224,32 +224,32 @@ export const FlightProgrammePage = () => {
         <div className="flex items-center gap-2 text-[11px] sm:text-xs text-gray-300">
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27]"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219]"
           >
             <Icon icon="mdi:refresh" className="w-4 h-4" />
             <span>Reset Filter</span>
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27]"
+            className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219]"
           >
             All Units
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27]"
+            className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219]"
           >
             All Priority
           </button>
           <button
             type="button"
-            className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27]"
+            className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219]"
           >
             All Operations
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#7FD5FF] text-black font-medium"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black font-medium"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" />
             <span>Add Flight</span>
@@ -321,7 +321,7 @@ export const FlightProgrammePage = () => {
               )}
               {resources.map((res) => (
                 <div key={res.id} className="px-4 py-3 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded bg-[#021a27] flex items-center justify-center">
+                  <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
                     <Icon
                       icon="mdi:airplane"
                       className="w-5 h-5 text-cyan-300"
@@ -357,11 +357,11 @@ export const FlightProgrammePage = () => {
                   gridTemplateColumns: `80px repeat(${timelineHours.length}, 1fr)`,
                 }}
               >
-                <div className="bg-[#021a27] border-b border-[#0A4D66]/40" />
+                <div className="bg-[#001219] border-b border-[#0A4D66]/40" />
                 {timelineHours.map((h) => (
                   <div
                     key={h}
-                    className="bg-[#021a27] border-b border-l border-[#0A4D66]/40 text-[11px] text-gray-400 flex items-center justify-center"
+                    className="bg-[#001219] border-b border-l border-[#0A4D66]/40 text-[11px] text-gray-400 flex items-center justify-center"
                   >
                     {h.toString().padStart(2, "0")}:00
                   </div>
@@ -412,7 +412,7 @@ export const FlightProgrammePage = () => {
                               className="h-full w-full"
                             >
                               <div
-                                className="h-full rounded text-[11px] px-3 flex items-center text-[#021019] font-medium overflow-hidden whitespace-nowrap text-ellipsis"
+                                className="h-full rounded text-[11px] px-3 flex items-center text-[#001219] font-medium overflow-hidden whitespace-nowrap text-ellipsis"
                                 style={{ backgroundColor: ev.color }}
                               >
                                 {ev.label}
@@ -433,7 +433,7 @@ export const FlightProgrammePage = () => {
                                   <div className="flex items-center gap-1 text-gray-300">
                                     <button
                                       type="button"
-                                      className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-[#021a27]"
+                                      className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-[#001219]"
                                     >
                                       <Icon
                                         icon="mdi:download-outline"
@@ -442,7 +442,7 @@ export const FlightProgrammePage = () => {
                                     </button>
                                     <button
                                       type="button"
-                                      className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-[#021a27]"
+                                      className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-[#001219]"
                                     >
                                       <Icon
                                         icon="mdi:printer-outline"

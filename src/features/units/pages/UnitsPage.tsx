@@ -75,7 +75,7 @@ export const UnitsPage = () => {
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-[360px]">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-3">
             <Icon
               icon="mdi:office-building"
@@ -87,14 +87,14 @@ export const UnitsPage = () => {
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center gap-2 text-xs text-gray-300">
-              <span className="px-2 py-1 rounded-full bg-[#021a27] border border-[#0A4D66]/40">
+              <span className="px-2 py-1 rounded-full bg-[#001219] border border-[#0A4D66]/40">
                 {units.length}
               </span>
               <span>Units</span>
             </div>
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
               onClick={handleAddUnit}
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
@@ -106,7 +106,7 @@ export const UnitsPage = () => {
         <div className="overflow-x-auto min-h-[300px]">
           <table className="min-w-full text-xs sm:text-sm text-gray-200">
             <thead>
-              <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
+              <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
                 <th className="px-4 sm:px-6 py-3 text-left">Unit Name</th>
                 <th className="px-4 py-3 text-left">Description</th>
                 <th className="px-4 py-3 text-left">Created</th>
@@ -146,22 +146,22 @@ export const UnitsPage = () => {
                       index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                     )}
                   >
-                    <td className="px-4 sm:px-6 py-3 align-middle text-gray-100">
+                    <td className="px-4 sm:px-6 py-3 align-middle text-white">
                       {unit.name}
                     </td>
-                    <td className="px-4 py-3 align-middle text-gray-100">
+                    <td className="px-4 py-3 align-middle text-white">
                       {unit.description || "—"}
                     </td>
-                    <td className="px-4 py-3 align-middle text-gray-100">
+                    <td className="px-4 py-3 align-middle text-white">
                       {unit.createdAt}
                     </td>
-                    <td className="px-4 py-3 align-middle text-gray-100">
+                    <td className="px-4 py-3 align-middle text-white">
                       {unit.updatedAt}
                     </td>
                     <td className="px-4 py-3 align-middle">
                       <div className="inline-flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                        <span className="text-gray-100">Active</span>
+                        <span className="text-white">Active</span>
                       </div>
                     </td>
                     <td className="px-4 sm:px-6 py-3 align-middle text-right relative">

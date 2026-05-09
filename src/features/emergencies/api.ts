@@ -1,11 +1,13 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
+import type { NavigationTarget } from "@/features/notifications/api";
 
 export type EmergencyAssetInspectionItem = {
   id: number;
   name?: string | null;
   serial_number?: string | null;
   next_inspection_date?: string | null;
+  navigation?: NavigationTarget | null;
 };
 
 export type EmergencyLowStockInventoryItem = {
@@ -19,6 +21,7 @@ export type EmergencyLowStockInventoryItem = {
   unit?: {
     name?: string | null;
   } | null;
+  navigation?: NavigationTarget | null;
 };
 
 export type EmergencySummarySection<T> = {

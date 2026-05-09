@@ -138,14 +138,14 @@ export const OperationsPage = () => {
           className="relative overflow-x-auto overscroll-x-contain scroll-smooth"
           style={{
             background:
-              "linear-gradient(to right, #001722 0rem, #001722 17rem, transparent 17rem)",
+              "linear-gradient(to right, #001219 0rem, #001219 17rem, transparent 17rem)",
           }}
         >
           <div className="w-max min-w-full">
             <div className="flex border-b border-[#0A4D66]/40">
-              <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001722] p-3">
+              <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001219] p-3">
                 <div className="space-y-2">
-                  <div className="flex items-stretch border border-[#0A4D66]/50 bg-[#021420] overflow-hidden">
+                  <div className="flex items-stretch border border-[#0A4D66]/50 bg-[#001219] overflow-hidden">
                     <button
                       type="button"
                       onClick={() => {
@@ -160,7 +160,7 @@ export const OperationsPage = () => {
                           scheduleDateInput.click();
                         }
                       }}
-                      className="flex min-w-0 flex-1 items-center gap-3 bg-[#021420] px-4 text-left hover:bg-[#08283a] transition-colors"
+                      className="flex min-w-0 flex-1 items-center gap-3 bg-[#001219] px-4 text-left hover:bg-[#001219] transition-colors"
                     >
                       <Icon
                         icon="mdi:calendar-blank-outline"
@@ -176,7 +176,7 @@ export const OperationsPage = () => {
                       onClick={() =>
                         setScheduleDate((d) => addLocalDays(d, -1))
                       }
-                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#08283a] text-[#B7E6FF] hover:bg-[#0d3951] transition-colors"
+                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#001219] text-[#B7E6FF] hover:bg-[#001219] transition-colors"
                       aria-label="Previous day"
                     >
                       <Icon icon="mdi:chevron-left" className="w-5 h-5" />
@@ -184,7 +184,7 @@ export const OperationsPage = () => {
                     <button
                       type="button"
                       onClick={() => setScheduleDate((d) => addLocalDays(d, 1))}
-                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#08283a] text-[#B7E6FF] hover:bg-[#0d3951] transition-colors"
+                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#001219] text-[#B7E6FF] hover:bg-[#001219] transition-colors"
                       aria-label="Next day"
                     >
                       <Icon icon="mdi:chevron-right" className="w-5 h-5" />
@@ -192,7 +192,7 @@ export const OperationsPage = () => {
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs uppercase tracking-wide text-[#9DDCFF]">
+                    <span className="text-xs uppercase tracking-wide text-[#B7E6FF]">
                       Selected Date
                     </span>
                     <button
@@ -203,7 +203,7 @@ export const OperationsPage = () => {
                         "rounded border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors",
                         isToday
                           ? "border-[#0A4D66]/30 text-gray-500 cursor-default"
-                          : "border-[#0A4D66]/50 text-[#B7E6FF] hover:bg-[#08283a]",
+                          : "border-[#0A4D66]/50 text-[#B7E6FF] hover:bg-[#001219]",
                       )}
                     >
                       Today
@@ -212,7 +212,7 @@ export const OperationsPage = () => {
                 </div>
               </div>
 
-              <div className="grid bg-[#001722]" style={timelineGridStyle}>
+              <div className="grid bg-[#001219]" style={timelineGridStyle}>
                 {timelineHours.map((h) => (
                   <div
                     key={h}
@@ -224,7 +224,7 @@ export const OperationsPage = () => {
               </div>
             </div>
 
-            <div className="min-h-100 relative bg-[#001722]">
+            <div className="min-h-100 relative bg-[#001219]">
               {scheduleOperations.length === 0 ? (
                 <div className="px-4 py-8 text-center text-sm text-gray-400">
                   No operations scheduled for this date.
@@ -275,7 +275,7 @@ export const OperationsPage = () => {
                           key={op.id}
                           className="flex h-[78px] group relative"
                         >
-                          <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001722] p-3">
+                          <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001219] p-3">
                             <div className="flex items-center gap-3">
                               <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-[#14506d] text-[#B7E6FF]">
                                 <Icon
@@ -292,7 +292,7 @@ export const OperationsPage = () => {
                                 <p className="truncate text-[13px] font-bold uppercase leading-5 text-white">
                                   {op.unit.name}
                                 </p>
-                                <p className="truncate text-sm font-semibold text-[#9DDCFF]">
+                                <p className="truncate text-sm font-semibold text-[#B7E6FF]">
                                   {op.name}
                                 </p>
                                 <div className="mt-1 flex items-center gap-2 text-sm text-white/90">
@@ -354,7 +354,7 @@ export const OperationsPage = () => {
     <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm text-gray-200">
-          <thead className="bg-[#021a27] text-gray-400 uppercase text-xs">
+          <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
             <tr>
               <th className="text-left px-6 py-3 font-medium">Purpose</th>
               <th className="text-left px-4 py-3 font-medium">Type</th>
@@ -445,7 +445,7 @@ export const OperationsPage = () => {
   );
 
   return (
-    <div className="p-6 space-y-6 min-h-screen bg-[#021019] text-gray-200">
+    <div className="p-6 space-y-6 min-h-screen bg-[#001219] text-gray-200">
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-white tracking-wide">
@@ -497,7 +497,7 @@ export const OperationsPage = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="bg-[#021a27] rounded-md p-1 flex border border-[#0A4D66]/40">
+            <div className="bg-[#001219] rounded-md p-1 flex border border-[#0A4D66]/40">
               <button
                 onClick={() => setViewMode("table")}
                 className={cn(
@@ -547,10 +547,10 @@ export const OperationsPage = () => {
 
             <div className="h-6 w-px bg-[#0A4D66]/40 mx-1"></div>
 
-            <button className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 flex items-center gap-1">
+            <button className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 flex items-center gap-1">
               All Units <Icon icon="mdi:chevron-down" className="w-4 h-4" />
             </button>
-            <button className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 flex items-center gap-1">
+            <button className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 flex items-center gap-1">
               All Priority <Icon icon="mdi:chevron-down" className="w-4 h-4" />
             </button>
 
@@ -559,7 +559,7 @@ export const OperationsPage = () => {
             </button>
             <button
               onClick={() => navigate("/dashboard/operations/add")}
-              className="bg-[#7FD5FF] text-black text-xs font-bold px-4 py-2 rounded flex items-center gap-2 hover:bg-[#7FD5FF]/90 transition-colors"
+              className="bg-[#0369A1] text-black text-xs font-bold px-4 py-2 rounded flex items-center gap-2 hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               ADD OPERATION

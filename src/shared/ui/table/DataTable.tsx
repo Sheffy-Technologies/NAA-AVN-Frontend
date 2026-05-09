@@ -39,7 +39,8 @@ export const DataTable = ({
   return (
     <div
       className={cn(
-        "bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-visible",
+        "rounded-xl border overflow-visible",
+        "bg-[#001219] border-[#0A4D66]/40",
         containerClassName,
       )}
     >
@@ -54,7 +55,8 @@ export const DataTable = ({
           <thead>
             <tr
               className={cn(
-                "bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40",
+                "text-xs uppercase border-b",
+                "bg-[#001825] text-gray-400 border-[#0A4D66]/40",
                 headRowClassName,
               )}
             >

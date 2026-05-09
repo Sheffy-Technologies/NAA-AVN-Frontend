@@ -2,17 +2,33 @@ import { useState } from "react";
 import { Icon } from "@iconify/react";
 import {
   useCreateAfterActionReportMutation,
+  useGetOperationByIdQuery,
+  useUpdateOperationMutation,
   type CreateAfterActionReportRequest,
   type Contact,
+  type OperationAssignedAsset,
   type ResourceUtilization,
+  type Operation,
 } from "../api";
 import { useGetInventoriesQuery } from "@/features/inventory/api";
-import { useGetAircraftsQuery } from "@/features/personnel/api";
+import { useGetAssetsQuery } from "@/features/assets/api";
 
 interface AfterActionReportFormProps {
   operationId: number;
+  operation?: Operation | null;
   onSuccess?: () => void;
 }
+
+const getPersonnelDisplayName = (person: {
+  firstname?: string | null;
+  lastname?: string | null;
+  rank?: { name?: string | null } | null;
+}) => {
+  const rankName = person.rank?.name?.trim();
+  const firstName = person.firstname?.trim() ?? "";
+  const lastName = person.lastname?.trim() ?? "";
+  return `${rankName ? `${rankName} ` : ""}${firstName} ${lastName}`.trim();
+};
 
 const EngagementOptions = [
   { value: "visuals_only", label: "Visuals Only" },
@@ -30,11 +46,15 @@ const MissionOptions = [
 
 export const AfterActionReportForm = ({
   operationId,
+  operation: initialOperation,
   onSuccess,
 }: AfterActionReportFormProps) => {
   const [createReport, { isLoading }] = useCreateAfterActionReportMutation();
+  const [updateOperation] = useUpdateOperationMutation();
+  const { data: fetchedOperation } = useGetOperationByIdQuery(operationId);
+  const operation = initialOperation || fetchedOperation;
   const { data: inventories = [] } = useGetInventoriesQuery();
-  const { data: aircrafts = [] } = useGetAircraftsQuery();
+  const { data: assets = [] } = useGetAssetsQuery();
 
   const [formData, setFormData] = useState<
     Omit<
@@ -45,12 +65,55 @@ export const AfterActionReportForm = ({
     mission: "logistics",
     task_no: "",
     infantry_no: 0,
-    vehicles_no: 0,
     activities: "",
   });
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [resources, setResources] = useState<ResourceUtilization[]>([]);
+  const [flightTimes, setFlightTimes] = useState<Record<number, {
+    departure_takeoff: string;
+    departure_landing: string;
+    return_takeoff: string;
+    return_landing: string;
+  }>>({});
+
+  const calculateDurationMinutes = (takeoff: string, landing: string): number => {
+    if (!takeoff || !landing) return 0;
+    const [takeoffHour, takeoffMin] = takeoff.split(":").map(Number);
+    const [landingHour, landingMin] = landing.split(":").map(Number);
+    let duration = (landingHour * 60 + landingMin) - (takeoffHour * 60 + takeoffMin);
+    if (duration < 0) duration += 24 * 60;
+    return duration;
+  };
+
+  const formatDuration = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+  };
+
+  const getAssetFlightTimes = (idx: number, asset: OperationAssignedAsset) => ({
+    departure_takeoff: flightTimes[idx]?.departure_takeoff ?? (asset.departure_takeoff?.slice(0, 5) || ""),
+    departure_landing: flightTimes[idx]?.departure_landing ?? (asset.departure_landing?.slice(0, 5) || ""),
+    return_takeoff: flightTimes[idx]?.return_takeoff ?? (asset.arrival_takeoff?.slice(0, 5) || ""),
+    return_landing: flightTimes[idx]?.return_landing ?? (asset.arrival_landing?.slice(0, 5) || ""),
+  });
+
+  const calculateAssetTotalMinutes = (idx: number, asset: OperationAssignedAsset): number => {
+    const times = getAssetFlightTimes(idx, asset);
+    const depMinutes = calculateDurationMinutes(times.departure_takeoff, times.departure_landing);
+    const retMinutes = calculateDurationMinutes(times.return_takeoff, times.return_landing);
+    return depMinutes + retMinutes;
+  };
+
+  const calculateTotalFlightHours = (): string => {
+    let totalMinutes = 0;
+    (operation?.assets || []).forEach((asset, idx) => {
+      totalMinutes += calculateAssetTotalMinutes(idx, asset);
+    });
+
+    return formatDuration(totalMinutes);
+  };
 
   const handleContactChange = (
     index: number,
@@ -72,7 +135,12 @@ export const AfterActionReportForm = ({
       reader.onloadend = () => {
         const base64String = reader.result as string;
         const newContacts = [...contacts];
-        newContacts[index].photos.push({ file: base64String });
+        const existingPhotos = newContacts[index]?.photos ?? [];
+        if (!newContacts[index]) return;
+        newContacts[index] = {
+          ...newContacts[index],
+          photos: [...existingPhotos, { file: base64String }],
+        };
         setContacts(newContacts);
       };
       reader.readAsDataURL(file);
@@ -81,7 +149,9 @@ export const AfterActionReportForm = ({
 
   const removePhoto = (contactIndex: number, photoIndex: number) => {
     const newContacts = [...contacts];
-    newContacts[contactIndex].photos = newContacts[contactIndex].photos.filter(
+    const currentContact = newContacts[contactIndex];
+    if (!currentContact) return;
+    currentContact.photos = (currentContact.photos ?? []).filter(
       (_, i) => i !== photoIndex,
     );
     setContacts(newContacts);
@@ -140,9 +210,40 @@ export const AfterActionReportForm = ({
     setResources(resources.filter((_, i) => i !== index));
   };
 
+  const toApiTime = (time?: string): string | null => {
+    if (!time) return null;
+    return time.length === 5 ? `${time}:00` : time;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (operation?.id) {
+        const operationAssetsPayload = (operation.assets ?? [])
+          .map((asset, idx) => {
+            const times = getAssetFlightTimes(idx, asset);
+
+            return {
+              asset_id: asset.asset_id ?? asset.asset?.id ?? 0,
+              pilot_id: asset.pilot_id ?? null,
+              co_pilot_id: asset.co_pilot_id ?? null,
+              departure_takeoff: toApiTime(times.departure_takeoff),
+              departure_landing: toApiTime(times.departure_landing),
+              arrival_takeoff: toApiTime(times.return_takeoff),
+              arrival_landing: toApiTime(times.return_landing),
+              flight_hours: Number((calculateAssetTotalMinutes(idx, asset) / 60).toFixed(2)),
+            };
+          })
+          .filter((item) => item.asset_id > 0);
+
+        await updateOperation({
+          id: operation.id,
+          data: {
+            operation_assets: operationAssetsPayload,
+          },
+        }).unwrap();
+      }
+
       await createReport({
         operation_id: operationId,
         ...formData,
@@ -192,7 +293,7 @@ export const AfterActionReportForm = ({
       </section>
 
       {/* Task Details */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-400 font-medium">Task No.</label>
           <input
@@ -219,20 +320,6 @@ export const AfterActionReportForm = ({
             className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
           />
         </div>
-        <div className="flex flex-col gap-2">
-          <label className="text-xs text-gray-400 font-medium">
-            Vehicles No.
-          </label>
-          <input
-            type="number"
-            placeholder="Enter Number"
-            value={formData.vehicles_no || ""}
-            onChange={(e) =>
-              setFormData({ ...formData, vehicles_no: Number(e.target.value) })
-            }
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-          />
-        </div>
         <div className="col-span-1 md:col-span-3 flex flex-col gap-2">
           <label className="text-xs text-gray-400 font-medium">
             Activities
@@ -243,10 +330,185 @@ export const AfterActionReportForm = ({
             onChange={(e) =>
               setFormData({ ...formData, activities: e.target.value })
             }
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] min-h-[100px]"
+            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] min-h-25"
           />
         </div>
       </section>
+
+      {/* Aircraft Information */}
+      {operation && operation.assets && operation.assets.length > 0 && (
+        <section className="space-y-6">
+          {operation.assets.map((asset, idx) => (
+            <div
+              key={idx}
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6"
+            >
+              <h3 className="text-[#7FD5FF] text-sm font-bold mb-4 uppercase tracking-wide">
+                Aircraft {idx + 1}
+              </h3>
+
+              <div className="space-y-4 mb-6 pb-6 border-b border-[#0A4D66]/20">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-400 font-medium block mb-1">
+                      Aircraft Name
+                    </label>
+                    <p className="text-sm text-white font-semibold">
+                      {asset.asset?.name || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 font-medium block mb-1">
+                      Pilot In Command
+                    </label>
+                    <p className="text-sm text-white font-semibold">
+                      {asset.pilot ? getPersonnelDisplayName(asset.pilot) : "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 font-medium block mb-1">
+                      Co-Pilot
+                    </label>
+                    <p className="text-sm text-white font-semibold">
+                      {asset.co_pilot ? getPersonnelDisplayName(asset.co_pilot) : "N/A"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <h5 className="text-xs font-semibold text-[#7FD5FF] uppercase tracking-wide">
+                      Departure Flight
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
+                        <input
+                          type="time"
+                          title="Departure takeoff time"
+                          placeholder="Departure takeoff"
+                          value={getAssetFlightTimes(idx, asset).departure_takeoff}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                departure_takeoff: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
+                        <input
+                          type="time"
+                          title="Departure landing time"
+                          placeholder="Departure landing"
+                          value={getAssetFlightTimes(idx, asset).departure_landing}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                departure_landing: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Total Duration</label>
+                        <div className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-2xl leading-none font-bold text-white">
+                          {formatDuration(
+                            calculateDurationMinutes(
+                              getAssetFlightTimes(idx, asset).departure_takeoff,
+                              getAssetFlightTimes(idx, asset).departure_landing,
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h5 className="text-xs font-semibold text-[#7FD5FF] uppercase tracking-wide">
+                      Return Flight
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Take Off</label>
+                        <input
+                          type="time"
+                          title="Return takeoff time"
+                          placeholder="Return takeoff"
+                          value={getAssetFlightTimes(idx, asset).return_takeoff}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                return_takeoff: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Actual Landing</label>
+                        <input
+                          type="time"
+                          title="Return landing time"
+                          placeholder="Return landing"
+                          value={getAssetFlightTimes(idx, asset).return_landing}
+                          onChange={(e) =>
+                            setFlightTimes((prev) => ({
+                              ...prev,
+                              [idx]: {
+                                ...prev[idx],
+                                return_landing: e.target.value,
+                              },
+                            }))
+                          }
+                          className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Total Duration</label>
+                        <div className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-2xl leading-none font-bold text-white">
+                          {formatDuration(
+                            calculateDurationMinutes(
+                              getAssetFlightTimes(idx, asset).return_takeoff,
+                              getAssetFlightTimes(idx, asset).return_landing,
+                            ),
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-[#0A4D66]/20">
+                  <p className="text-sm font-semibold text-gray-300">
+                    Aircraft Total Flight Hours: {Number((calculateAssetTotalMinutes(idx, asset) / 60).toFixed(2)).toFixed(2)} hrs
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <p className="text-4xl font-bold text-white">
+                    Total Flight Hrs: <span className="text-[#7FD5FF]">{calculateTotalFlightHours()}</span>
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Enemy In Contact */}
       <section>
@@ -257,7 +519,7 @@ export const AfterActionReportForm = ({
           <button
             type="button"
             onClick={addContact}
-            className="bg-white text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+            className="bg-[#001825] text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" /> Add Contact
           </button>
@@ -272,6 +534,8 @@ export const AfterActionReportForm = ({
               <button
                 type="button"
                 onClick={() => removeContact(index)}
+                title={`Remove contact ${index + 1}`}
+                aria-label={`Remove contact ${index + 1}`}
                 className="absolute top-4 right-4 text-gray-500 hover:text-red-400"
               >
                 <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
@@ -345,6 +609,8 @@ export const AfterActionReportForm = ({
                       />
                       <input
                         type="time"
+                        title="Time of contact"
+                        placeholder="Time of contact"
                         value={contact.time_of_contact}
                         onChange={(e) =>
                           handleContactChange(
@@ -353,7 +619,7 @@ export const AfterActionReportForm = ({
                             e.target.value,
                           )
                         }
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                       />
                     </div>
                   </div>
@@ -368,6 +634,8 @@ export const AfterActionReportForm = ({
                       />
                       <input
                         type="date"
+                        title="Date of contact"
+                        placeholder="Date of contact"
                         value={contact.date_of_contact}
                         onChange={(e) =>
                           handleContactChange(
@@ -376,7 +644,7 @@ export const AfterActionReportForm = ({
                             e.target.value,
                           )
                         }
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] [color-scheme:dark]"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
                       />
                     </div>
                   </div>
@@ -533,7 +801,7 @@ export const AfterActionReportForm = ({
 
               {/* Photos */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {contact.photos.map((photo, photoIndex) => (
+                {(contact.photos ?? []).map((photo, photoIndex) => (
                   <div
                     key={photoIndex}
                     className="relative h-32 bg-[#001825] border border-[#0A4D66]/40 rounded-lg overflow-hidden group"
@@ -546,14 +814,16 @@ export const AfterActionReportForm = ({
                     <button
                       type="button"
                       onClick={() => removePhoto(index, photoIndex)}
+                      title={`Remove photo ${photoIndex + 1}`}
+                      aria-label={`Remove photo ${photoIndex + 1}`}
                       className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Icon icon="mdi:close" className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
-                <label className="flex flex-col items-center justify-center gap-2 h-32 bg-[#001825] border border-dashed border-[#0A4D66]/40 rounded-lg hover:bg-[#002030] transition-colors cursor-pointer">
-                  <div className="p-2 bg-[#7FD5FF]/10 rounded-full text-[#7FD5FF]">
+                <label className="flex flex-col items-center justify-center gap-2 h-32 bg-[#001825] border border-dashed border-[#0A4D66]/40 rounded-lg hover:bg-[#001825] transition-colors cursor-pointer">
+                  <div className="p-2 bg-[#0369A1]/10 rounded-full text-[#7FD5FF]">
                     <Icon icon="mdi:plus" className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-white">
@@ -581,7 +851,7 @@ export const AfterActionReportForm = ({
           <button
             type="button"
             onClick={addResource}
-            className="bg-white text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+            className="bg-[#001825] text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" /> Add Resource Used
           </button>
@@ -596,6 +866,8 @@ export const AfterActionReportForm = ({
               <button
                 type="button"
                 onClick={() => removeResource(index)}
+                title={`Remove resource ${index + 1}`}
+                aria-label={`Remove resource ${index + 1}`}
                 className="absolute top-4 right-4 text-gray-500 hover:text-red-400"
               >
                 <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
@@ -612,6 +884,8 @@ export const AfterActionReportForm = ({
                   </label>
                   <div className="relative">
                     <select
+                      title="Resource inventory item"
+                      aria-label="Resource inventory item"
                       value={res.inventory_id}
                       onChange={(e) => {
                         const selectedId = Number(e.target.value);
@@ -623,8 +897,8 @@ export const AfterActionReportForm = ({
                           ...newResources[index],
                           inventory_id: selectedId,
                           item_description:
-                            selectedItem?.part_name ??
                             selectedItem?.description ??
+                            selectedItem?.part_name ??
                             "",
                         };
                         setResources(newResources);
@@ -634,7 +908,7 @@ export const AfterActionReportForm = ({
                       <option value={0}>Select Item</option>
                       {inventories.map((inv) => (
                         <option key={inv.id} value={inv.id}>
-                          {inv.part_name}
+                          {inv.description}
                         </option>
                       ))}
                     </select>
@@ -672,6 +946,8 @@ export const AfterActionReportForm = ({
                   </label>
                   <div className="relative">
                     <select
+                      title="Resource asset assignment"
+                      aria-label="Resource asset assignment"
                       value={res.asset_id}
                       onChange={(e) =>
                         handleResourceChange(
@@ -683,9 +959,9 @@ export const AfterActionReportForm = ({
                       className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
                     >
                       <option value={0}>Select Asset</option>
-                      {aircrafts.map((aircraft) => (
-                        <option key={aircraft.id} value={aircraft.id}>
-                          {aircraft.name}
+                      {assets.map((asset) => (
+                        <option key={asset.id} value={asset.id}>
+                          {asset.name || `Asset #${asset.id}`}
                         </option>
                       ))}
                     </select>
@@ -706,7 +982,7 @@ export const AfterActionReportForm = ({
         <button
           type="submit"
           disabled={isLoading}
-          className="bg-[#7FD5FF] text-black font-bold py-3 px-12 rounded hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
+          className="bg-[#0369A1] text-black font-bold py-3 px-12 rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
         >
           {isLoading ? "Saving..." : "Save"}
         </button>

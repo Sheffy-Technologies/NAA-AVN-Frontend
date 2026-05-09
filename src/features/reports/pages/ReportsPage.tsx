@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppSelector } from "@/shared/hooks/redux";
+import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { FilterValueField } from "@/features/reports/components/FilterValueField";
 import {
   useGetReportResourcesQuery,
   useRunReportQueryQuery,
@@ -39,10 +41,10 @@ type FilterDraft = {
 
 type DraftState = {
   resourceKey: string;
-  includeText: string;
-  selectText: string;
+  includes: string[];
+  selectColumns: string[];
   search: string;
-  searchColumnsText: string;
+  searchColumns: string[];
   sortBy: string;
   sortDir: "asc" | "desc";
   perPage: number;
@@ -58,21 +60,15 @@ const createEmptyFilter = (id: number): FilterDraft => ({
 
 const defaultDraftState: DraftState = {
   resourceKey: "",
-  includeText: "",
-  selectText: "",
+  includes: [],
+  selectColumns: [],
   search: "",
-  searchColumnsText: "",
+  searchColumns: [],
   sortBy: "",
   sortDir: "desc",
   perPage: 25,
   filters: [],
 };
-
-const parseCsvInput = (value: string) =>
-  value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 const parseFilterValue = (operator: ReportFilterOperator, value: string) => {
   if (operator === "null" || operator === "not_null") {
@@ -106,10 +102,10 @@ const buildReportArgs = (
 
   return {
     table: resource.table,
-    include: parseCsvInput(draft.includeText),
-    select: parseCsvInput(draft.selectText),
+    include: draft.includes,
+    select: draft.selectColumns,
     search: draft.search.trim() || undefined,
-    search_columns: parseCsvInput(draft.searchColumnsText),
+    search_columns: draft.searchColumns,
     filters,
     sort_by: draft.sortBy.trim() || undefined,
     sort_dir: draft.sortDir,
@@ -143,6 +139,35 @@ export const ReportsPage = () => {
     () => resources.find((resource) => resource.table === draft.resourceKey),
     [draft.resourceKey, resources],
   );
+
+  const resourceColumnOptions = useMemo(
+    () =>
+      (selectedResource?.columns ?? []).map((column) => ({
+        value: column,
+        label: column,
+      })),
+    [selectedResource],
+  );
+
+  const resourceRelationOptions = useMemo(
+    () =>
+      (selectedResource?.relations ?? []).map((relation) => ({
+        value: relation,
+        label: relation,
+      })),
+    [selectedResource],
+  );
+
+  // Reset selections that depend on the current resource when it changes.
+  useEffect(() => {
+    setDraft((current) => ({
+      ...current,
+      includes: [],
+      selectColumns: [],
+      searchColumns: [],
+      sortBy: "",
+    }));
+  }, [draft.resourceKey]);
 
   const queryArgs = appliedArgs
     ? {
@@ -261,7 +286,7 @@ export const ReportsPage = () => {
                 {String(card.value)}
               </p>
             </div>
-            <div className="w-10 h-10 rounded bg-[#021a27] flex items-center justify-center">
+            <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
               <Icon icon="mdi:chart-box-outline" className="w-5 h-5 text-white" />
             </div>
           </div>
@@ -269,7 +294,7 @@ export const ReportsPage = () => {
       </section>
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-90">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -293,7 +318,7 @@ export const ReportsPage = () => {
                     resourceKey: event.target.value,
                   }))
                 }
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 <option value="">Select table</option>
                 {resources.map((resource) => (
@@ -313,7 +338,7 @@ export const ReportsPage = () => {
                   setDraft((current) => ({ ...current, search: event.target.value }))
                 }
                 placeholder="Search term"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               />
             </div>
 
@@ -328,7 +353,7 @@ export const ReportsPage = () => {
                     perPage: Number(event.target.value),
                   }))
                 }
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 {[25, 50, 100, 250].map((value) => (
                   <option key={value} value={value}>
@@ -340,64 +365,89 @@ export const ReportsPage = () => {
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Includes</label>
-              <input
-                type="text"
-                value={draft.includeText}
-                onChange={(event) =>
+              <MultiSelect
+                label=""
+                options={resourceRelationOptions}
+                selectedValues={draft.includes}
+                onChange={(values) =>
                   setDraft((current) => ({
                     ...current,
-                    includeText: event.target.value,
+                    includes: values.map((value) => String(value)),
                   }))
                 }
-                placeholder="user,unit"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder={
+                  selectedResource
+                    ? resourceRelationOptions.length
+                      ? "Select relations"
+                      : "No relations available"
+                    : "Select a resource first"
+                }
+                disabled={!selectedResource || resourceRelationOptions.length === 0}
+                searchable
+                searchPlaceholder="Search relations"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Select Columns</label>
-              <input
-                type="text"
-                value={draft.selectText}
-                onChange={(event) =>
+              <MultiSelect
+                label=""
+                options={resourceColumnOptions}
+                selectedValues={draft.selectColumns}
+                onChange={(values) =>
                   setDraft((current) => ({
                     ...current,
-                    selectText: event.target.value,
+                    selectColumns: values.map((value) => String(value)),
                   }))
                 }
-                placeholder="id,name,created_at"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder={
+                  selectedResource ? "All columns" : "Select a resource first"
+                }
+                disabled={!selectedResource || resourceColumnOptions.length === 0}
+                searchable
+                searchPlaceholder="Search columns"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Search Columns</label>
-              <input
-                type="text"
-                value={draft.searchColumnsText}
-                onChange={(event) =>
+              <MultiSelect
+                label=""
+                options={resourceColumnOptions}
+                selectedValues={draft.searchColumns}
+                onChange={(values) =>
                   setDraft((current) => ({
                     ...current,
-                    searchColumnsText: event.target.value,
+                    searchColumns: values.map((value) => String(value)),
                   }))
                 }
-                placeholder="name,email"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                placeholder={
+                  selectedResource ? "All searchable columns" : "Select a resource first"
+                }
+                disabled={!selectedResource || resourceColumnOptions.length === 0}
+                searchable
+                searchPlaceholder="Search columns"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Sort By</label>
-              <input
-                type="text"
-                list="report-columns"
+              <select
+                aria-label="Sort by column"
                 value={draft.sortBy}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, sortBy: event.target.value }))
                 }
-                placeholder="id"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-              />
+                disabled={!selectedResource || resourceColumnOptions.length === 0}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none disabled:opacity-50"
+              >
+                <option value="">Default</option>
+                {resourceColumnOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -411,7 +461,7 @@ export const ReportsPage = () => {
                     sortDir: event.target.value as "asc" | "desc",
                   }))
                 }
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 <option value="desc">Descending</option>
                 <option value="asc">Ascending</option>
@@ -420,7 +470,7 @@ export const ReportsPage = () => {
           </div>
 
           <datalist id="report-columns">
-            {columns.map((column) => (
+            {(selectedResource?.columns ?? columns).map((column) => (
               <option key={column} value={column} />
             ))}
           </datalist>
@@ -434,7 +484,7 @@ export const ReportsPage = () => {
               <button
                 type="button"
                 onClick={handleAddFilter}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#7FD5FF] text-black text-xs font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs font-medium hover:bg-[#0369A1]/90 transition-colors"
               >
                 <Icon icon="mdi:plus" className="w-4 h-4" />
                 <span>Add Filter</span>
@@ -447,16 +497,34 @@ export const ReportsPage = () => {
               <div className="space-y-3">
                 {draft.filters.map((filter) => (
                   <div key={filter.id} className="grid gap-3 lg:grid-cols-[1.3fr,1fr,1.6fr,auto]">
-                    <input
-                      type="text"
-                      list="report-columns"
-                      value={filter.field}
-                      onChange={(event) =>
-                        handleUpdateFilter(filter.id, { field: event.target.value })
-                      }
-                      placeholder="field"
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
-                    />
+                    {resourceColumnOptions.length > 0 ? (
+                      <select
+                        aria-label="Filter field"
+                        value={filter.field}
+                        onChange={(event) =>
+                          handleUpdateFilter(filter.id, { field: event.target.value })
+                        }
+                        className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
+                      >
+                        <option value="">Select field</option>
+                        {resourceColumnOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        list="report-columns"
+                        value={filter.field}
+                        onChange={(event) =>
+                          handleUpdateFilter(filter.id, { field: event.target.value })
+                        }
+                        placeholder="field"
+                        className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+                      />
+                    )}
                     <select
                       aria-label="Filter operator"
                       value={filter.operator}
@@ -465,7 +533,7 @@ export const ReportsPage = () => {
                           operator: event.target.value as ReportFilterOperator,
                         })
                       }
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
                     >
                       {FILTER_OPERATORS.map((operator) => (
                         <option key={operator} value={operator}>
@@ -473,15 +541,12 @@ export const ReportsPage = () => {
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="text"
+                    <FilterValueField
+                      field={filter.field}
+                      operator={filter.operator}
                       value={filter.value}
-                      disabled={filter.operator === "null" || filter.operator === "not_null"}
-                      onChange={(event) =>
-                        handleUpdateFilter(filter.id, { value: event.target.value })
-                      }
-                      placeholder={filter.operator === "between" ? "start,end" : "value"}
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 disabled:opacity-40"
+                      onChange={(next) => handleUpdateFilter(filter.id, { value: next })}
+                      foreignKeys={selectedResource?.foreign_keys ?? []}
                     />
                     <button
                       type="button"
@@ -505,8 +570,8 @@ export const ReportsPage = () => {
               className={cn(
                 "inline-flex items-center gap-2 px-3 py-1.5 rounded text-black text-xs sm:text-sm font-medium transition-colors",
                 selectedResource
-                  ? "bg-[#7FD5FF] hover:bg-[#7FD5FF]/90"
-                  : "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed",
+                  ? "bg-[#0369A1] hover:bg-[#0369A1]/90"
+                  : "bg-[#0369A1]/40 text-black/60 cursor-not-allowed",
               )}
             >
               <Icon icon="mdi:play-circle-outline" className="w-4 h-4" />
@@ -519,8 +584,8 @@ export const ReportsPage = () => {
               className={cn(
                 "inline-flex items-center gap-2 px-3 py-1.5 rounded text-black text-xs sm:text-sm font-medium transition-colors",
                 appliedArgs && !isExporting
-                  ? "bg-[#7FD5FF] hover:bg-[#7FD5FF]/90"
-                  : "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed",
+                  ? "bg-[#0369A1] hover:bg-[#0369A1]/90"
+                  : "bg-[#0369A1]/40 text-black/60 cursor-not-allowed",
               )}
             >
               <Icon icon="mdi:file-delimited-outline" className="w-4 h-4" />
@@ -587,7 +652,7 @@ export const ReportsPage = () => {
                       )}
                     >
                       {columns.map((column) => (
-                        <td key={`${index}-${column}`} className="py-2 pr-3 align-top text-gray-100 whitespace-pre-wrap">
+                        <td key={`${index}-${column}`} className="py-2 pr-3 align-top text-white whitespace-pre-wrap">
                           {formatCellValue(row[column])}
                         </td>
                       ))}
@@ -607,19 +672,19 @@ export const ReportsPage = () => {
                 type="button"
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
                 disabled={!appliedArgs || currentPage <= 1 || isQueryLoading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 disabled:opacity-40"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 disabled:opacity-40"
               >
                 <Icon icon="mdi:chevron-left" className="w-4 h-4" />
                 <span>Prev</span>
               </button>
-              <span className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200">
+              <span className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200">
                 {currentPage}
               </span>
               <button
                 type="button"
                 onClick={() => setPage((current) => Math.min(lastPage, current + 1))}
                 disabled={!appliedArgs || currentPage >= lastPage || isQueryLoading}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 disabled:opacity-40"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 disabled:opacity-40"
               >
                 <span>Next</span>
                 <Icon icon="mdi:chevron-right" className="w-4 h-4" />

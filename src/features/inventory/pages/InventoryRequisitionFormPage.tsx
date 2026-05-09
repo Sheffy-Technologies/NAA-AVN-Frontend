@@ -269,7 +269,7 @@ export const InventoryRequisitionFormPage = () => {
                                 inventoryId: "",
                               })
                             }
-                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none focus:border-[#7FD5FF] appearance-none"
+                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF] appearance-none"
                           >
                             <option value="">Select</option>
                             {aircraftAssets.map((asset) => (
@@ -305,7 +305,7 @@ export const InventoryRequisitionFormPage = () => {
                             (showAircraftType && line.aircraftAssetId === "")
                           }
                           className={cn(
-                            "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none focus:border-[#7FD5FF] appearance-none",
+                            "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF] appearance-none",
                             (isInventoriesLoading ||
                               (showAircraftType &&
                                 line.aircraftAssetId === "")) &&
@@ -344,7 +344,7 @@ export const InventoryRequisitionFormPage = () => {
                           updateLine(index, { quantity: e.target.value })
                         }
                         min={1}
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
+                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
                         placeholder="Enter Quantity"
                       />
                     </div>
@@ -364,7 +364,7 @@ export const InventoryRequisitionFormPage = () => {
               onClick={handleSubmit}
               disabled={isSubmitting}
               className={cn(
-                "px-8 sm:px-12 py-3 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-bold hover:bg-[#7FD5FF]/90 transition-colors",
+                "px-8 sm:px-12 py-3 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-bold hover:bg-[#0369A1]/90 transition-colors",
                 isSubmitting && "opacity-70 cursor-not-allowed",
               )}
             >

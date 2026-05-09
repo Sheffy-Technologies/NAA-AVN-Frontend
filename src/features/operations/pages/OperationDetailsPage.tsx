@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useDeleteOperationMutation,
   useGetOperationByIdQuery,
@@ -12,7 +13,6 @@ import {
   type OperationAssignedAsset,
 } from "../api";
 import { format } from "date-fns";
-import { AfterActionReportForm } from "../components/AfterActionReportForm";
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
 
 const formatOperationDate = (value: string | null | undefined) => {
@@ -59,7 +59,43 @@ const getPersonName = (person: unknown) => {
   return rank ? `${rank} ${fullName}` : fullName;
 };
 
-const renderAssetCard = (entry: OperationAssignedAsset, index: number) => {
+const getPersonId = (person: unknown): number | null => {
+  if (!person || typeof person !== "object") return null;
+  const id = (person as Record<string, unknown>).id;
+  return typeof id === "number" ? id : null;
+};
+
+const PersonLink = ({
+  person,
+  onNavigate,
+}: {
+  person: unknown;
+  onNavigate: (id: number) => void;
+}) => {
+  const name = getPersonName(person);
+  const id = getPersonId(person);
+  if (!id || name === "N/A") {
+    return <>{name}</>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onNavigate(id);
+      }}
+      className="text-left text-[#7FD5FF] hover:underline"
+    >
+      {name}
+    </button>
+  );
+};
+
+const renderAssetCard = (
+  entry: OperationAssignedAsset,
+  index: number,
+  navigate: (path: string) => void,
+) => {
   const baseAsset = (
     entry.asset && typeof entry.asset === "object"
       ? entry.asset
@@ -109,14 +145,32 @@ const renderAssetCard = (entry: OperationAssignedAsset, index: number) => {
       ? (baseAsset.co_pilot_details as Record<string, unknown>)
       : entry.co_pilot;
 
-  return (
-    <div
-      key={
-        entry.id ??
-        (typeof baseAsset.id === "number" ? baseAsset.id : `${entry.asset_id ?? "asset"}-${index}`)
-      }
-      className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4"
-    >
+  const assetIdValue =
+    (typeof baseAsset.id === "number" ? baseAsset.id : null) ??
+    entry.asset_id ??
+    null;
+  const goToAsset = () => {
+    if (assetIdValue) navigate(`/dashboard/assets/${assetIdValue}`);
+  };
+  const goToPerson = (personId: number) =>
+    navigate(`/dashboard/personnel/${personId}`);
+
+  const cardKey =
+    entry.id ??
+    (typeof baseAsset.id === "number"
+      ? baseAsset.id
+      : `${entry.asset_id ?? "asset"}-${index}`);
+
+  const cardContent = (
+    <>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] uppercase tracking-wide text-gray-500">
+          {assetIdValue ? "Click to view asset details" : ""}
+        </span>
+        {assetIdValue ? (
+          <Icon icon="mdi:chevron-right" className="w-4 h-4 text-[#7FD5FF]" />
+        ) : null}
+      </div>
       <InfoRow label="Name" value={assetName} />
       <InfoRow label="Type" value={String(assetType)} />
       <InfoRow label="Tail Number" value={String(tailNumber)} />
@@ -125,13 +179,47 @@ const renderAssetCard = (entry: OperationAssignedAsset, index: number) => {
       <InfoRow label="Next Inspection" value={String(nextInspection)} />
       <InfoRow label="Last Snag" value={String(lastSnag)} />
       <InfoRow label="Total Landings" value={String(totalLandings)} />
-      <InfoRow label="Pilot In Command" value={getPersonName(pilotDetails)} />
-      <InfoRow label="Co-Pilot" value={getPersonName(coPilotDetails)} />
+      <InfoRow
+        label="Pilot In Command"
+        value={<PersonLink person={pilotDetails} onNavigate={goToPerson} />}
+      />
+      <InfoRow
+        label="Co-Pilot"
+        value={<PersonLink person={coPilotDetails} onNavigate={goToPerson} />}
+      />
+    </>
+  );
+
+  if (assetIdValue) {
+    return (
+      <button
+        key={cardKey}
+        type="button"
+        onClick={goToAsset}
+        className="text-left w-full rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 cursor-pointer hover:border-[#7FD5FF]/70 transition-colors"
+      >
+        {cardContent}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      key={cardKey}
+      className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4"
+    >
+      {cardContent}
     </div>
   );
 };
 
-const OperationTab = ({ operation }: { operation: Operation }) => {
+const OperationTab = ({
+  operation,
+  navigate,
+}: {
+  operation: Operation;
+  navigate: (path: string) => void;
+}) => {
   if (!operation) return null;
 
   const departureLabel =
@@ -157,8 +245,46 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
           <InfoRow label="Purpose" value={operation.name} />
           <InfoRow label="Type" value={operation.operation_type?.name || "N/A"} />
+          <InfoRow
+            label="Unit"
+            value={
+              operation.unit?.id ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/dashboard/units/${operation.unit.id}`)}
+                  className="text-left text-[#7FD5FF] hover:underline font-bold text-sm"
+                >
+                  {operation.unit.name}
+                </button>
+              ) : (
+                operation.unit?.name || "N/A"
+              )
+            }
+          />
           <InfoRow label="Departure" value={departureLabel} />
           <InfoRow label="Destination" value={arrivalLabel} />
+          {operation.waypoints && operation.waypoints.length > 0 ? (
+            <InfoRow
+              label="Waypoints"
+              value={
+                <div className="flex flex-col gap-1">
+                  {operation.waypoints
+                    .slice()
+                    .sort((a, b) => a.sequence - b.sequence)
+                    .map((waypoint) => (
+                      <span key={waypoint.id} className="text-xs text-gray-300">
+                        <span className="font-semibold text-[#F59E0B]">
+                          CP-{waypoint.sequence}
+                        </span>
+                        {waypoint.name ? ` ${waypoint.name}` : ""} —{" "}
+                        {Number(waypoint.latitude).toFixed(6)},{" "}
+                        {Number(waypoint.longitude).toFixed(6)}
+                      </span>
+                    ))}
+                </div>
+              }
+            />
+          ) : null}
           <InfoRow
             label="Status"
             value={
@@ -195,7 +321,9 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
           </h3>
           {operation.assets && operation.assets.length > 0 ? (
             <div className="space-y-4">
-              {operation.assets.map((entry, index) => renderAssetCard(entry, index))}
+              {operation.assets.map((entry, index) =>
+                renderAssetCard(entry, index, navigate),
+              )}
             </div>
           ) : (
             <div className="text-gray-400 text-sm">
@@ -240,6 +368,14 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
                 ? ""
                 : String(operation.arrival_longitude),
           }}
+          waypoints={(operation.waypoints ?? [])
+            .slice()
+            .sort((a, b) => a.sequence - b.sequence)
+            .map((waypoint) => ({
+              name: waypoint.name,
+              latitude: waypoint.latitude,
+              longitude: waypoint.longitude,
+            }))}
           readOnly
           heightClassName="h-120"
         />
@@ -248,82 +384,141 @@ const OperationTab = ({ operation }: { operation: Operation }) => {
   );
 };
 
-// Placeholder for AAR Tab
-const AARTab = ({ operation }: { operation: Operation }) => {
-  if (operation.after_action_report) {
-    const report = operation.after_action_report;
+const AARTab = ({
+  operation,
+  onAddReport,
+}: {
+  operation: Operation;
+  onAddReport: () => void;
+}) => {
+  const report = operation.afterActionReport;
+
+  if (!report) {
     return (
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-6">
-        <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-4">
-          <h3 className="text-[#7FD5FF] font-bold uppercase">
-            After Action Report
-          </h3>
-          <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded border border-emerald-500/40 font-medium">
-            SUBMITTED
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-2">
-          <InfoRow
-            label="Mission"
-            value={<span className="capitalize">{report.mission}</span>}
-          />
-          <InfoRow label="Task No" value={report.task_no} />
-          <InfoRow label="Infantry No" value={report.infantry_no} />
-          <InfoRow label="Vehicles No" value={report.vehicles_no} />
-        </div>
-
-        <div className="space-y-2">
-          <h4 className="text-[#7FD5FF] text-sm font-medium">Activities</h4>
-          <p className="text-gray-300 text-sm bg-[#001825] p-3 rounded border border-[#0A4D66]/30">
-            {report.activities}
-          </p>
-        </div>
-
-        {report.contacts && report.contacts.length > 0 && (
-          <div className="space-y-4 pt-4 border-t border-[#0A4D66]/40">
-            <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
-              Enemy Contacts ({report.contacts.length})
-            </h4>
-            <div className="grid grid-cols-1 gap-4">
-              {report.contacts.map((contact, idx) => (
-                <div
-                  key={idx}
-                  className="bg-[#001825] p-4 rounded border border-[#0A4D66]/30 text-sm"
-                >
-                  <div className="flex justify-between mb-2">
-                    <span className="font-bold text-white capitalize">
-                      {contact.engagement.replace("_", " ")}
-                    </span>
-                    <span className="text-gray-400">
-                      {contact.time_of_contact}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-gray-300">
-                    <div>
-                      <span className="text-gray-500">Location:</span>{" "}
-                      {contact.location}
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Enemy Infantry:</span>{" "}
-                      {contact.enemy_infantry_no}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-10 text-center text-white">
+        <Icon
+          icon="mdi:file-remove-outline"
+          className="w-10 h-10 text-gray-400 mx-auto mb-3"
+        />
+        <p className="text-base font-semibold">No after action report</p>
+        <button
+          type="button"
+          onClick={onAddReport}
+          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#0A4D66] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A4D66]/80 transition-colors"
+        >
+          <Icon icon="mdi:plus" className="w-4 h-4" />
+          Add After Action Report
+        </button>
       </div>
     );
   }
 
+  const totalContactVehicles = (report.contacts ?? []).reduce(
+    (sum, contact) => sum + (Number(contact.enemy_vehicle_no) || 0),
+    0,
+  );
+  const reportVehicles = report.vehicles ?? [];
+
+  const getVehicleDisplay = (vehicle: unknown, index: number) => {
+    if (!vehicle || typeof vehicle !== "object") {
+      return `Vehicle ${index + 1}`;
+    }
+
+    const row = vehicle as Record<string, unknown>;
+    const name = typeof row.name === "string" ? row.name : null;
+    const registrationNumber =
+      typeof row.registration_number === "string"
+        ? row.registration_number
+        : typeof row.plate_number === "string"
+          ? row.plate_number
+          : null;
+
+    if (name && registrationNumber) {
+      return `${name} (${registrationNumber})`;
+    }
+    if (name) return name;
+    if (registrationNumber) return registrationNumber;
+    if (typeof row.id === "number") return `Vehicle #${row.id}`;
+    return `Vehicle ${index + 1}`;
+  };
+
   return (
-    <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white">
-      <AfterActionReportForm
-        operationId={operation.id}
-        onSuccess={() => window.location.reload()}
-      />
+    <div className="space-y-4">
+      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white">
+        <div className="space-y-0">
+          <InfoRow label="Mission" value={<span className="capitalize">{report.mission}</span>} />
+          <InfoRow label="Task No." value={report.task_no || "-"} />
+          <InfoRow label="Infantry No" value={report.infantry_no ?? "-"} />
+          <InfoRow label="Vehicle No." value={totalContactVehicles} />
+          <InfoRow label="Activities" value={report.activities || "-"} />
+        </div>
+      </div>
+
+      {(report.contacts ?? []).length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {report.contacts.map((contact, idx) => (
+            <div
+              key={idx}
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-5 text-white"
+            >
+              <div className="text-[#7FD5FF] text-sm mb-3">Enemy in Contact {idx + 1}</div>
+
+              <div className="space-y-0">
+                <InfoRow
+                  label="Engagement"
+                  value={<span className="capitalize">{contact.engagement?.replace(/_/g, " ") || "-"}</span>}
+                />
+                <InfoRow label="Location" value={contact.location || "-"} />
+                <InfoRow label="Date" value={contact.date_of_contact || "-"} />
+                <InfoRow label="Time of Contact" value={contact.time_of_contact || "-"} />
+              </div>
+
+              <div className="mt-4 text-sm text-gray-300 space-y-2">
+                <div className="text-gray-400">Enemy Resources</div>
+                <InfoRow label="Description" value={contact.enemy_resources_description || "-"} />
+                <InfoRow label="Infantry No." value={contact.enemy_infantry_no ?? "-"} />
+                <InfoRow label="Vehicle No." value={contact.enemy_vehicle_no ?? "-"} />
+              </div>
+
+              <div className="mt-4 text-sm text-gray-300 space-y-2">
+                <div className="text-gray-400">Targets Treated</div>
+                <InfoRow label="Description" value={contact.targets_treated_description || "-"} />
+                <InfoRow label="Infantry No." value={contact.targets_infantry_no ?? "-"} />
+                <InfoRow label="Vehicle No." value={contact.targets_vehicle_no ?? "-"} />
+              </div>
+
+              <div className="mt-4 text-sm text-gray-300 space-y-2">
+                <div className="text-gray-400">Damage Received</div>
+                <InfoRow label="Description" value={contact.damage_received || "-"} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-4">
+        <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-3">
+          <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">Vehicles</h4>
+          <span className="text-xs text-gray-400">{reportVehicles.length}</span>
+        </div>
+
+        {reportVehicles.length === 0 ? (
+          <p className="text-sm text-gray-400">No vehicles recorded in after action report.</p>
+        ) : (
+          <div className="space-y-2">
+            {reportVehicles.map((vehicle, index) => (
+              <div
+                key={(vehicle && typeof vehicle === "object" && typeof (vehicle as Record<string, unknown>).id === "number")
+                  ? String((vehicle as Record<string, unknown>).id)
+                  : `${index}`}
+                className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] px-4 py-3 text-sm text-gray-200"
+              >
+                {getVehicleDisplay(vehicle, index)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -334,10 +529,13 @@ export const OperationDetailsPage = () => {
   const dispatch = useAppDispatch();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<"operation" | "aar">("operation");
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [deleteOperation, { isLoading: isDeleting }] = useDeleteOperationMutation();
   const [updateOperationStatus, { isLoading: isUpdatingStatus }] =
     useUpdateOperationStatusMutation();
+
+  const statusOptions = ["planned", "completed", "ongoing", "aborted"] as const;
 
   const { data: operation, isLoading } = useGetOperationByIdQuery(id || "", {
     skip: !id,
@@ -345,7 +543,7 @@ export const OperationDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#021019] text-[#7FD5FF]">
+      <div className="h-screen w-full flex items-center justify-center bg-[#001219] text-[#7FD5FF]">
         <Icon icon="mdi:loading" className="w-8 h-8 animate-spin" />
       </div>
     );
@@ -353,7 +551,7 @@ export const OperationDetailsPage = () => {
 
   if (!operation) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#021019] text-gray-400 gap-4">
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#001219] text-gray-400 gap-4">
         <p>Operation not found</p>
         <button
           onClick={() => navigate(-1)}
@@ -382,29 +580,22 @@ export const OperationDetailsPage = () => {
     }
   };
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateStatus = async (
+    selected: (typeof statusOptions)[number],
+  ) => {
     if (!operation.id || isUpdatingStatus) return;
 
-    const options = ["planned", "ongoing", "completed", "aborted"] as const;
-    const selected = window
-      .prompt(
-        `Update operation status (${options.join("/")})`,
-        operation.status,
-      )
-      ?.trim()
-      .toLowerCase();
-
-    if (!selected) return;
-    if (!options.includes(selected as (typeof options)[number])) {
-      dispatch(showToast({ message: "Invalid status value", type: "warning" }));
+    if (selected === operation.status) {
+      setIsStatusMenuOpen(false);
       return;
     }
 
     try {
       await updateOperationStatus({
         id: operation.id,
-        status: selected as (typeof options)[number],
+        status: selected,
       }).unwrap();
+      setIsStatusMenuOpen(false);
       dispatch(showToast({ message: "Operation status updated", type: "success" }));
     } catch {
       dispatch(showToast({ message: "Failed to update operation status", type: "error" }));
@@ -416,137 +607,153 @@ export const OperationDetailsPage = () => {
 
     setIsDownloadingPdf(true);
     try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas"),
-        import("jspdf"),
-      ]);
-
-      const canvas = await html2canvas(contentRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: "#021019",
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `${operation.name || "operation"}-${operation.id}`,
+        backgroundColor: "#001219",
       });
-
-      const imageData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const imageWidth = pageWidth;
-      const imageHeight = (canvas.height * imageWidth) / canvas.width;
-
-      let heightLeft = imageHeight;
-      let position = 0;
-
-      pdf.addImage(imageData, "PNG", 0, position, imageWidth, imageHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imageHeight;
-        pdf.addPage();
-        pdf.addImage(imageData, "PNG", 0, position, imageWidth, imageHeight);
-        heightLeft -= pageHeight;
-      }
-
-      const fileName = `${operation.name || "operation"}-${operation.id}.pdf`
-        .toLowerCase()
-        .replace(/[^a-z0-9-_]+/g, "-");
-
-      pdf.save(fileName);
       dispatch(showToast({ message: "PDF downloaded", type: "success" }));
-    } catch {
+    } catch (error) {
+      console.error("Failed to download operation PDF", {
+        operationId: operation.id,
+        fileName: `${operation.name || "operation"}-${operation.id}`,
+        error,
+      });
       dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
     } finally {
       setIsDownloadingPdf(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/dashboard/operations")}
-            className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
-          >
-            <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-            Back
-          </button>
+  const handleAddAfterActionReport = () => {
+    navigate(`/dashboard/operations/${operation.id}/after-action-report`);
+  };
 
-          <div className="flex items-center ml-4">
+  return (
+    <div className="min-h-screen bg-[#001219] text-gray-200 flex flex-col p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
             <button
-              onClick={() => setActiveTab("operation")}
-              className={cn(
-                "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
-                activeTab === "operation"
-                  ? "border-white text-white"
-                  : "border-transparent text-gray-500 hover:text-gray-300",
-              )}
+              onClick={() => navigate("/dashboard/operations")}
+              className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
             >
-              <Icon icon="mdi:database" className="inline-block w-4 h-4 mr-2" />
-              Operation
+              <Icon icon="mdi:arrow-left" className="w-5 h-5" />
+              Back
+            </button>
+
+            <div className="text-sm text-gray-400">
+              {operation.name}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDeleteOperation}
+              disabled={isDeleting}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825] disabled:opacity-60"
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              {isDeleting ? "Deleting..." : "Delete"}
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+                disabled={isUpdatingStatus}
+                className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825] disabled:opacity-60"
+                type="button"
+              >
+                <Icon icon="mdi:refresh" className="w-4 h-4" />
+                {isUpdatingStatus ? "Updating..." : "Update status"}
+                <Icon icon="mdi:chevron-down" className="w-4 h-4" />
+              </button>
+
+              {isStatusMenuOpen && !isUpdatingStatus ? (
+                <div className="absolute right-0 mt-2 min-w-40 bg-[#001825] border border-[#0A4D66]/40 rounded shadow-lg z-30 overflow-hidden">
+                  {statusOptions.map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => handleUpdateStatus(status)}
+                      className={cn(
+                        "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#001825] transition-colors",
+                        operation.status === status ? "text-[#7FD5FF]" : "text-gray-300",
+                      )}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <button
+              onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825]"
+            >
+              <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
             </button>
             <button
-              onClick={() => setActiveTab("aar")}
-              className={cn(
-                "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
-                activeTab === "aar"
-                  ? "border-white text-white"
-                  : "border-transparent text-gray-500 hover:text-gray-300",
-              )}
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf}
+              title="Download operation"
+              className="p-1.5 text-gray-400 hover:text-white disabled:opacity-60"
             >
               <Icon
-                icon="mdi:file-document-outline"
-                className="inline-block w-4 h-4 mr-2"
+                icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+                className={cn("w-5 h-5", isDownloadingPdf ? "animate-spin" : "")}
               />
-              After Action Report
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <button
-            onClick={handleDeleteOperation}
-            disabled={isDeleting}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
+            onClick={() => setActiveTab("operation")}
+            className={cn(
+              "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
+              activeTab === "operation"
+                ? "border-white text-white"
+                : "border-transparent text-gray-500 hover:text-gray-300",
+            )}
           >
-            <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-            {isDeleting ? "Deleting..." : "Delete"}
+            <Icon icon="mdi:database" className="inline-block w-4 h-4 mr-2" />
+            Operation
           </button>
           <button
-            onClick={handleUpdateStatus}
-            disabled={isUpdatingStatus}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030] disabled:opacity-60"
-          >
-            <Icon icon="mdi:refresh" className="w-4 h-4" />
-            {isUpdatingStatus ? "Updating..." : "Update status"}
-          </button>
-          <button
-            onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#002030]"
-          >
-            <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
-          </button>
-          <button
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf}
-            title="Download operation"
-            className="p-1.5 text-gray-400 hover:text-white disabled:opacity-60"
+            onClick={() => setActiveTab("aar")}
+            className={cn(
+              "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
+              activeTab === "aar"
+                ? "border-white text-white"
+                : "border-transparent text-gray-500 hover:text-gray-300",
+            )}
           >
             <Icon
-              icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
-              className={cn("w-5 h-5", isDownloadingPdf ? "animate-spin" : "")}
+              icon="mdi:file-document-outline"
+              className="inline-block w-4 h-4 mr-2"
             />
+            After Action Report
           </button>
+          {!operation.afterActionReport && (
+            <button
+              type="button"
+              onClick={handleAddAfterActionReport}
+              className="ml-2 inline-flex items-center gap-2 rounded-lg bg-[#0A4D66] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0A4D66]/80 transition-colors"
+            >
+              <Icon icon="mdi:plus" className="w-4 h-4" />
+              Add AAR
+            </button>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div ref={contentRef} className="flex-1">
         {activeTab === "operation" ? (
-          <OperationTab operation={operation} />
+          <OperationTab operation={operation} navigate={navigate} />
         ) : (
-          <AARTab operation={operation} />
+          <AARTab operation={operation} onAddReport={handleAddAfterActionReport} />
         )}
       </div>
     </div>

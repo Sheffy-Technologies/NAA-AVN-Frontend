@@ -240,7 +240,7 @@ export const FinanceFormPage = () => {
                 value={values.budget_id === "" ? "" : String(values.budget_id)}
                 onChange={handleChange("budget_id")}
                 aria-label="Select Budget"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 <option value="">Select Budget</option>
                 {budgets.map((budget) => (
@@ -258,7 +258,7 @@ export const FinanceFormPage = () => {
                 type="text"
                 value={values.part_name}
                 onChange={handleChange("part_name")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Item Description"
               />
             </div>
@@ -271,7 +271,7 @@ export const FinanceFormPage = () => {
                     : String(values.expense_category_id)
                 }
                 onChange={handleChange("expense_category_id")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 <option value="">Select Category</option>
                 {categories.map((category) => (
@@ -289,7 +289,7 @@ export const FinanceFormPage = () => {
                 type="text"
                 value={values.vendor_supplier}
                 onChange={handleChange("vendor_supplier")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Vendor/Supplier"
               />
             </div>
@@ -304,7 +304,7 @@ export const FinanceFormPage = () => {
                 type="text"
                 value={values.part_number}
                 onChange={handleChange("part_number")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Units/Measurement"
               />
             </div>
@@ -315,7 +315,7 @@ export const FinanceFormPage = () => {
                 min={1}
                 value={values.quantity}
                 onChange={handleChange("quantity")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Quantity"
               />
             </div>
@@ -326,7 +326,7 @@ export const FinanceFormPage = () => {
                 min={0}
                 value={values.unit_cost}
                 onChange={handleChange("unit_cost")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Unit Cost"
               />
             </div>
@@ -347,7 +347,7 @@ export const FinanceFormPage = () => {
                 value={values.unit_id === "" ? "" : String(values.unit_id)}
                 onChange={handleChange("unit_id")}
                 aria-label="Select Unit"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
               >
                 <option value="">Select Unit</option>
                 {units.map((unit) => (
@@ -364,7 +364,7 @@ export const FinanceFormPage = () => {
                 type="text"
                 value={values.remark}
                 onChange={handleChange("remark")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
                 placeholder="Enter Remark"
               />
             </div>
@@ -380,7 +380,7 @@ export const FinanceFormPage = () => {
             type="button"
             onClick={handleSubmit}
             className={cn(
-              "w-full sm:w-90 px-6 sm:px-10 py-2.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
+              "w-full sm:w-90 px-6 sm:px-10 py-2.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
               isLoading && "opacity-70 cursor-not-allowed",
             )}
             disabled={isLoading}

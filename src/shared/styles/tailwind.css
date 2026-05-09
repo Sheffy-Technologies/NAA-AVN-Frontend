@@ -9,7 +9,23 @@
   --font-primary: var(--font-primary), sans-serif;
 }
 
-/* Custom Scrollbar */
+html,
+body,
+#root {
+  background-color: #001219;
+  color: #ffffff;
+}
+
+html.light,
+html.light body,
+html.light #root {
+  background-color: #F4F6F9;
+  color: #111827;
+}
+
+/* ============================================================
+   CUSTOM SCROLLBAR — dark mode
+   ============================================================ */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -28,6 +44,20 @@
   background: #5dbced;
 }
 
+/* Light mode scrollbar */
+html.light ::-webkit-scrollbar-track {
+  background: #F3F4F6;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* ============================================================
+   DATE INPUT STYLING
+   ============================================================ */
 input[type="date"] {
   color-scheme: light;
 }
@@ -35,4 +65,216 @@ input[type="date"] {
 input[type="date"]::-webkit-calendar-picker-indicator {
   filter: invert(1) brightness(1.2);
   opacity: 1;
+}
+
+html.light input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: none;
+  opacity: 0.7;
+}
+
+/* ============================================================
+   LIGHT MODE OVERRIDES
+   Scoped to the main content area so the sidebar/header
+   remain dark in both modes.
+   ============================================================ */
+
+/* ── 1. Content-area base ─────────────────────────────────── */
+html.light main {
+  background-color: #F4F6F9;
+  color: #111827;
+}
+
+/* ── 2. Panel / card backgrounds ─────────────────────────── */
+/*
+   These selectors use CSS attribute substring matching
+   ([class*="..."]) to catch all Tailwind arbitrary-value
+   variants (including opacity modifiers like /30, /40, /50).
+   They are scoped to <main> so nav/sidebar are unaffected.
+*/
+html.light main [class*="bg-[#001825]"],
+html.light main [class*="bg-[#001219]"],
+html.light main [class*="bg-[#00273a]"],
+html.light main [class*="bg-[#00121a]"],
+html.light main [class*="bg-[#061A24]"],
+html.light main [class*="bg-[#03151E]"] {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+}
+
+/* Gradient cards (e.g. from-[#001219] to-[#001825] etc.) */
+html.light main [class*="from-[#001219]"],
+html.light main [class*="from-[#001825]"] {
+  background-color: #FFFFFF !important;
+  background-image: none !important;
+}
+
+/* Teal-tinted hover / active backgrounds → light gray */
+html.light main [class*="bg-[#0A4D66]"]:not([class*="text-"]),
+html.light main [class*="hover:bg-[#0A4D66]"]:hover {
+  background-color: #EEF2FF !important;
+}
+
+/* ── 3. Text colour overrides ─────────────────────────────── */
+/*
+   Override white text that sits on overridden dark panels.
+   Exclude <button> and elements that carry their own
+   coloured background (badges, status pills, etc.).
+*/
+html.light main :not(button):not(a)[class*="text-white"]:not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-teal"]):not([class*="bg-amber"]):not([class*="bg-cyan"]):not([class*="bg-green"]):not([class*="bg-blue"]):not([class*="bg-primary"]) {
+  color: #111827 !important;
+}
+
+/* Light cyan brand accent → darker readable blue in light mode */
+html.light main [class*="text-[#7FD5FF]"],
+html.light main [class*="text-[#B7E6FF]"],
+html.light main [class*="group-hover:text-[#B7E6FF]"] {
+  color: #0369A1 !important;
+}
+
+/* Too-light gray text gets bumped up for readability */
+html.light main [class*="text-gray-300"] {
+  color: #4B5563 !important;
+}
+
+html.light main [class*="text-gray-200"] {
+  color: #374151 !important;
+}
+
+/* ── 4. Border overrides ─────────────────────────────────── */
+html.light main [class*="border-[#0A4D66]"] {
+  border-color: #E5E7EB !important;
+}
+
+html.light main [class*="divide-[#0A4D66]"] > * + * {
+  border-color: #E5E7EB !important;
+}
+
+html.light main [class*="border-[#0674a9]"],
+html.light main [class*="border-[#5dbced]"] {
+  border-color: #D1D5DB !important;
+}
+
+/* ── 5. Input / textarea / select fields ─────────────────── */
+html.light main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.light main textarea,
+html.light main select {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  border-color: #D1D5DB !important;
+}
+
+html.light main input::placeholder,
+html.light main textarea::placeholder {
+  color: #9CA3AF !important;
+}
+
+html.light main input:focus:not([type="checkbox"]):not([type="radio"]),
+html.light main textarea:focus,
+html.light main select:focus {
+  border-color: #2563EB !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+html.light main input:disabled,
+html.light main textarea:disabled,
+html.light main select:disabled {
+  background-color: #F3F4F6 !important;
+  border-color: #E5E7EB !important;
+  color: #9CA3AF !important;
+}
+
+/* ── 6. Table overrides ──────────────────────────────────── */
+html.light main thead tr {
+  background-color: #F9FAFB !important;
+}
+
+html.light main thead th {
+  color: #6B7280 !important;
+  border-color: #E5E7EB !important;
+}
+
+html.light main tbody tr {
+  background-color: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+}
+
+html.light main tbody tr:hover {
+  background-color: #F3F4F6 !important;
+}
+
+html.light main tbody td {
+  color: #111827 !important;
+  border-color: #E5E7EB !important;
+}
+
+/* ── 7. Drop-down menus (absolute/fixed positioned) ──────── */
+/*
+   Drop-downs rendered inside main (action menus, select
+   option lists, custom dropdowns).
+*/
+html.light main [class*="bg-[#001825]"][class*="absolute"],
+html.light main [class*="bg-[#001219]"][class*="absolute"],
+html.light main [class*="bg-[#001825]"][class*="fixed"],
+html.light main [class*="bg-[#001219]"][class*="fixed"] {
+  background-color: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ── 8. Modals rendered in portal (outside main) ─────────── */
+html.light .modal-content,
+html.light [data-modal-content] {
+  background-color: #FFFFFF !important;
+  color: #111827 !important;
+  border-color: #E5E7EB !important;
+}
+
+/* ── 9. Hover / active states for dark teal highlights ────── */
+html.light main [class*="hover:bg-[#0A4D66]"]:hover,
+html.light main [class*="focus:bg-[#0A4D66]"]:focus,
+html.light main [class*="hover:shadow-[inset"]:hover {
+  background-color: #F3F4F6 !important;
+  box-shadow: inset 3px 0 0 0 #2563EB !important;
+}
+
+/* ── 10. Scrollbar inside main ───────────────────────────── */
+html.light main ::-webkit-scrollbar-track {
+  background: #F3F4F6;
+}
+html.light main ::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+}
+html.light main ::-webkit-scrollbar-thumb:hover {
+  background: #9CA3AF;
+}
+
+/* ── 11. Auth pages (outside DashboardLayout) ────────────── */
+html.light .bg-auth-gradient {
+  background: #F4F6F9 !important;
+}
+
+/* ── 12. Tab border underline in light mode ──────────────── */
+html.light main [class*="border-[#0A4D66]/40"][class*="border-b"] {
+  border-color: #E5E7EB !important;
+}
+
+/* ── 13. Card label / value text in light mode ───────────── */
+/*
+   stat card labels are text-gray-400 (readable in dark),
+   but need to be darker in light mode for contrast.
+*/
+html.light main [class*="text-gray-400"] {
+  color: #6B7280 !important;
+}
+
+html.light main [class*="text-gray-500"] {
+  color: #6B7280 !important;
+}
+
+/* Main content area background (controlled via CSS class) */
+.main-content-bg {
+  background: var(--auth-bg-gradient);
+}
+html.light .main-content-bg {
+  background: #F4F6F9;
 }

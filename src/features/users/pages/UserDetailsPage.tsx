@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
-import { useAppSelector } from "@/shared/hooks/redux";
+import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { useGetUsersQuery, useUpdateUserMutation } from "@/features/users/api";
 import { AUTH_STORAGE_KEY } from "@/features/auth/authSlice";
+import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 
 type FormValues = {
   firstname: string;
@@ -26,6 +28,7 @@ const emptyValues: FormValues = {
 
 export const UserDetailsPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const authUser = useAppSelector((state) => state.auth.user);
   const { data: users = [], isLoading } = useGetUsersQuery();
   const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
@@ -33,6 +36,8 @@ export const UserDetailsPage = () => {
   const [values, setValues] = useState<FormValues>(emptyValues);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   const persistedAuthUserId = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -111,6 +116,24 @@ export const UserDetailsPage = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !selectedUser || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `${selectedUser.firstname || "user"}-${selectedUser.lastname || "details"}-${selectedUser.id}`,
+        backgroundColor: "#001219",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   return (
     <div className="px-2 sm:px-0 space-y-4">
       <section className="flex items-center justify-between">
@@ -128,20 +151,34 @@ export const UserDetailsPage = () => {
           </h1>
         </div>
 
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={isUpdating || isLoading || !selectedUser}
-          className={cn(
-            "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
-            isUpdating || isLoading || !selectedUser
-              ? "bg-[#7FD5FF]/50 text-black cursor-not-allowed"
-              : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
-          )}
-        >
-          <span>{isUpdating ? "Saving..." : "Save Changes"}</span>
-          <Icon icon="mdi:content-save-outline" className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf || isLoading || !selectedUser}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors bg-[#001825] border border-[#0A4D66]/40 text-[#7FD5FF] hover:bg-[#0A4D66]/20 disabled:opacity-60"
+          >
+            <Icon
+              icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+              className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+            />
+            <span>{isDownloadingPdf ? "Downloading..." : "Download"}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isUpdating || isLoading || !selectedUser}
+            className={cn(
+              "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
+              isUpdating || isLoading || !selectedUser
+                ? "bg-[#0369A1]/50 text-black cursor-not-allowed"
+                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
+            )}
+          >
+            <span>{isUpdating ? "Saving..." : "Save Changes"}</span>
+            <Icon icon="mdi:content-save-outline" className="w-4 h-4" />
+          </button>
+        </div>
       </section>
 
       {submitMessage && (
@@ -156,8 +193,11 @@ export const UserDetailsPage = () => {
         </div>
       )}
 
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18]">
+      <section
+        ref={contentRef}
+        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
+      >
+        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219]">
           <h2 className="text-sm sm:text-base font-semibold text-white uppercase tracking-wide">
             User Information
           </h2>
@@ -176,7 +216,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.firstname}
                   onChange={handleChange("firstname")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="First name"
                 />
               </div>
@@ -187,7 +227,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.lastname}
                   onChange={handleChange("lastname")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Last name"
                 />
               </div>
@@ -198,7 +238,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.username}
                   onChange={handleChange("username")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Username"
                 />
               </div>
@@ -209,7 +249,7 @@ export const UserDetailsPage = () => {
                   type="email"
                   value={values.email}
                   onChange={handleChange("email")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Email"
                 />
               </div>
@@ -220,7 +260,7 @@ export const UserDetailsPage = () => {
                   type="text"
                   value={values.phone_number}
                   onChange={handleChange("phone_number")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Phone number"
                 />
               </div>
@@ -231,7 +271,7 @@ export const UserDetailsPage = () => {
                   type="password"
                   value={values.password}
                   onChange={handleChange("password")}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-gray-100 outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
                   placeholder="Enter new password"
                 />
               </div>

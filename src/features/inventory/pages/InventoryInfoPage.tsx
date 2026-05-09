@@ -91,7 +91,7 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
       <div className="w-full max-w-md bg-[#001219] border border-[#0A4D66]/60 rounded-xl shadow-2xl">
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#000f18]">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-2">
             <Icon icon="mdi:database-plus" className="w-4 h-4 text-[#7FD5FF]" />
             <span className="text-xs sm:text-sm font-semibold tracking-wide text-white uppercase">
@@ -173,7 +173,7 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
               type="number"
               value={quantity}
               onChange={handleQuantityChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="Enter Quantity"
               min={1}
             />
@@ -194,7 +194,7 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
               type="text"
               value={reason}
               onChange={handleReasonChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="e.g. Received shipment"
             />
           </div>
@@ -204,7 +204,7 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
           ) : null}
         </div>
 
-        <div className="px-4 sm:px-5 py-3 border-t border-[#0A4D66]/40 bg-[#000f18] flex justify-end gap-2">
+        <div className="px-4 sm:px-5 py-3 border-t border-[#0A4D66]/40 bg-[#001219] flex justify-end gap-2">
           <button
             type="button"
             onClick={() => onClose(false)}
@@ -219,8 +219,8 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
             className={cn(
               "px-3 py-1.5 rounded text-xs sm:text-sm font-medium transition-colors",
               isLoading
-                ? "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed"
-                : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
+                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
             )}
           >
             {isLoading ? "Updating..." : "Update Stock"}
@@ -322,7 +322,7 @@ export const InventoryInfoPage = () => {
     return (
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18] flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={handleBack}
@@ -344,7 +344,7 @@ export const InventoryInfoPage = () => {
     return (
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18] flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={handleBack}
@@ -371,7 +371,7 @@ export const InventoryInfoPage = () => {
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#000f18] flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -395,7 +395,7 @@ export const InventoryInfoPage = () => {
             <button
               type="button"
               onClick={() => setIsUpdateStockModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:database-plus" className="w-4 h-4" />
               <span>Update Stock</span>
@@ -403,7 +403,7 @@ export const InventoryInfoPage = () => {
             <button
               type="button"
               onClick={handleEdit}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
               <span>Edit</span>
@@ -479,13 +479,13 @@ export const InventoryInfoPage = () => {
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-gray-400">Re-Order Level:</span>
-                  <span className="text-base font-semibold text-gray-100">
+                  <span className="text-base font-semibold text-white">
                     {inventory.re_order_level}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-gray-400">Quantity in-stock:</span>
-                  <span className="text-base font-semibold text-gray-100">
+                  <span className="text-base font-semibold text-white">
                     {inventory.current_stock}
                   </span>
                 </div>
@@ -540,7 +540,7 @@ export const InventoryInfoPage = () => {
                         >
                           {mapStockTypeLabel(item.stock_type)}
                         </td>
-                        <td className="py-2 pr-3 text-gray-100 font-semibold">
+                        <td className="py-2 pr-3 text-white font-semibold">
                           {item.quantity}
                         </td>
                         <td className="py-2 pr-3 text-gray-300">

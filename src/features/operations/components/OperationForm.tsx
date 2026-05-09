@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { forward as toMgrs, toPoint as mgrsToPoint } from "mgrs";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
@@ -9,6 +10,7 @@ import {
   type CreateOperationRequest,
   type Operation,
   type OperationAsset,
+  type OperationWaypointInput,
 } from "../api";
 import { OperationLocationPicker } from "./OperationLocationPicker";
 
@@ -24,12 +26,26 @@ type OperationFormData = {
   end_time: string;
   departure_longitude: string;
   departure_latitude: string;
+  departure_mgrs: string;
   arrival_longitude: string;
   arrival_latitude: string;
+  arrival_mgrs: string;
   priority: "low" | "medium" | "high";
   is_flight: boolean;
   status: "planned" | "completed" | "ongoing" | "aborted";
   description: string;
+};
+
+type CoordinateTarget = "departure" | "arrival";
+type CoordinateAxis = "latitude" | "longitude";
+type CoordinateInputMode = "latlon" | "mgrs";
+type CoordinateErrorState = Record<CoordinateTarget, string>;
+type MapTarget = "departure" | "arrival" | "waypoint";
+
+type WaypointFormItem = {
+  name: string;
+  latitude: string;
+  longitude: string;
 };
 
 type OperationFormProps = {
@@ -49,8 +65,10 @@ const emptyFormData: OperationFormData = {
   end_time: "00:00",
   departure_longitude: "",
   departure_latitude: "",
+  departure_mgrs: "",
   arrival_longitude: "",
   arrival_latitude: "",
+  arrival_mgrs: "",
   priority: "medium",
   is_flight: true,
   status: "planned",
@@ -72,6 +90,67 @@ const formatCoordinate = (value?: number | null) =>
   value === null || value === undefined || Number.isNaN(Number(value))
     ? ""
     : Number(value).toFixed(6);
+
+const formatMgrsDisplayValue = (value?: string | null) =>
+  value ? value.trim().toUpperCase().replace(/\s+/g, " ") : "";
+
+const normalizeMgrsForParsing = (value: string) =>
+  value.replace(/\s+/g, "").toUpperCase();
+
+const parseCoordinateNumber = (value: string) => {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isLatitudeInRange = (value: number) => value >= -90 && value <= 90;
+const isLongitudeInRange = (value: number) => value >= -180 && value <= 180;
+
+const convertLatLonToMgrs = (latitude: string, longitude: string) => {
+  const parsedLatitude = parseCoordinateNumber(latitude);
+  const parsedLongitude = parseCoordinateNumber(longitude);
+
+  if (
+    parsedLatitude === null ||
+    parsedLongitude === null ||
+    !isLatitudeInRange(parsedLatitude) ||
+    !isLongitudeInRange(parsedLongitude)
+  ) {
+    return "";
+  }
+
+  try {
+    return toMgrs([parsedLongitude, parsedLatitude], 5);
+  } catch {
+    return "";
+  }
+};
+
+const convertMgrsToLatLon = (value: string) => {
+  const normalized = normalizeMgrsForParsing(value);
+
+  if (!normalized) {
+    return null;
+  }
+
+  try {
+    const [longitude, latitude] = mgrsToPoint(normalized);
+
+    if (!isLatitudeInRange(latitude) || !isLongitudeInRange(longitude)) {
+      return null;
+    }
+
+    return {
+      latitude: latitude.toFixed(6),
+      longitude: longitude.toFixed(6),
+    };
+  } catch {
+    return null;
+  }
+};
 
 const extractDate = (value?: string | null) => {
   if (!value) return "";
@@ -101,8 +180,16 @@ const mapOperationToFormData = (operation: Operation): OperationFormData => ({
   end_time: extractTime(operation.end_date_time),
   departure_longitude: formatCoordinate(operation.departure_longitude),
   departure_latitude: formatCoordinate(operation.departure_latitude),
+  departure_mgrs: convertLatLonToMgrs(
+    formatCoordinate(operation.departure_latitude),
+    formatCoordinate(operation.departure_longitude),
+  ),
   arrival_longitude: formatCoordinate(operation.arrival_longitude),
   arrival_latitude: formatCoordinate(operation.arrival_latitude),
+  arrival_mgrs: convertLatLonToMgrs(
+    formatCoordinate(operation.arrival_latitude),
+    formatCoordinate(operation.arrival_longitude),
+  ),
   priority: operation.priority,
   is_flight: Boolean(operation.is_flight),
   status: operation.status,
@@ -116,11 +203,29 @@ export const OperationForm = ({
   isSubmitting,
 }: OperationFormProps) => {
   const navigate = useNavigate();
-  const [activeMapTarget, setActiveMapTarget] = useState<"departure" | "arrival">(
+  const [coordinateInputMode, setCoordinateInputMode] =
+    useState<CoordinateInputMode>("latlon");
+  const [activeMapTarget, setActiveMapTarget] = useState<MapTarget>(
     "departure",
   );
+  const [coordinateErrors, setCoordinateErrors] = useState<CoordinateErrorState>({
+    departure: "",
+    arrival: "",
+  });
   const [formData, setFormData] = useState<OperationFormData>(
     initialOperation ? mapOperationToFormData(initialOperation) : emptyFormData,
+  );
+  const [waypoints, setWaypoints] = useState<WaypointFormItem[]>(
+    initialOperation?.waypoints?.length
+      ? initialOperation.waypoints
+          .slice()
+          .sort((a, b) => a.sequence - b.sequence)
+          .map((w) => ({
+            name: w.name ?? "",
+            latitude: formatCoordinate(w.latitude),
+            longitude: formatCoordinate(w.longitude),
+          }))
+      : [],
   );
   const [assets, setAssets] = useState<OperationAsset[]>([
     { asset_id: 0, pilot_id: null, co_pilot_id: null },
@@ -143,11 +248,91 @@ export const OperationForm = ({
   const submitLabel = isCreateMode ? "Save" : "Save Changes";
   const pilots = personnel;
 
-  useEffect(() => {
-    if (initialOperation) {
-      setFormData(mapOperationToFormData(initialOperation));
-    }
-  }, [initialOperation]);
+  const updateTargetCoordinates = (
+    previous: OperationFormData,
+    nextValues: Partial<
+      Pick<
+        OperationFormData,
+        | "departure_latitude"
+        | "departure_longitude"
+        | "departure_mgrs"
+        | "arrival_latitude"
+        | "arrival_longitude"
+        | "arrival_mgrs"
+      >
+    >,
+  ) => ({
+    ...previous,
+    ...nextValues,
+  });
+
+  const setTargetFromLatLon = (
+    target: CoordinateTarget,
+    latitude: string,
+    longitude: string,
+  ) => {
+    setFormData((prev) =>
+      updateTargetCoordinates(prev, {
+        [`${target}_latitude`]: latitude,
+        [`${target}_longitude`]: longitude,
+        [`${target}_mgrs`]: convertLatLonToMgrs(latitude, longitude),
+      } as Partial<OperationFormData>),
+    );
+    setCoordinateErrors((prev) => ({ ...prev, [target]: "" }));
+  };
+
+  const handleLatLonChange = (
+    target: CoordinateTarget,
+    axis: CoordinateAxis,
+    value: string,
+  ) => {
+    setFormData((prev) => {
+      const nextLatitude =
+        axis === "latitude" ? value : prev[`${target}_latitude` as const];
+      const nextLongitude =
+        axis === "longitude" ? value : prev[`${target}_longitude` as const];
+
+      return updateTargetCoordinates(prev, {
+        [`${target}_${axis}`]: value,
+        [`${target}_mgrs`]: convertLatLonToMgrs(nextLatitude, nextLongitude),
+      } as Partial<OperationFormData>);
+    });
+    setCoordinateErrors((prev) => ({ ...prev, [target]: "" }));
+  };
+
+  const handleMgrsChange = (target: CoordinateTarget, value: string) => {
+    const displayValue = formatMgrsDisplayValue(value);
+    const convertedCoordinates = convertMgrsToLatLon(displayValue);
+
+    setFormData((prev) => {
+      if (!displayValue) {
+        return updateTargetCoordinates(prev, {
+          [`${target}_mgrs`]: "",
+          [`${target}_latitude`]: "",
+          [`${target}_longitude`]: "",
+        } as Partial<OperationFormData>);
+      }
+
+      if (!convertedCoordinates) {
+        return updateTargetCoordinates(prev, {
+          [`${target}_mgrs`]: displayValue,
+          [`${target}_latitude`]: "",
+          [`${target}_longitude`]: "",
+        } as Partial<OperationFormData>);
+      }
+
+      return updateTargetCoordinates(prev, {
+        [`${target}_mgrs`]: displayValue,
+        [`${target}_latitude`]: convertedCoordinates.latitude,
+        [`${target}_longitude`]: convertedCoordinates.longitude,
+      } as Partial<OperationFormData>);
+    });
+
+    setCoordinateErrors((prev) => ({
+      ...prev,
+      [target]: displayValue && !convertedCoordinates ? "Enter a valid MGRS reference." : "",
+    }));
+  };
 
   const handleAssetChange = (
     index: number,
@@ -179,27 +364,61 @@ export const OperationForm = ({
   };
 
   const handleCoordinateSelect = (
-    target: "departure" | "arrival",
+    target: MapTarget,
     latitude: number,
     longitude: number,
   ) => {
-    setFormData((prev) => {
-      const next = {
+    if (target === "waypoint") {
+      setWaypoints((prev) => [
         ...prev,
-        [`${target}_latitude`]: latitude.toFixed(6),
-        [`${target}_longitude`]: longitude.toFixed(6),
-      } as OperationFormData;
+        {
+          name: "",
+          latitude: latitude.toFixed(6),
+          longitude: longitude.toFixed(6),
+        },
+      ]);
+      return;
+    }
 
-      if (
-        target === "departure" &&
-        !prev.arrival_latitude &&
-        !prev.arrival_longitude
-      ) {
-        setActiveMapTarget("arrival");
-      }
+    setTargetFromLatLon(target, latitude.toFixed(6), longitude.toFixed(6));
 
+    if (
+      target === "departure" &&
+      !formData.arrival_latitude &&
+      !formData.arrival_longitude
+    ) {
+      setActiveMapTarget("arrival");
+    }
+  };
+
+  const updateWaypoint = (
+    index: number,
+    patch: Partial<WaypointFormItem>,
+  ) => {
+    setWaypoints((prev) =>
+      prev.map((waypoint, i) => (i === index ? { ...waypoint, ...patch } : waypoint)),
+    );
+  };
+
+  const removeWaypoint = (index: number) => {
+    setWaypoints((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const moveWaypoint = (index: number, direction: -1 | 1) => {
+    setWaypoints((prev) => {
+      const target = index + direction;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
+  };
+
+  const addManualWaypoint = () => {
+    setWaypoints((prev) => [
+      ...prev,
+      { name: "", latitude: "", longitude: "" },
+    ]);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -240,6 +459,24 @@ export const OperationForm = ({
       description: formData.description || undefined,
     };
 
+    const validWaypoints: OperationWaypointInput[] = waypoints
+      .map<OperationWaypointInput | null>((waypoint, index) => {
+        const lat = Number(waypoint.latitude);
+        const lng = Number(waypoint.longitude);
+        if (!waypoint.latitude || !waypoint.longitude || Number.isNaN(lat) || Number.isNaN(lng)) {
+          return null;
+        }
+        return {
+          sequence: index + 1,
+          name: waypoint.name.trim() || null,
+          latitude: lat,
+          longitude: lng,
+        };
+      })
+      .filter((waypoint): waypoint is OperationWaypointInput => waypoint !== null);
+
+    payload.waypoints = validWaypoints;
+
     if (isCreateMode) {
       payload.operation_assets = assets
         .filter((asset) => asset.asset_id)
@@ -254,11 +491,23 @@ export const OperationForm = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#021019] text-gray-200 flex flex-col">
+    <div className="min-h-screen bg-[#001219] text-gray-200 flex flex-col">
       <div className="bg-[#0A4D66] px-6 py-4 flex items-center justify-between shadow-md">
-        <h1 className="text-white font-bold text-lg uppercase tracking-wider">
-          {pageTitle}
-        </h1>
+        <div className="flex items-center gap-3">
+          {isCreateMode ? (
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
+              type="button"
+            >
+              <Icon icon="mdi:arrow-left" className="w-5 h-5" />
+              Back
+            </button>
+          ) : null}
+          <h1 className="text-white font-bold text-lg uppercase tracking-wider">
+            {pageTitle}
+          </h1>
+        </div>
         <button
           onClick={() => navigate("/dashboard/operations")}
           className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
@@ -348,60 +597,64 @@ export const OperationForm = ({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">Departure Time</label>
-                <input
-                  type="time"
-                  value={formData.start_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_time: e.target.value })
-                  }
-                  title="Departure time"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                  required
-                />
-              </div>
+              {!isCreateMode ? (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">Departure Time</label>
+                    <input
+                      type="time"
+                      value={formData.start_time}
+                      onChange={(e) =>
+                        setFormData({ ...formData, start_time: e.target.value })
+                      }
+                      title="Departure time"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      required
+                    />
+                  </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">Return Time</label>
-                <input
-                  type="time"
-                  value={formData.end_time}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_time: e.target.value })
-                  }
-                  title="Return time"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                  required
-                />
-              </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">Return Time</label>
+                    <input
+                      type="time"
+                      value={formData.end_time}
+                      onChange={(e) =>
+                        setFormData({ ...formData, end_time: e.target.value })
+                      }
+                      title="Return time"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      required
+                    />
+                  </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">Start Date</label>
-                <input
-                  type="date"
-                  value={formData.start_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, start_date: e.target.value })
-                  }
-                  title="Start date"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                  required
-                />
-              </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">Start Date</label>
+                    <input
+                      type="date"
+                      value={formData.start_date}
+                      onChange={(e) =>
+                        setFormData({ ...formData, start_date: e.target.value })
+                      }
+                      title="Start date"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      required
+                    />
+                  </div>
 
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">End Date</label>
-                <input
-                  type="date"
-                  value={formData.end_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, end_date: e.target.value })
-                  }
-                  title="End date"
-                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                />
-              </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs text-gray-400 font-medium">End Date</label>
+                    <input
+                      type="date"
+                      value={formData.end_date}
+                      onChange={(e) =>
+                        setFormData({ ...formData, end_date: e.target.value })
+                      }
+                      title="End date"
+                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                </>
+              ) : null}
 
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-gray-400 font-medium">Priority</label>
@@ -477,25 +730,64 @@ export const OperationForm = ({
               Coordinates (Optional)
             </h2>
             <div className="mb-6 space-y-4">
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#0A4D66]/30 bg-[#001219] p-2">
+                <button
+                  type="button"
+                  onClick={() => setCoordinateInputMode("latlon")}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+                    coordinateInputMode === "latlon"
+                      ? "bg-[#0369A1] text-white"
+                      : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
+                  }`}
+                >
+                  Latitude / Longitude
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCoordinateInputMode("mgrs")}
+                  className={`rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
+                    coordinateInputMode === "mgrs"
+                      ? "bg-[#0369A1] text-white"
+                      : "bg-transparent text-gray-300 hover:bg-[#0A4D66]/40"
+                  }`}
+                >
+                  MGRS
+                </button>
+                <span className="text-xs text-gray-400">
+                  Choose how coordinates are entered. The map always uses the resolved latitude and longitude.
+                </span>
+              </div>
+
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"
                   onClick={() => setActiveMapTarget("departure")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "departure"
-                      ? "bg-[#7FD5FF] text-[#001219]"
-                      : "bg-[#052333] text-gray-200 hover:bg-[#0A4D66]"
+                      ? "bg-[#0369A1] text-white"
+                      : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
                   Pick Departure
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActiveMapTarget("waypoint")}
+                  className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
+                    activeMapTarget === "waypoint"
+                      ? "bg-[#F59E0B] text-white"
+                      : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
+                  }`}
+                >
+                  Add Waypoint
+                </button>
+                <button
+                  type="button"
                   onClick={() => setActiveMapTarget("arrival")}
                   className={`rounded-sm px-4 py-2 text-sm font-semibold transition-colors ${
                     activeMapTarget === "arrival"
-                      ? "bg-[#7FD5FF] text-[#001219]"
-                      : "bg-[#052333] text-gray-200 hover:bg-[#0A4D66]"
+                      ? "bg-[#0369A1] text-white"
+                      : "bg-[#001219] text-gray-200 hover:bg-[#0A4D66]"
                   }`}
                 >
                   Pick Arrival
@@ -518,60 +810,218 @@ export const OperationForm = ({
                   latitude: formData.arrival_latitude,
                   longitude: formData.arrival_longitude,
                 }}
+                waypoints={waypoints.map((waypoint) => ({
+                  name: waypoint.name,
+                  latitude: waypoint.latitude,
+                  longitude: waypoint.longitude,
+                }))}
                 onCoordinateSelect={handleCoordinateSelect}
               />
+
+              <div className="rounded-lg border border-[#0A4D66]/30 bg-[#001219] p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#7FD5FF]">
+                      Waypoints / Checkpoints
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      Stops the operation passes through, in order, between departure and arrival.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addManualWaypoint}
+                    className="inline-flex items-center gap-2 rounded-sm bg-[#001825] px-3 py-1.5 text-xs font-semibold text-black hover:bg-gray-200"
+                  >
+                    <Icon icon="mdi:plus" className="h-4 w-4" />
+                    Add manually
+                  </button>
+                </div>
+
+                {waypoints.length === 0 ? (
+                  <p className="text-xs text-gray-500">
+                    No waypoints yet. Switch the active target to{" "}
+                    <span className="font-semibold text-[#F59E0B]">Add Waypoint</span> and click on
+                    the map, or add one manually.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {waypoints.map((waypoint, index) => (
+                      <li
+                        key={index}
+                        className="grid grid-cols-1 gap-2 rounded border border-[#0A4D66]/30 bg-[#001219] p-3 md:grid-cols-[40px_1fr_1fr_1fr_auto] md:items-center"
+                      >
+                        <span className="text-xs font-semibold text-[#F59E0B]">
+                          CP-{index + 1}
+                        </span>
+                        <input
+                          type="text"
+                          value={waypoint.name}
+                          onChange={(e) => updateWaypoint(index, { name: e.target.value })}
+                          placeholder="Name (optional)"
+                          className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF]"
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          min={-90}
+                          max={90}
+                          value={waypoint.latitude}
+                          onChange={(e) => updateWaypoint(index, { latitude: e.target.value })}
+                          placeholder="Latitude"
+                          className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF]"
+                        />
+                        <input
+                          type="number"
+                          step="any"
+                          min={-180}
+                          max={180}
+                          value={waypoint.longitude}
+                          onChange={(e) => updateWaypoint(index, { longitude: e.target.value })}
+                          placeholder="Longitude"
+                          className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF]"
+                        />
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveWaypoint(index, -1)}
+                            disabled={index === 0}
+                            title="Move up"
+                            className="rounded p-1 text-gray-400 hover:bg-[#0A4D66]/40 hover:text-white disabled:opacity-30"
+                          >
+                            <Icon icon="mdi:arrow-up" className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveWaypoint(index, 1)}
+                            disabled={index === waypoints.length - 1}
+                            title="Move down"
+                            className="rounded p-1 text-gray-400 hover:bg-[#0A4D66]/40 hover:text-white disabled:opacity-30"
+                          >
+                            <Icon icon="mdi:arrow-down" className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeWaypoint(index)}
+                            title="Remove"
+                            className="rounded p-1 text-gray-400 hover:bg-red-500/20 hover:text-red-400"
+                          >
+                            <Icon icon="mdi:trash-can-outline" className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <input
-                type="number"
-                step="any"
-                placeholder="Departure Latitude (-90 to 90)"
-                value={formData.departure_latitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, departure_latitude: e.target.value })
-                }
-                min={-90}
-                max={90}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Departure Longitude (-180 to 180)"
-                value={formData.departure_longitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, departure_longitude: e.target.value })
-                }
-                min={-180}
-                max={180}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Arrival Latitude (-90 to 90)"
-                value={formData.arrival_latitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, arrival_latitude: e.target.value })
-                }
-                min={-90}
-                max={90}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Arrival Longitude (-180 to 180)"
-                value={formData.arrival_longitude}
-                onChange={(e) =>
-                  setFormData({ ...formData, arrival_longitude: e.target.value })
-                }
-                min={-180}
-                max={180}
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-              />
-            </div>
+            {coordinateInputMode === "latlon" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Departure Latitude (-90 to 90)"
+                  value={formData.departure_latitude}
+                  onChange={(e) =>
+                    handleLatLonChange("departure", "latitude", e.target.value)
+                  }
+                  min={-90}
+                  max={90}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Departure Longitude (-180 to 180)"
+                  value={formData.departure_longitude}
+                  onChange={(e) =>
+                    handleLatLonChange("departure", "longitude", e.target.value)
+                  }
+                  min={-180}
+                  max={180}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Arrival Latitude (-90 to 90)"
+                  value={formData.arrival_latitude}
+                  onChange={(e) =>
+                    handleLatLonChange("arrival", "latitude", e.target.value)
+                  }
+                  min={-90}
+                  max={90}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+                <input
+                  type="number"
+                  step="any"
+                  placeholder="Arrival Longitude (-180 to 180)"
+                  value={formData.arrival_longitude}
+                  onChange={(e) =>
+                    handleLatLonChange("arrival", "longitude", e.target.value)
+                  }
+                  min={-180}
+                  max={180}
+                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400 font-medium">
+                    Departure MGRS
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Example: 32NPH1234512345"
+                    value={formData.departure_mgrs}
+                    onChange={(e) => handleMgrsChange("departure", e.target.value)}
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm uppercase tracking-wide text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {coordinateErrors.departure ? (
+                    <p className="text-xs text-[#FCA5A5]">{coordinateErrors.departure}</p>
+                  ) : formData.departure_latitude && formData.departure_longitude ? (
+                    <p className="text-xs text-gray-400">
+                      Resolved to {formData.departure_latitude}, {formData.departure_longitude}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Enter an MGRS reference to place the departure marker.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs text-gray-400 font-medium">
+                    Arrival MGRS
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Example: 32NPH5432154321"
+                    value={formData.arrival_mgrs}
+                    onChange={(e) => handleMgrsChange("arrival", e.target.value)}
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm uppercase tracking-wide text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                  {coordinateErrors.arrival ? (
+                    <p className="text-xs text-[#FCA5A5]">{coordinateErrors.arrival}</p>
+                  ) : formData.arrival_latitude && formData.arrival_longitude ? (
+                    <p className="text-xs text-gray-400">
+                      Resolved to {formData.arrival_latitude}, {formData.arrival_longitude}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Enter an MGRS reference to place the arrival marker.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
 
           {isCreateMode ? (
@@ -583,7 +1033,7 @@ export const OperationForm = ({
                 <button
                   type="button"
                   onClick={addAsset}
-                  className="inline-flex items-center gap-2 rounded-sm bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-sm bg-[#001825] px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 transition-colors"
                 >
                   <Icon icon="mdi:plus-circle" className="h-4 w-4" />
                   Add Aircraft
@@ -684,7 +1134,7 @@ export const OperationForm = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-16 w-full max-w-130 bg-[#7FD5FF] text-[#00090D] text-2xl font-semibold rounded-sm hover:bg-[#7FD5FF]/90 transition-colors disabled:opacity-50"
+              className="h-16 w-full max-w-130 bg-[#0369A1] text-white text-2xl font-semibold rounded-sm hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
             >
               {isSubmitting ? "Saving..." : submitLabel}
             </button>

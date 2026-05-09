@@ -135,7 +135,7 @@ export const BudgetFormPage = () => {
               type="text"
               value={values.name}
               onChange={handleChange("name")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="Enter Budget Name"
             />
           </div>
@@ -152,7 +152,7 @@ export const BudgetFormPage = () => {
                   : String(values.budget_category_id)
               }
               onChange={handleChange("budget_category_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
             >
               <option value="">Select Category</option>
               {categories.map((category) => (
@@ -172,7 +172,7 @@ export const BudgetFormPage = () => {
               min={0}
               value={values.amount}
               onChange={handleChange("amount")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
               placeholder="Enter Allocated amount"
             />
           </div>
@@ -186,7 +186,7 @@ export const BudgetFormPage = () => {
               aria-label="Budget start date"
               value={values.start_date}
               onChange={handleChange("start_date")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none"
             />
           </div>
 
@@ -199,7 +199,7 @@ export const BudgetFormPage = () => {
               aria-label="Budget end date"
               value={values.end_date}
               onChange={handleChange("end_date")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none"
             />
           </div>
 
@@ -209,7 +209,7 @@ export const BudgetFormPage = () => {
               aria-label="Budget unit"
               value={values.unit_id === "" ? "" : String(values.unit_id)}
               onChange={handleChange("unit_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
             >
               <option value="">Select Unit</option>
               {units.map((unit) => (
@@ -231,7 +231,7 @@ export const BudgetFormPage = () => {
             onClick={handleSubmit}
             disabled={isSubmitting}
             className={cn(
-              "px-6 sm:px-10 py-2 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors",
+              "px-6 sm:px-10 py-2 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
               isSubmitting && "opacity-70 cursor-not-allowed",
             )}
           >

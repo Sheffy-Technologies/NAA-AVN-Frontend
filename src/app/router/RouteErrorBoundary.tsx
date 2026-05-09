@@ -16,7 +16,7 @@ export const RouteErrorBoundary = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#00090D] text-gray-100 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#001219] text-white px-4">
       <div className="max-w-md w-full bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 space-y-3">
         <h1 className="text-xl font-semibold text-white">{title}</h1>
         <p className="text-sm text-gray-300">{message}</p>
@@ -25,7 +25,7 @@ export const RouteErrorBoundary = () => {
           onClick={() => {
             window.location.href = "/dashboard";
           }}
-          className="mt-2 px-4 py-2 rounded-md bg-[#7FD5FF] text-black text-sm font-medium w-full hover:bg-[#7FD5FF]/90 transition-colors"
+          className="mt-2 px-4 py-2 rounded-md bg-[#0369A1] text-black text-sm font-medium w-full hover:bg-[#0369A1]/90 transition-colors"
         >
           Go to Dashboard
         </button>

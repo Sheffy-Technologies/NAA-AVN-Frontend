@@ -29,6 +29,7 @@ type Personnel = {
   specialtyId: number;
   serviceNo: string;
   name: string;
+  image: string | null;
   rank: string;
   callSign: string;
   unit: string;
@@ -81,6 +82,7 @@ export const PersonnelPage = () => {
     all: true,
     selected: [],
   });
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: units = [] } = useGetUnitsQuery();
   const { data: ranks = [] } = useGetPersonnelRanksQuery();
@@ -154,6 +156,7 @@ export const PersonnelPage = () => {
       specialtyId: p.specialty_id,
       serviceNo: p.service_number,
       name: `${p.firstname} ${p.lastname}`,
+      image: p.image,
       rank: p.rank.name,
       callSign: p.call_sign,
       unit: p.unit.name,
@@ -203,7 +206,22 @@ export const PersonnelPage = () => {
       });
     };
 
-  const filteredPersonnel = displayedPersonnel;
+  const filteredPersonnel = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return displayedPersonnel;
+
+    return displayedPersonnel.filter((person) =>
+      [
+        person.serviceNo,
+        person.name,
+        person.rank,
+        person.callSign,
+        person.unit,
+        person.branch,
+        person.specialty,
+      ].some((value) => value.toLowerCase().includes(query)),
+    );
+  }, [displayedPersonnel, searchQuery]);
 
   const stats = useMemo(() => {
     return filteredPersonnel.reduce(
@@ -277,18 +295,29 @@ export const PersonnelPage = () => {
     navigate(`/dashboard/personnel/${id}`);
   };
 
+  const getPersonnelInitials = (name: string) =>
+    name
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#000f18] rounded-t-xl">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219] rounded-t-xl">
           <div className="flex items-center gap-4">
             <h2 className="text-sm sm:text-base font-semibold tracking-wide text-white uppercase">
               Personnel
             </h2>
-            <div className="flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#021a27] p-1">
+            <div className="flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#001219] p-1">
               <button
                 type="button"
                 onClick={() => setViewMode("table")}
+                title="Table view"
+                aria-label="Table view"
                 className={cn(
                   "px-2 py-1 rounded-sm flex items-center justify-center",
                   viewMode === "table"
@@ -301,6 +330,8 @@ export const PersonnelPage = () => {
               <button
                 type="button"
                 onClick={() => setViewMode("grid")}
+                title="Grid view"
+                aria-label="Grid view"
                 className={cn(
                   "px-2 py-1 rounded-sm flex items-center justify-center",
                   viewMode === "grid"
@@ -316,7 +347,7 @@ export const PersonnelPage = () => {
           <div ref={filterBarRef} className="flex items-center gap-3">
             <button
               type="button"
-              className="px-3 py-1.5 rounded-full border border-[#0A4D66]/40 bg-[#021a27] text-xs text-gray-200 hidden sm:block"
+              className="px-3 py-1.5 rounded-full border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 hidden sm:block"
             >
               {filteredPersonnel.length}
             </button>
@@ -332,7 +363,7 @@ export const PersonnelPage = () => {
             <button
               type="button"
               onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className="xl:hidden px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-[11px] text-gray-200 inline-flex items-center gap-1"
+              className="xl:hidden px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
             >
               <Icon icon="mdi:filter-variant" className="w-4 h-4" />
               <span className="hidden sm:inline">Filters</span>
@@ -343,7 +374,7 @@ export const PersonnelPage = () => {
                 specialtyFilter,
                 statusFilter,
               ].some((f) => !f.all) && (
-                <span className="w-2 h-2 rounded-full bg-[#7FD5FF]" />
+                <span className="w-2 h-2 rounded-full bg-[#0369A1]" />
               )}
             </button>
 
@@ -377,7 +408,7 @@ export const PersonnelPage = () => {
                       current === "units" ? null : "units",
                     )
                   }
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-[11px] text-gray-200 inline-flex items-center gap-1"
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
                 >
                   <span>
                     {unitFilter.all
@@ -426,7 +457,7 @@ export const PersonnelPage = () => {
                       current === "ranks" ? null : "ranks",
                     )
                   }
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-[11px] text-gray-200 inline-flex items-center gap-1"
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
                 >
                   <span>
                     {rankFilter.all
@@ -475,7 +506,7 @@ export const PersonnelPage = () => {
                       current === "branches" ? null : "branches",
                     )
                   }
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-[11px] text-gray-200 inline-flex items-center gap-1"
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
                 >
                   <span>
                     {branchFilter.all
@@ -524,7 +555,7 @@ export const PersonnelPage = () => {
                       current === "specialties" ? null : "specialties",
                     )
                   }
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-[11px] text-gray-200 inline-flex items-center gap-1"
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
                 >
                   <span>
                     {specialtyFilter.all
@@ -577,7 +608,7 @@ export const PersonnelPage = () => {
                       current === "status" ? null : "status",
                     )
                   }
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#021a27] text-[11px] text-gray-200 inline-flex items-center gap-1"
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
                 >
                   <span>
                     {statusFilter.all
@@ -624,7 +655,7 @@ export const PersonnelPage = () => {
             <button
               type="button"
               onClick={() => navigate("/dashboard/personnel/add")}
-              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded bg-[#7FD5FF] text-black text-xs sm:text-sm font-medium hover:bg-[#7FD5FF]/90 transition-colors"
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               <span className="hidden sm:inline">Add Personnel</span>
@@ -633,10 +664,28 @@ export const PersonnelPage = () => {
           </div>
         </div>
 
+        <div className="px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
+          <div className="relative w-full sm:max-w-md">
+            <Icon
+              icon="mdi:magnify"
+              className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search personnel by name, service no, rank, unit..."
+              title="Search personnel"
+              aria-label="Search personnel"
+              className="w-full rounded-md border border-[#0A4D66]/40 bg-[#001825] pl-9 pr-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#7FD5FF]/40"
+            />
+          </div>
+        </div>
+
         {/* Stats Row */}
         <div className="flex flex-wrap items-center gap-4 sm:gap-6 px-4 sm:px-6 py-3 bg-[#001219] border-b border-[#0A4D66]/40 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#7FD5FF]" />
+            <span className="w-2 h-2 rounded-full bg-[#0369A1]" />
             <span className="text-gray-300">Total:</span>
             <span className="font-bold text-white">{stats.total}</span>
           </div>
@@ -658,25 +707,25 @@ export const PersonnelPage = () => {
         </div>
 
         {viewMode === "table" && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-xs sm:text-sm text-gray-200">
+          <div className="overflow-x-auto pb-2">
+            <table className="min-w-max w-full text-xs sm:text-sm text-gray-200 whitespace-nowrap">
               <thead>
-                <tr className="bg-[#000f18] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
-                  <th className="hidden xl:table-cell px-4 sm:px-6 py-3 text-left">
+                <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
+                  <th className="px-4 sm:px-6 py-3 text-left">
                     Service No.
                   </th>
                   <th className="px-4 py-3 text-left">Name</th>
                   <th className="px-4 py-3 text-left">Rank</th>
-                  <th className="hidden lg:table-cell px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-left">
                     Call Sign
                   </th>
-                  <th className="hidden md:table-cell px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-left">
                     Unit
                   </th>
-                  <th className="hidden md:table-cell px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-left">
                     Branch
                   </th>
-                  <th className="hidden xl:table-cell px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-left">
                     Specialty
                   </th>
                   <th className="px-4 py-3 text-left">Status</th>
@@ -705,38 +754,40 @@ export const PersonnelPage = () => {
                         index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                       )}
                     >
-                      <td className="hidden xl:table-cell px-4 sm:px-6 py-3 align-middle text-gray-100">
+                      <td className="px-4 sm:px-6 py-3 align-middle text-white">
                         {p.serviceNo}
                       </td>
                       <td className="px-4 py-3 align-middle">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#0A4D66] flex items-center justify-center text-xs font-semibold text-white flex-shrink-0">
-                            {p.name
-                              .split(" ")
-                              .map((part) => part[0])
-                              .join("")}
-                          </div>
+                          {p.image ? (
+                            <img
+                              src={p.image}
+                              alt={p.name}
+                              className="w-9 h-9 rounded-full object-cover bg-[#0A4D66] shrink-0"
+                            />
+                          ) : (
+                            <div className="w-9 h-9 rounded-full bg-[#0A4D66] flex items-center justify-center text-xs font-semibold text-white shrink-0">
+                              {getPersonnelInitials(p.name)}
+                            </div>
+                          )}
                           <div className="flex flex-col">
                             <span className="text-sm text-white">{p.name}</span>
-                            <span className="text-xs text-gray-400 block md:hidden">
-                              {p.unit}
-                            </span>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {p.rank}
                       </td>
-                      <td className="hidden lg:table-cell px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {p.callSign}
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {p.unit}
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {p.branch}
                       </td>
-                      <td className="hidden xl:table-cell px-4 py-3 align-middle text-gray-100">
+                      <td className="px-4 py-3 align-middle text-white">
                         {p.specialty}
                       </td>
                       <td className="px-4 py-3 align-middle">
@@ -747,7 +798,7 @@ export const PersonnelPage = () => {
                               statusDotColor[p.status],
                             )}
                           />
-                          <span className="text-gray-100">{p.status}</span>
+                          <span className="text-white">{p.status}</span>
                         </div>
                       </td>
                       <td
@@ -757,6 +808,8 @@ export const PersonnelPage = () => {
                         <button
                           type="button"
                           onClick={() => handleToggleActions(p.id)}
+                          title="Open personnel actions"
+                          aria-label="Open personnel actions"
                           className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
                         >
                           <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
@@ -871,76 +924,97 @@ export const PersonnelPage = () => {
         )}
 
         {viewMode === "grid" && (
-          <div className="p-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {isPersonnelLoading && displayedPersonnel.length === 0
+          <div className="p-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {isPersonnelLoading && filteredPersonnel.length === 0
               ? Array.from({ length: 6 }).map((_, index) => (
                   <div
                     key={index}
-                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg px-3 py-3 flex flex-col gap-3"
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-xl p-5 flex flex-col gap-4"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-[#021a27] animate-pulse" />
-                        <div className="flex flex-col min-w-0 gap-2">
-                          <div className="h-3 w-24 bg-[#021a27] rounded-full animate-pulse" />
-                          <div className="h-2.5 w-32 bg-[#021a27] rounded-full animate-pulse" />
-                        </div>
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-full bg-[#001219] animate-pulse" />
+                      <div className="flex flex-col gap-2 min-w-0 flex-1">
+                        <div className="h-3.5 w-40 bg-[#001219] rounded-full animate-pulse" />
+                        <div className="h-2.5 w-28 bg-[#001219] rounded-full animate-pulse" />
+                        <div className="h-2.5 w-20 bg-[#001219] rounded-full animate-pulse" />
                       </div>
-                      <div className="h-3 w-16 bg-[#021a27] rounded-full animate-pulse" />
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-gray-300 whitespace-nowrap overflow-hidden">
-                      <div className="h-2.5 w-28 bg-[#021a27] rounded-full animate-pulse" />
-                      <span className="text-gray-600">•</span>
-                      <div className="h-2.5 w-20 bg-[#021a27] rounded-full animate-pulse" />
+                    <div className="grid grid-cols-2 gap-3">
+                      {Array.from({ length: 6 }).map((__, i) => (
+                        <div key={i} className="flex flex-col gap-1.5">
+                          <div className="h-2 w-16 bg-[#001219] rounded-full animate-pulse" />
+                          <div className="h-2.5 w-24 bg-[#001219] rounded-full animate-pulse" />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))
-              : displayedPersonnel.map((p) => (
+              : filteredPersonnel.map((p) => (
                   <div
                     key={p.id}
                     onClick={() => handleOpenDetail(p.id)}
-                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg px-3 py-3 flex flex-col gap-2 cursor-pointer hover:border-[#7FD5FF]/70"
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-xl p-5 flex flex-col gap-4 cursor-pointer hover:border-[#7FD5FF]/70 transition-colors"
                   >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-[#0A4D66] flex items-center justify-center text-xs font-semibold text-white shrink-0">
-                          {p.name
-                            .split(" ")
-                            .map((part) => part[0])
-                            .join("")}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-sm text-white truncate">
-                            {p.name}
-                          </span>
-                          <span className="text-[11px] text-gray-400 truncate">
-                            Service No. {p.serviceNo}
-                          </span>
-                        </div>
-                      </div>
-                      <div
-                        className={cn(
-                          "flex items-center gap-1 text-[11px]",
-                          statusTextColor[p.status],
-                        )}
-                      >
-                        <span>{p.status}</span>
-                        <span
-                          className={cn(
-                            "w-2 h-2 rounded-full",
-                            statusDotColor[p.status],
-                          )}
+                    <div className="flex items-start gap-4">
+                      {p.image ? (
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="w-16 h-16 rounded-full object-cover bg-[#0A4D66] shrink-0"
                         />
+                      ) : (
+                        <div className="w-16 h-16 rounded-full bg-[#0A4D66] flex items-center justify-center text-base font-semibold text-white shrink-0">
+                          {getPersonnelInitials(p.name)}
+                        </div>
+                      )}
+                      <div className="flex flex-col min-w-0 flex-1">
+                        <span className="text-base font-semibold text-white truncate">
+                          {p.name}
+                        </span>
+                        <span className="text-xs text-gray-400 truncate">
+                          Service No. {p.serviceNo}
+                        </span>
+                        <div
+                          className={cn(
+                            "mt-1.5 inline-flex items-center gap-1.5 text-xs w-fit",
+                            statusTextColor[p.status],
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              statusDotColor[p.status],
+                            )}
+                          />
+                          <span>{p.status}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-[11px] text-gray-300 whitespace-nowrap overflow-hidden">
-                      <span className="truncate">Rank: {p.rank}</span>
-                      <span className="text-gray-600">•</span>
-                      <span className="truncate">Call Sign: {p.callSign}</span>
-                      <span className="text-gray-600 hidden xl:inline">•</span>
-                      <span className="truncate hidden xl:inline">
-                        {p.unit}
-                      </span>
+                    <div className="grid grid-cols-2 gap-3 text-xs border-t border-[#0A4D66]/30 pt-3">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 mb-0.5">Rank</span>
+                        <span className="text-white truncate">{p.rank}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 mb-0.5">Call Sign</span>
+                        <span className="text-white truncate">
+                          {p.callSign}
+                        </span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 mb-0.5">Unit</span>
+                        <span className="text-white truncate">{p.unit}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 mb-0.5">Branch</span>
+                        <span className="text-white truncate">{p.branch}</span>
+                      </div>
+                      <div className="flex flex-col col-span-2">
+                        <span className="text-gray-500 mb-0.5">Specialty</span>
+                        <span className="text-white truncate">
+                          {p.specialty}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}

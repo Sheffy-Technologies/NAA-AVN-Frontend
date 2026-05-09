@@ -1,6 +1,8 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
 
+export type PermissionName = string;
+
 export type ActivityLog = {
   id: number;
   action?: string | null;
@@ -60,6 +62,63 @@ export type UpdateDeviceStatusPayload = {
   is_active: 1 | 0;
 };
 
+export type RoleRecord = {
+  id: number;
+  name: string;
+  guard_name?: string;
+  permissions?: Array<{
+    id?: number;
+    name: PermissionName;
+    guard_name?: string;
+  }>;
+};
+
+export type PermissionCatalog = {
+  guard_name: string;
+  permissions: PermissionName[];
+  defined_permissions: PermissionName[];
+};
+
+export type CreateRolePayload = {
+  name: string;
+  permissions?: PermissionName[];
+};
+
+export type SyncRolePermissionsPayload = {
+  roleId: number;
+  permissions: PermissionName[];
+};
+
+export type UserRoleAssignment = {
+  user: {
+    id: number;
+    firstname?: string | null;
+    lastname?: string | null;
+    username?: string | null;
+    email?: string | null;
+    phone_number?: string | null;
+  };
+  roles: string[];
+  permissions: PermissionName[];
+};
+
+export type SyncUserRolesPayload = {
+  userId: number;
+  roles: string[];
+};
+
+export type MeResponse = {
+  id: string | number;
+  firstname?: string | null;
+  lastname?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  roles: Array<{ id?: number; name: string; guard_name?: string }>;
+  role_names: string[];
+  permissions: string[];
+};
+
 type ActivityLogApiResponse =
   | ActivityLog[]
   | {
@@ -76,15 +135,36 @@ type DeviceApiResponse =
       devices?: Device[];
     };
 
+type RolesApiResponse =
+  | RoleRecord[]
+  | {
+      data?: RoleRecord[];
+      results?: RoleRecord[];
+      roles?: RoleRecord[];
+    };
+
+export type SystemSettings = {
+  otp_login_enabled?: boolean;
+  [key: string]: unknown;
+};
+
+export type SystemSettingsResponse = {
+  data: SystemSettings;
+};
+
+export type UpdateSystemSettingsPayload = Partial<SystemSettings>;
+
 export const securityApi = createApi({
   reducerPath: "securityApi",
   baseQuery: axiosBaseQuery(),
+  tagTypes: ["ActivityLog", "Device", "Role", "Permission", "UserRole", "SystemSettings"],
   endpoints: (builder) => ({
     getActivityLogs: builder.query<ActivityLog[], void>({
       query: () => ({
         url: "/activity/logs",
         method: "GET",
       }),
+      providesTags: ["ActivityLog"],
       transformResponse: (response: ActivityLogApiResponse) => {
         if (Array.isArray(response)) return response;
         return response.data || response.results || response.logs || [];
@@ -95,6 +175,7 @@ export const securityApi = createApi({
         url: "/devices",
         method: "GET",
       }),
+      providesTags: ["Device"],
       transformResponse: (response: DeviceApiResponse) => {
         if (Array.isArray(response)) return response;
         return response.data || response.results || response.devices || [];
@@ -106,6 +187,92 @@ export const securityApi = createApi({
         method: "PUT",
         data: { is_active },
       }),
+      invalidatesTags: ["Device"],
+    }),
+    getRoles: builder.query<RoleRecord[], void>({
+      query: () => ({
+        url: "/roles",
+        method: "GET",
+      }),
+      providesTags: ["Role"],
+      transformResponse: (response: RolesApiResponse) => {
+        if (Array.isArray(response)) return response;
+        return response.data || response.results || response.roles || [];
+      },
+    }),
+    createRole: builder.mutation<RoleRecord, CreateRolePayload>({
+      query: (data) => ({
+        url: "/roles",
+        method: "POST",
+        data,
+      }),
+      invalidatesTags: ["Role", "Permission"],
+    }),
+    syncRolePermissions: builder.mutation<RoleRecord, SyncRolePermissionsPayload>({
+      query: ({ roleId, permissions }) => ({
+        url: `/roles/${roleId}/permissions`,
+        method: "PUT",
+        data: { permissions },
+      }),
+      invalidatesTags: ["Role", "UserRole"],
+    }),
+    getPermissions: builder.query<PermissionCatalog, void>({
+      query: () => ({
+        url: "/permissions",
+        method: "GET",
+      }),
+      providesTags: ["Permission"],
+    }),
+    getUserRoles: builder.query<UserRoleAssignment, number>({
+      query: (userId) => ({
+        url: `/users/${userId}/roles`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, userId) => [{ type: "UserRole", id: userId }],
+    }),
+    syncUserRoles: builder.mutation<UserRoleAssignment, SyncUserRolesPayload>({
+      query: ({ userId, roles }) => ({
+        url: `/users/${userId}/roles`,
+        method: "PUT",
+        data: { roles },
+      }),
+      invalidatesTags: (_result, _error, { userId }) => [
+        "Role",
+        { type: "UserRole", id: userId },
+      ],
+    }),
+    getMe: builder.query<MeResponse, void>({
+      query: () => ({
+        url: "/auth/me",
+        method: "GET",
+      }),
+    }),
+    getSystemSettings: builder.query<SystemSettings, void>({
+      query: () => ({
+        url: "/system-settings",
+        method: "GET",
+      }),
+      providesTags: ["SystemSettings"],
+      transformResponse: (response: SystemSettingsResponse | SystemSettings) => {
+        if (response && typeof response === "object" && "data" in response) {
+          return (response as SystemSettingsResponse).data ?? {};
+        }
+        return (response as SystemSettings) ?? {};
+      },
+    }),
+    updateSystemSettings: builder.mutation<SystemSettings, UpdateSystemSettingsPayload>({
+      query: (data) => ({
+        url: "/system-settings",
+        method: "PUT",
+        data,
+      }),
+      invalidatesTags: ["SystemSettings"],
+      transformResponse: (response: SystemSettingsResponse | SystemSettings) => {
+        if (response && typeof response === "object" && "data" in response) {
+          return (response as SystemSettingsResponse).data ?? {};
+        }
+        return (response as SystemSettings) ?? {};
+      },
     }),
   }),
 });
@@ -114,4 +281,13 @@ export const {
   useGetActivityLogsQuery,
   useGetDevicesQuery,
   useUpdateDeviceStatusMutation,
+  useGetRolesQuery,
+  useCreateRoleMutation,
+  useSyncRolePermissionsMutation,
+  useGetPermissionsQuery,
+  useGetUserRolesQuery,
+  useSyncUserRolesMutation,
+  useGetMeQuery,
+  useGetSystemSettingsQuery,
+  useUpdateSystemSettingsMutation,
 } = securityApi;

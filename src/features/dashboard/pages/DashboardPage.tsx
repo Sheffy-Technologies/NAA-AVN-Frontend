@@ -27,6 +27,11 @@ type DashboardTabId =
   | "inventory"
   | "personnel";
 
+type UnitFilterOption = {
+  value: string;
+  label: string;
+};
+
 const formatMetric = (
   raw: string | number | undefined,
   unit: string,
@@ -101,7 +106,7 @@ const CardItem = ({ card }: { card: Card }) => (
       <div
         className={cn(
           "w-9 h-9 rounded flex items-center justify-center",
-          card.iconClass || "bg-[#021a27]",
+          card.iconClass || "bg-[#001219]",
         )}
       >
         <Icon icon={card.icon} className="w-5 h-5 text-white/90" />
@@ -135,17 +140,37 @@ const TableShell = ({
   </div>
 );
 
-const TableToolbar = ({ resetCount }: { resetCount?: number | string }) => (
+const TableToolbar = ({
+  resetCount,
+  unitOptions,
+  selectedUnit,
+  onChangeUnit,
+  onResetFilter,
+  onDownload,
+  isDownloadDisabled,
+}: {
+  resetCount?: number | string;
+  unitOptions: UnitFilterOption[];
+  selectedUnit: string;
+  onChangeUnit: (value: string) => void;
+  onResetFilter: () => void;
+  onDownload: () => void;
+  isDownloadDisabled?: boolean;
+}) => (
   <div className="flex items-center gap-3">
     <div className="flex items-center gap-1">
       <button
         type="button"
+        title="List view"
+        aria-label="List view"
         className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
       >
         <Icon icon="mdi:view-list" className="w-5 h-5" />
       </button>
       <button
         type="button"
+        title="Grid view"
+        aria-label="Grid view"
         className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
       >
         <Icon icon="mdi:view-grid" className="w-5 h-5" />
@@ -153,7 +178,8 @@ const TableToolbar = ({ resetCount }: { resetCount?: number | string }) => (
     </div>
     <button
       type="button"
-      className="inline-flex items-center gap-2 text-xs text-[#7FD5FF] hover:text-[#b3e6ff] transition-colors"
+      onClick={onResetFilter}
+      className="inline-flex items-center gap-2 text-xs text-[#7FD5FF] hover:text-[#B7E6FF] transition-colors"
     >
       <span className="w-5 h-5 rounded-full bg-[#0A4D66]/50 text-white text-[10px] flex items-center justify-center">
         {resetCount ?? 0}
@@ -161,16 +187,37 @@ const TableToolbar = ({ resetCount }: { resetCount?: number | string }) => (
       Reset Filter
     </button>
     <div className="flex items-center gap-2">
+      <div className="relative">
+        <select
+          value={selectedUnit}
+          onChange={(event) => onChangeUnit(event.target.value)}
+          className="appearance-none inline-flex items-center gap-2 pl-3 pr-8 py-2 rounded bg-[#001219] border border-[#0A4D66]/50 text-xs text-gray-200 hover:border-[#7FD5FF]/60 transition-colors focus:outline-none focus:border-[#7FD5FF]"
+          title="Filter by unit"
+          aria-label="Filter by unit"
+        >
+          {unitOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <Icon
+          icon="mdi:chevron-down"
+          className="w-4 h-4 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+        />
+      </div>
       <button
         type="button"
-        className="inline-flex items-center gap-2 px-3 py-2 rounded bg-[#00090D] border border-[#0A4D66]/50 text-xs text-gray-200 hover:border-[#7FD5FF]/60 transition-colors"
-      >
-        <span>All Units</span>
-        <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" />
-      </button>
-      <button
-        type="button"
-        className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
+        onClick={onDownload}
+        disabled={isDownloadDisabled}
+        className={cn(
+          "p-2 rounded transition-colors",
+          isDownloadDisabled
+            ? "text-gray-500 cursor-not-allowed"
+            : "hover:bg-[#0A4D66]/30 text-gray-300",
+        )}
+        title="Download current list"
+        aria-label="Download current list"
       >
         <Icon icon="mdi:download" className="w-5 h-5" />
       </button>
@@ -181,6 +228,15 @@ const TableToolbar = ({ resetCount }: { resetCount?: number | string }) => (
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<DashboardTabId>("operations");
+  const [selectedUnitByTab, setSelectedUnitByTab] = useState<
+    Record<DashboardTabId, string>
+  >({
+    operations: "all",
+    maintenance: "all",
+    finances: "all",
+    inventory: "all",
+    personnel: "all",
+  });
 
   const { data: operations, isFetching: isFetchingOps } =
     useGetDashboardOperationsQuery(undefined, {
@@ -224,28 +280,28 @@ export const DashboardPage = () => {
         label: "Total Expense",
         value: `₦${total.toLocaleString()}`,
         icon: "mdi:cash-fast",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Monthly",
         value: `₦${monthly.toLocaleString()}`,
         icon: "mdi:calendar-month",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Quarterly",
         value: `₦${quarterly.toLocaleString()}`,
         icon: "mdi:calendar-range",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Budget",
-        value: `₦${budget.toLocaleString()}${pct !== undefined ? `  ${pct}%` : ""}`,
+        value: `₦${budget.toLocaleString()}${pct !== undefined ? `  ` : ""}`,
         icon: "mdi:account-cash",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
     ];
@@ -257,28 +313,28 @@ export const DashboardPage = () => {
         label: "Total In Stock",
         value: inventories?.total_stock ?? 0,
         icon: "mdi:warehouse",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Low Stock Items",
         value: inventories?.low_stock ?? 0,
         icon: "mdi:alert",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#6b4b00]/60",
       },
       {
         label: "Expired Items",
         value: inventories?.expired_items ?? 0,
         icon: "mdi:alert-octagon",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#5a0a0a]/60",
       },
       {
         label: "Critical",
         value: inventories?.critical_stock ?? 0,
         icon: "mdi:alert-decagram",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#7a0000]/60",
       },
     ];
@@ -290,14 +346,14 @@ export const DashboardPage = () => {
         label: "Planned",
         value: operations?.planned ?? 0,
         icon: "mdi:database",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Completed",
         value: operations?.completed ?? 0,
         icon: "mdi:database-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
         iconClass: "bg-emerald-700/50",
       },
       {
@@ -323,14 +379,14 @@ export const DashboardPage = () => {
         label: "Total",
         value: maintenance?.total_aircraft ?? 0,
         icon: "mdi:airplane",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Serviceable",
         value: maintenance?.maintenance_events?.serviceable ?? 0,
         icon: "mdi:airplane-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
         iconClass: "bg-emerald-700/50",
       },
       {
@@ -356,14 +412,14 @@ export const DashboardPage = () => {
         label: "Total",
         value: personnel?.total_personnel ?? 0,
         icon: "mdi:account-group",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001f2e]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Active",
         value: personnel?.active ?? 0,
         icon: "mdi:account-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#002015]",
+        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
         iconClass: "bg-emerald-700/50",
       },
       {
@@ -383,22 +439,271 @@ export const DashboardPage = () => {
     ];
   }, [personnel]);
 
+  const toUnitOption = (id: number | undefined, name: string | undefined) => {
+    if (!id) return null;
+    return {
+      value: String(id),
+      label: name?.trim() || `Unit #${id}`,
+    } as UnitFilterOption;
+  };
+
+  const getUnitOptions = (options: Array<UnitFilterOption | null>) => {
+    const map = new Map<string, UnitFilterOption>();
+    options.forEach((option) => {
+      if (!option) return;
+      if (!map.has(option.value)) {
+        map.set(option.value, option);
+      }
+    });
+    return [{ value: "all", label: "All Units" }, ...Array.from(map.values())];
+  };
+
+  const operationsRows = useMemo(
+    () => operations?.recent_operations ?? [],
+    [operations?.recent_operations],
+  );
+  const maintenanceRows = useMemo(
+    () => maintenance?.recent_aircrafts ?? [],
+    [maintenance?.recent_aircrafts],
+  );
+  const financeRows = expenses;
+  const inventoryRows = useMemo(
+    () => inventories?.recent_inventories ?? [],
+    [inventories?.recent_inventories],
+  );
+  const personnelRows = useMemo(
+    () => personnel?.recent_personnel ?? [],
+    [personnel?.recent_personnel],
+  );
+
+  const operationsUnitOptions = useMemo(
+    () =>
+      getUnitOptions(
+        operationsRows.map((op) =>
+          toUnitOption(op.unit?.id, op.unit?.name),
+        ),
+      ),
+    [operationsRows],
+  );
+
+  const maintenanceUnitOptions = useMemo(
+    () =>
+      getUnitOptions(
+        maintenanceRows.map((aircraft) =>
+          toUnitOption(aircraft.unit_id, undefined),
+        ),
+      ),
+    [maintenanceRows],
+  );
+
+  const financeUnitOptions = useMemo(
+    () =>
+      getUnitOptions(
+        financeRows.map((expense) => toUnitOption(expense.unit_id, expense.unit?.name)),
+      ),
+    [financeRows],
+  );
+
+  const inventoryUnitOptions = useMemo(
+    () =>
+      getUnitOptions(
+        inventoryRows.map((inventory) =>
+          toUnitOption(inventory.unit_id, inventory.unit?.name),
+        ),
+      ),
+    [inventoryRows],
+  );
+
+  const personnelUnitOptions = useMemo(
+    () =>
+      getUnitOptions(
+        personnelRows.map((person) => toUnitOption(person.unit?.id, person.unit?.name)),
+      ),
+    [personnelRows],
+  );
+
+  const selectedOperationsUnit = selectedUnitByTab.operations;
+  const selectedMaintenanceUnit = selectedUnitByTab.maintenance;
+  const selectedFinanceUnit = selectedUnitByTab.finances;
+  const selectedInventoryUnit = selectedUnitByTab.inventory;
+  const selectedPersonnelUnit = selectedUnitByTab.personnel;
+
+  const filteredOperationsRows = operationsRows.filter((op) =>
+    selectedOperationsUnit === "all"
+      ? true
+      : String(op.unit?.id ?? "") === selectedOperationsUnit,
+  );
+
+  const filteredMaintenanceRows = maintenanceRows.filter((aircraft) =>
+    selectedMaintenanceUnit === "all"
+      ? true
+      : String(aircraft.unit_id) === selectedMaintenanceUnit,
+  );
+
+  const filteredFinanceRows = financeRows.filter((expense) =>
+    selectedFinanceUnit === "all"
+      ? true
+      : String(expense.unit_id) === selectedFinanceUnit,
+  );
+
+  const filteredInventoryRows = inventoryRows.filter((inventory) =>
+    selectedInventoryUnit === "all"
+      ? true
+      : String(inventory.unit_id) === selectedInventoryUnit,
+  );
+
+  const filteredPersonnelRows = personnelRows.filter((person) =>
+    selectedPersonnelUnit === "all"
+      ? true
+      : String(person.unit?.id ?? "") === selectedPersonnelUnit,
+  );
+
+  const setTabUnitFilter = (tab: DashboardTabId, value: string) => {
+    setSelectedUnitByTab((previous) => ({ ...previous, [tab]: value }));
+  };
+
+  const resetTabUnitFilter = (tab: DashboardTabId) => {
+    setSelectedUnitByTab((previous) => ({ ...previous, [tab]: "all" }));
+  };
+
+  const toCsv = (headers: string[], rows: Array<Array<string | number>>) => {
+    const escape = (value: string | number) =>
+      `"${String(value).replace(/"/g, '""')}"`;
+    const content = [
+      headers.map(escape).join(","),
+      ...rows.map((row) => row.map(escape).join(",")),
+    ].join("\n");
+
+    return content;
+  };
+
+  const downloadCsv = (
+    fileName: string,
+    headers: string[],
+    rows: Array<Array<string | number>>,
+  ) => {
+    const content = toCsv(headers, rows);
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadOperations = () => {
+    if (filteredOperationsRows.length === 0) return;
+    downloadCsv(
+      "dashboard-operations.csv",
+      ["Operation", "Type", "Unit", "Priority", "Status"],
+      filteredOperationsRows.map((op) => [
+        op.name || "—",
+        op.operation_type?.name || "—",
+        op.unit?.name || "—",
+        op.priority || "—",
+        op.status || "—",
+      ]),
+    );
+  };
+
+  const handleDownloadMaintenance = () => {
+    if (filteredMaintenanceRows.length === 0) return;
+    downloadCsv(
+      "dashboard-maintenance.csv",
+      [
+        "Tail No.",
+        "Aircraft Name",
+        "Inspection (Hrs)",
+        "Inspection (Cyc)",
+        "Total Hrs",
+        "Total Cyc",
+      ],
+      filteredMaintenanceRows.map((aircraft) => [
+        aircraft.tail_number || "—",
+        aircraft.name || "—",
+        formatMetric(aircraft.inspection_interval, "hrs", { space: false }),
+        formatMetric(aircraft.inspection_interval_cycle, "cyc"),
+        formatMetric(aircraft.total_airframe_hours, "hrs", { space: false }),
+        formatMetric(aircraft.total_cycles, "cyc"),
+      ]),
+    );
+  };
+
+  const handleDownloadFinance = () => {
+    if (filteredFinanceRows.length === 0) return;
+    downloadCsv(
+      "dashboard-finance.csv",
+      ["Item Description", "Category", "Quantity", "Unit Cost", "Total Cost"],
+      filteredFinanceRows.map((expense) => [
+        expense.part_name || "—",
+        expense.expense_category?.name || "—",
+        expense.quantity ?? "—",
+        typeof expense.unit_cost === "number"
+          ? `₦${expense.unit_cost.toLocaleString()}`
+          : "—",
+        typeof expense.total_cost === "number"
+          ? `₦${expense.total_cost.toLocaleString()}`
+          : "—",
+      ]),
+    );
+  };
+
+  const handleDownloadInventory = () => {
+    if (filteredInventoryRows.length === 0) return;
+    downloadCsv(
+      "dashboard-inventory.csv",
+      ["Description", "Part No", "Current Stock", "Unit", "Expiry"],
+      filteredInventoryRows.map((inventory) => [
+        inventory.description || "—",
+        inventory.part_number || "—",
+        typeof inventory.current_stock === "number"
+          ? inventory.current_stock
+          : "—",
+        inventory.unit?.name || "—",
+        inventory.expiry_date || "—",
+      ]),
+    );
+  };
+
+  const handleDownloadPersonnel = () => {
+    if (filteredPersonnelRows.length === 0) return;
+    downloadCsv(
+      "dashboard-personnel.csv",
+      ["Name", "Rank", "Unit", "Branch", "Status"],
+      filteredPersonnelRows.map((person) => [
+        person.full_name ||
+          `${person.firstname ?? ""} ${person.lastname ?? ""}`.trim() ||
+          "—",
+        person.rank?.abbreviation || person.rank?.name || "—",
+        person.unit?.name || "—",
+        person.branch?.name || "—",
+        person.status || "—",
+      ]),
+    );
+  };
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-8 border-b border-[#0A4D66]/40">
+      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "py-3 text-sm font-medium transition-colors",
+              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
               activeTab === tab.id
-                ? "text-white border-b-2 border-[#7FD5FF]"
-                : "text-gray-400 hover:text-white",
+                ? "text-[#7FD5FF]"
+                : "text-gray-400 hover:text-gray-300",
             )}
           >
             {tab.label}
+            {activeTab === tab.id && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+            )}
           </button>
         ))}
       </div>
@@ -417,7 +722,15 @@ export const DashboardPage = () => {
           <TableShell
             title="Upcoming Operations"
             right={
-              <TableToolbar resetCount={operations?.total_operations ?? 0} />
+              <TableToolbar
+                resetCount={operations?.total_operations ?? 0}
+                unitOptions={operationsUnitOptions}
+                selectedUnit={selectedOperationsUnit}
+                onChangeUnit={(value) => setTabUnitFilter("operations", value)}
+                onResetFilter={() => resetTabUnitFilter("operations")}
+                onDownload={handleDownloadOperations}
+                isDownloadDisabled={filteredOperationsRows.length === 0}
+              />
             }
           >
             <div className="w-full overflow-x-auto">
@@ -441,14 +754,14 @@ export const DashboardPage = () => {
                     </tr>
                   )}
                   {!isFetchingOps &&
-                    (operations?.recent_operations?.length ?? 0) === 0 && (
+                    filteredOperationsRows.length === 0 && (
                       <tr>
                         <td className="px-4 py-6 text-gray-400" colSpan={6}>
                           No upcoming operations
                         </td>
                       </tr>
                     )}
-                  {(operations?.recent_operations ?? []).map(
+                  {filteredOperationsRows.map(
                     (op: DashboardOperationsRecentOperation) => (
                       <tr
                         key={
@@ -486,6 +799,8 @@ export const DashboardPage = () => {
                                 ? "text-gray-200"
                                 : "text-gray-500 cursor-not-allowed",
                             )}
+                            title="View operation details"
+                            aria-label="View operation details"
                             disabled={!op.id}
                           >
                             <Icon
@@ -518,7 +833,15 @@ export const DashboardPage = () => {
           <TableShell
             title="Maintenance tracking"
             right={
-              <TableToolbar resetCount={maintenance?.total_aircraft ?? 0} />
+              <TableToolbar
+                resetCount={maintenance?.total_aircraft ?? 0}
+                unitOptions={maintenanceUnitOptions}
+                selectedUnit={selectedMaintenanceUnit}
+                onChangeUnit={(value) => setTabUnitFilter("maintenance", value)}
+                onResetFilter={() => resetTabUnitFilter("maintenance")}
+                onDownload={handleDownloadMaintenance}
+                isDownloadDisabled={filteredMaintenanceRows.length === 0}
+              />
             }
           >
             <div className="w-full overflow-x-auto">
@@ -545,14 +868,14 @@ export const DashboardPage = () => {
                     </tr>
                   )}
                   {!isFetchingMaintenance &&
-                    (maintenance?.recent_aircrafts?.length ?? 0) === 0 && (
+                    filteredMaintenanceRows.length === 0 && (
                       <tr>
                         <td className="px-4 py-6 text-gray-400" colSpan={9}>
                           No recent aircrafts
                         </td>
                       </tr>
                     )}
-                  {(maintenance?.recent_aircrafts ?? []).map((a) => {
+                  {filteredMaintenanceRows.map((a) => {
                     const totalHours = Number(a.total_airframe_hours);
                     const totalCycles = Number(a.total_cycles);
                     const lastInspectionHours = Number(a.last_inspection_hours);
@@ -607,7 +930,7 @@ export const DashboardPage = () => {
                         </td>
                         <td className="px-4 py-3 font-medium text-white">
                           <div className="flex items-center gap-3">
-                            <span className="w-9 h-7 rounded bg-[#021a27] border border-[#0A4D66]/40 flex items-center justify-center">
+                            <span className="w-9 h-7 rounded bg-[#001219] border border-[#0A4D66]/40 flex items-center justify-center">
                               <Icon
                                 icon="mdi:airplane"
                                 className="w-5 h-5 text-gray-200"
@@ -674,7 +997,17 @@ export const DashboardPage = () => {
 
           <TableShell
             title="Recent finance log"
-            right={<TableToolbar resetCount={expenses.length} />}
+            right={
+              <TableToolbar
+                resetCount={expenses.length}
+                unitOptions={financeUnitOptions}
+                selectedUnit={selectedFinanceUnit}
+                onChangeUnit={(value) => setTabUnitFilter("finances", value)}
+                onResetFilter={() => resetTabUnitFilter("finances")}
+                onDownload={handleDownloadFinance}
+                isDownloadDisabled={filteredFinanceRows.length === 0}
+              />
+            }
           >
             <div className="w-full overflow-x-auto">
               <table className="w-full text-sm">
@@ -696,14 +1029,14 @@ export const DashboardPage = () => {
                       </td>
                     </tr>
                   )}
-                  {!isFetchingFinance && expenses.length === 0 && (
+                  {!isFetchingFinance && filteredFinanceRows.length === 0 && (
                     <tr>
                       <td className="px-4 py-6 text-gray-400" colSpan={6}>
                         No recent finance logs
                       </td>
                     </tr>
                   )}
-                  {expenses.slice(0, 7).map((e) => (
+                  {filteredFinanceRows.slice(0, 7).map((e) => (
                     <tr
                       key={e.id}
                       className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
@@ -732,6 +1065,8 @@ export const DashboardPage = () => {
                           type="button"
                           onClick={() => navigate("/dashboard/finance")}
                           className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                          title="View finance details"
+                          aria-label="View finance details"
                         >
                           <Icon
                             icon="mdi:dots-horizontal"
@@ -764,6 +1099,12 @@ export const DashboardPage = () => {
             right={
               <TableToolbar
                 resetCount={inventories?.recent_inventories?.length ?? 0}
+                unitOptions={inventoryUnitOptions}
+                selectedUnit={selectedInventoryUnit}
+                onChangeUnit={(value) => setTabUnitFilter("inventory", value)}
+                onResetFilter={() => resetTabUnitFilter("inventory")}
+                onDownload={handleDownloadInventory}
+                isDownloadDisabled={filteredInventoryRows.length === 0}
               />
             }
           >
@@ -788,14 +1129,14 @@ export const DashboardPage = () => {
                     </tr>
                   )}
                   {!isFetchingInventory &&
-                    (inventories?.recent_inventories?.length ?? 0) === 0 && (
+                    filteredInventoryRows.length === 0 && (
                       <tr>
                         <td className="px-4 py-6 text-gray-400" colSpan={6}>
                           No recent inventories
                         </td>
                       </tr>
                     )}
-                  {(inventories?.recent_inventories ?? [])
+                  {filteredInventoryRows
                     .slice(0, 7)
                     .map((i) => (
                       <tr
@@ -826,6 +1167,8 @@ export const DashboardPage = () => {
                               navigate(`/dashboard/inventory/${i.id}`)
                             }
                             className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                            title="View inventory details"
+                            aria-label="View inventory details"
                           >
                             <Icon
                               icon="mdi:dots-horizontal"
@@ -858,6 +1201,12 @@ export const DashboardPage = () => {
             right={
               <TableToolbar
                 resetCount={personnel?.recent_personnel?.length ?? 0}
+                unitOptions={personnelUnitOptions}
+                selectedUnit={selectedPersonnelUnit}
+                onChangeUnit={(value) => setTabUnitFilter("personnel", value)}
+                onResetFilter={() => resetTabUnitFilter("personnel")}
+                onDownload={handleDownloadPersonnel}
+                isDownloadDisabled={filteredPersonnelRows.length === 0}
               />
             }
           >
@@ -882,14 +1231,14 @@ export const DashboardPage = () => {
                     </tr>
                   )}
                   {!isFetchingPersonnel &&
-                    (personnel?.recent_personnel?.length ?? 0) === 0 && (
+                    filteredPersonnelRows.length === 0 && (
                       <tr>
                         <td className="px-4 py-6 text-gray-400" colSpan={6}>
                           No recent personnel
                         </td>
                       </tr>
                     )}
-                  {(personnel?.recent_personnel ?? []).slice(0, 7).map((p) => (
+                  {filteredPersonnelRows.slice(0, 7).map((p) => (
                     <tr
                       key={p.id}
                       className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
@@ -918,6 +1267,8 @@ export const DashboardPage = () => {
                             navigate(`/dashboard/personnel/${p.id}`)
                           }
                           className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                          title="View personnel details"
+                          aria-label="View personnel details"
                         >
                           <Icon
                             icon="mdi:dots-horizontal"

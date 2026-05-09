@@ -29,7 +29,7 @@ export const EditOperationPage = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#021019] text-[#7FD5FF]">
+      <div className="h-screen w-full flex items-center justify-center bg-[#001219] text-[#7FD5FF]">
         <Icon icon="mdi:loading" className="w-8 h-8 animate-spin" />
       </div>
     );
@@ -37,7 +37,7 @@ export const EditOperationPage = () => {
 
   if (!operation) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#021019] text-gray-400 gap-4">
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#001219] text-gray-400 gap-4">
         <p>Operation not found</p>
         <button
           onClick={() => navigate("/dashboard/operations")}
@@ -51,6 +51,7 @@ export const EditOperationPage = () => {
 
   return (
     <OperationForm
+      key={operation.id}
       mode="edit"
       initialOperation={operation}
       onSubmit={handleSubmit}

@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -30,10 +30,19 @@ export const AddVehiclePage = () => {
   const navigate = useNavigate();
   const [values, setValues] = useState<VehicleFormValues>(emptyVehicleValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   const { data: units = [] } = useGetUnitsQuery();
   const { data: vehicleTypes = [] } = useGetVehicleTypesQuery();
   const [createVehicle, { isLoading: isSubmitting }] = useCreateVehicleMutation();
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl);
+      }
+    };
+  }, [photoPreviewUrl]);
 
   const handleTextChange =
     (field: "name" | "registration_number" | "serial_number") =>
@@ -53,10 +62,34 @@ export const AddVehiclePage = () => {
     };
 
   const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+
+    if (!file) {
+      setValues((prev) => ({
+        ...prev,
+        photo: null,
+      }));
+      setPhotoPreviewUrl(null);
+      setSubmitError(null);
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setSubmitError("Please select an image file.");
+      return;
+    }
+
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setSubmitError("Photo must be 5MB or smaller.");
+      return;
+    }
+
     setValues((prev) => ({
       ...prev,
-      photo: event.target.files?.[0] ?? null,
+      photo: file,
     }));
+    setPhotoPreviewUrl(URL.createObjectURL(file));
     setSubmitError(null);
   };
 
@@ -105,9 +138,19 @@ export const AddVehiclePage = () => {
   return (
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          Add Vehicle
-        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white"
+          >
+            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+          <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
+            Add Vehicle
+          </h1>
+        </div>
         <button
           type="button"
           onClick={() => navigate("/dashboard/assets")}
@@ -127,7 +170,7 @@ export const AddVehiclePage = () => {
               value={values.name}
               onChange={handleTextChange("name")}
               placeholder="Enter vehicle name"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -137,7 +180,7 @@ export const AddVehiclePage = () => {
               aria-label="Vehicle type"
               value={values.vehicle_type_id === "" ? "" : String(values.vehicle_type_id)}
               onChange={handleSelectChange("vehicle_type_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
             >
               <option value="">Select vehicle type</option>
               {vehicleTypes.map((vehicleType) => (
@@ -155,7 +198,7 @@ export const AddVehiclePage = () => {
               value={values.registration_number}
               onChange={handleTextChange("registration_number")}
               placeholder="Enter registration number"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -166,7 +209,7 @@ export const AddVehiclePage = () => {
               value={values.serial_number}
               onChange={handleTextChange("serial_number")}
               placeholder="Enter serial number"
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none placeholder:text-gray-500"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
 
@@ -176,7 +219,7 @@ export const AddVehiclePage = () => {
               aria-label="Vehicle unit"
               value={values.unit_id === "" ? "" : String(values.unit_id)}
               onChange={handleSelectChange("unit_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none appearance-none"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
             >
               <option value="">Select unit</option>
               {units.map((unit) => (
@@ -194,8 +237,17 @@ export const AddVehiclePage = () => {
               aria-label="Vehicle photo"
               accept="image/*"
               onChange={handlePhotoChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-gray-100 outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none file:mr-3 file:rounded file:border-0 file:bg-[#0A4D66] file:px-3 file:py-1 file:text-white"
             />
+            {photoPreviewUrl ? (
+              <div className="mt-2 rounded-md border border-[#0A4D66]/40 bg-[#001825] p-2">
+                <img
+                  src={photoPreviewUrl}
+                  alt="Vehicle preview"
+                  className="h-24 w-full object-cover rounded"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -211,8 +263,8 @@ export const AddVehiclePage = () => {
             className={cn(
               "px-6 sm:px-10 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
               isSubmitting
-                ? "bg-[#7FD5FF]/40 text-black/60 cursor-not-allowed"
-                : "bg-[#7FD5FF] text-black hover:bg-[#7FD5FF]/90",
+                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
+                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
             )}
           >
             {isSubmitting ? "Saving..." : "Save Vehicle"}

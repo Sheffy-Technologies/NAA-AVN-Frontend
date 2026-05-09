@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router-dom";
 import { store } from "@/app/store";
 import { router } from "@/app/router/routes";
 import { ToastContainer } from "@/shared/ui/toast/ToastContainer";
+import { ThemeProvider } from "@/context/ThemeContext";
 import "@/shared/styles/tailwind.css";
 
 const DEVICE_ID_KEY = "naavn_device_id";
@@ -61,9 +62,11 @@ registerDeviceIfNeeded();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <Provider store={store}>
-      <RouterProvider router={router} />
-      <ToastContainer />
-    </Provider>
+    <ThemeProvider>
+      <Provider store={store}>
+        <RouterProvider router={router} />
+        <ToastContainer />
+      </Provider>
+    </ThemeProvider>
   </React.StrictMode>,
 );
