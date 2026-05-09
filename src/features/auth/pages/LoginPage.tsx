@@ -112,9 +112,11 @@ export const LoginPage = () => {
 
       const data = (await response.json()) as {
         message: string;
-        token: string;
-        expired_at: string | null;
-        data: {
+        token?: string;
+        expired_at?: string | null;
+        otp_required?: boolean;
+        login?: string;
+        data?: {
           id: number;
           firstname: string;
           lastname: string;
@@ -124,6 +126,29 @@ export const LoginPage = () => {
           role_names?: string[];
         };
       };
+
+      if (data.otp_required) {
+        dispatch(
+          showToast({
+            message: data.message || "OTP sent to your registered email.",
+            type: "success",
+          }),
+        );
+        navigate("/auth/verify-otp", {
+          state: { login: data.login ?? formData.login },
+        });
+        return;
+      }
+
+      if (!data.token || !data.data) {
+        dispatch(
+          showToast({
+            message: "Unexpected response from server. Please try again.",
+            type: "error",
+          }),
+        );
+        return;
+      }
 
       dispatch(
         setCredentials({

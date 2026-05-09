@@ -143,10 +143,21 @@ type RolesApiResponse =
       roles?: RoleRecord[];
     };
 
+export type SystemSettings = {
+  otp_login_enabled?: boolean;
+  [key: string]: unknown;
+};
+
+export type SystemSettingsResponse = {
+  data: SystemSettings;
+};
+
+export type UpdateSystemSettingsPayload = Partial<SystemSettings>;
+
 export const securityApi = createApi({
   reducerPath: "securityApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["ActivityLog", "Device", "Role", "Permission", "UserRole"],
+  tagTypes: ["ActivityLog", "Device", "Role", "Permission", "UserRole", "SystemSettings"],
   endpoints: (builder) => ({
     getActivityLogs: builder.query<ActivityLog[], void>({
       query: () => ({
@@ -236,6 +247,33 @@ export const securityApi = createApi({
         method: "GET",
       }),
     }),
+    getSystemSettings: builder.query<SystemSettings, void>({
+      query: () => ({
+        url: "/system-settings",
+        method: "GET",
+      }),
+      providesTags: ["SystemSettings"],
+      transformResponse: (response: SystemSettingsResponse | SystemSettings) => {
+        if (response && typeof response === "object" && "data" in response) {
+          return (response as SystemSettingsResponse).data ?? {};
+        }
+        return (response as SystemSettings) ?? {};
+      },
+    }),
+    updateSystemSettings: builder.mutation<SystemSettings, UpdateSystemSettingsPayload>({
+      query: (data) => ({
+        url: "/system-settings",
+        method: "PUT",
+        data,
+      }),
+      invalidatesTags: ["SystemSettings"],
+      transformResponse: (response: SystemSettingsResponse | SystemSettings) => {
+        if (response && typeof response === "object" && "data" in response) {
+          return (response as SystemSettingsResponse).data ?? {};
+        }
+        return (response as SystemSettings) ?? {};
+      },
+    }),
   }),
 });
 
@@ -250,4 +288,6 @@ export const {
   useGetUserRolesQuery,
   useSyncUserRolesMutation,
   useGetMeQuery,
+  useGetSystemSettingsQuery,
+  useUpdateSystemSettingsMutation,
 } = securityApi;

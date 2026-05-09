@@ -3,7 +3,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
-import { useAppUpdater } from "@/shared/hooks/useAppUpdater";
+import { UpdateBanner } from "@/shared/components/UpdateBanner";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { setCredentials } from "@/features/auth/authSlice";
 import { useGetMeQuery } from "@/features/security/api";
@@ -12,7 +12,6 @@ import { openCompose } from "@/features/messages/composeSlice";
 import { useTheme } from "@/context/ThemeContext";
 
 export const DashboardLayout = () => {
-  useAppUpdater();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const dispatch = useAppDispatch();
   const token = useAppSelector((state) => state.auth.token);
@@ -84,6 +83,7 @@ export const DashboardLayout = () => {
       </div>
 
       <ComposeMessageModal />
+      <UpdateBanner />
 
       {showComposeFab && (
         <button

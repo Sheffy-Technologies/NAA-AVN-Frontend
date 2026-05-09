@@ -55,8 +55,8 @@ export const ComposeMessageModal = () => {
   const { isDark } = useTheme();
   const isOpen = useAppSelector((state) => state.messageCompose.isOpen);
   const authUser = useAppSelector((state) => state.auth.user);
-  const userPermissions = authUser?.permissions ?? [];
-  const canCreateMessages = userPermissions.includes("messages.create");
+  void authUser;
+  const canCreateMessages = true;
   const currentUserId = Number(authUser?.id || 0);
 
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<number[]>(
@@ -258,7 +258,9 @@ export const ComposeMessageModal = () => {
             <button
               type="button"
               onClick={handleOpenMessagesPage}
-              className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs hover:bg-[#0A4D66]/20 ${accentBorderCls} ${accentCls}`}
+              className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs ${accentBorderCls} ${accentCls} ${
+                isDark ? "hover:bg-[#0A4D66]/20" : "hover:bg-blue-50"
+              }`}
               title="Open messages page"
               aria-label="Open messages page"
             >
@@ -496,7 +498,11 @@ export const ComposeMessageModal = () => {
           <button
             type="button"
             onClick={handleClose}
-            className="rounded border border-[#0A4D66]/40 px-3 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/20"
+            className={`rounded border px-3 py-2 text-xs ${
+              isDark
+                ? "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/20"
+                : "border-[#D1D5DB] text-[#374151] hover:bg-gray-100"
+            }`}
           >
             Cancel
           </button>

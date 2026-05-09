@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { useTheme } from "@/context/ThemeContext";
 
 export interface MultiSelectOption {
   value: string | number;
@@ -34,6 +35,48 @@ export const MultiSelect = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
+  const { isDark } = useTheme();
+
+  const triggerCls = isDark
+    ? "bg-[#001825] border-[#0A4D66]/40 text-white focus:ring-[#7FD5FF]/40"
+    : "bg-white border-gray-300 text-gray-900 focus:ring-blue-200";
+  const triggerOpenCls = isDark
+    ? "border-[#7FD5FF]/40 ring-2 ring-[#7FD5FF]/20"
+    : "border-blue-400 ring-2 ring-blue-100";
+  const placeholderTextCls = isDark ? "text-gray-400" : "text-gray-500";
+  const valueTextCls = isDark ? "text-white" : "text-gray-900";
+  const chevronCls = isDark ? "text-gray-400" : "text-gray-500";
+  const labelCls = isDark ? "text-gray-300" : "text-gray-700";
+  const dropdownCls = isDark
+    ? "bg-[#001219] border-[#0A4D66]"
+    : "bg-white border-gray-200";
+  const searchWrapCls = isDark
+    ? "border-[#0A4D66]/40 bg-[#001219]"
+    : "border-gray-200 bg-white";
+  const searchInputCls = isDark
+    ? "bg-[#001825] border-[#0A4D66]/40 text-white placeholder-gray-500 focus:border-[#7FD5FF]/60"
+    : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-400";
+  const emptyTextCls = isDark ? "text-gray-500" : "text-gray-400";
+  const selectAllRowCls = isDark
+    ? "border-[#0A4D66]/30 bg-[#001825]/60 hover:bg-[#0A4D66]/20"
+    : "border-gray-200 bg-gray-50 hover:bg-blue-50";
+  const selectAllTextCls = isDark ? "text-[#7FD5FF]" : "text-blue-600";
+  const optionRowHoverCls = isDark
+    ? "hover:bg-[#0A4D66]/20"
+    : "hover:bg-blue-50";
+  const checkboxBaseCls = isDark
+    ? "border-gray-500 group-hover:border-[#7FD5FF]/50"
+    : "border-gray-300 group-hover:border-blue-400";
+  const checkboxSelectedCls = isDark
+    ? "bg-[#0369A1] border-[#7FD5FF]"
+    : "bg-blue-600 border-blue-600";
+  const checkIconCls = isDark ? "text-black" : "text-white";
+  const optionTextSelectedCls = isDark
+    ? "text-white font-medium"
+    : "text-gray-900 font-medium";
+  const optionTextIdleCls = isDark
+    ? "text-gray-300 group-hover:text-white"
+    : "text-gray-700 group-hover:text-gray-900";
 
   useClickOutside(containerRef, () => {
     setIsOpen(false);
@@ -57,7 +100,7 @@ export const MultiSelect = ({
 
   return (
     <div className={cn("space-y-1", className)} ref={containerRef}>
-      <label className="block text-sm font-medium text-gray-300 mb-1">
+      <label className={cn("block text-sm font-medium mb-1", labelCls)}>
         {label}
       </label>
       <div className="relative">
@@ -65,31 +108,32 @@ export const MultiSelect = ({
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           className={cn(
-            "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md py-3 px-3 text-left text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#7FD5FF]/40 flex items-center justify-between transition-colors",
+            "w-full border rounded-md py-3 px-3 text-left text-sm focus:outline-none focus:ring-2 flex items-center justify-between transition-colors",
+            triggerCls,
             disabled && "opacity-50 cursor-not-allowed",
-            isOpen && "border-[#7FD5FF]/40 ring-2 ring-[#7FD5FF]/20"
+            isOpen && triggerOpenCls,
           )}
         >
-          <span className={!selectedValues.length ? "text-gray-400" : "text-white truncate pr-4"}>
+          <span className={!selectedValues.length ? placeholderTextCls : cn(valueTextCls, "truncate pr-4")}>
             {selectedLabels || placeholder}
           </span>
           <Icon 
             icon="mdi:chevron-down" 
-            className={cn("w-5 h-5 text-gray-400 transition-transform duration-200", isOpen && "rotate-180")} 
+            className={cn("w-5 h-5 transition-transform duration-200", chevronCls, isOpen && "rotate-180")} 
           />
         </button>
 
         {isOpen && !disabled && (
-          <div className="absolute z-20 mt-1 w-full bg-[#001219] border border-[#0A4D66] rounded-md shadow-xl max-h-60 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col">
+          <div className={cn("absolute z-20 mt-1 w-full border rounded-md shadow-xl max-h-60 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col", dropdownCls)}>
             {searchable && (
-              <div className="p-2 border-b border-[#0A4D66]/40 bg-[#001219] sticky top-0">
+              <div className={cn("p-2 border-b sticky top-0", searchWrapCls)}>
                 <input
                   type="text"
                   autoFocus
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder={searchPlaceholder}
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-2 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#7FD5FF]/60"
+                  className={cn("w-full border rounded px-2 py-1.5 text-sm focus:outline-none", searchInputCls)}
                 />
               </div>
             )}
@@ -102,37 +146,77 @@ export const MultiSelect = ({
                 : options;
               if (filtered.length === 0) {
                 return (
-                  <div className="px-3 py-2 text-sm text-gray-500 text-center">
+                  <div className={cn("px-3 py-2 text-sm text-center", emptyTextCls)}>
                     {searchTerm ? "No matches" : "No options available"}
                   </div>
                 );
               }
-              return filtered.map((option) => {
+              const filteredValues = filtered.map((o) => o.value);
+              const allSelected = filteredValues.every((v) =>
+                selectedValues.includes(v),
+              );
+              const handleToggleAll = () => {
+                if (disabled) return;
+                if (allSelected) {
+                  onChange(
+                    selectedValues.filter((v) => !filteredValues.includes(v)),
+                  );
+                } else {
+                  const merged = [...selectedValues];
+                  for (const v of filteredValues) {
+                    if (!merged.includes(v)) merged.push(v);
+                  }
+                  onChange(merged);
+                }
+              };
+              return (
+                <>
+                  <div
+                    className={cn("flex items-center px-3 py-2 border-b cursor-pointer group transition-colors", selectAllRowCls)}
+                    onClick={handleToggleAll}
+                  >
+                    <div
+                      className={cn(
+                        "w-4 h-4 border rounded mr-3 flex items-center justify-center transition-all duration-200",
+                        allSelected ? checkboxSelectedCls : checkboxBaseCls,
+                      )}
+                    >
+                      {allSelected && (
+                        <Icon icon="mdi:check" className={cn("w-3 h-3", checkIconCls)} />
+                      )}
+                    </div>
+                    <span className={cn("text-sm font-medium", selectAllTextCls)}>
+                      {allSelected
+                        ? `Clear all${searchTerm ? " (filtered)" : ""}`
+                        : `Select all${searchTerm ? " (filtered)" : ""}`}
+                    </span>
+                  </div>
+                  {filtered.map((option) => {
                 const isSelected = selectedValues.includes(option.value);
                 return (
                   <div
                     key={option.value}
-                    className="flex items-center px-3 py-2 hover:bg-[#0A4D66]/20 cursor-pointer group transition-colors"
+                    className={cn("flex items-center px-3 py-2 cursor-pointer group transition-colors", optionRowHoverCls)}
                     onClick={() => handleToggle(option.value)}
                   >
                     <div
                       className={cn(
                         "w-4 h-4 border rounded mr-3 flex items-center justify-center transition-all duration-200",
-                        isSelected
-                          ? "bg-[#0369A1] border-[#7FD5FF]"
-                          : "border-gray-500 group-hover:border-[#7FD5FF]/50"
+                        isSelected ? checkboxSelectedCls : checkboxBaseCls,
                       )}
                     >
                       {isSelected && (
-                        <Icon icon="mdi:check" className="w-3 h-3 text-black" />
+                        <Icon icon="mdi:check" className={cn("w-3 h-3", checkIconCls)} />
                       )}
                     </div>
-                    <span className={cn("text-sm transition-colors", isSelected ? "text-white font-medium" : "text-gray-300 group-hover:text-white")}>
+                    <span className={cn("text-sm transition-colors", isSelected ? optionTextSelectedCls : optionTextIdleCls)}>
                       {option.label}
                     </span>
                   </div>
                 );
-              });
+              })}
+                </>
+              );
             })()}
             </div>
           </div>

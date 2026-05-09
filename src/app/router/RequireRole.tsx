@@ -16,7 +16,9 @@ export const RequireRole = ({ children, requiredPermissions }: RequireRoleProps)
     (state) => state.auth.user?.permissions ?? [],
   );
 
-  const hasAccess = requiredPermissions.some((p) => permissions.includes(p));
+  const hasAccess =
+    requiredPermissions.length === 0 ||
+    requiredPermissions.some((p) => permissions.includes(p));
 
   if (!hasAccess) {
     return <Navigate to="/dashboard" replace />;

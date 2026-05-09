@@ -21,6 +21,11 @@ const ForgotPasswordPage = lazy(() =>
     default: module.ForgotPasswordPage,
   })),
 );
+const VerifyOtpPage = lazy(() =>
+  import("@/features/auth/pages/VerifyOtpPage").then((module) => ({
+    default: module.VerifyOtpPage,
+  })),
+);
 
 // Dashboard Pages
 const DashboardLayout = lazy(() =>
@@ -282,7 +287,7 @@ const ASSETS_ROUTE_PERMISSIONS = ["assets.viewAny", "dashboard.home.view"];
 const OPERATIONS_ROUTE_PERMISSIONS = ["dashboard.operations.view", "operations.viewAny"];
 const PERSONNEL_ROUTE_PERMISSIONS = ["dashboard.personnel.view", "personnel.viewAny"];
 const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.viewAny"];
-const MESSAGES_ROUTE_PERMISSIONS = ["messages.viewAny"];
+const MESSAGES_ROUTE_PERMISSIONS: string[] = [];
 const FINANCE_ROUTE_PERMISSIONS = ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"];
 const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"];
 const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
@@ -328,6 +333,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <ForgotPasswordPage />
+          </Suspense>
+        ),
+      },
+      {
+        path: "verify-otp",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <VerifyOtpPage />
           </Suspense>
         ),
       },

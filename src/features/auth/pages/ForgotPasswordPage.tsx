@@ -4,6 +4,28 @@ import { Button } from '@/shared/ui/button/Button';
 import { Input } from '@/shared/ui/input/Input';
 import { Icon } from '@/shared/icons/Icon';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const extractErrorMessage = (raw: unknown): string | null => {
+  if (!raw) return null;
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => String(item))
+      .filter((item) => item.length > 0)
+      .join(' ');
+  }
+  if (typeof raw === 'object') {
+    const parts: string[] = [];
+    Object.values(raw as Record<string, unknown>).forEach((value) => {
+      const part = extractErrorMessage(value);
+      if (part) parts.push(part);
+    });
+    if (parts.length > 0) return parts.join(' ');
+  }
+  return null;
+};
+
 export const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -17,12 +39,40 @@ export const ForgotPasswordPage = () => {
       return;
     }
 
+    setError('');
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/forgot/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        const errorBody = (await response.json().catch(() => null)) as {
+          message?: unknown;
+          error?: unknown;
+        } | null;
+
+        const extracted =
+          errorBody &&
+          extractErrorMessage(
+            'error' in (errorBody ?? {}) && errorBody?.error != null
+              ? errorBody.error
+              : errorBody?.message,
+          );
+
+        setError(extracted || 'Unable to send reset email. Please try again.');
+        return;
+      }
+
       setIsSubmitted(true);
-    }, 1500);
+    } catch {
+      setError('Network error. Please check your connection and try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
@@ -33,14 +83,16 @@ export const ForgotPasswordPage = () => {
         </div>
         <h1 className="text-2xl font-bold text-white mb-2">Check your email</h1>
         <p className="text-gray-400 mb-8">
-          We have sent a password reset link to <br />
-          <span className="text-white font-medium">{email}</span>
+          If an account exists for <br />
+          <span className="text-white font-medium">{email}</span>, we have sent
+          a temporary password. Use it to log in and then change your password
+          from your account settings.
         </p>
         <Link to="/auth/login">
           <Button className="w-full">Back to Login</Button>
         </Link>
         <div className="mt-4">
-            <button 
+            <button
                 onClick={() => setIsSubmitted(false)}
                 className="text-sm text-primary-med hover:text-primary-med/80"
             >
@@ -55,7 +107,9 @@ export const ForgotPasswordPage = () => {
     <div className="bg-[#001219] p-8 rounded-lg shadow-xl border border-[#0A4D66]/50 backdrop-blur-sm">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-white mb-2">Reset Password</h1>
-        <p className="text-gray-400">Enter your email to receive reset instructions</p>
+        <p className="text-gray-400">
+          Enter your email and we'll send you a temporary password.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -73,7 +127,7 @@ export const ForgotPasswordPage = () => {
         />
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
-          Send Reset Link
+          Send Temporary Password
         </Button>
 
         <div className="text-center">

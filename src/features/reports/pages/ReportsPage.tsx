@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppSelector } from "@/shared/hooks/redux";
+import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { FilterValueField } from "@/features/reports/components/FilterValueField";
 import {
   useGetReportResourcesQuery,
   useRunReportQueryQuery,
@@ -39,10 +41,10 @@ type FilterDraft = {
 
 type DraftState = {
   resourceKey: string;
-  includeText: string;
-  selectText: string;
+  includes: string[];
+  selectColumns: string[];
   search: string;
-  searchColumnsText: string;
+  searchColumns: string[];
   sortBy: string;
   sortDir: "asc" | "desc";
   perPage: number;
@@ -58,21 +60,15 @@ const createEmptyFilter = (id: number): FilterDraft => ({
 
 const defaultDraftState: DraftState = {
   resourceKey: "",
-  includeText: "",
-  selectText: "",
+  includes: [],
+  selectColumns: [],
   search: "",
-  searchColumnsText: "",
+  searchColumns: [],
   sortBy: "",
   sortDir: "desc",
   perPage: 25,
   filters: [],
 };
-
-const parseCsvInput = (value: string) =>
-  value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 const parseFilterValue = (operator: ReportFilterOperator, value: string) => {
   if (operator === "null" || operator === "not_null") {
@@ -106,10 +102,10 @@ const buildReportArgs = (
 
   return {
     table: resource.table,
-    include: parseCsvInput(draft.includeText),
-    select: parseCsvInput(draft.selectText),
+    include: draft.includes,
+    select: draft.selectColumns,
     search: draft.search.trim() || undefined,
-    search_columns: parseCsvInput(draft.searchColumnsText),
+    search_columns: draft.searchColumns,
     filters,
     sort_by: draft.sortBy.trim() || undefined,
     sort_dir: draft.sortDir,
@@ -143,6 +139,35 @@ export const ReportsPage = () => {
     () => resources.find((resource) => resource.table === draft.resourceKey),
     [draft.resourceKey, resources],
   );
+
+  const resourceColumnOptions = useMemo(
+    () =>
+      (selectedResource?.columns ?? []).map((column) => ({
+        value: column,
+        label: column,
+      })),
+    [selectedResource],
+  );
+
+  const resourceRelationOptions = useMemo(
+    () =>
+      (selectedResource?.relations ?? []).map((relation) => ({
+        value: relation,
+        label: relation,
+      })),
+    [selectedResource],
+  );
+
+  // Reset selections that depend on the current resource when it changes.
+  useEffect(() => {
+    setDraft((current) => ({
+      ...current,
+      includes: [],
+      selectColumns: [],
+      searchColumns: [],
+      sortBy: "",
+    }));
+  }, [draft.resourceKey]);
 
   const queryArgs = appliedArgs
     ? {
@@ -340,64 +365,89 @@ export const ReportsPage = () => {
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Includes</label>
-              <input
-                type="text"
-                value={draft.includeText}
-                onChange={(event) =>
+              <MultiSelect
+                label=""
+                options={resourceRelationOptions}
+                selectedValues={draft.includes}
+                onChange={(values) =>
                   setDraft((current) => ({
                     ...current,
-                    includeText: event.target.value,
+                    includes: values.map((value) => String(value)),
                   }))
                 }
-                placeholder="user,unit"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+                placeholder={
+                  selectedResource
+                    ? resourceRelationOptions.length
+                      ? "Select relations"
+                      : "No relations available"
+                    : "Select a resource first"
+                }
+                disabled={!selectedResource || resourceRelationOptions.length === 0}
+                searchable
+                searchPlaceholder="Search relations"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Select Columns</label>
-              <input
-                type="text"
-                value={draft.selectText}
-                onChange={(event) =>
+              <MultiSelect
+                label=""
+                options={resourceColumnOptions}
+                selectedValues={draft.selectColumns}
+                onChange={(values) =>
                   setDraft((current) => ({
                     ...current,
-                    selectText: event.target.value,
+                    selectColumns: values.map((value) => String(value)),
                   }))
                 }
-                placeholder="id,name,created_at"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+                placeholder={
+                  selectedResource ? "All columns" : "Select a resource first"
+                }
+                disabled={!selectedResource || resourceColumnOptions.length === 0}
+                searchable
+                searchPlaceholder="Search columns"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Search Columns</label>
-              <input
-                type="text"
-                value={draft.searchColumnsText}
-                onChange={(event) =>
+              <MultiSelect
+                label=""
+                options={resourceColumnOptions}
+                selectedValues={draft.searchColumns}
+                onChange={(values) =>
                   setDraft((current) => ({
                     ...current,
-                    searchColumnsText: event.target.value,
+                    searchColumns: values.map((value) => String(value)),
                   }))
                 }
-                placeholder="name,email"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+                placeholder={
+                  selectedResource ? "All searchable columns" : "Select a resource first"
+                }
+                disabled={!selectedResource || resourceColumnOptions.length === 0}
+                searchable
+                searchPlaceholder="Search columns"
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-[11px] uppercase text-gray-400">Sort By</label>
-              <input
-                type="text"
-                list="report-columns"
+              <select
+                aria-label="Sort by column"
                 value={draft.sortBy}
                 onChange={(event) =>
                   setDraft((current) => ({ ...current, sortBy: event.target.value }))
                 }
-                placeholder="id"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
-              />
+                disabled={!selectedResource || resourceColumnOptions.length === 0}
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none disabled:opacity-50"
+              >
+                <option value="">Default</option>
+                {resourceColumnOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-1">
@@ -420,7 +470,7 @@ export const ReportsPage = () => {
           </div>
 
           <datalist id="report-columns">
-            {columns.map((column) => (
+            {(selectedResource?.columns ?? columns).map((column) => (
               <option key={column} value={column} />
             ))}
           </datalist>
@@ -447,16 +497,34 @@ export const ReportsPage = () => {
               <div className="space-y-3">
                 {draft.filters.map((filter) => (
                   <div key={filter.id} className="grid gap-3 lg:grid-cols-[1.3fr,1fr,1.6fr,auto]">
-                    <input
-                      type="text"
-                      list="report-columns"
-                      value={filter.field}
-                      onChange={(event) =>
-                        handleUpdateFilter(filter.id, { field: event.target.value })
-                      }
-                      placeholder="field"
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
-                    />
+                    {resourceColumnOptions.length > 0 ? (
+                      <select
+                        aria-label="Filter field"
+                        value={filter.field}
+                        onChange={(event) =>
+                          handleUpdateFilter(filter.id, { field: event.target.value })
+                        }
+                        className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
+                      >
+                        <option value="">Select field</option>
+                        {resourceColumnOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        list="report-columns"
+                        value={filter.field}
+                        onChange={(event) =>
+                          handleUpdateFilter(filter.id, { field: event.target.value })
+                        }
+                        placeholder="field"
+                        className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+                      />
+                    )}
                     <select
                       aria-label="Filter operator"
                       value={filter.operator}
@@ -473,15 +541,12 @@ export const ReportsPage = () => {
                         </option>
                       ))}
                     </select>
-                    <input
-                      type="text"
+                    <FilterValueField
+                      field={filter.field}
+                      operator={filter.operator}
                       value={filter.value}
-                      disabled={filter.operator === "null" || filter.operator === "not_null"}
-                      onChange={(event) =>
-                        handleUpdateFilter(filter.id, { value: event.target.value })
-                      }
-                      placeholder={filter.operator === "between" ? "start,end" : "value"}
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 disabled:opacity-40"
+                      onChange={(next) => handleUpdateFilter(filter.id, { value: next })}
+                      foreignKeys={selectedResource?.foreign_keys ?? []}
                     />
                     <button
                       type="button"

@@ -1,41 +1,156 @@
-import { useEffect } from "react";
-import { check } from "@tauri-apps/plugin-updater";
-import { ask } from "@tauri-apps/plugin-dialog";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 
+export type UpdaterStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "ready"
+  | "error";
+
+export interface UpdaterState {
+  status: UpdaterStatus;
+  version?: string;
+  notes?: string;
+  /** 0–100 download progress; undefined if total size unknown. */
+  progress?: number;
+  downloadedBytes: number;
+  totalBytes?: number;
+  error?: string;
+}
+
+interface UseAppUpdaterReturn extends UpdaterState {
+  isTauri: boolean;
+  /** Re-run the version check manually. */
+  checkNow: () => Promise<void>;
+  /** Begin downloading + installing the available update. */
+  installUpdate: () => Promise<void>;
+  /** Relaunch the app after install completes. */
+  restartApp: () => Promise<void>;
+  /** Hide the banner / reset state to idle. */
+  dismiss: () => void;
+}
+
+const isTauriEnv = () =>
+  typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
 /**
- * Checks for a new app version on mount and prompts the user to install it.
- * Safe to call in any top-level React component (e.g. DashboardLayout).
- * Does nothing in the browser (non-Tauri) environment.
+ * Drives a non-blocking update banner. Checks once on mount, exposes
+ * state + actions that the UI can render however it wants.
  */
-export function useAppUpdater() {
-  useEffect(() => {
-    // Only run inside a real Tauri window
-    if (!("__TAURI_INTERNALS__" in window)) return;
+export function useAppUpdater(): UseAppUpdaterReturn {
+  const [state, setState] = useState<UpdaterState>({
+    status: "idle",
+    downloadedBytes: 0,
+  });
+  const updateRef = useRef<Update | null>(null);
+  const isTauri = isTauriEnv();
 
-    let cancelled = false;
-
-    async function checkForUpdate() {
-      try {
-        const update = await check();
-        if (cancelled || !update?.available) return;
-
-        const yes = await ask(
-          `Version ${update.version} is available.\n\n${update.body ?? ""}\n\nInstall now?`,
-          { title: "Update Available", kind: "info" },
-        );
-        if (!yes || cancelled) return;
-
-        await update.downloadAndInstall();
-        await relaunch();
-      } catch (e) {
-        console.error("[updater]", e);
+  const checkNow = useCallback(async () => {
+    if (!isTauri) return;
+    setState((prev) => ({ ...prev, status: "checking", error: undefined }));
+    try {
+      const update = await check();
+      if (!update?.available) {
+        setState({ status: "idle", downloadedBytes: 0 });
+        return;
       }
+      updateRef.current = update;
+      setState({
+        status: "available",
+        version: update.version,
+        notes: update.body ?? undefined,
+        downloadedBytes: 0,
+      });
+    } catch (e) {
+      console.error("[updater] check failed", e);
+      setState({
+        status: "error",
+        error: e instanceof Error ? e.message : String(e),
+        downloadedBytes: 0,
+      });
     }
+  }, [isTauri]);
 
-    checkForUpdate();
-    return () => {
-      cancelled = true;
-    };
+  const installUpdate = useCallback(async () => {
+    const update = updateRef.current;
+    if (!update) return;
+
+    setState((prev) => ({
+      ...prev,
+      status: "downloading",
+      downloadedBytes: 0,
+      progress: undefined,
+      totalBytes: undefined,
+      error: undefined,
+    }));
+
+    try {
+      let total: number | undefined;
+      let downloaded = 0;
+
+      await update.downloadAndInstall((event) => {
+        if (event.event === "Started") {
+          total = event.data.contentLength;
+          setState((prev) => ({
+            ...prev,
+            totalBytes: total,
+            downloadedBytes: 0,
+            progress: total ? 0 : undefined,
+          }));
+        } else if (event.event === "Progress") {
+          downloaded += event.data.chunkLength;
+          setState((prev) => ({
+            ...prev,
+            downloadedBytes: downloaded,
+            progress: total
+              ? Math.min(100, (downloaded / total) * 100)
+              : undefined,
+          }));
+        } else if (event.event === "Finished") {
+          setState((prev) => ({
+            ...prev,
+            status: "ready",
+            progress: 100,
+          }));
+        }
+      });
+    } catch (e) {
+      console.error("[updater] install failed", e);
+      setState((prev) => ({
+        ...prev,
+        status: "error",
+        error: e instanceof Error ? e.message : String(e),
+      }));
+    }
   }, []);
+
+  const restartApp = useCallback(async () => {
+    if (!isTauri) return;
+    try {
+      await relaunch();
+    } catch (e) {
+      console.error("[updater] relaunch failed", e);
+    }
+  }, [isTauri]);
+
+  const dismiss = useCallback(() => {
+    setState({ status: "idle", downloadedBytes: 0 });
+  }, []);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    void checkNow();
+  }, [isTauri, checkNow]);
+
+  return {
+    ...state,
+    isTauri,
+    checkNow,
+    installUpdate,
+    restartApp,
+    dismiss,
+  };
 }

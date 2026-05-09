@@ -16,6 +16,8 @@ export type MessageUser = {
   lastname?: string | null;
   username?: string | null;
   email?: string | null;
+  is_read?: boolean | null;
+  read_at?: string | null;
 };
 
 export type MessageItem = {

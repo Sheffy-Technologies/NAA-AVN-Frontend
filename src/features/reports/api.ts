@@ -1,10 +1,19 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
 
+export type ReportForeignKey = {
+  column: string;
+  foreign_table: string;
+  foreign_column: string;
+};
+
 export type ReportResource = {
   model: string;
   model_class: string;
   table: string;
+  columns?: string[];
+  relations?: string[];
+  foreign_keys?: ReportForeignKey[];
 };
 
 export type ReportFilterOperator =
@@ -62,6 +71,26 @@ export type ReportQueryResponse = {
   data: PaginatedReportRows;
 };
 
+export type ReportLookupOption = {
+  value: string | number | null;
+  label: string;
+};
+
+export type ReportLookupResponse = {
+  table: string;
+  value_column: string;
+  label_column: string | null;
+  data: ReportLookupOption[];
+};
+
+export type ReportLookupArgs = {
+  table: string;
+  search?: string;
+  per_page?: number;
+  value_column?: string;
+  label_column?: string;
+};
+
 export const reportsApi = createApi({
   reducerPath: "reportsApi",
   baseQuery: axiosBaseQuery(),
@@ -83,7 +112,18 @@ export const reportsApi = createApi({
         data: body,
       }),
     }),
+    getReportLookup: builder.query<ReportLookupResponse, ReportLookupArgs>({
+      query: (params) => ({
+        url: "/reports/lookup",
+        method: "GET",
+        params,
+      }),
+    }),
   }),
 });
 
-export const { useGetReportResourcesQuery, useRunReportQueryQuery } = reportsApi;
+export const {
+  useGetReportResourcesQuery,
+  useRunReportQueryQuery,
+  useGetReportLookupQuery,
+} = reportsApi;

@@ -93,7 +93,6 @@ const MESSAGING_ITEMS: NavItem[] = [
     name: "Messages",
     path: "/dashboard/messages",
     icon: "mdi:email-outline",
-    requiredPermissions: ["messages.viewAny"],
   },
 ];
 
