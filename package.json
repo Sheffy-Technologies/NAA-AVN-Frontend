@@ -4,7 +4,7 @@
   "description": "AVN DDBMS - Distributed Database Management System",
   "author": "AVN Team",
   "private": true,
-  "version": "0.2.2",
+  "version": "0.2.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
