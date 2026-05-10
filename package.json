@@ -10,7 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri",
+    "tauri": "tauri",
     "tauri:build:win64": "npm run tauri build -- --target x86_64-pc-windows-gnu --no-bundle",
     "preview": "vite preview",
     "electron-dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
