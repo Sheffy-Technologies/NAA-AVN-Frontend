@@ -239,14 +239,17 @@ export const MessagesPage = () => {
     for (const message of allMessages) {
       const participantIds = new Set<number>();
 
-      if (message.sender_id !== currentUserId) {
-        participantIds.add(message.sender_id);
-      }
-
-      for (const recipient of message.recipients || []) {
-        if (recipient.id !== currentUserId) {
-          participantIds.add(recipient.id);
+      if (message.sender_id === currentUserId) {
+        // Outbound: open a thread per recipient.
+        for (const recipient of message.recipients || []) {
+          if (recipient.id !== currentUserId) {
+            participantIds.add(recipient.id);
+          }
         }
+      } else {
+        // Inbound: thread is only with the sender. CC'd recipients are shown
+        // inside the message bubble, not as separate conversations.
+        participantIds.add(message.sender_id);
       }
 
       participantIds.forEach((participantId) => {
@@ -551,20 +554,20 @@ export const MessagesPage = () => {
       </div>
 
       <div className="grid h-[calc(100vh-190px)] grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
-        <div className={`rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.35)] ${panelBg}`}>
-          <div className={`border-b px-4 py-3 text-xs ${mutedText} ${panelDivider}`}>
+        <div className={`flex h-full min-h-0 flex-col rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.35)] ${panelBg}`}>
+          <div className={`shrink-0 border-b px-4 py-3 text-xs ${mutedText} ${panelDivider}`}>
             Conversations ({conversations.length})
           </div>
 
           {(isInboxFetching || isSentFetching) && (
-            <div className={`px-4 py-3 text-xs ${subtleText}`}>Loading conversations...</div>
+            <div className={`shrink-0 px-4 py-3 text-xs ${subtleText}`}>Loading conversations...</div>
           )}
 
           {!isInboxFetching && !isSentFetching && conversations.length === 0 && (
-            <div className={`px-4 py-8 text-sm ${subtleText}`}>No conversations yet.</div>
+            <div className={`shrink-0 px-4 py-8 text-sm ${subtleText}`}>No conversations yet.</div>
           )}
 
-          <div className={`h-[calc(100%-44px)] overflow-y-auto ${listDivider}`}>
+          <div className={`min-h-0 flex-1 overflow-y-auto ${listDivider}`}>
             {conversations.map((conversation) => {
               const lastMessage = conversation.messages[conversation.messages.length - 1];
               const isActive = selectedConversationUserId === conversation.user.id;
