@@ -1,4 +1,4 @@
-NEW_VERSION=0.2.6 \
+NEW_VERSION=0.2.7 \
   && npm version "$NEW_VERSION" --no-git-tag-version \
   && sed -i '' "s/\"version\": \"[0-9.]*\"/\"version\": \"$NEW_VERSION\"/" src-tauri/tauri.conf.json \
   && grep '"version"' package.json src-tauri/tauri.conf.json \
