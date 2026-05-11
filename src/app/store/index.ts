@@ -18,6 +18,8 @@ import { documentsApi } from "@/features/documents/api";
 import { reportsApi } from "@/features/reports/api";
 import { messagesApi } from "@/features/messages/api";
 import messageComposeReducer from "@/features/messages/composeSlice";
+import { callsApi } from "@/features/calls/api";
+import callReducer from "@/features/calls/callSlice";
 import { unitsApi } from "@/shared/api/units";
 import toastReducer from "@/shared/store/toastSlice";
 
@@ -47,6 +49,7 @@ export const store = configureStore({
     auth: authReducer,
     toast: toastReducer,
     messageCompose: messageComposeReducer,
+    call: callReducer,
     [dashboardApi.reducerPath]: dashboardApi.reducer,
     [personnelApi.reducerPath]: personnelApi.reducer,
     [inventoryApi.reducerPath]: inventoryApi.reducer,
@@ -60,6 +63,7 @@ export const store = configureStore({
     [maintenanceApi.reducerPath]: maintenanceApi.reducer,
     [documentsApi.reducerPath]: documentsApi.reducer,
     [messagesApi.reducerPath]: messagesApi.reducer,
+    [callsApi.reducerPath]: callsApi.reducer,
     [reportsApi.reducerPath]: reportsApi.reducer,
     [unitsApi.reducerPath]: unitsApi.reducer,
   },
@@ -78,6 +82,7 @@ export const store = configureStore({
       maintenanceApi.middleware,
       documentsApi.middleware,
       messagesApi.middleware,
+      callsApi.middleware,
       reportsApi.middleware,
       unitsApi.middleware,
     ),

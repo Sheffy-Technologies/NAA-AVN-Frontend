@@ -9,6 +9,7 @@ import { setCredentials } from "@/features/auth/authSlice";
 import { useGetMeQuery } from "@/features/security/api";
 import { ComposeMessageModal } from "@/features/messages/components/ComposeMessageModal";
 import { openCompose } from "@/features/messages/composeSlice";
+import { CallManager } from "@/features/calls/components/CallManager";
 import { useTheme } from "@/context/ThemeContext";
 
 export const DashboardLayout = () => {
@@ -83,6 +84,7 @@ export const DashboardLayout = () => {
       </div>
 
       <ComposeMessageModal />
+      <CallManager />
       <UpdateBanner />
 
       {showComposeFab && (

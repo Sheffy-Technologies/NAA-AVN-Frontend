@@ -16,6 +16,8 @@ import { useGetUsersQuery } from "@/features/users/api";
 import { useGetOperationsQuery } from "@/features/operations/api";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
 import { useGetAssetsQuery } from "@/features/assets/api";
+import { useStartCallMutation } from "@/features/calls/api";
+import { setOutgoingCall } from "@/features/calls/callSlice";
 import {
   useGetPurchaseOrdersQuery,
   useGetInventoriesQuery,
@@ -190,6 +192,7 @@ export const MessagesPage = () => {
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [updateMessage, { isLoading: isUpdating }] = useUpdateMessageMutation();
   const [deleteMessage, { isLoading: isDeleting }] = useDeleteMessageMutation();
+  const [startCall, { isLoading: isStartingCall }] = useStartCallMutation();
 
   const unreadCount = useMemo(
     () => inboxMessages.filter((message) => message.is_read === false).length,
@@ -521,6 +524,24 @@ export const MessagesPage = () => {
     }
   };
 
+  const handleStartVideoCall = async () => {
+    if (!selectedConversation) return;
+
+    const calleeId = selectedConversation.user.id;
+    if (!calleeId || calleeId === currentUserId) {
+      dispatch(showToast({ message: "Invalid call recipient", type: "error" }));
+      return;
+    }
+
+    try {
+      const call = await startCall({ callee_id: calleeId }).unwrap();
+      dispatch(setOutgoingCall(call));
+      dispatch(showToast({ message: `Calling ${userName(selectedConversation.user)}...`, type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Unable to start call", type: "error" }));
+    }
+  };
+
   if (!canViewMessages) {
     return (
       <div className={`rounded-xl border p-6 text-sm ${isDark ? "border-[#0A4D66]/30 bg-[#001219] text-gray-300" : "border-gray-200 bg-white text-gray-600"}`}>
@@ -610,10 +631,25 @@ export const MessagesPage = () => {
           ) : (
             <>
               <div className={`border-b px-4 py-3 ${panelDivider} ${isDark ? "bg-[#04131A]" : "bg-gray-50"}`}>
-                <p className={`text-sm font-semibold ${titleText}`}>{userName(selectedConversation.user)}</p>
-                <p className={`text-xs ${mutedText}`}>
-                  {selectedConversation.messages.length} messages in this thread
-                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className={`text-sm font-semibold ${titleText}`}>{userName(selectedConversation.user)}</p>
+                    <p className={`text-xs ${mutedText}`}>
+                      {selectedConversation.messages.length} messages in this thread
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleStartVideoCall()}
+                    disabled={isStartingCall}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[#128C7E] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#20a193] disabled:opacity-60"
+                    title="Start video call"
+                    aria-label="Start video call"
+                  >
+                    <Icon icon="mdi:video" className="h-4 w-4" />
+                    Video Call
+                  </button>
+                </div>
               </div>
 
               <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 ${msgAreaBg}`}>
