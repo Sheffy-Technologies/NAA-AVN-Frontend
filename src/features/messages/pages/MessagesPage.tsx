@@ -24,6 +24,7 @@ import {
 } from "@/features/inventory/api";
 import { getEchoClient } from "@/shared/realtime/echo";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { playMessageBeep } from "@/shared/utils/sound";
 import { useTheme } from "@/context/ThemeContext";
 import { openCompose } from "@/features/messages/composeSlice";
 
@@ -90,6 +91,36 @@ const getAttachablePath = (
     default:
       return null;
   }
+};
+
+const getConversationPeerId = (
+  conversation: {
+    user: MessageUser;
+    messages: MessageItem[];
+  } | null,
+  currentUserId: number,
+): number | null => {
+  if (!conversation) return null;
+
+  if (conversation.user.id && conversation.user.id !== currentUserId) {
+    return conversation.user.id;
+  }
+
+  for (const message of conversation.messages) {
+    if (message.sender_id !== currentUserId) {
+      return message.sender_id;
+    }
+
+    const recipient = (message.recipients || []).find(
+      (item) => item.id !== currentUserId,
+    );
+
+    if (recipient?.id) {
+      return recipient.id;
+    }
+  }
+
+  return null;
 };
 
 export const MessagesPage = () => {
@@ -296,6 +327,10 @@ export const MessagesPage = () => {
     return conversations.find((conversation) => conversation.user.id === selectedConversationUserId) || null;
   }, [conversations, selectedConversationUserId]);
 
+  const selectedConversationPeerId = useMemo(() => {
+    return getConversationPeerId(selectedConversation, currentUserId);
+  }, [selectedConversation, currentUserId]);
+
   const attachableSelectionOptions = useMemo(() => {
     if (attachableType === "operation") {
       return operations.map((operation) => ({
@@ -360,6 +395,7 @@ export const MessagesPage = () => {
     echo.private(channel).listen(".message.delivered", () => {
       void refetchInbox();
       void refetchSent();
+      void playMessageBeep();
       dispatch(
         showToast({
           message: "New message received",
@@ -527,7 +563,7 @@ export const MessagesPage = () => {
   const handleStartVideoCall = async () => {
     if (!selectedConversation) return;
 
-    const calleeId = selectedConversation.user.id;
+    const calleeId = selectedConversationPeerId;
     if (!calleeId || calleeId === currentUserId) {
       dispatch(showToast({ message: "Invalid call recipient", type: "error" }));
       return;
@@ -641,7 +677,7 @@ export const MessagesPage = () => {
                   <button
                     type="button"
                     onClick={() => void handleStartVideoCall()}
-                    disabled={isStartingCall}
+                    disabled={isStartingCall || !selectedConversationPeerId}
                     className="inline-flex items-center gap-1.5 rounded-md bg-[#128C7E] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#20a193] disabled:opacity-60"
                     title="Start video call"
                     aria-label="Start video call"

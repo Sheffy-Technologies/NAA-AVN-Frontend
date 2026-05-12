@@ -25,6 +25,7 @@ import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { getEchoClient } from "@/shared/realtime/echo";
 import { useTheme } from "@/context/ThemeContext";
+import { playCallActivatedBeep } from "@/shared/utils/sound";
 
 const userName = (user?: CallUser | null): string => {
   if (!user) return "Unknown User";
@@ -221,9 +222,11 @@ export const CallManager = () => {
         dispatch(clearOutgoingCall());
         dispatch(clearIncomingCall());
         dispatch(setActiveCall(payload.call));
+        void playCallActivatedBeep();
       } else if (currentIncoming && payload.call.id === currentIncoming.id) {
         dispatch(clearIncomingCall());
         dispatch(setActiveCall(payload.call));
+        void playCallActivatedBeep();
       }
     });
 
