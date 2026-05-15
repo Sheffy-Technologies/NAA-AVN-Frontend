@@ -52,6 +52,8 @@ export type OperationAssetDetails = {
     title?: string | null;
     description?: string | null;
   } | null;
+  average_speed?: number | null;
+  speed_unit?: string | null;
 };
 
 export type OperationAssignedAsset = {
@@ -67,6 +69,12 @@ export type OperationAssignedAsset = {
   asset?: OperationAssetDetails | null;
   pilot?: OperationAssetPerson | null;
   co_pilot?: OperationAssetPerson | null;
+  estimated_distance_nm?: number | null;
+  estimated_flight_hours?: number | null;
+  estimated_flight_time_label?: string | null;
+  estimated_end_time?: string | null;
+  actual_flight_hours?: number | null;
+  actual_flight_time_label?: string | null;
 };
 
 export type CreateOperationRequest = {

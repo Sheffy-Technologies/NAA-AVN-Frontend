@@ -20,7 +20,21 @@ import {
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
 
 const cardClass =
-  "rounded-xl border border-[#0A4D66]/40 bg-[linear-gradient(180deg,rgba(0,42,64,0.95)_0%,rgba(0,22,34,0.98)_100%)] p-4 sm:p-6";
+  "rounded-xl border border-[var(--theme-border-em)] bg-[var(--theme-bg-card)] p-4 sm:p-6";
+
+const fieldClass =
+  "bg-[var(--theme-bg-input)] border border-[var(--theme-border-em)] rounded px-3 py-2 text-sm text-[var(--theme-text-primary)]";
+
+const textareaClass =
+  "mt-3 w-full bg-[var(--theme-bg-input)] border border-[var(--theme-border-em)] rounded px-3 py-2 text-sm text-[var(--theme-text-primary)]";
+
+const sectionTitleClass = "text-lg font-semibold text-[var(--theme-accent)] mb-4";
+
+const ghostButtonClass =
+  "rounded border border-[var(--theme-border-em)] px-3 py-2 text-sm text-white hover:bg-[var(--theme-bg-panel)]";
+
+const accentButtonClass =
+  "rounded bg-[var(--theme-accent)] text-white text-sm font-semibold px-3 py-2 hover:opacity-90 disabled:opacity-60";
 
 type ToastState = { type: "success" | "error"; message: string } | null;
 
@@ -389,8 +403,8 @@ export const ProcurementLifecyclePage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Procurement Inventory Life Cycle</h1>
-        <p className="text-sm text-gray-400 mt-1">
+        <h1 className="text-2xl font-bold text-[var(--theme-text-primary)]">Procurement Inventory Life Cycle</h1>
+        <p className="text-sm mt-1 text-[var(--theme-text-muted)]">
           Requisition from engineering work orders, RFQ/quotation approval, PO creation, GRN, and batched stock updates.
         </p>
       </div>
@@ -408,10 +422,10 @@ export const ProcurementLifecyclePage = () => {
       )}
 
       <section id="requisition-section" className={cardClass}>
-        <h2 className="text-lg font-semibold text-[#7FD5FF] mb-4">1. Parts Requisition (Stock Movements from Work Orders)</h2>
+        <h2 className={sectionTitleClass}>1. Parts Requisition (Stock Movements from Work Orders)</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={requisitionForm.work_order_id}
             onChange={(e) => setRequisitionForm((s) => ({ ...s, work_order_id: e.target.value }))}
             title="Work Order"
@@ -424,7 +438,7 @@ export const ProcurementLifecyclePage = () => {
             ))}
           </select>
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={requisitionForm.inventory_id}
             onChange={(e) => setRequisitionForm((s) => ({ ...s, inventory_id: e.target.value }))}
             title="Inventory"
@@ -439,13 +453,13 @@ export const ProcurementLifecyclePage = () => {
           <input
             type="number"
             min={1}
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={requisitionForm.quantity_requested}
             onChange={(e) => setRequisitionForm((s) => ({ ...s, quantity_requested: e.target.value }))}
             placeholder="Requested quantity"
           />
           <button
-            className="rounded bg-emerald-500 text-black text-sm font-semibold px-3 py-2 hover:bg-emerald-600 disabled:opacity-60"
+            className={accentButtonClass}
             onClick={handleCreateRequisition}
             disabled={isCreatingRequisition}
             type="button"
@@ -454,20 +468,20 @@ export const ProcurementLifecyclePage = () => {
           </button>
         </div>
         <textarea
-          className="mt-3 w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+          className={textareaClass}
           value={requisitionForm.notes}
           onChange={(e) => setRequisitionForm((s) => ({ ...s, notes: e.target.value }))}
           placeholder="Requisition notes"
           rows={2}
         />
-        <p className="text-xs text-gray-400 mt-3">Existing requisitions: {requisitions.length}</p>
+        <p className="text-xs mt-3 text-[var(--theme-text-muted)]">Existing requisitions: {requisitions.length}</p>
       </section>
 
       <section id="rfq-section" className={cardClass}>
-        <h2 className="text-lg font-semibold text-[#7FD5FF] mb-4">2. RFQ to Multiple Suppliers and Quotation Approval</h2>
+        <h2 className={sectionTitleClass}>2. RFQ to Multiple Suppliers and Quotation Approval</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={rfqForm.stock_movement_id}
             onChange={(e) => setRfqForm((s) => ({ ...s, stock_movement_id: e.target.value }))}
             title="Requisition"
@@ -479,7 +493,7 @@ export const ProcurementLifecyclePage = () => {
               </option>
             ))}
           </select>
-          <div className="flex flex-wrap gap-2 rounded border border-[#0A4D66]/40 bg-[#001825] p-2">
+          <div className="flex flex-wrap gap-2 rounded border border-[var(--theme-border-em)] bg-[var(--theme-bg-input)] p-2">
             {suppliers.map((supplier) => {
               const selected = rfqForm.supplier_ids.includes(supplier.id);
               return (
@@ -487,7 +501,9 @@ export const ProcurementLifecyclePage = () => {
                   type="button"
                   key={supplier.id}
                   className={`rounded px-2 py-1 text-xs ${
-                    selected ? "bg-[#0369A1] text-black" : "bg-[#0A4D66]/30 text-gray-200"
+                    selected
+                      ? "bg-[var(--theme-accent)] text-white"
+                      : "bg-[var(--theme-bg-panel)] text-white"
                   }`}
                   onClick={() =>
                     setRfqForm((state) => ({
@@ -505,7 +521,7 @@ export const ProcurementLifecyclePage = () => {
           </div>
         </div>
         <textarea
-          className="mt-3 w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+          className={textareaClass}
           value={rfqForm.notes}
           onChange={(e) => setRfqForm((s) => ({ ...s, notes: e.target.value }))}
           placeholder="RFQ notes"
@@ -513,16 +529,16 @@ export const ProcurementLifecyclePage = () => {
         />
         <button
           type="button"
-          className="mt-3 rounded bg-emerald-500 text-black text-sm font-semibold px-3 py-2 hover:bg-emerald-600 disabled:opacity-60"
+          className={`mt-3 ${accentButtonClass}`}
           onClick={handleCreateRfq}
           disabled={isCreatingRfq}
         >
           {isCreatingRfq ? "Generating RFQ..." : "Generate RFQ"}
         </button>
 
-        <div className="mt-5 border-t border-[#0A4D66]/30 pt-4 grid grid-cols-1 md:grid-cols-6 gap-3">
+        <div className="mt-5 border-t border-[var(--theme-divider)] pt-4 grid grid-cols-1 md:grid-cols-6 gap-3">
           <select
-            className="md:col-span-2 bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={`md:col-span-2 ${fieldClass}`}
             value={quotationForm.rfq_id}
             onChange={(e) => setQuotationForm((s) => ({ ...s, rfq_id: e.target.value }))}
             title="RFQ"
@@ -533,7 +549,7 @@ export const ProcurementLifecyclePage = () => {
             ))}
           </select>
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={quotationForm.supplier_id}
             onChange={(e) => setQuotationForm((s) => ({ ...s, supplier_id: e.target.value }))}
             title="Supplier"
@@ -544,7 +560,7 @@ export const ProcurementLifecyclePage = () => {
             ))}
           </select>
           <input
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={quotationForm.quotation_number}
             onChange={(e) => setQuotationForm((s) => ({ ...s, quotation_number: e.target.value }))}
             placeholder="Quotation #"
@@ -552,14 +568,14 @@ export const ProcurementLifecyclePage = () => {
           <input
             type="number"
             min={0}
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={quotationForm.total_amount}
             onChange={(e) => setQuotationForm((s) => ({ ...s, total_amount: e.target.value }))}
             placeholder="Total amount"
           />
           <button
             type="button"
-            className="rounded bg-[#0369A1] text-black text-sm font-semibold px-3 py-2 hover:bg-[#68c8f6] disabled:opacity-60"
+            className={accentButtonClass}
             onClick={handleCreateQuotation}
             disabled={isCreatingQuotation}
           >
@@ -569,14 +585,14 @@ export const ProcurementLifecyclePage = () => {
 
         <div className="mt-4 space-y-2">
           {quotations.map((q) => (
-            <div key={q.id} className="flex items-center justify-between rounded border border-[#0A4D66]/30 px-3 py-2">
-              <div className="text-sm text-gray-200">
+            <div key={q.id} className="flex items-center justify-between rounded border border-[var(--theme-divider)] px-3 py-2">
+              <div className="text-sm text-[var(--theme-text-secondary)]">
                 RFQ #{q.rfq_id} | {q.supplier?.name || `Supplier #${q.supplier_id}`} | {q.total_amount || "-"} {q.currency || "NGN"}
-                <span className="ml-2 text-xs text-gray-400 uppercase">{q.status}</span>
+                <span className="ml-2 text-xs text-[var(--theme-text-muted)] uppercase">{q.status}</span>
               </div>
               <button
                 type="button"
-                className="rounded border border-emerald-500/50 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50"
+                className="rounded border border-emerald-500/50 px-2 py-1 text-xs text-white hover:bg-emerald-500/10 disabled:opacity-50"
                 disabled={isApprovingQuotation || q.status === "approved"}
                 onClick={() => handleApproveQuotation(q.id)}
               >
@@ -588,10 +604,10 @@ export const ProcurementLifecyclePage = () => {
       </section>
 
       <section id="po-section" className={cardClass}>
-        <h2 className="text-lg font-semibold text-[#7FD5FF] mb-4">3. Create Purchase Order from Approved RFQ</h2>
+        <h2 className={sectionTitleClass}>3. Create Purchase Order from Approved RFQ</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.rfq_id}
             onChange={(e) => {
               const rfqId = Number(e.target.value);
@@ -612,7 +628,7 @@ export const ProcurementLifecyclePage = () => {
               ))}
           </select>
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.supplier_id}
             onChange={(e) => setPoForm((s) => ({ ...s, supplier_id: e.target.value }))}
             title="Supplier"
@@ -623,7 +639,7 @@ export const ProcurementLifecyclePage = () => {
             ))}
           </select>
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.inventory_id}
             onChange={(e) => setPoForm((s) => ({ ...s, inventory_id: e.target.value }))}
             title="Inventory"
@@ -636,20 +652,20 @@ export const ProcurementLifecyclePage = () => {
           <input
             type="number"
             min={1}
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.quantity_ordered}
             onChange={(e) => setPoForm((s) => ({ ...s, quantity_ordered: e.target.value }))}
             placeholder="Qty ordered"
           />
           <input
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.name}
             onChange={(e) => setPoForm((s) => ({ ...s, name: e.target.value }))}
             placeholder="PO Name"
           />
           <input
             type="date"
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.order_date}
             onChange={(e) => setPoForm((s) => ({ ...s, order_date: e.target.value }))}
             title="Order date"
@@ -657,7 +673,7 @@ export const ProcurementLifecyclePage = () => {
           />
           <input
             type="date"
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.expected_date_of_delivery}
             onChange={(e) => setPoForm((s) => ({ ...s, expected_date_of_delivery: e.target.value }))}
             title="Expected delivery date"
@@ -667,7 +683,7 @@ export const ProcurementLifecyclePage = () => {
             type="number"
             min={0}
             step="0.01"
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={poForm.unit_price}
             onChange={(e) => setPoForm((s) => ({ ...s, unit_price: e.target.value }))}
             placeholder="Unit price"
@@ -675,7 +691,7 @@ export const ProcurementLifecyclePage = () => {
         </div>
         <button
           type="button"
-          className="mt-3 rounded bg-emerald-500 text-black text-sm font-semibold px-3 py-2 hover:bg-emerald-600 disabled:opacity-60"
+          className={`mt-3 ${accentButtonClass}`}
           onClick={handleCreatePo}
           disabled={isCreatingPo}
         >
@@ -684,10 +700,10 @@ export const ProcurementLifecyclePage = () => {
       </section>
 
       <section id="grn-section" className={cardClass}>
-        <h2 className="text-lg font-semibold text-[#7FD5FF] mb-4">4. Goods Received Note and Inventory Batch Posting</h2>
+        <h2 className={sectionTitleClass}>4. Goods Received Note and Inventory Batch Posting</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <select
-            className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+            className={fieldClass}
             value={grnForm.purchase_order_id}
             onChange={(e) => setGrnForm((s) => ({ ...s, purchase_order_id: e.target.value, items: [] }))}
             title="Purchase Order"
@@ -701,14 +717,14 @@ export const ProcurementLifecyclePage = () => {
           </select>
           <button
             type="button"
-            className="rounded border border-[#7FD5FF]/40 px-3 py-2 text-sm text-[#7FD5FF] hover:bg-[#0369A1]/10"
+            className={ghostButtonClass}
             onClick={handlePrepareGrnItems}
           >
             Prepare GRN Lines from PO
           </button>
           <button
             type="button"
-            className="rounded bg-emerald-500 text-black text-sm font-semibold px-3 py-2 hover:bg-emerald-600 disabled:opacity-60"
+            className={accentButtonClass}
             onClick={handleCreateGrn}
             disabled={isCreatingGrn}
           >
@@ -717,7 +733,7 @@ export const ProcurementLifecyclePage = () => {
         </div>
 
         <textarea
-          className="mt-3 w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white"
+          className={textareaClass}
           value={grnForm.notes}
           onChange={(e) => setGrnForm((s) => ({ ...s, notes: e.target.value }))}
           placeholder="GRN notes / acknowledgement"
@@ -725,9 +741,9 @@ export const ProcurementLifecyclePage = () => {
         />
 
         {grnForm.items.length > 0 && (
-          <div className="mt-3 rounded border border-[#0A4D66]/30 overflow-hidden">
+          <div className="mt-3 rounded border border-[var(--theme-divider)] overflow-hidden">
             <table className="w-full text-sm">
-              <thead className="bg-[#001825] text-gray-400">
+              <thead className="bg-[var(--theme-bg-panel)] text-[var(--theme-text-muted)]">
                 <tr>
                   <th className="text-left px-3 py-2">Inventory</th>
                   <th className="text-right px-3 py-2">Qty Received</th>
@@ -735,7 +751,7 @@ export const ProcurementLifecyclePage = () => {
               </thead>
               <tbody>
                 {grnForm.items.map((item, idx) => (
-                  <tr key={`${item.inventory_id}-${idx}`} className="border-t border-[#0A4D66]/20 text-gray-200">
+                  <tr key={`${item.inventory_id}-${idx}`} className="border-t border-[var(--theme-divider)] text-[var(--theme-text-secondary)]">
                     <td className="px-3 py-2">#{item.inventory_id}</td>
                     <td className="px-3 py-2 text-right">{item.quantity_received}</td>
                   </tr>
@@ -747,33 +763,33 @@ export const ProcurementLifecyclePage = () => {
       </section>
 
       <section id="snapshot-section" className={cardClass}>
-        <h2 className="text-lg font-semibold text-[#7FD5FF] mb-4">Lifecycle Snapshot</h2>
+        <h2 className={sectionTitleClass}>Lifecycle Snapshot</h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
-          <div className="rounded bg-[#001825] p-3">
-            <p className="text-xs text-gray-400">Requisitions</p>
-            <p className="text-2xl font-bold text-white">{requisitions.length}</p>
+          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
+            <p className="text-xs text-[var(--theme-text-muted)]">Requisitions</p>
+            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{requisitions.length}</p>
           </div>
-          <div className="rounded bg-[#001825] p-3">
-            <p className="text-xs text-gray-400">RFQs</p>
-            <p className="text-2xl font-bold text-white">{rfqs.length}</p>
+          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
+            <p className="text-xs text-[var(--theme-text-muted)]">RFQs</p>
+            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{rfqs.length}</p>
           </div>
-          <div className="rounded bg-[#001825] p-3">
-            <p className="text-xs text-gray-400">Quotations</p>
-            <p className="text-2xl font-bold text-white">{quotations.length}</p>
+          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
+            <p className="text-xs text-[var(--theme-text-muted)]">Quotations</p>
+            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{quotations.length}</p>
           </div>
-          <div className="rounded bg-[#001825] p-3">
-            <p className="text-xs text-gray-400">Purchase Orders</p>
-            <p className="text-2xl font-bold text-white">{purchaseOrders.length}</p>
+          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
+            <p className="text-xs text-[var(--theme-text-muted)]">Purchase Orders</p>
+            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{purchaseOrders.length}</p>
           </div>
-          <div className="rounded bg-[#001825] p-3">
-            <p className="text-xs text-gray-400">Approved Quotes</p>
+          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
+            <p className="text-xs text-[var(--theme-text-muted)]">Approved Quotes</p>
             <p className="text-2xl font-bold text-emerald-300">{Array.from(approvedQuotationByRfq.keys()).length}</p>
           </div>
         </div>
 
-        <div className="mt-5 overflow-x-auto rounded border border-[#0A4D66]/30">
+        <div className="mt-5 overflow-x-auto rounded border border-[var(--theme-divider)]">
           <table className="w-full min-w-[880px] text-sm">
-            <thead className="bg-[#001825] text-gray-400 uppercase text-xs">
+            <thead className="bg-[var(--theme-bg-panel)] text-[var(--theme-text-muted)] uppercase text-xs">
               <tr>
                 <th className="px-3 py-2 text-left">Requisition</th>
                 <th className="px-3 py-2 text-left">RFQ</th>
@@ -784,10 +800,10 @@ export const ProcurementLifecyclePage = () => {
                 <th className="px-3 py-2 text-left">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#0A4D66]/20">
+            <tbody className="divide-y divide-[var(--theme-divider)]">
               {lifecycleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-gray-400">
+                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
                     No lifecycle records yet.
                   </td>
                 </tr>
@@ -804,10 +820,10 @@ export const ProcurementLifecyclePage = () => {
                           : "Requisition Created";
 
                   return (
-                    <tr key={row.req.id} className="text-gray-200">
+                    <tr key={row.req.id} className="text-[var(--theme-text-secondary)]">
                       <td className="px-3 py-2">
                         REQ #{row.req.id}
-                        <div className="text-xs text-gray-500">WO #{row.req.work_order_id || "-"}</div>
+                        <div className="text-xs text-[var(--theme-text-muted)]">WO #{row.req.work_order_id || "-"}</div>
                       </td>
                       <td className="px-3 py-2">{row.rfq ? row.rfq.rfq_number : "-"}</td>
                       <td className="px-3 py-2">
@@ -818,7 +834,7 @@ export const ProcurementLifecyclePage = () => {
                       <td className="px-3 py-2">{row.po ? `PO #${row.po.id}` : "-"}</td>
                       <td className="px-3 py-2">{row.grn ? row.grn.grn_number : "-"}</td>
                       <td className="px-3 py-2">
-                        <span className="inline-flex rounded-full border border-[#7FD5FF]/40 bg-[#0369A1]/10 px-2 py-1 text-xs text-[#7FD5FF]">
+                        <span className="inline-flex rounded-full border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)] px-2 py-1 text-xs text-[var(--theme-accent)]">
                           {stage}
                         </span>
                       </td>
@@ -826,7 +842,7 @@ export const ProcurementLifecyclePage = () => {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-[#7FD5FF]/40 px-2 py-1 text-xs text-[#7FD5FF] hover:bg-[#0369A1]/10"
+                            className="inline-flex items-center gap-1 rounded border border-[var(--theme-border-em)] px-2 py-1 text-xs text-black hover:bg-[var(--theme-bg-panel)]"
                             onClick={() => handleOpenRfq(row.rfq?.id)}
                           >
                             <Icon icon="mdi:file-document-edit-outline" className="h-3.5 w-3.5" />
@@ -834,7 +850,7 @@ export const ProcurementLifecyclePage = () => {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/10"
+                            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-black hover:bg-emerald-500/10"
                             onClick={() => handleOpenPo(row.po?.id)}
                           >
                             <Icon icon="mdi:cart-outline" className="h-3.5 w-3.5" />
@@ -842,7 +858,7 @@ export const ProcurementLifecyclePage = () => {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-2 py-1 text-xs text-amber-300 hover:bg-amber-500/10"
+                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-2 py-1 text-xs text-black hover:bg-amber-500/10"
                             onClick={() => handleOpenGrn(row.po?.id)}
                           >
                             <Icon icon="mdi:package-check" className="h-3.5 w-3.5" />

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  useGetRfqsQuery,
   useGetSuppliersQuery,
+  useGetSupplierQuotationsQuery,
   useCreatePurchaseOrderMutation,
   useGetInventoriesQuery,
 } from "../api";
@@ -10,6 +12,8 @@ import { Icon } from "@/shared/icons/Icon";
 type PurchaseOrderStatus = "draft" | "sent" | "received";
 
 type PurchaseOrderFormState = {
+  approved_bid_id: string;
+  rfq_id: string;
   supplier_id: string;
   name: string;
   order_date: string;
@@ -37,9 +41,34 @@ export default function PurchaseOrderFormPage() {
   const navigate = useNavigate();
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
+  const { data: rfqs = [] } = useGetRfqsQuery();
+  const { data: quotations = [] } = useGetSupplierQuotationsQuery();
   const [createPurchaseOrder, { isLoading }] = useCreatePurchaseOrderMutation();
 
+  const approvedBids = useMemo(
+    () => quotations.filter((quote) => String(quote.status).toLowerCase() === "approved"),
+    [quotations],
+  );
+
+  const rfqNumberById = useMemo(() => {
+    const map = new Map<number, string>();
+    rfqs.forEach((rfq) => {
+      map.set(rfq.id, rfq.rfq_number || `RFQ #${rfq.id}`);
+    });
+    return map;
+  }, [rfqs]);
+
+  const approvedBidById = useMemo(() => {
+    const map = new Map<number, (typeof approvedBids)[number]>();
+    approvedBids.forEach((quote) => {
+      map.set(quote.id, quote);
+    });
+    return map;
+  }, [approvedBids]);
+
   const [form, setForm] = useState<PurchaseOrderFormState>({
+    approved_bid_id: "",
+    rfq_id: "",
     supplier_id: "",
     name: "",
     order_date: "",
@@ -112,6 +141,7 @@ export default function PurchaseOrderFormPage() {
 
     const payload: {
       supplier_id?: number | null;
+      rfq_id?: number | null;
       name?: string | null;
       order_date?: string | null;
       expected_date_of_delivery?: string | null;
@@ -122,6 +152,7 @@ export default function PurchaseOrderFormPage() {
     };
 
     if (form.supplier_id.trim() !== "") payload.supplier_id = Number(form.supplier_id);
+    if (form.rfq_id.trim() !== "") payload.rfq_id = Number(form.rfq_id);
     if (form.name.trim() !== "") payload.name = form.name.trim();
     if (form.order_date.trim() !== "") payload.order_date = form.order_date;
     if (form.expected_date_of_delivery.trim() !== "") {
@@ -143,6 +174,40 @@ export default function PurchaseOrderFormPage() {
       <form onSubmit={handleSubmit} className="space-y-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
+            <label htmlFor="po-approved-bid" className="block text-xs text-gray-400 mb-1">Approved Bid</label>
+            <select
+              id="po-approved-bid"
+              title="Approved Bid"
+              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
+              value={form.approved_bid_id}
+              onChange={(e) => {
+                const bidId = e.target.value;
+                const bid = approvedBidById.get(Number(bidId));
+                setForm((prev) => ({
+                  ...prev,
+                  approved_bid_id: bidId,
+                  rfq_id: bid ? String(bid.rfq_id) : "",
+                  supplier_id:
+                    bid && bid.supplier_id
+                      ? String(bid.supplier_id)
+                      : prev.supplier_id,
+                }));
+              }}
+            >
+              <option value="">Select approved quotation (optional)</option>
+              {approvedBids.map((bid) => {
+                const rfqNumber = rfqNumberById.get(bid.rfq_id) || `RFQ #${bid.rfq_id}`;
+                const supplierName = bid.supplier?.name || `Supplier #${bid.supplier_id}`;
+                const quoteNumber = bid.quotation_number || `QT-${bid.id}`;
+                return (
+                  <option key={bid.id} value={bid.id}>
+                    {quoteNumber} | {rfqNumber} | {supplierName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+          <div>
             <label htmlFor="po-supplier" className="block text-xs text-gray-400 mb-1">Supplier</label>
             <select
               id="po-supplier"
@@ -156,6 +221,11 @@ export default function PurchaseOrderFormPage() {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+            {form.rfq_id && (
+              <p className="mt-1 text-xs text-[#7FD5FF]">
+                Linked RFQ: {rfqNumberById.get(Number(form.rfq_id)) || `RFQ #${form.rfq_id}`}
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1">Order Name</label>

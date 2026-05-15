@@ -179,6 +179,29 @@ const renderAssetCard = (
       <InfoRow label="Next Inspection" value={String(nextInspection)} />
       <InfoRow label="Last Snag" value={String(lastSnag)} />
       <InfoRow label="Total Landings" value={String(totalLandings)} />
+      {entry.departure_takeoff ? (
+        <InfoRow label="Departure Takeoff" value={String(entry.departure_takeoff)} />
+      ) : null}
+      {entry.estimated_flight_hours !== null && entry.estimated_flight_hours !== undefined ? (
+        <>
+          <InfoRow
+            label="Estimated Flight Time"
+            value={entry.estimated_flight_time_label || `${entry.estimated_flight_hours} hrs`}
+          />
+          {entry.estimated_distance_nm !== null && entry.estimated_distance_nm !== undefined ? (
+            <InfoRow label="Distance" value={`${entry.estimated_distance_nm} nm`} />
+          ) : null}
+          {entry.estimated_end_time ? (
+            <InfoRow label="Est. End Time" value={String(entry.estimated_end_time)} />
+          ) : null}
+        </>
+      ) : null}
+      {entry.actual_flight_hours !== null && entry.actual_flight_hours !== undefined ? (
+        <InfoRow
+          label="Actual Flight Hours"
+          value={entry.actual_flight_time_label || `${entry.actual_flight_hours} hrs`}
+        />
+      ) : null}
       <InfoRow
         label="Pilot In Command"
         value={<PersonLink person={pilotDetails} onNavigate={goToPerson} />}

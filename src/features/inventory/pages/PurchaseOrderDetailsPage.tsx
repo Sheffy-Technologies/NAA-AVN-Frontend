@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import {
+  useCreateGoodsReceivedNoteMutation,
   useGetPurchaseOrderByIdQuery,
   useUpdatePurchaseOrderMutation,
-  useUpdateInventoryStockMutation,
 } from "../api";
 
 const formatDate = (value?: string | null) => {
@@ -21,6 +21,7 @@ const formatDate = (value?: string | null) => {
 export default function PurchaseOrderDetailsPage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const {
     data: order,
@@ -31,38 +32,46 @@ export default function PurchaseOrderDetailsPage() {
 
   const [updatePurchaseOrder, { isLoading: isUpdatingStatus }] =
     useUpdatePurchaseOrderMutation();
-  const [updateInventoryStock, { isLoading: isUpdatingStock }] =
-    useUpdateInventoryStockMutation();
+  const [createGoodsReceivedNote, { isLoading: isCreatingGrn }] =
+    useCreateGoodsReceivedNoteMutation();
 
-  const isMarkingReceived = isUpdatingStatus || isUpdatingStock;
+  const isMarkingReceived = isUpdatingStatus || isCreatingGrn;
 
-  const stockUpdateRows = useMemo(() => {
+  const grnRows = useMemo(() => {
     const rows = order?.items ?? [];
-    return rows.filter(
-      (item) =>
-        Number(item.inventory_id) > 0 && Number(item.quantity_received ?? 0) > 0,
-    );
+    return rows
+      .filter((item) => Number(item.inventory_id) > 0)
+      .map((item) => ({
+        purchase_order_item_id: item.id,
+        inventory_id: Number(item.inventory_id),
+        quantity_received: Number(item.quantity_received ?? item.quantity_ordered ?? 0),
+      }))
+      .filter((item) => item.quantity_received > 0);
   }, [order]);
 
-  const handleMarkAsReceived = async () => {
+  const handleCreateGrnAndMarkReceived = async () => {
     if (!order?.id) return;
+
+    if (grnRows.length === 0) {
+      setFeedback("No receivable line items available to create GRN.");
+      return;
+    }
+
+    setFeedback(null);
+
+    await createGoodsReceivedNote({
+      purchase_order_id: order.id,
+      received_at: new Date().toISOString(),
+      notes: `GRN posted from Purchase Order #${order.id}`,
+      items: grnRows,
+    }).unwrap();
 
     await updatePurchaseOrder({
       id: order.id,
       body: { status: "received" },
     }).unwrap();
 
-    if (stockUpdateRows.length > 0) {
-      await Promise.all(
-        stockUpdateRows.map((item) =>
-          updateInventoryStock({
-            inventory_id: Number(item.inventory_id),
-            stock_type: "in_stock",
-            quantity: Number(item.quantity_received ?? 0),
-          }).unwrap(),
-        ),
-      );
-    }
+    setFeedback("Goods Received Note created and purchase order marked as received.");
 
     refetch();
   };
@@ -85,6 +94,11 @@ export default function PurchaseOrderDetailsPage() {
 
   return (
     <div className="space-y-6">
+      {feedback && (
+        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 text-sm text-gray-200">
+          {feedback}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">
@@ -106,12 +120,12 @@ export default function PurchaseOrderDetailsPage() {
           <button
             type="button"
             className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-500 text-black text-xs font-semibold shadow hover:bg-emerald-600 transition-colors disabled:opacity-60"
-            onClick={handleMarkAsReceived}
+            onClick={handleCreateGrnAndMarkReceived}
             disabled={isMarkingReceived || order.status === "received"}
             title={
               order.status === "received"
                 ? "Purchase order already received"
-                : "Mark purchase order as received and update inventory stock"
+                : "Create goods received note and mark purchase order as received"
             }
           >
             <Icon
@@ -122,7 +136,7 @@ export default function PurchaseOrderDetailsPage() {
               ? "Updating..."
               : order.status === "received"
                 ? "Already Received"
-                : "Mark As Received"}
+                : "Create GRN + Mark Received"}
           </button>
         </div>
       </div>

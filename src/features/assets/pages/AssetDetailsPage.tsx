@@ -101,6 +101,12 @@ const formatCycles = (value: number | string | null | undefined) => {
   return formatted === "-" ? "-" : `${formatted} cyc`;
 };
 
+const getInstallationStatus = (timeSinceNew: number | string | null | undefined): string => {
+  const hours = toNumeric(timeSinceNew);
+  if (!hours) return "Added New";
+  return `Added with ${hours} hrs`;
+};
+
 const formatInspectionInterval = (
   value: number | string | null | undefined,
   unit: string | null | undefined,
@@ -193,6 +199,48 @@ const getCurrentServiceHours = (value: {
 
 const getOperationFlightHours = (value: { operation_flight_hours?: number }) => {
   return toNumeric(value.operation_flight_hours);
+};
+
+const getHoursTrackingMetrics = (value: {
+  current_time_since_new?: number;
+  time_since_new?: number | string;
+  service_life_limit?: number | string | null;
+  service_life_limit_hours?: number | string | null;
+  last_inspection?: number | string | null;
+  inspection_interval?: number | string | null;
+  inspection_interval_unit?: string | null;
+}) => {
+  const currentServiceHours = getCurrentServiceHours(value);
+  const serviceLifeLimit =
+    toNumeric(value.service_life_limit_hours) ?? toNumeric(value.service_life_limit);
+  const hoursRemainingToEndOfLife =
+    currentServiceHours !== null && serviceLifeLimit !== null
+      ? serviceLifeLimit - currentServiceHours
+      : null;
+
+  const interval = toNumeric(value.inspection_interval);
+  const intervalUnit = String(value.inspection_interval_unit || "hours").toLowerCase();
+  const lastInspection = toNumeric(value.last_inspection);
+
+  const nextMaintenanceHours =
+    intervalUnit === "hours" && interval !== null && lastInspection !== null
+      ? lastInspection + interval
+      : null;
+  const hoursToNextMaintenance =
+    nextMaintenanceHours !== null && currentServiceHours !== null
+      ? nextMaintenanceHours - currentServiceHours
+      : null;
+
+  return {
+    currentServiceHours,
+    serviceLifeLimit,
+    hoursRemainingToEndOfLife,
+    interval,
+    intervalUnit,
+    lastInspection,
+    nextMaintenanceHours,
+    hoursToNextMaintenance,
+  };
 };
 
 const cloneEngine = (engine: Engine): Engine => ({
@@ -290,7 +338,9 @@ export const AssetDetailsPage = () => {
   // Ad-hoc task modal and handlers removed
   const [isCreatingWorkOrder, setIsCreatingWorkOrder] = useState(false);
   // (removed duplicate ad-hoc modal state)
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingAssetExport, setIsDownloadingAssetExport] = useState(false);
+  const [isDownloadingMaintenanceHistoryExport, setIsDownloadingMaintenanceHistoryExport] =
+    useState(false);
   const [isEditingComponents, setIsEditingComponents] = useState(false);
   const [isEditingEngines, setIsEditingEngines] = useState(false);
   const [isEditingAvionics, setIsEditingAvionics] = useState(false);
@@ -583,10 +633,10 @@ export const AssetDetailsPage = () => {
     }
   };
 
-  const handleDownloadPdf = async () => {
-    if (!asset || isDownloadingPdf) return;
+  const handleExportAssetDetails = async () => {
+    if (!asset || isDownloadingAssetExport) return;
 
-    setIsDownloadingPdf(true);
+    setIsDownloadingAssetExport(true);
     try {
       const XLSX = await import("xlsx");
       const workbook = XLSX.utils.book_new();
@@ -610,7 +660,10 @@ export const AssetDetailsPage = () => {
         },
       ];
 
-      const componentsRows = (asset.components || []).map((component, index) => ({
+      const componentsRows = (asset.components || []).map((component, index) => {
+        const hourMetrics = getHoursTrackingMetrics(component);
+
+        return {
         "S/N": index + 1,
         "Component Type": componentTypeMap.get(component.component_type_id || 0) || "-",
         "ATA Chapter": ataChapterMap.get(component.ata_chapter_id || 0) || "-",
@@ -618,16 +671,26 @@ export const AssetDetailsPage = () => {
         "Serial Number": component.serial_number || "-",
         "Baseline Time Since New": formatHours(component.time_since_new),
         "Operation Flight Hours": formatHours(component.operation_flight_hours),
-        "Current Service Hours": formatHours(getCurrentServiceHours(component)),
+        "Current Service Hours": formatHours(hourMetrics.currentServiceHours),
+        "Total Hours Used": formatHours(hourMetrics.currentServiceHours),
         "Service Life Limit": formatHours(component.service_life_limit_hours),
+        "Hours Remaining To End Of Life": formatHours(hourMetrics.hoursRemainingToEndOfLife),
         "Inspection Interval": formatInspectionInterval(
           component.inspection_interval,
           component.inspection_interval_unit,
         ),
+        "Next Maintenance Hours": formatHours(hourMetrics.nextMaintenanceHours),
+        "Hours / Time Till Next Maintenance": formatHours(hourMetrics.hoursToNextMaintenance),
         Strategy: formatStatus(component.maintenance_strategy),
-      }));
+        "Current Asset Cycles": formatCycles(asset.operations_count ?? asset.operations.length),
+        "Installation Status": getInstallationStatus(component.time_since_new),
+      };
+      });
 
-      const enginesRows = (asset.engines || []).map((engine, index) => ({
+      const enginesRows = (asset.engines || []).map((engine, index) => {
+        const hourMetrics = getHoursTrackingMetrics(engine);
+
+        return {
         "S/N": index + 1,
         Position: enginePositionMap.get(engine.position_id || 0) || "-",
         Category: engineCategoryMap.get(engine.category_id || 0) || "-",
@@ -636,16 +699,26 @@ export const AssetDetailsPage = () => {
         "Serial Number": engine.serial_number || "-",
         "Baseline Time Since New": formatHours(engine.time_since_new),
         "Operation Flight Hours": formatHours(engine.operation_flight_hours),
-        "Current Service Hours": formatHours(getCurrentServiceHours(engine)),
+        "Current Service Hours": formatHours(hourMetrics.currentServiceHours),
+        "Total Hours Used": formatHours(hourMetrics.currentServiceHours),
         "Service Life Limit": formatHours(engine.service_life_limit),
+        "Hours Remaining To End Of Life": formatHours(hourMetrics.hoursRemainingToEndOfLife),
         "Inspection Interval": formatInspectionInterval(
           engine.inspection_interval,
           engine.inspection_interval_unit,
         ),
+        "Next Maintenance Hours": formatHours(hourMetrics.nextMaintenanceHours),
+        "Hours / Time Till Next Maintenance": formatHours(hourMetrics.hoursToNextMaintenance),
         Strategy: formatStatus(engine.maintenance_strategy),
-      }));
+        "Current Asset Cycles": formatCycles(asset.operations_count ?? asset.operations.length),
+        "Installation Status": getInstallationStatus(engine.time_since_new),
+      };
+      });
 
-      const avionicsRows = (asset.avionics || []).map((avionic, index) => ({
+      const avionicsRows = (asset.avionics || []).map((avionic, index) => {
+        const hourMetrics = getHoursTrackingMetrics(avionic);
+
+        return {
         "S/N": index + 1,
         Category: avionicCategoryMap.get(avionic.avionic_category_id || 0) || "-",
         "ATA Chapter": ataChapterMap.get(avionic.ata_chapter_id || 0) || "-",
@@ -654,14 +727,21 @@ export const AssetDetailsPage = () => {
         "Serial Number": avionic.serial_number || "-",
         "Baseline Time Since New": formatHours(avionic.time_since_new),
         "Operation Flight Hours": formatHours(avionic.operation_flight_hours),
-        "Current Service Hours": formatHours(getCurrentServiceHours(avionic)),
+        "Current Service Hours": formatHours(hourMetrics.currentServiceHours),
+        "Total Hours Used": formatHours(hourMetrics.currentServiceHours),
         "Service Life Limit": formatHours(avionic.service_life_limit),
+        "Hours Remaining To End Of Life": formatHours(hourMetrics.hoursRemainingToEndOfLife),
         "Inspection Interval": formatInspectionInterval(
           avionic.inspection_interval,
           avionic.inspection_interval_unit,
         ),
+        "Next Maintenance Hours": formatHours(hourMetrics.nextMaintenanceHours),
+        "Hours / Time Till Next Maintenance": formatHours(hourMetrics.hoursToNextMaintenance),
         Strategy: formatStatus(avionic.maintenance_strategy),
-      }));
+        "Current Asset Cycles": formatCycles(asset.operations_count ?? asset.operations.length),
+        "Installation Status": getInstallationStatus(avionic.time_since_new),
+      };
+      });
 
       const dueTrackingSheetRows = dueTrackingRows.map((row) => ({
         Category: row.category,
@@ -675,13 +755,129 @@ export const AssetDetailsPage = () => {
             : "-",
       }));
 
-      const maintenanceRows = (assetComplianceRecords || []).map((record) => ({
-        "Task ID": record.work_order_task_id || "-",
-        "Completion Date": formatDate(record.completion_date),
-        "Next Due Date": formatDate(record.next_due_date),
-        "Next Due Hours": formatHours(record.next_due_hours),
-        Remarks: record.remarks || "-",
-      }));
+      const componentById = new Map(
+        asset.components
+          .filter((component): component is Component & { id: number } =>
+            typeof component.id === "number",
+          )
+          .map((component) => [component.id, component]),
+      );
+      const engineById = new Map(
+        asset.engines
+          .filter((engine): engine is Engine & { id: number } => typeof engine.id === "number")
+          .map((engine) => [engine.id, engine]),
+      );
+      const avionicById = new Map(
+        asset.avionics
+          .filter((avionic): avionic is Avionics & { id: number } =>
+            typeof avionic.id === "number",
+          )
+          .map((avionic) => [avionic.id, avionic]),
+      );
+      const taskById = new Map(
+        assetWorkOrders.flatMap((order) =>
+          (order.tasks || []).map((task) => [
+            task.id,
+            {
+              orderId: order.id,
+              orderTitle: order.title,
+              task,
+            },
+          ]),
+        ),
+      );
+
+      const maintenanceRows = (assetComplianceRecords || []).map((record) => {
+        const taskInfo =
+          record.work_order_task_id != null ? taskById.get(record.work_order_task_id) : undefined;
+        const task = taskInfo?.task;
+
+        const componentId = record.component_id ?? task?.component_id ?? null;
+        const engineId = record.engine_id ?? task?.engine_id ?? null;
+        const avionicId = record.avionics_id ?? task?.avionics_id ?? null;
+
+        let itemCategory = "-";
+        let itemLabel = "-";
+        let itemSerial = "-";
+        let itemHoursMetrics: ReturnType<typeof getHoursTrackingMetrics> | null = null;
+
+        if (componentId && componentById.has(componentId)) {
+          const component = componentById.get(componentId)!;
+          itemCategory = "Component";
+          itemLabel =
+            componentTypeMap.get(component.component_type_id || 0) ||
+            component.part_number ||
+            component.serial_number ||
+            `Component ${componentId}`;
+          itemSerial = component.serial_number || "-";
+          itemHoursMetrics = getHoursTrackingMetrics(component);
+        } else if (engineId && engineById.has(engineId)) {
+          const engine = engineById.get(engineId)!;
+          itemCategory = "Engine";
+          itemLabel =
+            engineCategoryMap.get(engine.category_id || 0) ||
+            engine.model ||
+            engine.serial_number ||
+            `Engine ${engineId}`;
+          itemSerial = engine.serial_number || "-";
+          itemHoursMetrics = getHoursTrackingMetrics(engine);
+        } else if (avionicId && avionicById.has(avionicId)) {
+          const avionic = avionicById.get(avionicId)!;
+          itemCategory = "Avionics";
+          itemLabel =
+            avionicCategoryMap.get(avionic.avionic_category_id || 0) ||
+            avionic.model ||
+            avionic.serial_number ||
+            `Avionics ${avionicId}`;
+          itemSerial = avionic.serial_number || "-";
+          itemHoursMetrics = getHoursTrackingMetrics(avionic);
+        }
+
+        const nextDueHours = toNumeric(record.next_due_hours);
+        const hoursAtCompletion = toNumeric(record.hours_at_completion);
+        const intervalHours =
+          toNumeric(task?.program?.interval_hours) ??
+          (itemHoursMetrics?.intervalUnit === "hours" ? itemHoursMetrics.interval : null);
+        const maintenanceDoneAtHours =
+          hoursAtCompletion ??
+          (nextDueHours !== null && intervalHours !== null ? nextDueHours - intervalHours : null);
+        const hoursToNextMaintenance =
+          nextDueHours !== null && itemHoursMetrics?.currentServiceHours !== null
+            ? nextDueHours - (itemHoursMetrics?.currentServiceHours ?? 0)
+            : itemHoursMetrics?.hoursToNextMaintenance ?? null;
+
+        const completionDate = record.completion_date ? new Date(record.completion_date) : null;
+        const cyclesAtMaintenance = completionDate
+          ? asset.operations.filter(
+              (op) =>
+                op.status === "completed" &&
+                new Date(op.end_date_time || op.created_at) <= completionDate,
+            ).length
+          : null;
+
+        return {
+          "Work Order": taskInfo?.orderId ?? "-",
+          "Work Order Title": taskInfo?.orderTitle || "-",
+          "Task ID": record.work_order_task_id || "-",
+          "Maintenance Done":
+            task?.program?.name ||
+            task?.description ||
+            formatStatus(task?.task_type) ||
+            "-",
+          "Date/Time Done": formatDateTime(record.completion_date || task?.updated_at),
+          "Performed On Type": itemCategory,
+          "Performed On Item": itemLabel,
+          "Item Serial": itemSerial,
+          "Flight Hours When Maintenance Was Done": formatHours(maintenanceDoneAtHours),
+          "Cycles When Maintenance Was Done": formatCycles(cyclesAtMaintenance),
+          "Current Total Hours Used": formatHours(itemHoursMetrics?.currentServiceHours),
+          "Next Maintenance Hours": formatHours(nextDueHours ?? itemHoursMetrics?.nextMaintenanceHours),
+          "Hours / Time Till Next Maintenance": formatHours(hoursToNextMaintenance),
+          "Hours Remaining Till End Of Life": formatHours(itemHoursMetrics?.hoursRemainingToEndOfLife),
+          "Next Due Date": formatDate(record.next_due_date),
+          Remarks: record.remarks || "-",
+        };
+      });
 
       const workOrderRows = assetWorkOrders.flatMap((order) =>
         (order.tasks || []).map((task) => ({
@@ -730,7 +926,214 @@ export const AssetDetailsPage = () => {
     } catch {
       dispatch(showToast({ message: "Failed to download Excel", type: "error" }));
     } finally {
-      setIsDownloadingPdf(false);
+      setIsDownloadingAssetExport(false);
+    }
+  };
+
+  const handleDownloadMaintenanceHistory = async () => {
+    if (!asset || isDownloadingMaintenanceHistoryExport) return;
+
+    setIsDownloadingMaintenanceHistoryExport(true);
+    try {
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.utils.book_new();
+
+      const componentById = new Map(
+        asset.components
+          .filter((component): component is Component & { id: number } =>
+            typeof component.id === "number",
+          )
+          .map((component) => [component.id, component]),
+      );
+      const engineById = new Map(
+        asset.engines
+          .filter((engine): engine is Engine & { id: number } => typeof engine.id === "number")
+          .map((engine) => [engine.id, engine]),
+      );
+      const avionicById = new Map(
+        asset.avionics
+          .filter((avionic): avionic is Avionics & { id: number } =>
+            typeof avionic.id === "number",
+          )
+          .map((avionic) => [avionic.id, avionic]),
+      );
+      const taskById = new Map(
+        assetWorkOrders.flatMap((order) =>
+          (order.tasks || []).map((task) => [
+            task.id,
+            {
+              orderId: order.id,
+              orderTitle: order.title,
+              task,
+            },
+          ]),
+        ),
+      );
+
+      const maintenanceHistoryRows = (assetComplianceRecords || []).map((record) => {
+        const taskInfo =
+          record.work_order_task_id != null ? taskById.get(record.work_order_task_id) : undefined;
+        const task = taskInfo?.task;
+
+        const componentId = record.component_id ?? task?.component_id ?? null;
+        const engineId = record.engine_id ?? task?.engine_id ?? null;
+        const avionicId = record.avionics_id ?? task?.avionics_id ?? null;
+
+        let itemCategory = "-";
+        let itemName = "-";
+        let itemSerial = "-";
+        let itemHoursMetrics: ReturnType<typeof getHoursTrackingMetrics> | null = null;
+
+        if (componentId && componentById.has(componentId)) {
+          const component = componentById.get(componentId)!;
+          itemCategory = "Component";
+          itemName =
+            componentTypeMap.get(component.component_type_id || 0) ||
+            component.part_number ||
+            component.serial_number ||
+            `Component ${componentId}`;
+          itemSerial = component.serial_number || "-";
+          itemHoursMetrics = getHoursTrackingMetrics(component);
+        } else if (engineId && engineById.has(engineId)) {
+          const engine = engineById.get(engineId)!;
+          itemCategory = "Engine";
+          itemName =
+            engineCategoryMap.get(engine.category_id || 0) ||
+            engine.model ||
+            engine.serial_number ||
+            `Engine ${engineId}`;
+          itemSerial = engine.serial_number || "-";
+          itemHoursMetrics = getHoursTrackingMetrics(engine);
+        } else if (avionicId && avionicById.has(avionicId)) {
+          const avionic = avionicById.get(avionicId)!;
+          itemCategory = "Avionics";
+          itemName =
+            avionicCategoryMap.get(avionic.avionic_category_id || 0) ||
+            avionic.model ||
+            avionic.serial_number ||
+            `Avionics ${avionicId}`;
+          itemSerial = avionic.serial_number || "-";
+          itemHoursMetrics = getHoursTrackingMetrics(avionic);
+        }
+
+        const nextDueHours = toNumeric(record.next_due_hours);
+        const hoursAtCompletion = toNumeric(record.hours_at_completion);
+        const intervalHours =
+          toNumeric(task?.program?.interval_hours) ??
+          (itemHoursMetrics?.intervalUnit === "hours" ? itemHoursMetrics.interval : null);
+        const maintenanceDoneAtHours =
+          hoursAtCompletion ??
+          (nextDueHours !== null && intervalHours !== null ? nextDueHours - intervalHours : null);
+        const hoursToNextMaintenance =
+          nextDueHours !== null && itemHoursMetrics?.currentServiceHours !== null
+            ? nextDueHours - (itemHoursMetrics?.currentServiceHours ?? 0)
+            : itemHoursMetrics?.hoursToNextMaintenance ?? null;
+
+        const completionDate = record.completion_date ? new Date(record.completion_date) : null;
+        const cyclesAtMaintenance = completionDate
+          ? asset.operations.filter(
+              (op) =>
+                op.status === "completed" &&
+                new Date(op.end_date_time || op.created_at) <= completionDate,
+            ).length
+          : null;
+
+        return {
+          "Work Order": taskInfo?.orderId ?? "-",
+          "Task ID": record.work_order_task_id || "-",
+          "Maintenance Done":
+            task?.program?.name ||
+            task?.description ||
+            formatStatus(task?.task_type) ||
+            "-",
+          "Date/Time Done": formatDateTime(record.completion_date || task?.updated_at),
+          "Performed On Type": itemCategory,
+          "Performed On Item": itemName,
+          "Item Serial": itemSerial,
+          "Flight Hours When Maintenance Was Done": formatHours(maintenanceDoneAtHours),
+          "Cycles When Maintenance Was Done": formatCycles(cyclesAtMaintenance),
+          "Total Hours Used": formatHours(itemHoursMetrics?.currentServiceHours),
+          "Next Maintenance Hours": formatHours(nextDueHours ?? itemHoursMetrics?.nextMaintenanceHours),
+          "Hours / Time Till Next Maintenance": formatHours(hoursToNextMaintenance),
+          "Hours Remaining Till End Of Life": formatHours(itemHoursMetrics?.hoursRemainingToEndOfLife),
+          "Next Due Date": formatDate(record.next_due_date),
+          Remarks: record.remarks || "-",
+        };
+      });
+
+      const equipmentHoursRows = [
+        ...asset.components.map((component, index) => {
+          const hourMetrics = getHoursTrackingMetrics(component);
+          return {
+            Category: "Component",
+            Item:
+              componentTypeMap.get(component.component_type_id || 0) ||
+              component.part_number ||
+              component.serial_number ||
+              `Component ${index + 1}`,
+            "Serial Number": component.serial_number || "-",
+            "Total Hours Used": formatHours(hourMetrics.currentServiceHours),
+            "Hours Remaining": formatHours(hourMetrics.hoursRemainingToEndOfLife),
+            "Next Maintenance Hours": formatHours(hourMetrics.nextMaintenanceHours),
+            "Hours / Time Till Next Maintenance": formatHours(hourMetrics.hoursToNextMaintenance),
+          };
+        }),
+        ...asset.engines.map((engine, index) => {
+          const hourMetrics = getHoursTrackingMetrics(engine);
+          return {
+            Category: "Engine",
+            Item:
+              engineCategoryMap.get(engine.category_id || 0) ||
+              engine.model ||
+              engine.serial_number ||
+              `Engine ${index + 1}`,
+            "Serial Number": engine.serial_number || "-",
+            "Total Hours Used": formatHours(hourMetrics.currentServiceHours),
+            "Hours Remaining": formatHours(hourMetrics.hoursRemainingToEndOfLife),
+            "Next Maintenance Hours": formatHours(hourMetrics.nextMaintenanceHours),
+            "Hours / Time Till Next Maintenance": formatHours(hourMetrics.hoursToNextMaintenance),
+          };
+        }),
+        ...asset.avionics.map((avionic, index) => {
+          const hourMetrics = getHoursTrackingMetrics(avionic);
+          return {
+            Category: "Avionics",
+            Item:
+              avionicCategoryMap.get(avionic.avionic_category_id || 0) ||
+              avionic.model ||
+              avionic.serial_number ||
+              `Avionics ${index + 1}`,
+            "Serial Number": avionic.serial_number || "-",
+            "Total Hours Used": formatHours(hourMetrics.currentServiceHours),
+            "Hours Remaining": formatHours(hourMetrics.hoursRemainingToEndOfLife),
+            "Next Maintenance Hours": formatHours(hourMetrics.nextMaintenanceHours),
+            "Hours / Time Till Next Maintenance": formatHours(hourMetrics.hoursToNextMaintenance),
+          };
+        }),
+      ];
+
+      const addSheet = (name: string, rows: Array<Record<string, string | number>>) => {
+        const normalizedRows = rows.length > 0 ? rows : [{ Info: "No records" }];
+        const sheet = XLSX.utils.json_to_sheet(normalizedRows);
+        XLSX.utils.book_append_sheet(workbook, sheet, name);
+      };
+
+      addSheet("Maintenance History", maintenanceHistoryRows);
+      addSheet("Equipment Hours", equipmentHoursRows);
+
+      const safeName = String(asset.name || "asset")
+        .trim()
+        .replace(/[^a-zA-Z0-9-_]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") || "asset";
+      const fileName = `${safeName}-${asset.id}-maintenance-history.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+
+      dispatch(showToast({ message: "Maintenance history exported", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to export maintenance history", type: "error" }));
+    } finally {
+      setIsDownloadingMaintenanceHistoryExport(false);
     }
   };
 
@@ -1011,16 +1414,37 @@ export const AssetDetailsPage = () => {
             <span>Edit</span>
           </button>
           <button
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf}
+            onClick={handleExportAssetDetails}
+            disabled={isDownloadingAssetExport}
             aria-label="Download asset details"
             title="Download asset details"
             className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors disabled:opacity-60"
           >
             <Icon
-              icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
-              className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+              icon={isDownloadingAssetExport ? "mdi:loading" : "mdi:download"}
+              className={cn("w-4 h-4", isDownloadingAssetExport ? "animate-spin" : "")}
             />
+            <span>{isDownloadingAssetExport ? "Exporting..." : "Export Asset"}</span>
+          </button>
+          <button
+            onClick={handleDownloadMaintenanceHistory}
+            disabled={isDownloadingMaintenanceHistoryExport}
+            aria-label="Export maintenance history"
+            title="Export maintenance history"
+            className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors disabled:opacity-60"
+          >
+            <Icon
+              icon={isDownloadingMaintenanceHistoryExport ? "mdi:loading" : "mdi:history"}
+              className={cn(
+                "w-4 h-4",
+                isDownloadingMaintenanceHistoryExport ? "animate-spin" : "",
+              )}
+            />
+            <span>
+              {isDownloadingMaintenanceHistoryExport
+                ? "Exporting..."
+                : "Export Maintenance History"}
+            </span>
           </button>
         </div>
       </div>

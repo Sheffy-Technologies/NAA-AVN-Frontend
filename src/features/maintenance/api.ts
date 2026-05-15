@@ -270,6 +270,7 @@ export type MaintenanceAvionics = {
 export type ComplianceRecord = {
   id: number;
   completion_date?: string | null;
+  hours_at_completion?: number | string | null;
   next_due_date?: string | null;
   next_due_hours?: number | string | null;
   remarks?: string | null;
