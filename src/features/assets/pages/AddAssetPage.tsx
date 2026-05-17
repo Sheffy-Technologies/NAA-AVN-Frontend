@@ -50,6 +50,24 @@ type ApiError = {
   status?: number;
 };
 
+const toggleTrackBy = (
+  current: TrackByKey,
+  target: "hours" | "cycles",
+): TrackByKey => {
+  const hasHours = current === "hours" || current === "both";
+  const hasCycles = current === "cycles" || current === "both";
+
+  const nextHours = target === "hours" ? !hasHours : hasHours;
+  const nextCycles = target === "cycles" ? !hasCycles : hasCycles;
+
+  if (nextHours && nextCycles) return "both";
+  if (nextHours) return "hours";
+  if (nextCycles) return "cycles";
+
+  // Keep at least one selected for a valid maintenance basis.
+  return target === "hours" ? "cycles" : "hours";
+};
+
 const toDateOnly = (value: string): string => {
   const trimmed = value.trim();
   if (!trimmed) return "";
@@ -442,18 +460,37 @@ export const AddAssetPage = () => {
 
     const mappedEngines = (loadedAsset.engines || []).map((engine) => ({
       position_id: Number(engine.position_id) || 1,
-      track_by: "hours" as TrackByKey,
+      track_by:
+        engine.inspection_interval_hours != null &&
+        engine.inspection_interval_cycles != null
+          ? ("both" as TrackByKey)
+          : engine.inspection_interval_cycles != null ||
+              engine.inspection_interval_unit === "cycle"
+            ? ("cycles" as TrackByKey)
+            : ("hours" as TrackByKey),
       serial_number: engine.serial_number || "",
       model: engine.model || "",
       installation_date: toDateOnly(engine.installation_date || ""),
       time_since_new: String(engine.time_since_new || ""),
       time_since_overhaul: "",
       service_life_limit: String(engine.service_life_limit || ""),
-      overhaul_limit: String(engine.inspection_interval || ""),
+      overhaul_limit: String(
+        engine.inspection_interval_hours ??
+          (engine.inspection_interval_unit !== "cycle"
+            ? engine.inspection_interval
+            : "") ??
+          "",
+      ),
       cycles_since_new: "",
       service_life_limit_cycles: "",
       cycles_since_overhaul: "",
-      overhaul_limit_cycles: "",
+      overhaul_limit_cycles: String(
+        engine.inspection_interval_cycles ??
+          (engine.inspection_interval_unit === "cycle"
+            ? engine.inspection_interval
+            : "") ??
+          "",
+      ),
     }));
 
     setEngines(
@@ -508,7 +545,11 @@ export const AddAssetPage = () => {
       ),
       ata_chapter_id: String(component.ata_chapter_id || ""),
       track_by:
-        component.inspection_interval_unit === "cycle"
+        component.inspection_interval_hours != null &&
+        component.inspection_interval_cycles != null
+          ? ("both" as TrackByKey)
+          : component.inspection_interval_cycles != null ||
+              component.inspection_interval_unit === "cycle"
           ? ("cycles" as TrackByKey)
           : ("hours" as TrackByKey),
       part_number: component.part_number || "",
@@ -516,7 +557,13 @@ export const AddAssetPage = () => {
       life_limit_hours: String(component.service_life_limit_hours || ""),
       time_since_overhaul: "",
       time_since_new: String(component.time_since_new || ""),
-      overhaul_limit: String(component.inspection_interval || ""),
+      overhaul_limit: String(
+        component.inspection_interval_hours ??
+          (component.inspection_interval_unit !== "cycle"
+            ? component.inspection_interval
+            : "") ??
+          "",
+      ),
       inspection_interval_unit:
         component.inspection_interval_unit === "months" ||
         component.inspection_interval_unit === "cycle"
@@ -527,7 +574,13 @@ export const AddAssetPage = () => {
       cycles_since_new: "",
       service_life_limit_cycles: "",
       cycles_since_overhaul: "",
-      overhaul_limit_cycles: "",
+      overhaul_limit_cycles: String(
+        component.inspection_interval_cycles ??
+          (component.inspection_interval_unit === "cycle"
+            ? component.inspection_interval
+            : "") ??
+          "",
+      ),
     }));
 
     setComponents(
@@ -1012,22 +1065,43 @@ export const AddAssetPage = () => {
               time_since_new,
               service_life_limit,
               overhaul_limit,
-            }) => ({
-              position_id: Number(position_id) || 1,
-              category_id: selectedEngineCategoryId,
-              ata_chapter_id: selectedAtaChapterId,
-              serial_number,
-              model,
-              installation_date: toDateOnly(installation_date),
-              time_since_new: Number(time_since_new) || 0,
-              service_life_limit: Number(service_life_limit) || 0,
-              inspection_interval_unit: selectedIntervalUnit,
-              inspection_interval:
+              overhaul_limit_cycles,
+            }) => {
+              const intervalHours =
                 String(overhaul_limit || "").trim() === ""
                   ? null
-                  : Number(overhaul_limit) || null,
-              maintenance_strategy: selectedMaintenanceStrategy,
-            }),
+                  : Number(overhaul_limit) || null;
+              const intervalCycles =
+                String(overhaul_limit_cycles || "").trim() === ""
+                  ? null
+                  : Number(overhaul_limit_cycles) || null;
+
+              return {
+                position_id: Number(position_id) || 1,
+                category_id: selectedEngineCategoryId,
+                ata_chapter_id: selectedAtaChapterId,
+                serial_number,
+                model,
+                installation_date: toDateOnly(installation_date),
+                time_since_new: Number(time_since_new) || 0,
+                service_life_limit: Number(service_life_limit) || 0,
+                inspection_interval_unit:
+                  intervalHours !== null
+                    ? "hours"
+                    : intervalCycles !== null
+                      ? "cycle"
+                      : selectedIntervalUnit,
+                inspection_interval:
+                  intervalHours !== null
+                    ? intervalHours
+                    : intervalCycles !== null
+                      ? intervalCycles
+                      : null,
+                inspection_interval_hours: intervalHours,
+                inspection_interval_cycles: intervalCycles,
+                maintenance_strategy: selectedMaintenanceStrategy,
+              };
+            },
           ),
 
         components: allComponents
@@ -1044,31 +1118,56 @@ export const AddAssetPage = () => {
               life_limit_hours,
               time_since_new,
               overhaul_limit,
+              overhaul_limit_cycles,
               inspection_interval_unit,
               installed_at,
-            }) => ({
-              component_type_id: Number(component_type) || 0,
-              ata_chapter_id:
-                Number(ata_chapter_id) || selectedComponentAtaChapterId,
-              part_number,
-              serial_number,
-              time_since_new: Number(time_since_new) || 0,
-              service_life_limit_hours: Number(life_limit_hours) || 0,
-              inspection_interval_unit: (
-                track_by === "cycles" || track_by === "both"
-                  ? "cycle"
-                  : inspection_interval_unit === "months"
-                    ? "months"
-                    : "hours"
-              ) as CreateAssetPayload["components"][number]["inspection_interval_unit"],
-              inspection_interval:
+            }) => {
+              const intervalHoursRaw =
                 String(overhaul_limit || "").trim() === ""
                   ? null
-                  : Number(overhaul_limit) || null,
-              maintenance_strategy: selectedMaintenanceStrategy,
-              installed_at: toDateOnly(installed_at),
-              removed_at: null,
-            }),
+                  : Number(overhaul_limit) || null;
+              const intervalCyclesRaw =
+                String(overhaul_limit_cycles || "").trim() === ""
+                  ? null
+                  : Number(overhaul_limit_cycles) || null;
+
+              const intervalHours =
+                track_by === "cycles" ? null : intervalHoursRaw;
+              const intervalCycles =
+                track_by === "hours" ? null : intervalCyclesRaw;
+
+              return {
+                component_type_id: Number(component_type) || 0,
+                ata_chapter_id:
+                  Number(ata_chapter_id) || selectedComponentAtaChapterId,
+                part_number,
+                serial_number,
+                time_since_new: Number(time_since_new) || 0,
+                service_life_limit_hours: Number(life_limit_hours) || 0,
+                inspection_interval_unit: (
+                  intervalHours !== null
+                    ? inspection_interval_unit === "months"
+                      ? "months"
+                      : "hours"
+                    : intervalCycles !== null
+                      ? "cycle"
+                      : inspection_interval_unit === "months"
+                        ? "months"
+                        : "hours"
+                ) as CreateAssetPayload["components"][number]["inspection_interval_unit"],
+                inspection_interval:
+                  intervalHours !== null
+                    ? intervalHours
+                    : intervalCycles !== null
+                      ? intervalCycles
+                      : null,
+                inspection_interval_hours: intervalHours,
+                inspection_interval_cycles: intervalCycles,
+                maintenance_strategy: selectedMaintenanceStrategy,
+                installed_at: toDateOnly(installed_at),
+                removed_at: null,
+              };
+            },
           )
           .filter((c) => c.component_type_id > 0),
 
@@ -1149,9 +1248,17 @@ export const AddAssetPage = () => {
       } else {
         await createAsset(payload).unwrap();
       }
+
+      dispatch(
+        showToast({
+          message: canEdit
+            ? "Asset updated successfully"
+            : "Asset created successfully",
+          type: "success",
+        }),
+      );
       navigate("/dashboard/assets");
     } catch (error) {
-      console.error(`Failed to ${canEdit ? "update" : "create"} asset:`, error);
       dispatch(
         showToast({
           message: extractApiErrorMessage(error),
@@ -1162,46 +1269,52 @@ export const AddAssetPage = () => {
   };
 
   const uploadDocumentForIndex = async (index: number, file: File) => {
-    const doc = documents[index];
-    if (!doc) return;
-
-    const rawType = String(doc.document_type || "").trim();
-    const numericTypeId = Number(rawType);
-    const documentTypeId =
-      Number.isFinite(numericTypeId) && numericTypeId > 0
-        ? numericTypeId
-        : (documentTypes.find((t) => t.name === rawType)?.id ?? null);
-
     try {
+      const current = documents[index];
+      if (!current) return;
+
+      const rawType = String(current.document_type || "").trim();
+      const numericTypeId = Number(rawType);
+      const documentTypeId =
+        Number.isFinite(numericTypeId) && numericTypeId > 0
+          ? numericTypeId
+          : (documentTypes.find((t) => t.name === rawType)?.id ?? null);
+
       const uploaded = await createDocument({
-        asset_id: null,
+        asset_id: canEdit ? editAssetId : null,
         maintenance_event_id: null,
         document_type_id: documentTypeId,
         file,
-        issue_date: doc.issue_date ? `${doc.issue_date}T00:00:00Z` : null,
-        expiry_date: doc.expiry_date ? `${doc.expiry_date}T00:00:00Z` : null,
+        issue_date: current.issue_date ? toDateOnly(current.issue_date) : null,
+        expiry_date: current.expiry_date
+          ? toDateOnly(current.expiry_date)
+          : null,
       }).unwrap();
 
-      const fileValue = uploaded.file || uploaded.file_url;
-      updateItem(setDocuments, documents, index, "file", fileValue);
-      updateItem(setDocuments, documents, index, "file_url", uploaded.file_url);
+      setDocuments((prev) =>
+        prev.map((doc, i) =>
+          i === index
+            ? {
+                ...doc,
+                file: uploaded.file || file.name,
+                file_url: uploaded.file_url || doc.file_url,
+              }
+            : doc,
+        ),
+      );
     } catch (error) {
-      console.error("Failed to upload document:", error);
+      dispatch(
+        showToast({
+          message: extractApiErrorMessage(error),
+          type: "error",
+        }),
+      );
     }
   };
 
-  if (canEdit && isLoadingEditAsset && !editAsset) {
-    return (
-      <div className="min-h-screen bg-[#001219] text-white p-6 pb-20">
-        <div className="p-8 text-center text-gray-400">Loading asset details...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#001219] text-white p-6 pb-20">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8 border-b border-[#0A4D66]/40 pb-4">
+    <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
+      <div className="flex items-center justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -1228,7 +1341,7 @@ export const AddAssetPage = () => {
           )}
           <button
             onClick={handleSubmit}
-            disabled={isSaving || isUploadingPhoto}
+            disabled={isSaving || isUploadingPhoto || isLoadingEditAsset}
             className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-6 py-2 rounded text-sm font-bold transition-colors"
           >
             <Icon icon="mdi:check" className="w-5 h-5" />
@@ -1237,7 +1350,9 @@ export const AddAssetPage = () => {
                 ? "Saving..."
                 : isUploadingPhoto
                   ? "Uploading..."
-                  : "Save & Exit"}
+                  : isLoadingEditAsset
+                    ? "Loading..."
+                    : "Save & Exit"}
             </span>
           </button>
         </div>
@@ -1614,44 +1729,46 @@ export const AddAssetPage = () => {
                         <span className="text-xs font-semibold text-white">
                           Track By
                         </span>
-                        {[
-                          { key: "hours" as const, label: "Hours" },
-                          { key: "cycles" as const, label: "Cycles" },
-                          { key: "both" as const, label: "Hours & Cycles" },
-                        ].map((option) => (
-                          <button
-                            key={option.key}
-                            type="button"
-                            onClick={() =>
+                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={
+                              comp.track_by === "hours" ||
+                              comp.track_by === "both"
+                            }
+                            onChange={() =>
                               updateItem(
                                 setComponents,
                                 components,
                                 idx,
                                 "track_by",
-                                option.key,
+                                toggleTrackBy(comp.track_by, "hours"),
                               )
                             }
-                            className="inline-flex items-center gap-2"
-                          >
-                            <span
-                              className={[
-                                "w-3.5 h-3.5 rounded-full border",
-                                comp.track_by === option.key
-                                  ? "border-[#7FD5FF] bg-[#0369A1]"
-                                  : "border-gray-500 bg-transparent",
-                              ].join(" ")}
-                            />
-                            <span
-                              className={
-                                comp.track_by === option.key
-                                  ? "text-white"
-                                  : "text-gray-400"
-                              }
-                            >
-                              {option.label}
-                            </span>
-                          </button>
-                        ))}
+                            className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                          />
+                          <span className="text-gray-300">Hours</span>
+                        </label>
+                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={
+                              comp.track_by === "cycles" ||
+                              comp.track_by === "both"
+                            }
+                            onChange={() =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "track_by",
+                                toggleTrackBy(comp.track_by, "cycles"),
+                              )
+                            }
+                            className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                          />
+                          <span className="text-gray-300">Cycles</span>
+                        </label>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -2163,52 +2280,9 @@ export const AddAssetPage = () => {
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 text-sm text-gray-400">
                         <input
-                          type="radio"
-                          name="engineTrackBy"
-                          value="hours"
+                          type="checkbox"
                           checked={
-                            engines[activeEngineIndex].track_by === "hours"
-                          }
-                          onChange={() =>
-                            updateItem(
-                              setEngines,
-                              engines,
-                              activeEngineIndex,
-                              "track_by",
-                              "hours",
-                            )
-                          }
-                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
-                        />
-                        Hours
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-400">
-                        <input
-                          type="radio"
-                          name="engineTrackBy"
-                          value="cycles"
-                          checked={
-                            engines[activeEngineIndex].track_by === "cycles"
-                          }
-                          onChange={() =>
-                            updateItem(
-                              setEngines,
-                              engines,
-                              activeEngineIndex,
-                              "track_by",
-                              "cycles",
-                            )
-                          }
-                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
-                        />
-                        Cycles
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-gray-400">
-                        <input
-                          type="radio"
-                          name="engineTrackBy"
-                          value="both"
-                          checked={
+                            engines[activeEngineIndex].track_by === "hours" ||
                             engines[activeEngineIndex].track_by === "both"
                           }
                           onChange={() =>
@@ -2217,12 +2291,38 @@ export const AddAssetPage = () => {
                               engines,
                               activeEngineIndex,
                               "track_by",
-                              "both",
+                              toggleTrackBy(
+                                engines[activeEngineIndex].track_by,
+                                "hours",
+                              ),
                             )
                           }
                           className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                         />
-                        Hours &amp; Cycles
+                        Hours
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="checkbox"
+                          checked={
+                            engines[activeEngineIndex].track_by === "cycles" ||
+                            engines[activeEngineIndex].track_by === "both"
+                          }
+                          onChange={() =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "track_by",
+                              toggleTrackBy(
+                                engines[activeEngineIndex].track_by,
+                                "cycles",
+                              ),
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Cycles
                       </label>
                     </div>
                   </div>
@@ -4243,4 +4343,4 @@ export const AddAssetPage = () => {
       </div>
     </div>
   );
-};
+}

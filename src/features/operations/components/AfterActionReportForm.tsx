@@ -106,6 +106,21 @@ export const AfterActionReportForm = ({
     return depMinutes + retMinutes;
   };
 
+  const calculateAssetCycleCount = (idx: number, asset: OperationAssignedAsset): number => {
+    const times = getAssetFlightTimes(idx, asset);
+    let count = 0;
+
+    if (times.departure_takeoff && times.departure_landing) {
+      count += 1;
+    }
+
+    if (times.return_takeoff && times.return_landing) {
+      count += 1;
+    }
+
+    return count;
+  };
+
   const calculateTotalFlightHours = (): string => {
     let totalMinutes = 0;
     (operation?.assets || []).forEach((asset, idx) => {
@@ -223,6 +238,8 @@ export const AfterActionReportForm = ({
           .map((asset, idx) => {
             const times = getAssetFlightTimes(idx, asset);
 
+            const cycleCount = calculateAssetCycleCount(idx, asset);
+
             return {
               asset_id: asset.asset_id ?? asset.asset?.id ?? 0,
               pilot_id: asset.pilot_id ?? null,
@@ -232,6 +249,8 @@ export const AfterActionReportForm = ({
               arrival_takeoff: toApiTime(times.return_takeoff),
               arrival_landing: toApiTime(times.return_landing),
               flight_hours: Number((calculateAssetTotalMinutes(idx, asset) / 60).toFixed(2)),
+              landing: cycleCount,
+              cycle: cycleCount,
             };
           })
           .filter((item) => item.asset_id > 0);

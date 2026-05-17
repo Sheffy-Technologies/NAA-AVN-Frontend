@@ -51,9 +51,11 @@ const getPersonName = (person: unknown) => {
     record.rank && typeof record.rank === "object"
       ? ((record.rank as Record<string, unknown>).name as string | undefined)
       : undefined;
-  const firstName = typeof record.firstname === "string" ? record.firstname : "";
+  const firstName =
+    typeof record.firstname === "string" ? record.firstname : "";
   const lastName = typeof record.lastname === "string" ? record.lastname : "";
-  const otherNames = typeof record.othernames === "string" ? record.othernames : "";
+  const otherNames =
+    typeof record.othernames === "string" ? record.othernames : "";
   const fullName = `${firstName} ${lastName} ${otherNames}`.trim();
   if (!fullName) return "N/A";
   return rank ? `${rank} ${fullName}` : fullName;
@@ -114,7 +116,8 @@ const renderAssetCard = (
     (typeof baseAsset.type === "string" && baseAsset.type) ||
     "N/A";
   const tailNumber =
-    (typeof baseAsset.tail_number === "string" && baseAsset.tail_number) || "N/A";
+    (typeof baseAsset.tail_number === "string" && baseAsset.tail_number) ||
+    "N/A";
   const totalHours =
     baseAsset.operations_total_hours_label ??
     baseAsset.total_airframe_hours ??
@@ -124,10 +127,10 @@ const renderAssetCard = (
   const nextInspection =
     baseAsset.next_type_of_inspection && baseAsset.next_annual_inspection_date
       ? `${String(baseAsset.next_type_of_inspection)} (${String(baseAsset.next_annual_inspection_date).slice(0, 10)})`
-      : baseAsset.next_annual_inspection_date ??
+      : (baseAsset.next_annual_inspection_date ??
         baseAsset.next_inspection_date ??
         baseAsset.next_inspection ??
-        "N/A";
+        "N/A");
   const lastSnag =
     baseAsset.last_snag ??
     lastDefect?.title ??
@@ -180,26 +183,57 @@ const renderAssetCard = (
       <InfoRow label="Last Snag" value={String(lastSnag)} />
       <InfoRow label="Total Landings" value={String(totalLandings)} />
       {entry.departure_takeoff ? (
-        <InfoRow label="Departure Takeoff" value={String(entry.departure_takeoff)} />
+        <InfoRow
+          label="Departure Takeoff"
+          value={String(entry.departure_takeoff)}
+        />
       ) : null}
-      {entry.estimated_flight_hours !== null && entry.estimated_flight_hours !== undefined ? (
+      {entry.estimated_flight_hours !== null &&
+      entry.estimated_flight_hours !== undefined ? (
         <>
           <InfoRow
             label="Estimated Flight Time"
-            value={entry.estimated_flight_time_label || `${entry.estimated_flight_hours} hrs`}
+            value={
+              entry.estimated_flight_time_label ||
+              `${entry.estimated_flight_hours} hrs`
+            }
           />
-          {entry.estimated_distance_nm !== null && entry.estimated_distance_nm !== undefined ? (
-            <InfoRow label="Distance" value={`${entry.estimated_distance_nm} nm`} />
+          {entry.estimated_distance_nm !== null &&
+          entry.estimated_distance_nm !== undefined ? (
+            <InfoRow
+              label="Distance"
+              value={`${entry.estimated_distance_nm} nm`}
+            />
           ) : null}
           {entry.estimated_end_time ? (
-            <InfoRow label="Est. End Time" value={String(entry.estimated_end_time)} />
+            <InfoRow
+              label="Est. End Time"
+              value={String(entry.estimated_end_time)}
+            />
           ) : null}
         </>
       ) : null}
-      {entry.actual_flight_hours !== null && entry.actual_flight_hours !== undefined ? (
+      {entry.actual_flight_hours !== null &&
+      entry.actual_flight_hours !== undefined ? (
         <InfoRow
           label="Actual Flight Hours"
-          value={entry.actual_flight_time_label || `${entry.actual_flight_hours} hrs`}
+          value={
+            entry.actual_flight_time_label || `${entry.actual_flight_hours} hrs`
+          }
+        />
+      ) : null}
+      {(entry.actual_landing !== null && entry.actual_landing !== undefined) ||
+      (entry.landing !== null && entry.landing !== undefined) ? (
+        <InfoRow
+          label="Landing"
+          value={String(entry.actual_landing ?? entry.landing ?? "N/A")}
+        />
+      ) : null}
+      {(entry.actual_cycle !== null && entry.actual_cycle !== undefined) ||
+      (entry.cycle !== null && entry.cycle !== undefined) ? (
+        <InfoRow
+          label="Cycle"
+          value={String(entry.actual_cycle ?? entry.cycle ?? "N/A")}
         />
       ) : null}
       <InfoRow
@@ -267,14 +301,19 @@ const OperationTab = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
           <InfoRow label="Purpose" value={operation.name} />
-          <InfoRow label="Type" value={operation.operation_type?.name || "N/A"} />
+          <InfoRow
+            label="Type"
+            value={operation.operation_type?.name || "N/A"}
+          />
           <InfoRow
             label="Unit"
             value={
               operation.unit?.id ? (
                 <button
                   type="button"
-                  onClick={() => navigate(`/dashboard/units/${operation.unit.id}`)}
+                  onClick={() =>
+                    navigate(`/dashboard/units/${operation.unit.id}`)
+                  }
                   className="text-left text-[#7FD5FF] hover:underline font-bold text-sm"
                 >
                   {operation.unit.name}
@@ -328,14 +367,8 @@ const OperationTab = ({
               </div>
             }
           />
-          <InfoRow
-            label="Total Hours"
-            value={operation.duration_label || `${operation.duration_hours} hrs`}
-          />
-          <InfoRow
-            label="Date"
-            value={formatOperationDate(operation.start_date_time)}
-          />
+
+          
         </div>
 
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
@@ -469,7 +502,10 @@ const AARTab = ({
     <div className="space-y-4">
       <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white">
         <div className="space-y-0">
-          <InfoRow label="Mission" value={<span className="capitalize">{report.mission}</span>} />
+          <InfoRow
+            label="Mission"
+            value={<span className="capitalize">{report.mission}</span>}
+          />
           <InfoRow label="Task No." value={report.task_no || "-"} />
           <InfoRow label="Infantry No" value={report.infantry_no ?? "-"} />
           <InfoRow label="Vehicle No." value={totalContactVehicles} />
@@ -484,35 +520,65 @@ const AARTab = ({
               key={idx}
               className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-5 text-white"
             >
-              <div className="text-[#7FD5FF] text-sm mb-3">Enemy in Contact {idx + 1}</div>
+              <div className="text-[#7FD5FF] text-sm mb-3">
+                Enemy in Contact {idx + 1}
+              </div>
 
               <div className="space-y-0">
                 <InfoRow
                   label="Engagement"
-                  value={<span className="capitalize">{contact.engagement?.replace(/_/g, " ") || "-"}</span>}
+                  value={
+                    <span className="capitalize">
+                      {contact.engagement?.replace(/_/g, " ") || "-"}
+                    </span>
+                  }
                 />
                 <InfoRow label="Location" value={contact.location || "-"} />
                 <InfoRow label="Date" value={contact.date_of_contact || "-"} />
-                <InfoRow label="Time of Contact" value={contact.time_of_contact || "-"} />
+                <InfoRow
+                  label="Time of Contact"
+                  value={contact.time_of_contact || "-"}
+                />
               </div>
 
               <div className="mt-4 text-sm text-gray-300 space-y-2">
                 <div className="text-gray-400">Enemy Resources</div>
-                <InfoRow label="Description" value={contact.enemy_resources_description || "-"} />
-                <InfoRow label="Infantry No." value={contact.enemy_infantry_no ?? "-"} />
-                <InfoRow label="Vehicle No." value={contact.enemy_vehicle_no ?? "-"} />
+                <InfoRow
+                  label="Description"
+                  value={contact.enemy_resources_description || "-"}
+                />
+                <InfoRow
+                  label="Infantry No."
+                  value={contact.enemy_infantry_no ?? "-"}
+                />
+                <InfoRow
+                  label="Vehicle No."
+                  value={contact.enemy_vehicle_no ?? "-"}
+                />
               </div>
 
               <div className="mt-4 text-sm text-gray-300 space-y-2">
                 <div className="text-gray-400">Targets Treated</div>
-                <InfoRow label="Description" value={contact.targets_treated_description || "-"} />
-                <InfoRow label="Infantry No." value={contact.targets_infantry_no ?? "-"} />
-                <InfoRow label="Vehicle No." value={contact.targets_vehicle_no ?? "-"} />
+                <InfoRow
+                  label="Description"
+                  value={contact.targets_treated_description || "-"}
+                />
+                <InfoRow
+                  label="Infantry No."
+                  value={contact.targets_infantry_no ?? "-"}
+                />
+                <InfoRow
+                  label="Vehicle No."
+                  value={contact.targets_vehicle_no ?? "-"}
+                />
               </div>
 
               <div className="mt-4 text-sm text-gray-300 space-y-2">
                 <div className="text-gray-400">Damage Received</div>
-                <InfoRow label="Description" value={contact.damage_received || "-"} />
+                <InfoRow
+                  label="Description"
+                  value={contact.damage_received || "-"}
+                />
               </div>
             </div>
           ))}
@@ -521,19 +587,27 @@ const AARTab = ({
 
       <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-4">
         <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-3">
-          <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">Vehicles</h4>
+          <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
+            Vehicles
+          </h4>
           <span className="text-xs text-gray-400">{reportVehicles.length}</span>
         </div>
 
         {reportVehicles.length === 0 ? (
-          <p className="text-sm text-gray-400">No vehicles recorded in after action report.</p>
+          <p className="text-sm text-gray-400">
+            No vehicles recorded in after action report.
+          </p>
         ) : (
           <div className="space-y-2">
             {reportVehicles.map((vehicle, index) => (
               <div
-                key={(vehicle && typeof vehicle === "object" && typeof (vehicle as Record<string, unknown>).id === "number")
-                  ? String((vehicle as Record<string, unknown>).id)
-                  : `${index}`}
+                key={
+                  vehicle &&
+                  typeof vehicle === "object" &&
+                  typeof (vehicle as Record<string, unknown>).id === "number"
+                    ? String((vehicle as Record<string, unknown>).id)
+                    : `${index}`
+                }
                 className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] px-4 py-3 text-sm text-gray-200"
               >
                 {getVehicleDisplay(vehicle, index)}
@@ -554,7 +628,8 @@ export const OperationDetailsPage = () => {
   const [activeTab, setActiveTab] = useState<"operation" | "aar">("operation");
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [deleteOperation, { isLoading: isDeleting }] = useDeleteOperationMutation();
+  const [deleteOperation, { isLoading: isDeleting }] =
+    useDeleteOperationMutation();
   const [updateOperationStatus, { isLoading: isUpdatingStatus }] =
     useUpdateOperationStatusMutation();
 
@@ -596,10 +671,17 @@ export const OperationDetailsPage = () => {
 
     try {
       await deleteOperation(operation.id).unwrap();
-      dispatch(showToast({ message: "Operation deleted successfully", type: "success" }));
+      dispatch(
+        showToast({
+          message: "Operation deleted successfully",
+          type: "success",
+        }),
+      );
       navigate("/dashboard/operations");
     } catch {
-      dispatch(showToast({ message: "Failed to delete operation", type: "error" }));
+      dispatch(
+        showToast({ message: "Failed to delete operation", type: "error" }),
+      );
     }
   };
 
@@ -619,9 +701,16 @@ export const OperationDetailsPage = () => {
         status: selected,
       }).unwrap();
       setIsStatusMenuOpen(false);
-      dispatch(showToast({ message: "Operation status updated", type: "success" }));
+      dispatch(
+        showToast({ message: "Operation status updated", type: "success" }),
+      );
     } catch {
-      dispatch(showToast({ message: "Failed to update operation status", type: "error" }));
+      dispatch(
+        showToast({
+          message: "Failed to update operation status",
+          type: "error",
+        }),
+      );
     }
   };
 
@@ -666,9 +755,7 @@ export const OperationDetailsPage = () => {
               Back
             </button>
 
-            <div className="text-sm text-gray-400">
-              {operation.name}
-            </div>
+            <div className="text-sm text-gray-400">{operation.name}</div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -701,7 +788,9 @@ export const OperationDetailsPage = () => {
                       onClick={() => handleUpdateStatus(status)}
                       className={cn(
                         "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#001825] transition-colors",
-                        operation.status === status ? "text-[#7FD5FF]" : "text-gray-300",
+                        operation.status === status
+                          ? "text-[#7FD5FF]"
+                          : "text-gray-300",
                       )}
                     >
                       {status}
@@ -711,7 +800,9 @@ export const OperationDetailsPage = () => {
               ) : null}
             </div>
             <button
-              onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
+              onClick={() =>
+                navigate(`/dashboard/operations/${operation.id}/edit`)
+              }
               className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825]"
             >
               <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
@@ -724,7 +815,10 @@ export const OperationDetailsPage = () => {
             >
               <Icon
                 icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
-                className={cn("w-5 h-5", isDownloadingPdf ? "animate-spin" : "")}
+                className={cn(
+                  "w-5 h-5",
+                  isDownloadingPdf ? "animate-spin" : "",
+                )}
               />
             </button>
           </div>
@@ -776,7 +870,10 @@ export const OperationDetailsPage = () => {
         {activeTab === "operation" ? (
           <OperationTab operation={operation} navigate={navigate} />
         ) : (
-          <AARTab operation={operation} onAddReport={handleAddAfterActionReport} />
+          <AARTab
+            operation={operation}
+            onAddReport={handleAddAfterActionReport}
+          />
         )}
       </div>
     </div>

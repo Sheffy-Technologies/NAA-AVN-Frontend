@@ -11,6 +11,8 @@ import {
   useGetRfqsQuery,
   useCreateRfqMutation,
   useGetSupplierQuotationsQuery,
+  useCreateSupplierQuotationMutation,
+  useApproveSupplierQuotationMutation,
   useGetGoodsReceivedNotesQuery,
   useGetSuppliersQuery,
   useGetPurchaseOrdersQuery,
@@ -478,10 +480,22 @@ export const InventoryPage = () => {
     number[]
   >([]);
   const [selectedRfqSupplierIds, setSelectedRfqSupplierIds] = useState<number[]>([]);
+  const [selectedRfqId, setSelectedRfqId] = useState<number | null>(null);
+  const [quotationSupplierId, setQuotationSupplierId] = useState<number | "">("");
+  const [quotationNumber, setQuotationNumber] = useState("");
+  const [quotationAmount, setQuotationAmount] = useState("");
+  const [quotationCurrency, setQuotationCurrency] = useState("NGN");
+  const [quotationValidUntil, setQuotationValidUntil] = useState("");
+  const [quotationNotes, setQuotationNotes] = useState("");
+  const [quotationFormError, setQuotationFormError] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const [deleteInventory] = useDeleteInventoryMutation();
   const [createRfq, { isLoading: isCreatingPartsRfq }] = useCreateRfqMutation();
+  const [createSupplierQuotation, { isLoading: isCreatingQuotation }] =
+    useCreateSupplierQuotationMutation();
+  const [approveSupplierQuotation, { isLoading: isApprovingQuotation }] =
+    useApproveSupplierQuotationMutation();
 
   const handleDeleteInventory = async (id: number, name: string) => {
     if (!window.confirm(`Delete "${name}"? This action cannot be undone.`)) return;
@@ -542,13 +556,17 @@ export const InventoryPage = () => {
     skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
   });
 
-  const { data: rfqsData = [], refetch: refetchRfqs } = useGetRfqsQuery(undefined, {
-    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-  });
+  const { data: rfqsData = [], refetch: refetchRfqs } = useGetRfqsQuery(
+    undefined,
+    {
+      skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+    },
+  );
 
-  const { data: quotationsData = [] } = useGetSupplierQuotationsQuery(undefined, {
-    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-  });
+  const { data: quotationsData = [], refetch: refetchQuotations } =
+    useGetSupplierQuotationsQuery(undefined, {
+      skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+    });
 
   const { data: goodsReceivedNotesData = [] } = useGetGoodsReceivedNotesQuery(undefined, {
     skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
@@ -725,6 +743,38 @@ export const InventoryPage = () => {
     [rfqsData],
   );
 
+  const rfqRows = useMemo(() => {
+    return [...rfqsData].sort((a, b) => b.id - a.id);
+  }, [rfqsData]);
+
+  const selectedRfq = useMemo(
+    () => rfqsData.find((rfq) => rfq.id === selectedRfqId) ?? null,
+    [rfqsData, selectedRfqId],
+  );
+
+  const selectedRfqQuotations = useMemo(() => {
+    if (!selectedRfqId) return [];
+    return quotationsData
+      .filter((quotation) => Number(quotation.rfq_id) === Number(selectedRfqId))
+      .sort((a, b) => {
+        const aApproved = (a.status ?? "").toLowerCase() === "approved";
+        const bApproved = (b.status ?? "").toLowerCase() === "approved";
+        if (aApproved && !bApproved) return -1;
+        if (!aApproved && bApproved) return 1;
+        return b.id - a.id;
+      });
+  }, [quotationsData, selectedRfqId]);
+
+  const approvedQuotationId = useMemo(() => {
+    const approved = selectedRfqQuotations.find(
+      (quotation) => (quotation.status ?? "").toLowerCase() === "approved",
+    );
+    return approved?.id ?? null;
+  }, [selectedRfqQuotations]);
+
+  const selectableQuotationSuppliers =
+    selectedRfq?.suppliers?.length ? selectedRfq.suppliers : suppliersData;
+
   const lifecycleCardData = useMemo(
     () => [
       {
@@ -855,6 +905,97 @@ export const InventoryPage = () => {
       dispatch(
         showToast({
           message: "Failed to request RFQ for selected requisitions.",
+          type: "error",
+        }),
+      );
+    }
+  };
+
+  const resetQuotationForm = () => {
+    setQuotationSupplierId("");
+    setQuotationNumber("");
+    setQuotationAmount("");
+    setQuotationCurrency("NGN");
+    setQuotationValidUntil("");
+    setQuotationNotes("");
+    setQuotationFormError(null);
+  };
+
+  const handleOpenRfqDetails = (rfqId: number) => {
+    const targetRfq = rfqsData.find((rfq) => rfq.id === rfqId) ?? null;
+    const availableSuppliers =
+      targetRfq?.suppliers?.length ? targetRfq.suppliers : suppliersData;
+
+    setSelectedRfqId(rfqId);
+    resetQuotationForm();
+    if (availableSuppliers[0]) {
+      setQuotationSupplierId(availableSuppliers[0].id);
+    }
+  };
+
+  const handleSubmitQuotation = async () => {
+    setQuotationFormError(null);
+
+    if (!selectedRfqId) {
+      setQuotationFormError("Select an RFQ first.");
+      return;
+    }
+
+    const supplierId = Number(quotationSupplierId);
+    if (!supplierId || Number.isNaN(supplierId)) {
+      setQuotationFormError("Select a supplier for this quotation.");
+      return;
+    }
+
+    const parsedAmount = Number(quotationAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setQuotationFormError("Enter a valid quotation amount greater than zero.");
+      return;
+    }
+
+    try {
+      await createSupplierQuotation({
+        rfq_id: selectedRfqId,
+        supplier_id: supplierId,
+        quotation_number: quotationNumber.trim() || null,
+        total_amount: parsedAmount,
+        currency: quotationCurrency.trim() || "NGN",
+        valid_until: quotationValidUntil || null,
+        status: "submitted",
+        notes: quotationNotes.trim() || null,
+        quoted_at: new Date().toISOString(),
+      }).unwrap();
+
+      dispatch(
+        showToast({
+          message: "Supplier quotation submitted successfully.",
+          type: "success",
+        }),
+      );
+
+      resetQuotationForm();
+      refetchQuotations();
+      refetchRfqs();
+    } catch {
+      setQuotationFormError("Failed to submit supplier quotation.");
+    }
+  };
+
+  const handleApproveQuotation = async (quotationId: number) => {
+    try {
+      await approveSupplierQuotation(quotationId).unwrap();
+      dispatch(
+        showToast({
+          message: "Quotation approved successfully.",
+          type: "success",
+        }),
+      );
+      refetchQuotations();
+      refetchRfqs();
+    } catch {
+      dispatch(
+        showToast({
+          message: "Failed to approve quotation.",
           type: "error",
         }),
       );
@@ -1819,6 +1960,88 @@ export const InventoryPage = () => {
                 </tbody>
               </table>
             </div>
+
+            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+              <div className="flex items-center justify-between border-b border-[#0A4D66]/40 px-6 py-4">
+                <div className="text-sm font-semibold text-white">RFQs</div>
+                <div className="text-xs text-gray-400">Click an RFQ to view details and quotations</div>
+              </div>
+              <table className="w-full text-left border-collapse min-w-250">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-6 py-4 font-medium">RFQ No</th>
+                    <th className="px-6 py-4 font-medium">Requisition</th>
+                    <th className="px-6 py-4 font-medium">Issued</th>
+                    <th className="px-6 py-4 font-medium">Suppliers</th>
+                    <th className="px-6 py-4 font-medium">Quotations</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {rfqRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                        No RFQs found.
+                      </td>
+                    </tr>
+                  ) : (
+                    rfqRows.map((rfq, idx) => {
+                      const rfqQuotationCount = quotationsData.filter(
+                        (quotation) => quotation.rfq_id === rfq.id,
+                      ).length;
+                      const hasApproved = quotationsData.some(
+                        (quotation) =>
+                          quotation.rfq_id === rfq.id &&
+                          (quotation.status ?? "").toLowerCase() === "approved",
+                      );
+
+                      return (
+                        <tr
+                          key={rfq.id}
+                          className={cn(
+                            "cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
+                            selectedRfqId === rfq.id
+                              ? "bg-[#0A4D66]/25"
+                              : idx % 2 === 0
+                                ? "bg-[#001219]"
+                                : "bg-[#001825]",
+                          )}
+                          onClick={() => handleOpenRfqDetails(rfq.id)}
+                        >
+                          <td className="px-6 py-4 text-white font-medium">
+                            {rfq.rfq_number || `RFQ #${rfq.id}`}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {rfq.stock_movement_id
+                              ? `REQ #${rfq.stock_movement_id}`
+                              : "-"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {formatDateShort(rfq.issued_at)} {formatTimeShort(rfq.issued_at)}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {rfq.suppliers?.length ?? 0}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">{rfqQuotationCount}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={cn(
+                                "inline-flex rounded-full border px-2 py-1 text-xs",
+                                hasApproved
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                  : "border-amber-500/40 bg-amber-500/10 text-amber-300",
+                              )}
+                            >
+                              {hasApproved ? "Quotation Approved" : "Awaiting Approval"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </>
         ) : activeTab === "Purchase Orders" ? (
           <>
@@ -2157,6 +2380,203 @@ export const InventoryPage = () => {
             }
           }}
         />
+      )}
+
+      {selectedRfq && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4">
+          <div className="w-full max-w-5xl rounded-xl border border-[#0A4D66]/50 bg-[#001219] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#0A4D66]/40 px-5 py-4">
+              <div>
+                <div className="text-sm uppercase tracking-wide text-[#7FD5FF]">RFQ Details</div>
+                <div className="text-lg font-semibold text-white mt-1">
+                  {selectedRfq.rfq_number || `RFQ #${selectedRfq.id}`}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Requisition: REQ #{selectedRfq.stock_movement_id} • Issued: {formatDateShort(selectedRfq.issued_at)} {formatTimeShort(selectedRfq.issued_at)}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRfqId(null)}
+                className="inline-flex items-center justify-center rounded-full p-1.5 text-gray-300 hover:bg-[#0A4D66]/40 hover:text-white"
+                title="Close RFQ details"
+              >
+                <Icon icon="mdi:close" className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="grid gap-4 p-5 lg:grid-cols-2">
+              <div className="rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-4">
+                <div className="mb-3 text-sm font-semibold text-white">Supplier Quotations</div>
+                {selectedRfqQuotations.length === 0 ? (
+                  <div className="rounded border border-dashed border-[#0A4D66]/50 p-4 text-sm text-gray-400">
+                    No quotations submitted for this RFQ yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedRfqQuotations.map((quotation) => {
+                      const isApproved =
+                        (quotation.status ?? "").toLowerCase() === "approved";
+                      const canApprove =
+                        !isApproved &&
+                        (approvedQuotationId === null || approvedQuotationId === quotation.id);
+
+                      return (
+                        <div
+                          key={quotation.id}
+                          className="rounded border border-[#0A4D66]/40 bg-[#001219] p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-sm font-medium text-white">
+                                {quotation.supplier?.name || `Supplier #${quotation.supplier_id}`}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-400">
+                                {quotation.quotation_number || `Quotation #${quotation.id}`}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-300">
+                                {formatNaira(quotation.total_amount)} {quotation.currency || ""}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-500">
+                                Valid Until: {formatDateShort(quotation.valid_until)}
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-2">
+                              <span
+                                className={cn(
+                                  "rounded-full border px-2 py-1 text-[11px]",
+                                  isApproved
+                                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                    : "border-amber-500/40 bg-amber-500/10 text-amber-300",
+                                )}
+                              >
+                                {isApproved ? "Approved" : "Submitted"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveQuotation(quotation.id)}
+                                disabled={!canApprove || isApprovingQuotation}
+                                className="rounded bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-black hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isApproved
+                                  ? "Approved"
+                                  : isApprovingQuotation
+                                    ? "Approving..."
+                                    : "Approve"}
+                              </button>
+                            </div>
+                          </div>
+                          {quotation.notes && (
+                            <div className="mt-2 border-t border-[#0A4D66]/30 pt-2 text-xs text-gray-300">
+                              {quotation.notes}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-4">
+                <div className="mb-3 text-sm font-semibold text-white">Submit Supplier Quotation</div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-400">Supplier</label>
+                    <select
+                      value={quotationSupplierId}
+                      onChange={(event) =>
+                        setQuotationSupplierId(
+                          event.target.value ? Number(event.target.value) : "",
+                        )
+                      }
+                      className="w-full rounded border border-[#0A4D66]/50 bg-[#001219] px-3 py-2 text-sm text-white"
+                    >
+                      <option value="">Select supplier</option>
+                      {selectableQuotationSuppliers.map((supplier) => (
+                        <option key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">Quotation Number</label>
+                      <input
+                        type="text"
+                        value={quotationNumber}
+                        onChange={(event) => setQuotationNumber(event.target.value)}
+                        className="w-full rounded border border-[#0A4D66]/50 bg-[#001219] px-3 py-2 text-sm text-white"
+                        placeholder="QT-001"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">Valid Until</label>
+                      <input
+                        type="date"
+                        value={quotationValidUntil}
+                        onChange={(event) => setQuotationValidUntil(event.target.value)}
+                        className="w-full rounded border border-[#0A4D66]/50 bg-[#001219] px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">Amount</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={quotationAmount}
+                        onChange={(event) => setQuotationAmount(event.target.value)}
+                        className="w-full rounded border border-[#0A4D66]/50 bg-[#001219] px-3 py-2 text-sm text-white"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs text-gray-400">Currency</label>
+                      <input
+                        type="text"
+                        value={quotationCurrency}
+                        onChange={(event) => setQuotationCurrency(event.target.value.toUpperCase())}
+                        className="w-full rounded border border-[#0A4D66]/50 bg-[#001219] px-3 py-2 text-sm text-white"
+                        placeholder="NGN"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-gray-400">Notes (optional)</label>
+                    <textarea
+                      value={quotationNotes}
+                      onChange={(event) => setQuotationNotes(event.target.value)}
+                      className="min-h-24 w-full rounded border border-[#0A4D66]/50 bg-[#001219] px-3 py-2 text-sm text-white"
+                      placeholder="Add quotation notes"
+                    />
+                  </div>
+
+                  {quotationFormError && (
+                    <div className="text-xs text-red-400">{quotationFormError}</div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSubmitQuotation}
+                    disabled={isCreatingQuotation}
+                    className="w-full rounded bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0369A1]/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isCreatingQuotation ? "Submitting Quotation..." : "Submit Quotation"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -32,6 +32,8 @@ export type MaintenanceMetricsResponse = {
       avionics_id: number | null;
       next_due_date: string | null;
       next_due_hours: number | string | null;
+      next_due_cycles?: number | string | null;
+      cycles_at_completion?: number | string | null;
       completion_date: string | null;
     }>;
   };
@@ -44,6 +46,7 @@ export type MaintenanceProgram = {
   description?: string | null;
   asset_id?: number | null;
   interval_hours?: number | null;
+  interval_cycles?: number | null;
   interval_months?: number | null;
   applicability?: "component" | "engine" | "avionics";
   interval_type?: "hours" | "cycles" | "calendar";
@@ -57,6 +60,7 @@ export type CreateMaintenanceProgramRequest = {
   description?: string | null;
   asset_id?: number | null;
   interval_hours?: number | null;
+  interval_cycles?: number | null;
   interval_months?: number | null;
   applicability: "component" | "engine" | "avionics";
   interval_type?: "hours" | "cycles" | "calendar";
@@ -69,6 +73,7 @@ export type UpdateMaintenanceProgramRequest = {
   description?: string | null;
   asset_id?: number | null;
   interval_hours?: number | null;
+  interval_cycles?: number | null;
   interval_months?: number | null;
   applicability?: "component" | "engine" | "avionics";
   interval_type?: "hours" | "cycles" | "calendar";

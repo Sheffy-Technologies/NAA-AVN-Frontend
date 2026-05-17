@@ -16,6 +16,7 @@ type ProgramFormState = {
   applicability: "component" | "engine" | "avionics";
   interval_type: "hours" | "cycles" | "calendar";
   interval_hours: string;
+  interval_cycles: string;
   interval_months: string;
   ata_chapter_id: string;
   asset_id: string;
@@ -27,6 +28,7 @@ const initialFormState: ProgramFormState = {
   applicability: "component",
   interval_type: "hours",
   interval_hours: "",
+  interval_cycles: "",
   interval_months: "",
   ata_chapter_id: "",
   asset_id: "",
@@ -47,6 +49,10 @@ const toProgramFormState = (program: MaintenanceProgram): ProgramFormState => ({
   interval_hours:
     program.interval_hours !== null && program.interval_hours !== undefined
       ? String(program.interval_hours)
+      : "",
+  interval_cycles:
+    program.interval_cycles !== null && program.interval_cycles !== undefined
+      ? String(program.interval_cycles)
       : "",
   interval_months:
     program.interval_months !== null && program.interval_months !== undefined
@@ -151,6 +157,7 @@ export const MaintenanceProgramsCrudPage = () => {
       description: form.description.trim() || null,
       asset_id: toNullableNumber(form.asset_id),
       interval_hours: toNullableNumber(form.interval_hours),
+      interval_cycles: toNullableNumber(form.interval_cycles),
       interval_months: toNullableNumber(form.interval_months),
       applicability: form.applicability,
       interval_type: form.interval_type,
@@ -232,6 +239,7 @@ export const MaintenanceProgramsCrudPage = () => {
                         <div className="text-xs text-gray-400">
                           Interval: {program.interval_type || "-"}
                           {program.interval_hours ? `, ${program.interval_hours} hrs` : ""}
+                          {program.interval_cycles ? `, ${program.interval_cycles} cycles` : ""}
                           {program.interval_months ? `, ${program.interval_months} months` : ""}
                         </div>
                       </div>
@@ -360,11 +368,23 @@ export const MaintenanceProgramsCrudPage = () => {
                 <input
                   type="number"
                   min={0}
+                  step="0.1"
                   className="w-full rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white"
                   placeholder="Interval hours"
                   value={form.interval_hours}
                   onChange={(e) => handleChange("interval_hours", e.target.value)}
                 />
+                <input
+                  type="number"
+                  min={0}
+                  className="w-full rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white"
+                  placeholder="Interval cycles"
+                  value={form.interval_cycles}
+                  onChange={(e) => handleChange("interval_cycles", e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3">
                 <input
                   type="number"
                   min={0}

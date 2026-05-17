@@ -208,6 +208,7 @@ const getHoursTrackingMetrics = (value: {
   service_life_limit_hours?: number | string | null;
   last_inspection?: number | string | null;
   inspection_interval?: number | string | null;
+  inspection_interval_hours?: number | string | null;
   inspection_interval_unit?: string | null;
 }) => {
   const currentServiceHours = getCurrentServiceHours(value);
@@ -218,12 +219,14 @@ const getHoursTrackingMetrics = (value: {
       ? serviceLifeLimit - currentServiceHours
       : null;
 
-  const interval = toNumeric(value.inspection_interval);
   const intervalUnit = String(value.inspection_interval_unit || "hours").toLowerCase();
+  const interval =
+    toNumeric(value.inspection_interval_hours) ??
+    (intervalUnit !== "cycle" ? toNumeric(value.inspection_interval) : null);
   const lastInspection = toNumeric(value.last_inspection);
 
   const nextMaintenanceHours =
-    intervalUnit === "hours" && interval !== null && lastInspection !== null
+    interval !== null && lastInspection !== null
       ? lastInspection + interval
       : null;
   const hoursToNextMaintenance =
@@ -253,6 +256,16 @@ const cloneEngine = (engine: Engine): Engine => ({
   service_life_limit: engine.service_life_limit ?? "",
   inspection_interval_unit: toIntervalUnit(engine.inspection_interval_unit),
   inspection_interval: engine.inspection_interval ?? "",
+  inspection_interval_hours:
+    engine.inspection_interval_hours ??
+    (toIntervalUnit(engine.inspection_interval_unit) !== "cycle"
+      ? (engine.inspection_interval ?? null)
+      : null),
+  inspection_interval_cycles:
+    engine.inspection_interval_cycles ??
+    (toIntervalUnit(engine.inspection_interval_unit) === "cycle"
+      ? (engine.inspection_interval ?? null)
+      : null),
   maintenance_strategy: toMaintenanceStrategy(engine.maintenance_strategy),
 });
 
@@ -266,6 +279,16 @@ const cloneComponent = (component: Component): Component => ({
   service_life_limit_hours: component.service_life_limit_hours ?? "",
   inspection_interval_unit: toIntervalUnit(component.inspection_interval_unit),
   inspection_interval: component.inspection_interval ?? "",
+  inspection_interval_hours:
+    component.inspection_interval_hours ??
+    (toIntervalUnit(component.inspection_interval_unit) !== "cycle"
+      ? (component.inspection_interval ?? null)
+      : null),
+  inspection_interval_cycles:
+    component.inspection_interval_cycles ??
+    (toIntervalUnit(component.inspection_interval_unit) === "cycle"
+      ? (component.inspection_interval ?? null)
+      : null),
   maintenance_strategy: toMaintenanceStrategy(component.maintenance_strategy),
   installed_at: toDateOnly(component.installed_at),
   removed_at: toDateOnly(component.removed_at),
@@ -337,6 +360,7 @@ export const AssetDetailsPage = () => {
   const [selectedProgramIds, setSelectedProgramIds] = useState<Set<number>>(new Set());
   // Ad-hoc task modal and handlers removed
   const [isCreatingWorkOrder, setIsCreatingWorkOrder] = useState(false);
+  const [creatingDueWorkOrderKey, setCreatingDueWorkOrderKey] = useState<string | null>(null);
   // (removed duplicate ad-hoc modal state)
   const [isDownloadingAssetExport, setIsDownloadingAssetExport] = useState(false);
   const [isDownloadingMaintenanceHistoryExport, setIsDownloadingMaintenanceHistoryExport] =
@@ -459,6 +483,8 @@ export const AssetDetailsPage = () => {
     service_life_limit_hours: "",
     inspection_interval_unit: "hours",
     inspection_interval: "",
+    inspection_interval_hours: null,
+    inspection_interval_cycles: null,
     maintenance_strategy: "hard-time",
     installed_at: "",
     removed_at: "",
@@ -475,6 +501,8 @@ export const AssetDetailsPage = () => {
     service_life_limit: "",
     inspection_interval_unit: "hours",
     inspection_interval: "",
+    inspection_interval_hours: null,
+    inspection_interval_cycles: null,
     maintenance_strategy: "hard-time",
   });
 
@@ -518,19 +546,37 @@ export const AssetDetailsPage = () => {
           component.part_number ||
           component.serial_number,
       )
-      .map((component) => ({
-        component_type_id: Number(component.component_type_id) || 0,
-        ata_chapter_id: Number(component.ata_chapter_id) || 0,
-        part_number: component.part_number || "",
-        serial_number: component.serial_number || "",
-        time_since_new: toNumber(component.time_since_new),
-        service_life_limit_hours: toNumber(component.service_life_limit_hours),
-        inspection_interval_unit: toIntervalUnit(component.inspection_interval_unit),
-        inspection_interval: toNullableNumber(component.inspection_interval),
-        maintenance_strategy: toMaintenanceStrategy(component.maintenance_strategy),
-        installed_at: toDateOnly(component.installed_at),
-        removed_at: toDateOnly(component.removed_at) || null,
-      }))
+      .map((component) => {
+        const intervalHours = toNullableNumber(component.inspection_interval_hours);
+        const intervalCycles = toNullableNumber(component.inspection_interval_cycles);
+        const fallbackInterval = toNullableNumber(component.inspection_interval);
+
+        return {
+          component_type_id: Number(component.component_type_id) || 0,
+          ata_chapter_id: Number(component.ata_chapter_id) || 0,
+          part_number: component.part_number || "",
+          serial_number: component.serial_number || "",
+          time_since_new: toNumber(component.time_since_new),
+          service_life_limit_hours: toNumber(component.service_life_limit_hours),
+          inspection_interval_unit:
+            intervalHours !== null
+              ? "hours"
+              : intervalCycles !== null
+                ? "cycle"
+                : toIntervalUnit(component.inspection_interval_unit),
+          inspection_interval:
+            intervalHours !== null
+              ? intervalHours
+              : intervalCycles !== null
+                ? intervalCycles
+                : fallbackInterval,
+          inspection_interval_hours: intervalHours,
+          inspection_interval_cycles: intervalCycles,
+          maintenance_strategy: toMaintenanceStrategy(component.maintenance_strategy),
+          installed_at: toDateOnly(component.installed_at),
+          removed_at: toDateOnly(component.removed_at) || null,
+        };
+      })
       .filter((component) => component.component_type_id > 0);
 
     try {
@@ -551,19 +597,37 @@ export const AssetDetailsPage = () => {
 
     const payload = enginesDraft
       .filter((engine) => engine.serial_number || engine.model)
-      .map((engine) => ({
-        position_id: Number(engine.position_id) || defaultPositionId,
-        category_id: Number(engine.category_id) || defaultCategoryId,
-        ata_chapter_id: Number(engine.ata_chapter_id) || defaultAtaChapterId,
-        serial_number: engine.serial_number || "",
-        model: engine.model || "",
-        installation_date: toDateOnly(engine.installation_date),
-        time_since_new: toNumber(engine.time_since_new),
-        service_life_limit: toNumber(engine.service_life_limit),
-        inspection_interval_unit: toIntervalUnit(engine.inspection_interval_unit),
-        inspection_interval: toNullableNumber(engine.inspection_interval),
-        maintenance_strategy: toMaintenanceStrategy(engine.maintenance_strategy),
-      }));
+      .map((engine) => {
+        const intervalHours = toNullableNumber(engine.inspection_interval_hours);
+        const intervalCycles = toNullableNumber(engine.inspection_interval_cycles);
+        const fallbackInterval = toNullableNumber(engine.inspection_interval);
+
+        return {
+          position_id: Number(engine.position_id) || defaultPositionId,
+          category_id: Number(engine.category_id) || defaultCategoryId,
+          ata_chapter_id: Number(engine.ata_chapter_id) || defaultAtaChapterId,
+          serial_number: engine.serial_number || "",
+          model: engine.model || "",
+          installation_date: toDateOnly(engine.installation_date),
+          time_since_new: toNumber(engine.time_since_new),
+          service_life_limit: toNumber(engine.service_life_limit),
+          inspection_interval_unit:
+            intervalHours !== null
+              ? "hours"
+              : intervalCycles !== null
+                ? "cycle"
+                : toIntervalUnit(engine.inspection_interval_unit),
+          inspection_interval:
+            intervalHours !== null
+              ? intervalHours
+              : intervalCycles !== null
+                ? intervalCycles
+                : fallbackInterval,
+          inspection_interval_hours: intervalHours,
+          inspection_interval_cycles: intervalCycles,
+          maintenance_strategy: toMaintenanceStrategy(engine.maintenance_strategy),
+        };
+      });
 
     try {
       await updateAsset({ id: asset.id, data: { engines: payload } }).unwrap();
@@ -746,13 +810,15 @@ export const AssetDetailsPage = () => {
       const dueTrackingSheetRows = dueTrackingRows.map((row) => ({
         Category: row.category,
         Item: row.name,
-        "Current Hrs": formatNumber(row.current),
-        "Last Inspection": formatNumber(row.lastInspection),
-        Interval: formatInspectionInterval(row.interval, row.intervalUnit),
-        "Due Hours":
-          row.intervalUnit === "hours" && row.dueHours !== null
-            ? formatNumber(row.dueHours)
-            : "-",
+        "Current Used Hrs": formatNumber(row.currentHours),
+        "Current Used Cycles": formatNumber(row.currentCycles),
+        "Hours Left": row.hoursLeft !== null ? formatNumber(row.hoursLeft) : "-",
+        "Cycles Left": row.cyclesLeft !== null ? formatNumber(row.cyclesLeft) : "-",
+        Status:
+          (row.hoursLeft !== null && row.hoursLeft <= 0) ||
+          (row.cyclesLeft !== null && row.cyclesLeft <= 0)
+            ? "Overdue"
+            : "Due",
       }));
 
       const componentById = new Map(
@@ -1189,80 +1255,117 @@ export const AssetDetailsPage = () => {
       return dateB - dateA;
     });
 
-  const dueTrackingRows = [
+  type DueTrackingRow = {
+    key: string;
+    category: "Engine" | "Component";
+    itemId: number | null;
+    name: string;
+    currentHours: number | null;
+    currentCycles: number | null;
+    hoursLeft: number | null;
+    cyclesLeft: number | null;
+    isDue: boolean;
+  };
+
+  const allDueTrackingRows: DueTrackingRow[] = [
     ...asset.engines.map((engine, index) => {
-      const current = getCurrentServiceHours(engine);
-      const lastInspection = toNumeric(engine.last_inspection) ?? 0;
-      const interval = toNumeric(engine.inspection_interval);
-      const unit = String(engine.inspection_interval_unit || "hours").toLowerCase();
-      const elapsedSinceInspection =
-        current === null ? null : Math.max(current - lastInspection, 0);
-      const dueHours =
-        unit === "hours" && interval !== null && elapsedSinceInspection !== null
-          ? interval - elapsedSinceInspection
+      const currentHours = getCurrentServiceHours(engine);
+      const lastInspectionHours = toNumeric(engine.last_inspection) ?? 0;
+      const intervalHours =
+        toNumeric(engine.inspection_interval_hours) ??
+        (toIntervalUnit(engine.inspection_interval_unit) !== "cycle"
+          ? toNumeric(engine.inspection_interval)
+          : null);
+      const nextDueHours =
+        intervalHours !== null ? lastInspectionHours + intervalHours : null;
+      const hoursLeft =
+        nextDueHours !== null && currentHours !== null
+          ? nextDueHours - currentHours
           : null;
+
+      const currentCycles = toNumeric(asset.total_cycles);
+      const lastInspectionCycles = toNumeric(asset.last_inspection_cycles) ?? 0;
+      const intervalCycles =
+        toNumeric(engine.inspection_interval_cycles) ??
+        (toIntervalUnit(engine.inspection_interval_unit) === "cycle"
+          ? toNumeric(engine.inspection_interval)
+          : null);
+      const nextDueCycles =
+        intervalCycles !== null ? lastInspectionCycles + intervalCycles : null;
+      const cyclesLeft =
+        nextDueCycles !== null && currentCycles !== null
+          ? nextDueCycles - currentCycles
+          : null;
+
+      const isDue =
+        (hoursLeft !== null && hoursLeft <= 0) ||
+        (cyclesLeft !== null && cyclesLeft <= 0);
 
       return {
         key: `engine-${engine.id ?? index}`,
-        category: "Engine",
+        category: "Engine" as const,
+        itemId: engine.id ?? null,
         name: engine.serial_number || engine.model || `Engine ${index + 1}`,
-        current,
-        lastInspection: toNumeric(engine.last_inspection),
-        interval,
-        intervalUnit: unit,
-        dueHours,
+        currentHours,
+        currentCycles,
+        hoursLeft,
+        cyclesLeft,
+        isDue,
       };
     }),
     ...asset.components.map((component, index) => {
-      const current = getCurrentServiceHours(component);
-      const lastInspection = toNumeric(component.last_inspection) ?? 0;
-      const interval = toNumeric(component.inspection_interval);
-      const unit = String(component.inspection_interval_unit || "hours").toLowerCase();
-      const elapsedSinceInspection =
-        current === null ? null : Math.max(current - lastInspection, 0);
-      const dueHours =
-        unit === "hours" && interval !== null && elapsedSinceInspection !== null
-          ? interval - elapsedSinceInspection
+      const currentHours = getCurrentServiceHours(component);
+      const lastInspectionHours = toNumeric(component.last_inspection) ?? 0;
+      const intervalHours =
+        toNumeric(component.inspection_interval_hours) ??
+        (toIntervalUnit(component.inspection_interval_unit) !== "cycle"
+          ? toNumeric(component.inspection_interval)
+          : null);
+      const nextDueHours =
+        intervalHours !== null ? lastInspectionHours + intervalHours : null;
+      const hoursLeft =
+        nextDueHours !== null && currentHours !== null
+          ? nextDueHours - currentHours
           : null;
+
+      const currentCycles = toNumeric(asset.total_cycles);
+      const lastInspectionCycles = toNumeric(asset.last_inspection_cycles) ?? 0;
+      const intervalCycles =
+        toNumeric(component.inspection_interval_cycles) ??
+        (toIntervalUnit(component.inspection_interval_unit) === "cycle"
+          ? toNumeric(component.inspection_interval)
+          : null);
+      const nextDueCycles =
+        intervalCycles !== null ? lastInspectionCycles + intervalCycles : null;
+      const cyclesLeft =
+        nextDueCycles !== null && currentCycles !== null
+          ? nextDueCycles - currentCycles
+          : null;
+
+      const isDue =
+        (hoursLeft !== null && hoursLeft <= 0) ||
+        (cyclesLeft !== null && cyclesLeft <= 0);
 
       return {
         key: `component-${component.id ?? index}`,
-        category: "Component",
+        category: "Component" as const,
+        itemId: component.id ?? null,
         name:
           component.part_number ||
           component.serial_number ||
           `Component ${index + 1}`,
-        current,
-        lastInspection: toNumeric(component.last_inspection),
-        interval,
-        intervalUnit: unit,
-        dueHours,
-      };
-    }),
-    ...asset.avionics.map((avionic, index) => {
-      const current = getCurrentServiceHours(avionic);
-      const lastInspection = toNumeric(avionic.last_inspection) ?? 0;
-      const interval = toNumeric(avionic.inspection_interval);
-      const unit = String(avionic.inspection_interval_unit || "hours").toLowerCase();
-      const elapsedSinceInspection =
-        current === null ? null : Math.max(current - lastInspection, 0);
-      const dueHours =
-        unit === "hours" && interval !== null && elapsedSinceInspection !== null
-          ? interval - elapsedSinceInspection
-          : null;
-
-      return {
-        key: `avionic-${avionic.id ?? index}`,
-        category: "Avionics",
-        name: avionic.serial_number || avionic.model || `Avionics ${index + 1}`,
-        current,
-        lastInspection: toNumeric(avionic.last_inspection),
-        interval,
-        intervalUnit: unit,
-        dueHours,
+        currentHours,
+        currentCycles,
+        hoursLeft,
+        cyclesLeft,
+        isDue,
       };
     }),
   ];
+
+  const dueTrackingRows: DueTrackingRow[] = allDueTrackingRows.filter(
+    (row) => row.isDue,
+  );
 
   const handleToggleProgramSelection = (id: number) => {
     setSelectedProgramIds((prev) => {
@@ -1361,6 +1464,63 @@ export const AssetDetailsPage = () => {
           type: "error",
         }),
       );
+    }
+  };
+
+  const handleCreateDueItemWorkOrder = async (
+    row: Pick<DueTrackingRow, "key" | "category" | "itemId" | "name">,
+  ) => {
+    if (!asset?.id || !row.itemId) {
+      dispatch(showToast({ message: "Item is missing an id", type: "error" }));
+      return;
+    }
+
+    const applicability = row.category === "Engine" ? "engine" : "component";
+    const matchingProgram = maintenancePrograms.find(
+      (program) => program.applicability === applicability,
+    );
+
+    if (!matchingProgram) {
+      dispatch(
+        showToast({
+          message: `No ${applicability} maintenance program available to create work order`,
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    try {
+      setCreatingDueWorkOrderKey(row.key);
+
+      await createWorkOrder({
+        asset_id: asset.id,
+        title: `${asset.name || "Asset"} - ${row.category} due: ${row.name}`,
+        program_applicabilities: [
+          {
+            program_id: matchingProgram.id,
+            component_ids: row.category === "Component" ? [row.itemId] : [],
+            engine_ids: row.category === "Engine" ? [row.itemId] : [],
+            avionics_ids: [],
+          },
+        ],
+      }).unwrap();
+
+      dispatch(
+        showToast({
+          message: `Work order created for due ${row.category.toLowerCase()}`,
+          type: "success",
+        }),
+      );
+    } catch {
+      dispatch(
+        showToast({
+          message: "Failed to create work order",
+          type: "error",
+        }),
+      );
+    } finally {
+      setCreatingDueWorkOrderKey(null);
     }
   };
 
@@ -1658,6 +1818,8 @@ export const AssetDetailsPage = () => {
                               service_life_limit_hours: "",
                               inspection_interval_unit: "hours",
                               inspection_interval: "",
+                              inspection_interval_hours: null,
+                              inspection_interval_cycles: null,
                               maintenance_strategy: "hard-time",
                               installed_at: "",
                               removed_at: "",
@@ -1726,223 +1888,327 @@ export const AssetDetailsPage = () => {
                       </div>
                       {isEditingComponents ? (
                         <div className="space-y-3">
-                          <select
-                            title="Component type"
-                            value={component.component_type_id || ""}
-                            onChange={(e) =>
-                              setComponentsDraft((prev) =>
-                                prev.map((item, i) =>
-                                  i === index
-                                    ? {
-                                        ...item,
-                                        component_type_id:
-                                          Number(e.target.value) || undefined,
-                                      }
-                                    : item,
-                                ),
-                              )
-                            }
-                            className={inputClass}
-                          >
-                            <option value="">Select component type</option>
-                            {componentTypes.map((type) => (
-                              <option key={type.id} value={type.id}>
-                                {type.name}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            className={inputClass}
-                            placeholder="Part number"
-                            value={component.part_number || ""}
-                            onChange={(e) =>
-                              setComponentsDraft((prev) =>
-                                prev.map((item, i) =>
-                                  i === index
-                                    ? { ...item, part_number: e.target.value }
-                                    : item,
-                                ),
-                              )
-                            }
-                          />
-                          <input
-                            className={inputClass}
-                            placeholder="Serial number"
-                            value={component.serial_number || ""}
-                            onChange={(e) =>
-                              setComponentsDraft((prev) =>
-                                prev.map((item, i) =>
-                                  i === index
-                                    ? { ...item, serial_number: e.target.value }
-                                    : item,
-                                ),
-                              )
-                            }
-                          />
-                          <div className="grid grid-cols-2 gap-3">
-                            <input
-                              type="number"
-                              className={inputClass}
-                              placeholder="Time since new"
-                              value={String(component.time_since_new || "")}
-                              onChange={(e) =>
-                                setComponentsDraft((prev) =>
-                                  prev.map((item, i) =>
-                                    i === index
-                                      ? { ...item, time_since_new: e.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
-                            <input
-                              type="number"
-                              className={inputClass}
-                              placeholder="Life limit"
-                              value={String(
-                                component.service_life_limit_hours || "",
-                              )}
-                              onChange={(e) =>
-                                setComponentsDraft((prev) =>
-                                  prev.map((item, i) =>
-                                    i === index
-                                      ? {
-                                          ...item,
-                                          service_life_limit_hours:
-                                            e.target.value,
-                                        }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Component Type</label>
                             <select
-                              title="ATA chapter"
-                              className={inputClass}
-                              value={component.ata_chapter_id || ""}
+                              title="Component type"
+                              value={component.component_type_id || ""}
                               onChange={(e) =>
                                 setComponentsDraft((prev) =>
                                   prev.map((item, i) =>
                                     i === index
                                       ? {
                                           ...item,
-                                          ata_chapter_id:
+                                          component_type_id:
                                             Number(e.target.value) || undefined,
                                         }
                                       : item,
                                   ),
                                 )
                               }
+                              className={inputClass}
                             >
-                              <option value="">Select ATA chapter</option>
-                              {componentAtaChapters.map((chapter) => (
-                                <option key={chapter.id} value={chapter.id}>
-                                  {chapter.chapter_number ||
-                                    chapter.name ||
-                                    `ATA ${chapter.id}`}
+                              <option value="">Select component type</option>
+                              {componentTypes.map((type) => (
+                                <option key={type.id} value={type.id}>
+                                  {type.name}
                                 </option>
                               ))}
                             </select>
-                            <select
-                              title="Inspection interval unit"
-                              className={inputClass}
-                              value={component.inspection_interval_unit || "hours"}
-                              onChange={(e) =>
-                                setComponentsDraft((prev) =>
-                                  prev.map((item, i) =>
-                                    i === index
-                                      ? {
-                                          ...item,
-                                          inspection_interval_unit:
-                                            toIntervalUnit(e.target.value),
-                                        }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            >
-                              <option value="hours">Hours</option>
-                              <option value="months">Months</option>
-                              <option value="cycle">Cycle</option>
-                            </select>
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Part Number</label>
                             <input
-                              type="number"
                               className={inputClass}
-                              placeholder="Inspection interval"
-                              value={String(component.inspection_interval || "")}
+                              placeholder="Part number"
+                              value={component.part_number || ""}
                               onChange={(e) =>
                                 setComponentsDraft((prev) =>
                                   prev.map((item, i) =>
                                     i === index
-                                      ? {
-                                          ...item,
-                                          inspection_interval: e.target.value,
-                                        }
+                                      ? { ...item, part_number: e.target.value }
                                       : item,
                                   ),
                                 )
                               }
                             />
-                            <select
-                              title="Maintenance strategy"
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Serial Number</label>
+                            <input
                               className={inputClass}
-                              value={component.maintenance_strategy || "hard-time"}
+                              placeholder="Serial number"
+                              value={component.serial_number || ""}
                               onChange={(e) =>
                                 setComponentsDraft((prev) =>
                                   prev.map((item, i) =>
                                     i === index
-                                      ? {
-                                          ...item,
-                                          maintenance_strategy:
-                                            toMaintenanceStrategy(
+                                      ? { ...item, serial_number: e.target.value }
+                                      : item,
+                                  ),
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Time Since New</label>
+                              <input
+                                type="number"
+                                className={inputClass}
+                                placeholder="Time since new"
+                                value={String(component.time_since_new || "")}
+                                onChange={(e) =>
+                                  setComponentsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? { ...item, time_since_new: e.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Service Life Limit</label>
+                              <input
+                                type="number"
+                                className={inputClass}
+                                placeholder="Life limit"
+                                value={String(
+                                  component.service_life_limit_hours || "",
+                                )}
+                                onChange={(e) =>
+                                  setComponentsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? {
+                                            ...item,
+                                            service_life_limit_hours:
                                               e.target.value,
-                                            ),
-                                        }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            >
-                              <option value="hard-time">Hard Time</option>
-                              <option value="on-condition">On Condition</option>
-                              <option value="condition">Condition</option>
-                            </select>
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-3">
-                            <input
-                              type="date"
-                              title="Installed date"
-                              className={inputClass}
-                              value={toDateOnly(component.installed_at)}
-                              onChange={(e) =>
-                                setComponentsDraft((prev) =>
-                                  prev.map((item, i) =>
-                                    i === index
-                                      ? { ...item, installed_at: e.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
-                            <input
-                              type="date"
-                              title="Removed date"
-                              className={inputClass}
-                              value={toDateOnly(component.removed_at)}
-                              onChange={(e) =>
-                                setComponentsDraft((prev) =>
-                                  prev.map((item, i) =>
-                                    i === index
-                                      ? { ...item, removed_at: e.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">ATA Chapter</label>
+                              <select
+                                title="ATA chapter"
+                                className={inputClass}
+                                value={component.ata_chapter_id || ""}
+                                onChange={(e) =>
+                                  setComponentsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? {
+                                            ...item,
+                                            ata_chapter_id:
+                                              Number(e.target.value) || undefined,
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              >
+                                <option value="">Select ATA chapter</option>
+                                {componentAtaChapters.map((chapter) => (
+                                  <option key={chapter.id} value={chapter.id}>
+                                    {chapter.chapter_number ||
+                                      chapter.name ||
+                                      `ATA ${chapter.id}`}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Inspection Interval Unit</label>
+                              <div className="flex items-center gap-4 rounded border border-[#0A4D66]/40 px-3 py-2">
+                                <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      component.inspection_interval_hours !== null &&
+                                      component.inspection_interval_hours !== undefined
+                                    }
+                                    onChange={(e) =>
+                                      setComponentsDraft((prev) =>
+                                        prev.map((item, i) =>
+                                          i === index
+                                            ? {
+                                                ...item,
+                                                inspection_interval_unit: "hours",
+                                                inspection_interval_hours: e.target.checked
+                                                  ? (item.inspection_interval_hours ?? "")
+                                                  : null,
+                                              }
+                                            : item,
+                                        ),
+                                      )
+                                    }
+                                    className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                                  />
+                                  <span>Hours</span>
+                                </label>
+                                <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+                                  <input
+                                    type="checkbox"
+                                    checked={
+                                      component.inspection_interval_cycles !== null &&
+                                      component.inspection_interval_cycles !== undefined
+                                    }
+                                    onChange={(e) =>
+                                      setComponentsDraft((prev) =>
+                                        prev.map((item, i) =>
+                                          i === index
+                                            ? {
+                                                ...item,
+                                                inspection_interval_unit: e.target.checked
+                                                  ? "cycle"
+                                                  : (item.inspection_interval_unit ?? "hours"),
+                                                inspection_interval_cycles: e.target.checked
+                                                  ? (item.inspection_interval_cycles ?? "")
+                                                  : null,
+                                              }
+                                            : item,
+                                        ),
+                                      )
+                                    }
+                                    className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                                  />
+                                  <span>Cycles</span>
+                                </label>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            {(component.inspection_interval_hours !== null &&
+                              component.inspection_interval_hours !== undefined) ? (
+                              <div className="space-y-1">
+                                <label className="text-xs text-gray-400">
+                                  Inspection Interval (Hours)
+                                </label>
+                                <input
+                                  type="number"
+                                  className={inputClass}
+                                  placeholder="Inspection interval hours"
+                                  value={String(component.inspection_interval_hours || "")}
+                                  onChange={(e) =>
+                                    setComponentsDraft((prev) =>
+                                      prev.map((item, i) =>
+                                        i === index
+                                          ? {
+                                              ...item,
+                                              inspection_interval_hours: e.target.value,
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              <div />
+                            )}
+                            {(component.inspection_interval_cycles !== null &&
+                              component.inspection_interval_cycles !== undefined) ? (
+                              <div className="space-y-1">
+                                <label className="text-xs text-gray-400">
+                                  Inspection Interval (Cycles)
+                                </label>
+                                <input
+                                  type="number"
+                                  className={inputClass}
+                                  placeholder="Inspection interval cycles"
+                                  value={String(component.inspection_interval_cycles || "")}
+                                  onChange={(e) =>
+                                    setComponentsDraft((prev) =>
+                                      prev.map((item, i) =>
+                                        i === index
+                                          ? {
+                                              ...item,
+                                              inspection_interval_cycles: e.target.value,
+                                            }
+                                          : item,
+                                      ),
+                                    )
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              <div />
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Maintenance Strategy</label>
+                              <select
+                                title="Maintenance strategy"
+                                className={inputClass}
+                                value={component.maintenance_strategy || "hard-time"}
+                                onChange={(e) =>
+                                  setComponentsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? {
+                                            ...item,
+                                            maintenance_strategy:
+                                              toMaintenanceStrategy(
+                                                e.target.value,
+                                              ),
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              >
+                                <option value="hard-time">Hard Time</option>
+                                <option value="on-condition">On Condition</option>
+                                <option value="condition">Condition</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Installed Date</label>
+                              <input
+                                type="date"
+                                title="Installed date"
+                                className={inputClass}
+                                value={toDateOnly(component.installed_at)}
+                                onChange={(e) =>
+                                  setComponentsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? { ...item, installed_at: e.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Removed Date</label>
+                              <input
+                                type="date"
+                                title="Removed date"
+                                className={inputClass}
+                                value={toDateOnly(component.removed_at)}
+                                onChange={(e) =>
+                                  setComponentsDraft((prev) =>
+                                    prev.map((item, i) =>
+                                      i === index
+                                        ? { ...item, removed_at: e.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
                           </div>
                           <button
                             type="button"
@@ -2041,6 +2307,8 @@ export const AssetDetailsPage = () => {
                           service_life_limit: "",
                           inspection_interval_unit: "hours",
                           inspection_interval: "",
+                          inspection_interval_hours: null,
+                          inspection_interval_cycles: null,
                           maintenance_strategy: "hard-time",
                         },
                       ])
@@ -3060,11 +3328,11 @@ export const AssetDetailsPage = () => {
 
             <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
               <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-4">
-                Asset Equipment Due Hours
+                Due Components / Engines
               </h3>
 
               {dueTrackingRows.length === 0 ? (
-                <EmptyState message="No engines, components, or avionics found for this asset." />
+                <EmptyState message="No components or engines are currently due for maintenance." />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm text-gray-200">
@@ -3072,21 +3340,19 @@ export const AssetDetailsPage = () => {
                       <tr>
                         <th className="text-left px-4 py-3 font-medium">Category</th>
                         <th className="text-left px-4 py-3 font-medium">Item</th>
-                        <th className="text-left px-4 py-3 font-medium">Current Hrs</th>
-                        <th className="text-left px-4 py-3 font-medium">Last Inspection</th>
-                        <th className="text-left px-4 py-3 font-medium">Interval</th>
-                        <th className="text-left px-4 py-3 font-medium">Due Hours</th>
+                        <th className="text-left px-4 py-3 font-medium">Current Used Hrs</th>
+                        <th className="text-left px-4 py-3 font-medium">Current Used Cycles</th>
+                        <th className="text-left px-4 py-3 font-medium">Hours Left</th>
+                        <th className="text-left px-4 py-3 font-medium">Cycles Left</th>
                         <th className="text-left px-4 py-3 font-medium">Status</th>
+                        <th className="text-left px-4 py-3 font-medium">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {dueTrackingRows.map((row, index) => {
-                        const status =
-                          row.dueHours === null
-                            ? "Not hours-based"
-                            : row.dueHours <= 0
-                              ? "Overdue"
-                              : "Due";
+                        const isOverdue =
+                          (row.hoursLeft !== null && row.hoursLeft <= 0) ||
+                          (row.cyclesLeft !== null && row.cyclesLeft <= 0);
 
                         return (
                           <tr
@@ -3099,38 +3365,42 @@ export const AssetDetailsPage = () => {
                             <td className="px-4 py-3">{row.category}</td>
                             <td className="px-4 py-3 text-white font-medium">{row.name}</td>
                             <td className="px-4 py-3">
-                              {row.current === null ? "-" : `${row.current.toLocaleString()} hrs`}
+                              {row.currentHours === null
+                                ? "-"
+                                : `${row.currentHours.toLocaleString()} hrs`}
                             </td>
                             <td className="px-4 py-3">
-                              {row.lastInspection === null
+                              {row.currentCycles === null
                                 ? "-"
-                                : `${row.lastInspection.toLocaleString()} hrs`}
+                                : `${row.currentCycles.toLocaleString()} cyc`}
                             </td>
                             <td className="px-4 py-3">
-                              {row.interval === null
+                              {row.hoursLeft === null
                                 ? "-"
-                                : `${row.interval.toLocaleString()} ${
-                                    row.intervalUnit === "hours"
-                                      ? "hrs"
-                                      : row.intervalUnit
-                                  }`}
+                                : `${Math.abs(row.hoursLeft).toLocaleString()} hrs`}
                             </td>
                             <td className="px-4 py-3">
-                              {row.dueHours === null
+                              {row.cyclesLeft === null
                                 ? "-"
-                                : `${Math.abs(row.dueHours).toLocaleString()} hrs`}
+                                : `${Math.abs(row.cyclesLeft).toLocaleString()} cyc`}
                             </td>
                             <td className="px-4 py-3">
                               <StatusPill
-                                label={status}
-                                tone={
-                                  status === "Overdue"
-                                    ? "danger"
-                                    : status === "Due"
-                                      ? "success"
-                                      : "neutral"
-                                }
+                                label={isOverdue ? "Overdue" : "Due"}
+                                tone={isOverdue ? "danger" : "warning"}
                               />
+                            </td>
+                            <td className="px-4 py-3">
+                              <button
+                                type="button"
+                                onClick={() => handleCreateDueItemWorkOrder(row)}
+                                disabled={creatingDueWorkOrderKey === row.key}
+                                className="rounded border border-emerald-400 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-60"
+                              >
+                                {creatingDueWorkOrderKey === row.key
+                                  ? "Creating..."
+                                  : "Create Work Order"}
+                              </button>
                             </td>
                           </tr>
                         );

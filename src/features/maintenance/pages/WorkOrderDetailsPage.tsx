@@ -288,7 +288,7 @@ export const WorkOrderDetailsPage = () => {
     if (!selectedInventoryId || Number.isNaN(selectedInventoryId)) {
       setFeedback({
         type: "error",
-        message: `Select an inventory item to request procurement for task #${taskId}.`,
+        message: `Select an inventory item to create a parts requisition for task #${taskId}.`,
       });
       return;
     }
@@ -296,7 +296,7 @@ export const WorkOrderDetailsPage = () => {
     if (!Number.isInteger(quantity) || quantity < 1) {
       setFeedback({
         type: "error",
-        message: `Enter a valid quantity to request procurement for task #${taskId}.`,
+        message: `Enter a valid quantity to create a parts requisition for task #${taskId}.`,
       });
       return;
     }
@@ -307,7 +307,7 @@ export const WorkOrderDetailsPage = () => {
         movement_type: "issue",
         work_order_id: workOrderId,
         requesting_unit_id: workOrder?.asset?.unit_id ?? null,
-        notes: `Procurement request from work order task #${taskId}`,
+        notes: `Parts requisition from work order task #${taskId}`,
         stocks: [
           {
             inventory_id: selectedInventoryId,
@@ -319,12 +319,12 @@ export const WorkOrderDetailsPage = () => {
 
       setFeedback({
         type: "success",
-        message: `Procurement request created for task #${taskId}.`,
+        message: `Parts requisition created for task #${taskId}.`,
       });
     } catch {
       setFeedback({
         type: "error",
-        message: `Failed to create procurement request for task #${taskId}.`,
+        message: `Failed to create parts requisition for task #${taskId}.`,
       });
     }
   };
@@ -916,8 +916,8 @@ export const WorkOrderDetailsPage = () => {
                                   className="w-full rounded border border-amber-400/50 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                   {isRequestingProcurement
-                                    ? "Requesting Procurement..."
-                                    : "Request Procurement"}
+                                    ? "Creating Parts Requisition..."
+                                    : "Parts Requisition"}
                                 </button>
                               )}
                             </div>
@@ -925,7 +925,7 @@ export const WorkOrderDetailsPage = () => {
 
                           {isInventoryInsufficientForTask(task.id) && (
                             <p className="text-[11px] text-amber-300 mb-4">
-                              Selected inventory stock is lower than requested quantity. You can create a procurement request directly.
+                              Selected inventory stock is lower than requested quantity. You can create a parts requisition directly.
                             </p>
                           )}
 

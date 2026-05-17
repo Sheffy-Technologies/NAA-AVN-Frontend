@@ -26,6 +26,8 @@ export type OperationAsset = {
   arrival_takeoff?: string | null;
   arrival_landing?: string | null;
   flight_hours?: number | null;
+  landing?: number | null;
+  cycle?: number | null;
 };
 
 export type OperationAssetPerson = {
@@ -66,6 +68,8 @@ export type OperationAssignedAsset = {
   arrival_takeoff?: string | null;
   arrival_landing?: string | null;
   flight_hours?: number | string | null;
+  landing?: number | null;
+  cycle?: number | null;
   asset?: OperationAssetDetails | null;
   pilot?: OperationAssetPerson | null;
   co_pilot?: OperationAssetPerson | null;
@@ -75,6 +79,8 @@ export type OperationAssignedAsset = {
   estimated_end_time?: string | null;
   actual_flight_hours?: number | null;
   actual_flight_time_label?: string | null;
+  actual_landing?: number | null;
+  actual_cycle?: number | null;
 };
 
 export type CreateOperationRequest = {
