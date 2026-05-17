@@ -2371,214 +2371,320 @@ export const AssetDetailsPage = () => {
                 </div>
                 {isEditingEngines ? (
                   <div className="space-y-3">
-                    <select
-                      title="Engine position"
-                      className={inputClass}
-                      value={engine.position_id || ""}
-                      onChange={(e) =>
-                        setEnginesDraft((prev) =>
-                          prev.map((item, i) =>
-                            i === index
-                              ? { ...item, position_id: Number(e.target.value) || 1 }
-                              : item,
-                          ),
-                        )
-                      }
-                    >
-                      {enginePositions.map((position) => (
-                        <option key={position.id} value={position.id}>
-                          {position.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      title="Engine category"
-                      className={inputClass}
-                      value={engine.category_id || ""}
-                      onChange={(e) =>
-                        setEnginesDraft((prev) =>
-                          prev.map((item, i) =>
-                            i === index
-                              ? {
-                                  ...item,
-                                  category_id: Number(e.target.value) || undefined,
-                                }
-                              : item,
-                          ),
-                        )
-                      }
-                    >
-                      <option value="">Select category</option>
-                      {engineCategories.map((category) => (
-                        <option key={category.id} value={category.id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      title="Engine ATA chapter"
-                      className={inputClass}
-                      value={engine.ata_chapter_id || ""}
-                      onChange={(e) =>
-                        setEnginesDraft((prev) =>
-                          prev.map((item, i) =>
-                            i === index
-                              ? {
-                                  ...item,
-                                  ata_chapter_id:
-                                    Number(e.target.value) || undefined,
-                                }
-                              : item,
-                          ),
-                        )
-                      }
-                    >
-                      <option value="">Select ATA chapter</option>
-                      {engineAtaChapters.map((chapter) => (
-                        <option key={chapter.id} value={chapter.id}>
-                          {chapter.chapter_number ||
-                            chapter.name ||
-                            `ATA ${chapter.id}`}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      className={inputClass}
-                      placeholder="Serial number"
-                      value={engine.serial_number || ""}
-                      onChange={(e) =>
-                        setEnginesDraft((prev) =>
-                          prev.map((item, i) =>
-                            i === index
-                              ? { ...item, serial_number: e.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                    />
-                    <input
-                      className={inputClass}
-                      placeholder="Model"
-                      value={engine.model || ""}
-                      onChange={(e) =>
-                        setEnginesDraft((prev) =>
-                          prev.map((item, i) =>
-                            i === index ? { ...item, model: e.target.value } : item,
-                          ),
-                        )
-                      }
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="date"
-                        title="Engine installation date"
-                        className={inputClass}
-                        value={toDateOnly(engine.installation_date)}
-                        onChange={(e) =>
-                          setEnginesDraft((prev) =>
-                            prev.map((item, i) =>
-                              i === index
-                                ? { ...item, installation_date: e.target.value }
-                                : item,
-                            ),
-                          )
-                        }
-                      />
-                      <input
-                        type="number"
-                        className={inputClass}
-                        placeholder="Time since new"
-                        value={String(engine.time_since_new || "")}
-                        onChange={(e) =>
-                          setEnginesDraft((prev) =>
-                            prev.map((item, i) =>
-                              i === index
-                                ? { ...item, time_since_new: e.target.value }
-                                : item,
-                            ),
-                          )
-                        }
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="number"
-                        className={inputClass}
-                        placeholder="Service life limit"
-                        value={String(engine.service_life_limit || "")}
-                        onChange={(e) =>
-                          setEnginesDraft((prev) =>
-                            prev.map((item, i) =>
-                              i === index
-                                ? { ...item, service_life_limit: e.target.value }
-                                : item,
-                            ),
-                          )
-                        }
-                      />
-                      <input
-                        type="number"
-                        className={inputClass}
-                        placeholder="Inspection interval"
-                        value={String(engine.inspection_interval || "")}
-                        onChange={(e) =>
-                          setEnginesDraft((prev) =>
-                            prev.map((item, i) =>
-                              i === index
-                                ? { ...item, inspection_interval: e.target.value }
-                                : item,
-                            ),
-                          )
-                        }
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Engine Position</label>
                       <select
-                        title="Engine inspection interval unit"
+                        title="Engine position"
                         className={inputClass}
-                        value={engine.inspection_interval_unit || "hours"}
+                        value={engine.position_id || ""}
+                        onChange={(e) =>
+                          setEnginesDraft((prev) =>
+                            prev.map((item, i) =>
+                              i === index
+                                ? { ...item, position_id: Number(e.target.value) || 1 }
+                                : item,
+                            ),
+                          )
+                        }
+                      >
+                        {enginePositions.map((position) => (
+                          <option key={position.id} value={position.id}>
+                            {position.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Engine Category</label>
+                      <select
+                        title="Engine category"
+                        className={inputClass}
+                        value={engine.category_id || ""}
                         onChange={(e) =>
                           setEnginesDraft((prev) =>
                             prev.map((item, i) =>
                               i === index
                                 ? {
                                     ...item,
-                                    inspection_interval_unit: toIntervalUnit(
-                                      e.target.value,
-                                    ),
+                                    category_id: Number(e.target.value) || undefined,
                                   }
                                 : item,
                             ),
                           )
                         }
                       >
-                        <option value="hours">Hours</option>
-                        <option value="months">Months</option>
-                        <option value="cycle">Cycle</option>
+                        <option value="">Select category</option>
+                        {engineCategories.map((category) => (
+                          <option key={category.id} value={category.id}>
+                            {category.name}
+                          </option>
+                        ))}
                       </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">ATA Chapter</label>
                       <select
-                        title="Engine maintenance strategy"
+                        title="Engine ATA chapter"
                         className={inputClass}
-                        value={engine.maintenance_strategy || "hard-time"}
+                        value={engine.ata_chapter_id || ""}
                         onChange={(e) =>
                           setEnginesDraft((prev) =>
                             prev.map((item, i) =>
                               i === index
                                 ? {
                                     ...item,
-                                    maintenance_strategy: toMaintenanceStrategy(
-                                      e.target.value,
-                                    ),
+                                    ata_chapter_id:
+                                      Number(e.target.value) || undefined,
                                   }
                                 : item,
                             ),
                           )
                         }
                       >
-                        <option value="hard-time">Hard Time</option>
-                        <option value="on-condition">On Condition</option>
-                        <option value="condition">Condition</option>
+                        <option value="">Select ATA chapter</option>
+                        {engineAtaChapters.map((chapter) => (
+                          <option key={chapter.id} value={chapter.id}>
+                            {chapter.chapter_number ||
+                              chapter.name ||
+                              `ATA ${chapter.id}`}
+                          </option>
+                        ))}
                       </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Serial Number</label>
+                      <input
+                        className={inputClass}
+                        placeholder="Serial number"
+                        value={engine.serial_number || ""}
+                        onChange={(e) =>
+                          setEnginesDraft((prev) =>
+                            prev.map((item, i) =>
+                              i === index
+                                ? { ...item, serial_number: e.target.value }
+                                : item,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-gray-400">Model</label>
+                      <input
+                        className={inputClass}
+                        placeholder="Model"
+                        value={engine.model || ""}
+                        onChange={(e) =>
+                          setEnginesDraft((prev) =>
+                            prev.map((item, i) =>
+                              i === index ? { ...item, model: e.target.value } : item,
+                            ),
+                          )
+                        }
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Installation Date</label>
+                        <input
+                          type="date"
+                          title="Engine installation date"
+                          className={inputClass}
+                          value={toDateOnly(engine.installation_date)}
+                          onChange={(e) =>
+                            setEnginesDraft((prev) =>
+                              prev.map((item, i) =>
+                                i === index
+                                  ? { ...item, installation_date: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Time Since New</label>
+                        <input
+                          type="number"
+                          className={inputClass}
+                          placeholder="Time since new"
+                          value={String(engine.time_since_new || "")}
+                          onChange={(e) =>
+                            setEnginesDraft((prev) =>
+                              prev.map((item, i) =>
+                                i === index
+                                  ? { ...item, time_since_new: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Service Life Limit</label>
+                        <input
+                          type="number"
+                          className={inputClass}
+                          placeholder="Service life limit"
+                          value={String(engine.service_life_limit || "")}
+                          onChange={(e) =>
+                            setEnginesDraft((prev) =>
+                              prev.map((item, i) =>
+                                i === index
+                                  ? { ...item, service_life_limit: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Inspection Interval Unit</label>
+                        <div className="flex items-center gap-4 rounded border border-[#0A4D66]/40 px-3 py-2">
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+                            <input
+                              type="checkbox"
+                              checked={
+                                engine.inspection_interval_hours !== null &&
+                                engine.inspection_interval_hours !== undefined
+                              }
+                              onChange={(e) =>
+                                setEnginesDraft((prev) =>
+                                  prev.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          inspection_interval_unit: "hours",
+                                          inspection_interval_hours: e.target.checked
+                                            ? (item.inspection_interval_hours ?? "")
+                                            : null,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                            />
+                            <span>Hours</span>
+                          </label>
+                          <label className="inline-flex items-center gap-2 text-sm text-gray-300">
+                            <input
+                              type="checkbox"
+                              checked={
+                                engine.inspection_interval_cycles !== null &&
+                                engine.inspection_interval_cycles !== undefined
+                              }
+                              onChange={(e) =>
+                                setEnginesDraft((prev) =>
+                                  prev.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          inspection_interval_unit: e.target.checked
+                                            ? "cycle"
+                                            : (item.inspection_interval_unit ?? "hours"),
+                                          inspection_interval_cycles: e.target.checked
+                                            ? (item.inspection_interval_cycles ?? "")
+                                            : null,
+                                        }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                            />
+                            <span>Cycles</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(engine.inspection_interval_hours !== null &&
+                        engine.inspection_interval_hours !== undefined) ? (
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">
+                            Inspection Interval (Hours)
+                          </label>
+                          <input
+                            type="number"
+                            className={inputClass}
+                            placeholder="Inspection interval hours"
+                            value={String(engine.inspection_interval_hours || "")}
+                            onChange={(e) =>
+                              setEnginesDraft((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        inspection_interval_hours: e.target.value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <div />
+                      )}
+                      {(engine.inspection_interval_cycles !== null &&
+                        engine.inspection_interval_cycles !== undefined) ? (
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">
+                            Inspection Interval (Cycles)
+                          </label>
+                          <input
+                            type="number"
+                            className={inputClass}
+                            placeholder="Inspection interval cycles"
+                            value={String(engine.inspection_interval_cycles || "")}
+                            onChange={(e) =>
+                              setEnginesDraft((prev) =>
+                                prev.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        inspection_interval_cycles: e.target.value,
+                                      }
+                                    : item,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <div />
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Maintenance Strategy</label>
+                        <select
+                          title="Engine maintenance strategy"
+                          className={inputClass}
+                          value={engine.maintenance_strategy || "hard-time"}
+                          onChange={(e) =>
+                            setEnginesDraft((prev) =>
+                              prev.map((item, i) =>
+                                i === index
+                                  ? {
+                                      ...item,
+                                      maintenance_strategy: toMaintenanceStrategy(
+                                        e.target.value,
+                                      ),
+                                    }
+                                  : item,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="hard-time">Hard Time</option>
+                          <option value="on-condition">On Condition</option>
+                          <option value="condition">Condition</option>
+                        </select>
+                      </div>
                     </div>
                     <button
                       type="button"

@@ -12,17 +12,7 @@ import {
   type Operation,
   type OperationAssignedAsset,
 } from "../api";
-import { format } from "date-fns";
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
-
-const formatOperationDate = (value: string | null | undefined) => {
-  if (!value) return "N/A";
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "N/A";
-
-  return format(date, "dd/MM/yyyy");
-};
 
 const InfoRow = ({
   label,
