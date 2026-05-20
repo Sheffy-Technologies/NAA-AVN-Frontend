@@ -1,6 +1,11 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
+  type ProcurementBudget,
+  type ProcurementCurrency,
+  type CreatePurchaseOrderPayload,
+  useGetBudgetsQuery,
+  useGetCurrenciesQuery,
   useGetRfqsQuery,
   useGetSuppliersQuery,
   useGetSupplierQuotationsQuery,
@@ -15,6 +20,8 @@ type PurchaseOrderFormState = {
   approved_bid_id: string;
   rfq_id: string;
   supplier_id: string;
+  budget_id: string;
+  currency_id: string;
   name: string;
   order_date: string;
   expected_date_of_delivery: string;
@@ -39,8 +46,14 @@ type PurchaseOrderItemPayload = {
 
 export default function PurchaseOrderFormPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialRfqId = searchParams.get("rfq_id") ?? "";
+  const initialBidId = searchParams.get("bid_id") ?? "";
+
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
+  const { data: budgets = [] } = useGetBudgetsQuery();
+  const { data: currencies = [] } = useGetCurrenciesQuery();
   const { data: rfqs = [] } = useGetRfqsQuery();
   const { data: quotations = [] } = useGetSupplierQuotationsQuery();
   const [createPurchaseOrder, { isLoading }] = useCreatePurchaseOrderMutation();
@@ -66,15 +79,34 @@ export default function PurchaseOrderFormPage() {
     return map;
   }, [approvedBids]);
 
-  const [form, setForm] = useState<PurchaseOrderFormState>({
-    approved_bid_id: "",
-    rfq_id: "",
+
+  const [form, setForm] = useState<PurchaseOrderFormState>(() => ({
+    approved_bid_id: initialBidId,
+    rfq_id: initialRfqId,
     supplier_id: "",
+    budget_id: "",
+    currency_id: "",
     name: "",
     order_date: "",
     expected_date_of_delivery: "",
     status: "draft",
-  });
+  }));
+
+  // Sync form with pre-filled bid once quotations have loaded
+  const [bidSynced, setBidSynced] = useState(false);
+  if (!bidSynced && initialBidId && approvedBids.length > 0) {
+    const bid = approvedBidById.get(Number(initialBidId));
+    if (bid) {
+      setBidSynced(true);
+      const supplierIdFromBid = bid.supplier_id ? String(bid.supplier_id) : "";
+      setForm((prev) => ({
+        ...prev,
+        approved_bid_id: String(bid.id),
+        rfq_id: String(bid.rfq_id),
+        supplier_id: supplierIdFromBid || prev.supplier_id,
+      }));
+    }
+  }
   const [items, setItems] = useState<PurchaseOrderItemPayload[]>([]);
   const [itemDraft, setItemDraft] = useState<ItemDraft>({
     inventory_id: "",
@@ -139,19 +171,35 @@ export default function PurchaseOrderFormPage() {
       return;
     }
 
-    const payload: {
-      supplier_id?: number | null;
-      rfq_id?: number | null;
-      name?: string | null;
-      order_date?: string | null;
-      expected_date_of_delivery?: string | null;
-      status?: PurchaseOrderStatus | null;
-      items: PurchaseOrderItemPayload[];
-    } = {
+    if (!form.budget_id.trim()) {
+      setError("Select a budget.");
+      return;
+    }
+
+    if (!form.currency_id.trim()) {
+      setError("Select a currency.");
+      return;
+    }
+
+    const selectedBudget = budgets.find(
+      (budget) => Number(budget.id) === Number(form.budget_id),
+    );
+
+    if (
+      selectedBudget?.currency_id &&
+      Number(selectedBudget.currency_id) !== Number(form.currency_id)
+    ) {
+      setError("Selected currency does not match budget currency.");
+      return;
+    }
+
+    const payload: CreatePurchaseOrderPayload = {
       items,
     };
 
     if (form.supplier_id.trim() !== "") payload.supplier_id = Number(form.supplier_id);
+    if (form.budget_id.trim() !== "") payload.budget_id = Number(form.budget_id);
+    if (form.currency_id.trim() !== "") payload.currency_id = Number(form.currency_id);
     if (form.rfq_id.trim() !== "") payload.rfq_id = Number(form.rfq_id);
     if (form.name.trim() !== "") payload.name = form.name.trim();
     if (form.order_date.trim() !== "") payload.order_date = form.order_date;
@@ -170,7 +218,25 @@ export default function PurchaseOrderFormPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8">
-      <h2 className="text-xl font-bold mb-6 text-white">Create Purchase Order</h2>
+      <div className="flex items-center gap-3 mb-6">
+        {initialRfqId ? (
+          <button
+            type="button"
+            onClick={() => navigate(`/dashboard/inventory/rfq/${initialRfqId}`)}
+            className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
+            title="Back to RFQ"
+          >
+            <Icon icon="mdi:arrow-left" className="w-5 h-5" />
+          </button>
+        ) : null}
+        <h2 className="text-xl font-bold text-white">Create Purchase Order</h2>
+        {initialRfqId && (
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[#7FD5FF]/30 bg-[#0369A1]/10 px-3 py-1 text-xs text-[#7FD5FF]">
+            <Icon icon="mdi:link-variant" className="w-3.5 h-3.5" />
+            Linked to {rfqNumberById.get(Number(initialRfqId)) || `RFQ #${initialRfqId}`}
+          </span>
+        )}
+      </div>
       <form onSubmit={handleSubmit} className="space-y-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -183,6 +249,12 @@ export default function PurchaseOrderFormPage() {
               onChange={(e) => {
                 const bidId = e.target.value;
                 const bid = approvedBidById.get(Number(bidId));
+                const currencyFromBid = bid?.currency
+                  ? currencies.find(
+                      (currency) =>
+                        currency.code.toLowerCase() === bid.currency?.toLowerCase(),
+                    )
+                  : undefined;
                 setForm((prev) => ({
                   ...prev,
                   approved_bid_id: bidId,
@@ -191,6 +263,9 @@ export default function PurchaseOrderFormPage() {
                     bid && bid.supplier_id
                       ? String(bid.supplier_id)
                       : prev.supplier_id,
+                  currency_id: currencyFromBid
+                    ? String(currencyFromBid.id)
+                    : prev.currency_id,
                 }));
               }}
             >
@@ -226,6 +301,51 @@ export default function PurchaseOrderFormPage() {
                 Linked RFQ: {rfqNumberById.get(Number(form.rfq_id)) || `RFQ #${form.rfq_id}`}
               </p>
             )}
+          </div>
+          <div>
+            <label htmlFor="po-budget" className="block text-xs text-gray-400 mb-1">Budget</label>
+            <select
+              id="po-budget"
+              title="Budget"
+              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
+              value={form.budget_id}
+              onChange={(e) => {
+                const budgetId = e.target.value;
+                const selectedBudget = (budgets as ProcurementBudget[]).find(
+                  (budget) => Number(budget.id) === Number(budgetId),
+                );
+
+                setForm((prev) => ({
+                  ...prev,
+                  budget_id: budgetId,
+                  currency_id: selectedBudget?.currency_id
+                    ? String(selectedBudget.currency_id)
+                    : prev.currency_id,
+                }));
+              }}
+            >
+              <option value="">Select budget</option>
+              {(budgets as ProcurementBudget[]).map((budget) => (
+                <option key={budget.id} value={budget.id}>{budget.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="po-currency" className="block text-xs text-gray-400 mb-1">Currency</label>
+            <select
+              id="po-currency"
+              title="Currency"
+              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
+              value={form.currency_id}
+              onChange={(e) => setForm((f) => ({ ...f, currency_id: e.target.value }))}
+            >
+              <option value="">Select currency</option>
+              {(currencies as ProcurementCurrency[]).map((currency) => (
+                <option key={currency.id} value={currency.id}>
+                  {currency.code} - {currency.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1">Order Name</label>

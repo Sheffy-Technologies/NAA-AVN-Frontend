@@ -91,6 +91,11 @@ const ProcurementLifecyclePage = lazy(() =>
     }),
   ),
 );
+const RfqDetailsPage = lazy(() =>
+  import("@/features/inventory/pages/RfqDetailsPage").then((module) => ({
+    default: module.RfqDetailsPage,
+  })),
+);
 const AddSupplierPage = lazy(() =>
   import("../../features/inventory/pages/AddSupplierPage").then((module) => ({
     default: module.AddSupplierPage,
@@ -554,6 +559,14 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <PurchaseOrderDetailsPage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "inventory/rfq/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <RfqDetailsPage />
           </Suspense>
         ), INVENTORY_ROUTE_PERMISSIONS),
       },

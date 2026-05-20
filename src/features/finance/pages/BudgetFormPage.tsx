@@ -6,12 +6,15 @@ import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import {
   useCreateBudgetMutation,
   useGetBudgetCategoriesQuery,
+  useGetCurrenciesQuery,
   type FinanceBudgetCategory,
+  type FinanceCurrency,
 } from "@/features/finance/api";
 
 type BudgetFormValues = {
   name: string;
   budget_category_id: number | "";
+  currency_id: number | "";
   amount: string;
   start_date: string;
   end_date: string;
@@ -21,6 +24,7 @@ type BudgetFormValues = {
 const emptyBudgetValues: BudgetFormValues = {
   name: "",
   budget_category_id: "",
+  currency_id: "",
   amount: "",
   start_date: "",
   end_date: "",
@@ -36,9 +40,16 @@ export const BudgetFormPage = () => {
 
   const { data: unitsData } = useGetUnitsQuery();
   const { data: categoriesData } = useGetBudgetCategoriesQuery();
+  const { data: currenciesData } = useGetCurrenciesQuery();
 
   const units = (unitsData ?? []) as Unit[];
   const categories = (categoriesData ?? []) as FinanceBudgetCategory[];
+  const currencies = (currenciesData ?? []) as FinanceCurrency[];
+
+  const selectedCurrency =
+    typeof values.currency_id === "number"
+      ? currencies.find((item) => item.id === values.currency_id)
+      : undefined;
 
   const handleChange =
     (field: keyof BudgetFormValues) =>
@@ -48,7 +59,9 @@ export const BudgetFormPage = () => {
       setValues((prev) => ({
         ...prev,
         [field]:
-          field === "budget_category_id" || field === "unit_id"
+          field === "budget_category_id" ||
+          field === "unit_id" ||
+          field === "currency_id"
             ? value === ""
               ? ""
               : Number(value)
@@ -77,6 +90,11 @@ export const BudgetFormPage = () => {
       return;
     }
 
+    if (values.currency_id === "") {
+      setSubmitError("Select a currency.");
+      return;
+    }
+
     if (!values.start_date || !values.end_date) {
       setSubmitError("Select start and end dates.");
       return;
@@ -91,6 +109,7 @@ export const BudgetFormPage = () => {
       await createBudget({
         name: values.name.trim(),
         budget_category_id: values.budget_category_id,
+        currency_id: values.currency_id,
         amount: Number(values.amount),
         start_date: values.start_date,
         end_date: values.end_date,
@@ -165,7 +184,26 @@ export const BudgetFormPage = () => {
 
           <div className="space-y-1">
             <label className="text-[11px] uppercase text-gray-400">
-              Allocated amount (₦)
+              Currency
+            </label>
+            <select
+              aria-label="Budget currency"
+              value={values.currency_id === "" ? "" : String(values.currency_id)}
+              onChange={handleChange("currency_id")}
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
+            >
+              <option value="">Select Currency</option>
+              {currencies.map((currency) => (
+                <option key={currency.id} value={currency.id}>
+                  {currency.code} - {currency.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] uppercase text-gray-400">
+              Allocated amount
             </label>
             <input
               type="number"
@@ -173,7 +211,7 @@ export const BudgetFormPage = () => {
               value={values.amount}
               onChange={handleChange("amount")}
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
-              placeholder="Enter Allocated amount"
+              placeholder={`Enter amount${selectedCurrency?.code ? ` (${selectedCurrency.code})` : ""}`}
             />
           </div>
 

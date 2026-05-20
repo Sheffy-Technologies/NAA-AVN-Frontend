@@ -55,10 +55,22 @@ export type FinanceUnit = {
   updated_at: string;
 };
 
+export type FinanceCurrency = {
+  id: number;
+  code: string;
+  name: string;
+  symbol: string | null;
+  is_active: boolean;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type FinanceBudget = {
   id: number;
   budget_category_id?: number;
   expense_category_id?: number;
+  currency_id?: number | null;
   aircraft_id: number;
   unit_id: number;
   name: string;
@@ -70,6 +82,7 @@ export type FinanceBudget = {
   updated_at: string;
   budget_category?: FinanceBudgetCategory;
   expense_category?: FinanceExpenseCategory;
+  currency?: FinanceCurrency | null;
   aircraft: FinanceAircraft;
   unit: FinanceUnit;
 };
@@ -113,6 +126,7 @@ export type CreateExpensePayload = {
 export type CreateBudgetPayload = {
   name: string;
   budget_category_id: number;
+  currency_id: number;
   amount: number;
   start_date: string;
   end_date: string;
@@ -186,6 +200,12 @@ export const financeApi = createApi({
         method: "GET",
       }),
     }),
+    getCurrencies: builder.query<FinanceCurrency[], void>({
+      query: () => ({
+        url: "/currencies",
+        method: "GET",
+      }),
+    }),
     getExpenseTypes: builder.query<FinanceExpenseType[], void>({
       query: () => ({
         url: "/expense-types",
@@ -211,6 +231,7 @@ export const {
   useGetBudgetsQuery,
   useGetExpenseCategoriesQuery,
   useGetBudgetCategoriesQuery,
+  useGetCurrenciesQuery,
   useGetExpenseTypesQuery,
   useGetAircraftQuery,
 } = financeApi;

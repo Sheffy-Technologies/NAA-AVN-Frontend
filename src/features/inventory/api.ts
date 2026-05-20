@@ -111,6 +111,18 @@ export type CreateInventoryPayload = {
 
 export type UpdateInventoryPayload = CreateInventoryPayload;
 
+export type ProcurementBudget = {
+  id: number;
+  name: string;
+  currency_id?: number | null;
+};
+
+export type ProcurementCurrency = {
+  id: number;
+  code: string;
+  name: string;
+  symbol?: string | null;
+};
 export type CreateSupplierPayload = {
   name: string;
   contact?: string | null;
@@ -198,6 +210,8 @@ export type PurchaseOrderItem = {
 export type PurchaseOrder = {
   id: number;
   supplier_id?: number | null;
+  budget_id?: number | null;
+  currency_id?: number | null;
   rfq_id?: number | null;
   name?: string | null;
   order_date?: string | null;
@@ -207,16 +221,38 @@ export type PurchaseOrder = {
   updated_at?: string;
   items?: PurchaseOrderItem[];
   supplier?: InventorySupplier | null;
+  budget?: ProcurementBudget | null;
+  currency?: ProcurementCurrency | null;
 };
 
 export type UpdatePurchaseOrderPayload = {
   supplier_id?: number | null;
+  budget_id?: number | null;
+  currency_id?: number | null;
   rfq_id?: number | null;
   name?: string | null;
   order_date?: string | null;
   expected_date_of_delivery?: string | null;
   status?: "draft" | "sent" | "received";
   items?: Array<{
+    inventory_id: number;
+    part_number?: string | null;
+    quantity_ordered?: number;
+    quantity_received?: number | null;
+    unit_price?: number | null;
+  }>;
+};
+
+export type CreatePurchaseOrderPayload = {
+  supplier_id?: number | null;
+  budget_id?: number | null;
+  currency_id?: number | null;
+  rfq_id?: number | null;
+  name?: string | null;
+  order_date?: string | null;
+  expected_date_of_delivery?: string | null;
+  status?: "draft" | "sent" | "received";
+  items: Array<{
     inventory_id: number;
     part_number?: string | null;
     quantity_ordered?: number;
@@ -461,6 +497,18 @@ export const inventoryApi = createApi({
         method: "GET",
       }),
     }),
+    getBudgets: builder.query<ProcurementBudget[], void>({
+      query: () => ({
+        url: "/budgets",
+        method: "GET",
+      }),
+    }),
+    getCurrencies: builder.query<ProcurementCurrency[], void>({
+      query: () => ({
+        url: "/currencies",
+        method: "GET",
+      }),
+    }),
     getStockMovements: builder.query<StockMovement[], void>({
       query: () => ({
         url: "/stock-movements",
@@ -477,6 +525,12 @@ export const inventoryApi = createApi({
     getRfqs: builder.query<Rfq[], void>({
       query: () => ({
         url: "/rfqs",
+        method: "GET",
+      }),
+    }),
+    getRfqById: builder.query<Rfq, number | string>({
+      query: (id) => ({
+        url: `/rfqs/${id}`,
         method: "GET",
       }),
     }),
@@ -520,7 +574,7 @@ export const inventoryApi = createApi({
         method: "GET",
       }),
     }),
-    createPurchaseOrder: builder.mutation<PurchaseOrder, unknown>({
+    createPurchaseOrder: builder.mutation<PurchaseOrder, CreatePurchaseOrderPayload>({
       query: (body) => ({
         url: "/purchase-orders",
         method: "POST",
@@ -572,9 +626,12 @@ export const {
   useGetInventoryRequisitionByIdQuery,
   useUpdateInventoryRequisitionMutation,
   useGetPurchaseOrdersQuery,
+  useGetBudgetsQuery,
+  useGetCurrenciesQuery,
   useGetStockMovementsQuery,
   useCreateStockMovementMutation,
   useGetRfqsQuery,
+  useGetRfqByIdQuery,
   useCreateRfqMutation,
   useUpdateRfqMutation,
   useGetSupplierQuotationsQuery,
