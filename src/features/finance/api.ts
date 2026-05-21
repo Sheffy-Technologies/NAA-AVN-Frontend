@@ -85,6 +85,46 @@ export type FinanceBudget = {
   currency?: FinanceCurrency | null;
   aircraft: FinanceAircraft;
   unit: FinanceUnit;
+  total_expense?: number | string;
+  total_income?: number | string;
+  remaining_amount?: number | string;
+  utilization?: number | string;
+  status?: string;
+};
+
+export type FinanceBudgetIncome = {
+  id: number;
+  budget_id: number;
+  source: string;
+  reference: string | null;
+  description: string | null;
+  amount: number | string;
+  received_at: string;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateBudgetIncomePayload = {
+  budget_id: number;
+  source: string;
+  reference?: string | null;
+  description?: string | null;
+  amount: number;
+  received_at: string;
+};
+
+export type BudgetStatementResponse = {
+  budget: FinanceBudget;
+  incomes: FinanceBudgetIncome[];
+  expenses: FinanceExpense[];
+  totals: {
+    allocated: number;
+    total_income: number;
+    total_expense: number;
+    available: number;
+  };
+  generated_at: string;
 };
 
 export type FinanceExpense = {
@@ -136,7 +176,7 @@ export type CreateBudgetPayload = {
 export const financeApi = createApi({
   reducerPath: "financeApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Expenses", "Budgets"],
+  tagTypes: ["Expenses", "Budgets", "BudgetIncomes"],
   endpoints: (builder) => ({
     getFinanceDashboard: builder.query<FinanceDashboardResponse, void>({
       query: () => ({
@@ -188,6 +228,60 @@ export const financeApi = createApi({
       }),
       providesTags: [{ type: "Budgets", id: "LIST" }],
     }),
+    getBudgetById: builder.query<FinanceBudget, number | string>({
+      query: (id) => ({
+        url: `/budgets/${id}`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, id) => [{ type: "Budgets", id }],
+    }),
+    getBudgetStatement: builder.query<BudgetStatementResponse, number | string>({
+      query: (id) => ({
+        url: `/budgets/${id}/statement`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, id) => [
+        { type: "Budgets", id },
+        { type: "BudgetIncomes", id: "LIST" },
+        { type: "Expenses", id: "LIST" },
+      ],
+    }),
+    getBudgetIncomes: builder.query<
+      FinanceBudgetIncome[],
+      { budget_id?: number } | void
+    >({
+      query: (arg) => ({
+        url: "/budget-incomes",
+        method: "GET",
+        params: arg && arg.budget_id ? { budget_id: arg.budget_id } : undefined,
+      }),
+      providesTags: [{ type: "BudgetIncomes", id: "LIST" }],
+    }),
+    createBudgetIncome: builder.mutation<
+      FinanceBudgetIncome,
+      CreateBudgetIncomePayload
+    >({
+      query: (body) => ({
+        url: "/budget-incomes",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: (_result, _error, arg) => [
+        { type: "BudgetIncomes", id: "LIST" },
+        { type: "Budgets", id: arg.budget_id },
+        { type: "Budgets", id: "LIST" },
+      ],
+    }),
+    deleteBudgetIncome: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/budget-incomes/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: [
+        { type: "BudgetIncomes", id: "LIST" },
+        { type: "Budgets", id: "LIST" },
+      ],
+    }),
     getExpenseCategories: builder.query<FinanceExpenseCategory[], void>({
       query: () => ({
         url: "/expense-categories",
@@ -229,6 +323,11 @@ export const {
   useCreateBudgetMutation,
   useDeleteBudgetMutation,
   useGetBudgetsQuery,
+  useGetBudgetByIdQuery,
+  useGetBudgetStatementQuery,
+  useGetBudgetIncomesQuery,
+  useCreateBudgetIncomeMutation,
+  useDeleteBudgetIncomeMutation,
   useGetExpenseCategoriesQuery,
   useGetBudgetCategoriesQuery,
   useGetCurrenciesQuery,

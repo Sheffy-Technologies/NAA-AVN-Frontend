@@ -255,6 +255,11 @@ const formatStockHistoryDateTime = (value: string | null | undefined) => {
   });
 };
 
+const formatIsoDateOnly = (value: string | null | undefined) => {
+  if (!value) return "-";
+  return value.split("T")[0] || "-";
+};
+
 const mapStockTypeLabel = (stockType: string) => {
   if (stockType === "in_stock") return "In Stock";
   if (stockType === "out_of_stock") return "Out of Stock";
@@ -459,13 +464,13 @@ export const InventoryInfoPage = () => {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-400">Created At:</span>
                     <span className="font-semibold">
-                      {inventory.created_at.split("T")[0]}
+                      {formatIsoDateOnly(inventory.created_at)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-gray-400">Updated At:</span>
                     <span className="font-semibold">
-                      {inventory.updated_at.split("T")[0]}
+                      {formatIsoDateOnly(inventory.updated_at)}
                     </span>
                   </div>
                 </div>

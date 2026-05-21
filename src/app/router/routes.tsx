@@ -121,6 +121,11 @@ const BudgetInfoPage = lazy(() =>
     default: module.BudgetInfoPage,
   })),
 );
+const BudgetStatementPage = lazy(() =>
+  import("@/features/finance/pages/BudgetStatementPage").then((module) => ({
+    default: module.BudgetStatementPage,
+  })),
+);
 const DocumentsPage = lazy(() =>
   import("@/features/documents/pages/DocumentsPage").then((module) => ({
     default: module.DocumentsPage,
@@ -631,6 +636,14 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <BudgetInfoPage />
+          </Suspense>
+        ), FINANCE_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "finance/budgets/:id/statement",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <BudgetStatementPage />
           </Suspense>
         ), FINANCE_ROUTE_PERMISSIONS),
       },

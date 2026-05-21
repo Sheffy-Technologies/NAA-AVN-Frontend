@@ -6,13 +6,16 @@ import {
   useGetBudgetsQuery,
   useGetExpensesQuery,
   useDeleteBudgetMutation,
+  useGetBudgetIncomesQuery,
+  useCreateBudgetIncomeMutation,
+  useDeleteBudgetIncomeMutation,
   type FinanceBudget,
   type FinanceExpense,
 } from "@/features/finance/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 
-type BudgetInfoTabKey = "info" | "expenses";
+type BudgetInfoTabKey = "info" | "expenses" | "incomes";
 type BudgetExpenseViewMode = "table" | "grid";
 type PeriodFilterKey = "all" | "month" | "quarter" | "year";
 
@@ -33,6 +36,75 @@ export const BudgetInfoPage = () => {
     isLoading: isExpensesLoading,
     isError: isExpensesError,
   } = useGetExpensesQuery();
+
+  const numericBudgetId = id != null ? Number(id) : NaN;
+  const hasNumericBudgetId = !Number.isNaN(numericBudgetId);
+
+  const {
+    data: incomesData,
+    isLoading: isIncomesLoading,
+    isError: isIncomesError,
+  } = useGetBudgetIncomesQuery(
+    hasNumericBudgetId ? { budget_id: numericBudgetId } : undefined,
+    { skip: !hasNumericBudgetId },
+  );
+  const [createIncome, { isLoading: isCreatingIncome }] =
+    useCreateBudgetIncomeMutation();
+  const [deleteIncome] = useDeleteBudgetIncomeMutation();
+
+  const todayIso = () => new Date().toISOString().slice(0, 10);
+  const [incSource, setIncSource] = useState("");
+  const [incReference, setIncReference] = useState("");
+  const [incDescription, setIncDescription] = useState("");
+  const [incAmount, setIncAmount] = useState("");
+  const [incReceivedAt, setIncReceivedAt] = useState(todayIso());
+  const [incError, setIncError] = useState<string | null>(null);
+
+  const handleCreateIncome = async () => {
+    setIncError(null);
+    if (!hasNumericBudgetId) return;
+    const amount = Number(incAmount);
+    if (!incSource.trim()) {
+      setIncError("Source is required");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setIncError("Enter a valid amount greater than zero");
+      return;
+    }
+    if (!incReceivedAt) {
+      setIncError("Pick a received date");
+      return;
+    }
+    try {
+      await createIncome({
+        budget_id: numericBudgetId,
+        source: incSource.trim(),
+        reference: incReference.trim() || null,
+        description: incDescription.trim() || null,
+        amount,
+        received_at: incReceivedAt,
+      }).unwrap();
+      dispatch(showToast({ message: "Income recorded", type: "success" }));
+      setIncSource("");
+      setIncReference("");
+      setIncDescription("");
+      setIncAmount("");
+      setIncReceivedAt(todayIso());
+    } catch {
+      setIncError("Failed to record income");
+    }
+  };
+
+  const handleDeleteIncome = async (incomeId: number) => {
+    if (!window.confirm("Delete this income entry?")) return;
+    try {
+      await deleteIncome(incomeId).unwrap();
+      dispatch(showToast({ message: "Income deleted", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to delete income", type: "error" }));
+    }
+  };
 
   const budget: FinanceBudget | undefined = useMemo(() => {
     if (!budgetsData || !id) return undefined;
@@ -261,6 +333,19 @@ export const BudgetInfoPage = () => {
             >
               <Icon icon="mdi:clipboard-list-outline" className="w-4 h-4" />
               <span>Expense Breakdown</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("incomes")}
+              className={cn(
+                "inline-flex items-center gap-2 px-3 py-2 text-xs sm:text-sm font-medium border-b-2 border-transparent",
+                activeTab === "incomes"
+                  ? "border-[#7FD5FF] text-white"
+                  : "text-gray-400 hover:text-white",
+              )}
+            >
+              <Icon icon="mdi:cash-plus" className="w-4 h-4" />
+              <span>Incomes</span>
             </button>
           </div>
 
@@ -698,6 +783,184 @@ export const BudgetInfoPage = () => {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === "incomes" && (
+          <div className="p-4 sm:p-6 space-y-6">
+            <div className="rounded-md border border-[#0A4D66]/40 bg-[#001219] p-4">
+              <h3 className="text-xs sm:text-sm font-semibold text-white mb-3">
+                Record Incoming Funds
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] text-gray-400 mb-1">
+                    Source <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={incSource}
+                    onChange={(e) => setIncSource(e.target.value)}
+                    placeholder="e.g. Government allocation"
+                    className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs sm:text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-gray-400 mb-1">
+                    Reference
+                  </label>
+                  <input
+                    type="text"
+                    value={incReference}
+                    onChange={(e) => setIncReference(e.target.value)}
+                    placeholder="e.g. TRX-2025-001"
+                    className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs sm:text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-gray-400 mb-1">
+                    Amount <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={incAmount}
+                    onChange={(e) => setIncAmount(e.target.value)}
+                    className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs sm:text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-gray-400 mb-1">
+                    Received Date <span className="text-red-400">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={incReceivedAt}
+                    onChange={(e) => setIncReceivedAt(e.target.value)}
+                    className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs sm:text-sm text-white"
+                  />
+                </div>
+                <div className="sm:col-span-2 lg:col-span-2">
+                  <label className="block text-[11px] text-gray-400 mb-1">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={incDescription}
+                    onChange={(e) => setIncDescription(e.target.value)}
+                    placeholder="Optional notes"
+                    className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs sm:text-sm text-white"
+                  />
+                </div>
+              </div>
+              {incError && (
+                <p className="mt-2 text-[11px] text-red-400">{incError}</p>
+              )}
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleCreateIncome}
+                  disabled={isCreatingIncome || !hasNumericBudgetId}
+                  className="inline-flex items-center gap-2 rounded bg-emerald-500 px-3 py-1.5 text-xs sm:text-sm font-semibold text-black hover:bg-emerald-600 disabled:opacity-50"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  <span>Add Income</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-[#0A4D66]/40 bg-[#001219] overflow-hidden">
+              <div className="px-4 py-2 border-b border-[#0A4D66]/40 flex items-center justify-between">
+                <h3 className="text-xs sm:text-sm font-semibold text-white">
+                  Incoming Funds
+                </h3>
+                <span className="text-[11px] text-gray-400">
+                  {(incomesData ?? []).length} entries
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs sm:text-sm">
+                  <thead className="bg-[#0A4D66]/20 text-gray-300">
+                    <tr>
+                      <th className="text-left px-3 py-2">Date</th>
+                      <th className="text-left px-3 py-2">Source</th>
+                      <th className="text-left px-3 py-2">Reference</th>
+                      <th className="text-left px-3 py-2">Description</th>
+                      <th className="text-right px-3 py-2">Amount</th>
+                      <th className="px-3 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {isIncomesLoading ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-6 text-center text-gray-400"
+                        >
+                          Loading...
+                        </td>
+                      </tr>
+                    ) : isIncomesError ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-6 text-center text-gray-400"
+                        >
+                          Failed to load incomes.
+                        </td>
+                      </tr>
+                    ) : (incomesData ?? []).length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="px-3 py-6 text-center text-gray-400"
+                        >
+                          No incoming funds recorded yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      (incomesData ?? []).map((row) => (
+                        <tr
+                          key={row.id}
+                          className="border-t border-[#0A4D66]/30 text-gray-200"
+                        >
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            {row.received_at
+                              ? new Date(row.received_at).toLocaleDateString(
+                                  "en-GB",
+                                )
+                              : "-"}
+                          </td>
+                          <td className="px-3 py-2">{row.source}</td>
+                          <td className="px-3 py-2">{row.reference || "-"}</td>
+                          <td className="px-3 py-2">{row.description || "-"}</td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                            {Number(row.amount).toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+                          <td className="px-3 py-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteIncome(row.id)}
+                              className="text-red-400 hover:text-red-300"
+                              title="Delete income"
+                            >
+                              <Icon
+                                icon="mdi:trash-can-outline"
+                                className="w-4 h-4"
+                              />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </section>

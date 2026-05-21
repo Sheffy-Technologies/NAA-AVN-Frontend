@@ -71,15 +71,20 @@ export const FinancePage = () => {
     isLoading: isExpensesLoading,
     isError: isExpensesError,
   } = useGetExpensesQuery();
+  // Always load budgets so the Account selector works on either tab.
   const {
     data: budgetsData,
     isLoading: isBudgetsLoading,
     isError: isBudgetsError,
-  } = useGetBudgetsQuery(undefined, {
-    skip: activeTab !== "budgets",
-  });
+  } = useGetBudgetsQuery();
   const { data: expenseCategoriesData } = useGetExpenseCategoriesQuery();
   const { data: unitsData } = useGetUnitsQuery();
+
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(
+    null,
+  );
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
 
   const [expensesViewMode, setExpensesViewMode] =
     useState<FinanceViewMode>("table");
@@ -99,36 +104,87 @@ export const FinancePage = () => {
   const budgetsTableRef = useRef<HTMLDivElement>(null);
 
   const summaryCards = useMemo(() => {
-    const formatCurrency = (value: number | undefined) =>
-      typeof value === "number" ? `₦${value.toLocaleString()}` : "₦—";
+    const selected =
+      selectedAccountId != null
+        ? (budgetsData ?? []).find((b) => b.id === selectedAccountId)
+        : undefined;
+
+    const symbol =
+      selected?.currency?.symbol || selected?.currency?.code || "₦";
+
+    const fmtCurrency = (value: number | string | undefined | null) => {
+      const n = typeof value === "string" ? Number(value) : (value ?? null);
+      if (n == null || Number.isNaN(n)) return `${symbol}—`;
+      return `${symbol}${n.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    };
+
+    if (selected) {
+      const allocated = Number(selected.amount ?? 0);
+      const totalIncome = Number(selected.total_income ?? 0);
+      const totalExpense = Number(selected.total_expense ?? 0);
+      const remaining =
+        selected.remaining_amount != null
+          ? Number(selected.remaining_amount)
+          : allocated + totalIncome - totalExpense;
+
+      return [
+        {
+          id: "allocated",
+          label: "Allocated",
+          value: fmtCurrency(allocated),
+          icon: "mdi:wallet-outline",
+        },
+        {
+          id: "income",
+          label: "Total Income",
+          value: fmtCurrency(totalIncome),
+          icon: "mdi:cash-plus",
+        },
+        {
+          id: "expense",
+          label: "Total Expense",
+          value: fmtCurrency(totalExpense),
+          icon: "mdi:cash-minus",
+        },
+        {
+          id: "available",
+          label: "Available",
+          value: fmtCurrency(remaining),
+          icon: "mdi:scale-balance",
+        },
+      ];
+    }
 
     return [
       {
         id: "total_expense",
         label: "Total Expense",
-        value: formatCurrency(dashboard?.total_expense),
+        value: fmtCurrency(dashboard?.total_expense),
         icon: "mdi:credit-card-outline",
       },
       {
         id: "monthly",
         label: "Monthly",
-        value: formatCurrency(dashboard?.current_month_expense),
+        value: fmtCurrency(dashboard?.current_month_expense),
         icon: "mdi:calendar-month-outline",
       },
       {
         id: "quarterly",
         label: "Quarterly",
-        value: formatCurrency(dashboard?.current_quarter_expense),
+        value: fmtCurrency(dashboard?.current_quarter_expense),
         icon: "mdi:calendar-blank-outline",
       },
       {
-        id: "budget",
-        label: "Budget",
-        value: formatCurrency(dashboard?.budget),
-        icon: "mdi:wallet-outline",
+        id: "accounts",
+        label: "Accounts",
+        value: fmtCurrency(dashboard?.budget),
+        icon: "mdi:bank-outline",
       },
     ];
-  }, [dashboard]);
+  }, [dashboard, selectedAccountId, budgetsData]);
 
   const expenses: ExpenseRow[] = useMemo(() => {
     if (!expensesData) return [];
@@ -318,12 +374,128 @@ export const FinancePage = () => {
     activeTab === "budgets" && openBudgetActionId !== null,
   );
 
+  useClickOutside(accountMenuRef, () => setAccountMenuOpen(false), accountMenuOpen);
+
+  const selectedAccount = useMemo(
+    () =>
+      selectedAccountId != null
+        ? (budgetsData ?? []).find((b) => b.id === selectedAccountId) ?? null
+        : null,
+    [selectedAccountId, budgetsData],
+  );
+
+  const handleGenerateReport = () => {
+    if (selectedAccountId == null) {
+      dispatch(
+        showToast({
+          message: "Select an account to generate its statement",
+          type: "info",
+        }),
+      );
+      return;
+    }
+    navigate(`/dashboard/finance/budgets/${selectedAccountId}/statement`);
+  };
+
   const handleViewBudget = (id: number) => {
     navigate(`/dashboard/finance/budgets/${id}`);
   };
 
   return (
     <div className="px-2 sm:px-0">
+      {/* Account selector + report */}
+      <section className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2" ref={accountMenuRef}>
+          <span className="text-[11px] sm:text-xs uppercase tracking-wide text-gray-400">
+            Account:
+          </span>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setAccountMenuOpen((v) => !v)}
+              className="inline-flex items-center gap-2 rounded-md border border-[#0A4D66]/50 bg-[#001219] px-3 py-1.5 text-xs sm:text-sm text-white hover:bg-[#0A4D66]/20"
+            >
+              <Icon icon="mdi:bank-outline" className="w-4 h-4 text-[#7FD5FF]" />
+              <span>
+                {selectedAccount
+                  ? `${selectedAccount.name}${selectedAccount.currency?.code ? ` (${selectedAccount.currency.code})` : ""}`
+                  : "All Accounts"}
+              </span>
+              <Icon icon="mdi:chevron-down" className="w-4 h-4 text-gray-400" />
+            </button>
+
+            {accountMenuOpen && (
+              <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-md border border-[#0A4D66]/50 bg-[#001219] shadow-xl max-h-80 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAccountId(null);
+                    setAccountMenuOpen(false);
+                  }}
+                  className={cn(
+                    "w-full px-3 py-2 text-left text-xs sm:text-sm hover:bg-[#0A4D66]/30",
+                    selectedAccountId == null
+                      ? "text-[#7FD5FF]"
+                      : "text-gray-200",
+                  )}
+                >
+                  All Accounts (overview)
+                </button>
+                {isBudgetsLoading && (budgetsData ?? []).length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-gray-400">Loading...</div>
+                ) : (budgetsData ?? []).length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-gray-400">
+                    No accounts yet.
+                  </div>
+                ) : (
+                  (budgetsData ?? []).map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedAccountId(b.id);
+                        setAccountMenuOpen(false);
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left text-xs sm:text-sm hover:bg-[#0A4D66]/30 flex items-center justify-between gap-2",
+                        selectedAccountId === b.id
+                          ? "text-[#7FD5FF]"
+                          : "text-gray-200",
+                      )}
+                    >
+                      <span className="truncate">{b.name}</span>
+                      <span className="shrink-0 text-[11px] text-gray-400">
+                        {b.currency?.code ?? ""}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleGenerateReport}
+          disabled={selectedAccountId == null}
+          className={cn(
+            "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors",
+            selectedAccountId == null
+              ? "bg-[#0A4D66]/30 text-gray-400 cursor-not-allowed"
+              : "bg-emerald-500 text-black hover:bg-emerald-600",
+          )}
+          title={
+            selectedAccountId == null
+              ? "Select an account to generate a statement"
+              : "Generate account statement"
+          }
+        >
+          <Icon icon="mdi:file-document-outline" className="w-4 h-4" />
+          <span>Generate Report</span>
+        </button>
+      </section>
+
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
         {isDashboardLoading
           ? summaryCards.map((card) => (
@@ -375,7 +547,7 @@ export const FinancePage = () => {
                     : "text-gray-300",
                 )}
               >
-                Finances
+                Expenses
               </button>
               <button
                 type="button"
@@ -387,7 +559,7 @@ export const FinancePage = () => {
                     : "text-gray-300",
                 )}
               >
-                Budget
+                Accounts
               </button>
             </div>
             <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#001219] p-1">
@@ -615,7 +787,7 @@ export const FinancePage = () => {
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               <span>
-                {activeTab === "budgets" ? "Add Budget" : "Add Finance"}
+                {activeTab === "budgets" ? "Add Account" : "Add Finance"}
               </span>
             </button>
           </div>
