@@ -542,13 +542,17 @@ export const InventoryPage = () => {
     skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
   });
 
-  const { data: rfqsData = [], refetch: refetchRfqs } = useGetRfqsQuery(undefined, {
-    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-  });
+  const { data: rfqsData = [], refetch: refetchRfqs } = useGetRfqsQuery(
+    undefined,
+    {
+      skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+    },
+  );
 
-  const { data: quotationsData = [] } = useGetSupplierQuotationsQuery(undefined, {
-    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-  });
+  const { data: quotationsData = [] } =
+    useGetSupplierQuotationsQuery(undefined, {
+      skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
+    });
 
   const { data: goodsReceivedNotesData = [] } = useGetGoodsReceivedNotesQuery(undefined, {
     skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
@@ -725,6 +729,10 @@ export const InventoryPage = () => {
     [rfqsData],
   );
 
+  const rfqRows = useMemo(() => {
+    return [...rfqsData].sort((a, b) => b.id - a.id);
+  }, [rfqsData]);
+
   const lifecycleCardData = useMemo(
     () => [
       {
@@ -859,6 +867,10 @@ export const InventoryPage = () => {
         }),
       );
     }
+  };
+
+  const handleOpenRfqDetails = (rfqId: number) => {
+    navigate(`/dashboard/inventory/rfq/${rfqId}`);
   };
 
   const renderLifecycleCards = () => (
@@ -1810,6 +1822,84 @@ export const InventoryPage = () => {
                               )}
                             >
                               {hasRfq ? "RFQ Requested" : "Pending RFQ"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+              <div className="flex items-center justify-between border-b border-[#0A4D66]/40 px-6 py-4">
+                <div className="text-sm font-semibold text-white">RFQs</div>
+                <div className="text-xs text-gray-400">Click an RFQ to view details and quotations</div>
+              </div>
+              <table className="w-full text-left border-collapse min-w-250">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-6 py-4 font-medium">RFQ No</th>
+                    <th className="px-6 py-4 font-medium">Requisition</th>
+                    <th className="px-6 py-4 font-medium">Issued</th>
+                    <th className="px-6 py-4 font-medium">Suppliers</th>
+                    <th className="px-6 py-4 font-medium">Quotations</th>
+                    <th className="px-6 py-4 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {rfqRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                        No RFQs found.
+                      </td>
+                    </tr>
+                  ) : (
+                    rfqRows.map((rfq, idx) => {
+                      const rfqQuotationCount = quotationsData.filter(
+                        (quotation) => quotation.rfq_id === rfq.id,
+                      ).length;
+                      const hasApproved = quotationsData.some(
+                        (quotation) =>
+                          quotation.rfq_id === rfq.id &&
+                          (quotation.status ?? "").toLowerCase() === "approved",
+                      );
+
+                      return (
+                        <tr
+                          key={rfq.id}
+                          className={cn(
+                            "cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
+                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )}
+                          onClick={() => handleOpenRfqDetails(rfq.id)}
+                        >
+                          <td className="px-6 py-4 text-white font-medium">
+                            {rfq.rfq_number || `RFQ #${rfq.id}`}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {rfq.stock_movement_id
+                              ? `REQ #${rfq.stock_movement_id}`
+                              : "-"}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {formatDateShort(rfq.issued_at)} {formatTimeShort(rfq.issued_at)}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">
+                            {rfq.suppliers?.length ?? 0}
+                          </td>
+                          <td className="px-6 py-4 text-gray-300">{rfqQuotationCount}</td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={cn(
+                                "inline-flex rounded-full border px-2 py-1 text-xs",
+                                hasApproved
+                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                                  : "border-amber-500/40 bg-amber-500/10 text-amber-300",
+                              )}
+                            >
+                              {hasApproved ? "Quotation Approved" : "Awaiting Approval"}
                             </span>
                           </td>
                         </tr>

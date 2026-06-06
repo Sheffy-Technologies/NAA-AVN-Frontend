@@ -18,6 +18,8 @@ export type Engine = {
   service_life_limit: number | string;
   inspection_interval_unit?: "hours" | "months" | "cycle";
   inspection_interval?: number | string | null;
+  inspection_interval_hours?: number | string | null;
+  inspection_interval_cycles?: number | string | null;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
   operation_flight_hours?: number;
   current_time_since_new?: number;
@@ -39,6 +41,8 @@ export type Component = {
   last_inspection?: number | string | null;
   inspection_interval_unit?: "hours" | "months" | "cycle";
   inspection_interval?: number | string;
+  inspection_interval_hours?: number | string | null;
+  inspection_interval_cycles?: number | string | null;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
   operation_flight_hours?: number;
   current_time_since_new?: number;
@@ -281,6 +285,8 @@ export type CreateAssetComponentPayload = {
   service_life_limit_hours: number;
   inspection_interval_unit: "hours" | "months" | "cycle";
   inspection_interval: number | null;
+  inspection_interval_hours?: number | null;
+  inspection_interval_cycles?: number | null;
   maintenance_strategy: "hard-time" | "on-condition" | "condition";
   installed_at: string;
   removed_at: string | null;
@@ -363,6 +369,8 @@ export type CreateAssetPayload = {
     service_life_limit: number;
     inspection_interval_unit: "hours" | "months" | "cycle";
     inspection_interval: number | null;
+    inspection_interval_hours?: number | null;
+    inspection_interval_cycles?: number | null;
     maintenance_strategy: "hard-time" | "on-condition" | "condition";
   }>;
   components: CreateAssetComponentPayload[];

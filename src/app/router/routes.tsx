@@ -91,6 +91,11 @@ const ProcurementLifecyclePage = lazy(() =>
     }),
   ),
 );
+const RfqDetailsPage = lazy(() =>
+  import("@/features/inventory/pages/RfqDetailsPage").then((module) => ({
+    default: module.RfqDetailsPage,
+  })),
+);
 const AddSupplierPage = lazy(() =>
   import("../../features/inventory/pages/AddSupplierPage").then((module) => ({
     default: module.AddSupplierPage,
@@ -114,6 +119,11 @@ const BudgetFormPage = lazy(() =>
 const BudgetInfoPage = lazy(() =>
   import("@/features/finance/pages/BudgetInfoPage").then((module) => ({
     default: module.BudgetInfoPage,
+  })),
+);
+const BudgetStatementPage = lazy(() =>
+  import("@/features/finance/pages/BudgetStatementPage").then((module) => ({
+    default: module.BudgetStatementPage,
   })),
 );
 const DocumentsPage = lazy(() =>
@@ -558,6 +568,14 @@ export const router = createBrowserRouter([
         ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
+        path: "inventory/rfq/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <RfqDetailsPage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
         path: "inventory/procurement-lifecycle",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
@@ -618,6 +636,14 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <BudgetInfoPage />
+          </Suspense>
+        ), FINANCE_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "finance/budgets/:id/statement",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <BudgetStatementPage />
           </Suspense>
         ), FINANCE_ROUTE_PERMISSIONS),
       },
@@ -762,11 +788,9 @@ export const router = createBrowserRouter([
       {
         path: "users",
         element: (
-          <RequireRole requiredPermissions={["users.viewAny"]}>
-            <Suspense fallback={loadingElement}>
-              <UserDetailsPage />
-            </Suspense>
-          </RequireRole>
+          <Suspense fallback={loadingElement}>
+            <UserDetailsPage />
+          </Suspense>
         ),
       },
       {

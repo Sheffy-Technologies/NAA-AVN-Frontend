@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import * as XLSX from "xlsx";
 import {
   useGetAssetsQuery,
   useGetFacilitiesQuery,
@@ -217,6 +218,7 @@ export const AssetsPage = () => {
     const matchesUnit =
       selectedUnitId === "all" || String(asset.unit_id) === selectedUnitId;
     const matchesOperationStatus =
+      activeTab !== "aircraft" ||
       selectedOperationStatus === "all" ||
       asset.operation_status === selectedOperationStatus;
 
@@ -274,21 +276,7 @@ export const AssetsPage = () => {
   const getAssetImageUrl = (asset: Asset) =>
     asset.image_url || asset.image || "";
 
-  const escapeCsvValue = (value: string | number | null | undefined) => {
-    if (value === null || value === undefined) return "";
-    const stringValue = String(value);
-    if (
-      stringValue.includes(",") ||
-      stringValue.includes("\"") ||
-      stringValue.includes("\n")
-    ) {
-      return `"${stringValue.replace(/"/g, '""')}"`;
-    }
-
-    return stringValue;
-  };
-
-  const handleDownloadCsv = () => {
+  const handleDownloadExcel = () => {
     if (filteredAssets.length === 0) {
       dispatch(
         showToast({
@@ -299,37 +287,21 @@ export const AssetsPage = () => {
       return;
     }
 
-    const headers = [
-      "Name",
-      "Type",
-      "Unit",
-      "Serviceability Status",
-      "Operation Status",
-    ];
+    const rows = filteredAssets.map((asset) => ({
+      Name: asset.name,
+      Type: asset.model,
+      Unit: getUnitName(asset.unit_id),
+      "Serviceability Status": formatStatus(asset.serviceability_status),
+      "Operation Status": formatStatus(asset.operation_status),
+    }));
 
-    const rows = filteredAssets.map((asset) => [
-      asset.name,
-      asset.model,
-      getUnitName(asset.unit_id),
-      formatStatus(asset.serviceability_status),
-      formatStatus(asset.operation_status),
-    ]);
-
-    const csvContent = [headers, ...rows]
-      .map((row) => row.map((cell) => escapeCsvValue(cell)).join(","))
-      .join("\n");
-
-    const csvBlob = new Blob([csvContent], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const blobUrl = window.URL.createObjectURL(csvBlob);
-    const anchor = document.createElement("a");
-    anchor.href = blobUrl;
-    anchor.download = `assets-${activeTab}-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.URL.revokeObjectURL(blobUrl);
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Assets");
+    XLSX.writeFile(
+      workbook,
+      `assets-${activeTab}-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
   };
 
   return (
@@ -340,7 +312,13 @@ export const AssetsPage = () => {
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (tab.id !== "aircraft") {
+                  setSelectedUnitId("all");
+                  setSelectedOperationStatus("all");
+                }
+              }}
               className={cn(
                 "flex items-center space-x-2 pb-4 text-sm font-medium transition-colors relative",
                 activeTab === tab.id
@@ -368,9 +346,11 @@ export const AssetsPage = () => {
               <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium capitalize">
                 {TABS.find((t) => t.id === activeTab)?.label}
               </button>
-              <button className="px-3 py-1.5 text-gray-400 hover:text-white rounded text-xs font-medium">
-                Operations
-              </button>
+              {activeTab !== "facility" && (
+                <button className="px-3 py-1.5 text-gray-400 hover:text-white rounded text-xs font-medium">
+                  Operations
+                </button>
+              )}
             </div>
 
             {/* View Icons */}
@@ -407,47 +387,51 @@ export const AssetsPage = () => {
 
             {/* Filters */}
             <div className="flex items-center gap-2 overflow-x-auto max-w-full">
+              {activeTab === "aircraft" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedUnitId("all");
+                      setSelectedOperationStatus("all");
+                    }}
+                    className="text-xs text-[#7FD5FF] cursor-pointer hover:underline whitespace-nowrap bg-[#001825] px-2 py-1 rounded-full border border-[#0A4D66]/40"
+                  >
+                    Reset Filter
+                  </button>
+                  <select
+                    title="Filter assets by unit"
+                    aria-label="Filter assets by unit"
+                    value={selectedUnitId}
+                    onChange={(e) => setSelectedUnitId(e.target.value)}
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
+                  >
+                    <option value="all">All Units</option>
+                    {(units ?? []).map((unit) => (
+                      <option key={unit.id} value={String(unit.id)}>
+                        {unit.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    title="Filter assets by operation status"
+                    aria-label="Filter assets by operation status"
+                    value={selectedOperationStatus}
+                    onChange={(e) => setSelectedOperationStatus(e.target.value)}
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
+                  >
+                    <option value="all">All Operation Status</option>
+                    <option value="operational">Operational</option>
+                    <option value="under_maintenance">Under Maintenance</option>
+                    <option value="grounded">Grounded</option>
+                  </select>
+                </>
+              )}
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedUnitId("all");
-                  setSelectedOperationStatus("all");
-                }}
-                className="text-xs text-[#7FD5FF] cursor-pointer hover:underline whitespace-nowrap bg-[#001825] px-2 py-1 rounded-full border border-[#0A4D66]/40"
-              >
-                Reset Filter
-              </button>
-              <select
-                title="Filter assets by unit"
-                aria-label="Filter assets by unit"
-                value={selectedUnitId}
-                onChange={(e) => setSelectedUnitId(e.target.value)}
-                className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
-              >
-                <option value="all">All Units</option>
-                {(units ?? []).map((unit) => (
-                  <option key={unit.id} value={String(unit.id)}>
-                    {unit.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                title="Filter assets by operation status"
-                aria-label="Filter assets by operation status"
-                value={selectedOperationStatus}
-                onChange={(e) => setSelectedOperationStatus(e.target.value)}
-                className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
-              >
-                <option value="all">All Operation Status</option>
-                <option value="operational">Operational</option>
-                <option value="under_maintenance">Under Maintenance</option>
-                <option value="grounded">Grounded</option>
-              </select>
-              <button
-                type="button"
-                onClick={handleDownloadCsv}
-                title="Download filtered assets CSV"
-                aria-label="Download filtered assets CSV"
+                onClick={handleDownloadExcel}
+                title="Download filtered assets Excel"
+                aria-label="Download filtered assets Excel"
                 className="p-1.5 text-gray-400 hover:text-white"
               >
                 <Icon icon="mdi:download" className="w-4 h-4" />

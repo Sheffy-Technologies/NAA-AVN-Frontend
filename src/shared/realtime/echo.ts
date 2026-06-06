@@ -10,12 +10,25 @@ const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 
 
 const backendBaseUrl = apiBaseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 
-const reverbHost =
+const normalizeReverbHost = (value: string): string => {
+  return value
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/.*$/, "")
+    .replace(/:\d+$/, "");
+};
+
+const reverbHostRaw =
   (import.meta.env.VITE_REVERB_HOST as string | undefined) ||
   (backendBaseUrl ? new URL(backendBaseUrl).hostname : window.location.hostname);
 
-const reverbPort = Number(import.meta.env.VITE_REVERB_PORT || 8080);
+const reverbHost = normalizeReverbHost(reverbHostRaw || window.location.hostname);
+
 const reverbScheme = (import.meta.env.VITE_REVERB_SCHEME as string | undefined) || "http";
+const reverbPort = Number(
+  (import.meta.env.VITE_REVERB_PORT as string | undefined) ||
+    (reverbScheme === "https" ? 443 : 8080),
+);
 const forceTLS = reverbScheme === "https";
 
 const reverbAppKey =

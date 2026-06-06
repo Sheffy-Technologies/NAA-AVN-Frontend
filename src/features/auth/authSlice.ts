@@ -15,6 +15,7 @@ export interface User {
   firstname?: string;
   lastname?: string;
   username?: string;
+  phone_number?: string;
   roles?: UserRole[];
   role_names?: string[];
   permissions?: string[];
@@ -49,8 +50,15 @@ const authSlice = createSlice({
       state.token = null;
       state.isAuthenticated = false;
     },
+    updateCurrentUser: (state, action: PayloadAction<Partial<User>>) => {
+      if (!state.user) return;
+      state.user = {
+        ...state.user,
+        ...action.payload,
+      };
+    },
   },
 });
 
-export const { setCredentials, logout } = authSlice.actions;
+export const { setCredentials, logout, updateCurrentUser } = authSlice.actions;
 export default authSlice.reducer;

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AVN DDBMS Project Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; line-height: 1.45; color: #111; margin: 36px; }
+    h1, h2, h3 { color: #0b3d4f; }
+    h1 { margin-bottom: 4px; }
+    .meta { color: #555; margin-bottom: 20px; }
+    ul { margin-top: 4px; }
+    .shot { margin: 14px 0 24px 0; }
+    .shot img { width: 100%; max-width: 860px; border: 1px solid #ccc; }
+    .caption { font-size: 12px; color: #444; margin-top: 4px; }
+    .section { margin-top: 18px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+    th, td { border: 1px solid #d0d7de; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #f6f8fa; }
+  </style>
+</head>
+<body>
+  <h1>NAAVN DDBMS Frontend Project Report</h1>
+  <div class="meta">
+    <div><strong>Project:</strong> AVN DDBMS (Nigerian Army Aviation Dashboard Frontend)</div>
+    <div><strong>Workspace:</strong> /Users/ram/projects/avn-frontend</div>
+    <div><strong>Report Date:</strong> May 21, 2026</div>
+    <div><strong>Platform Targets:</strong> Web (Vite/React), Desktop (Tauri + Electron configs present)</div>
+  </div>
+
+  <div class="section">
+    <h2>1. Executive Summary</h2>
+    <p>
+      This project is a modular, enterprise-scale operational dashboard for Nigerian Army Aviation.
+      It is built with React 19 + TypeScript and organized by features, supporting role-based access,
+      real-time capabilities, finance workflows, inventory and procurement lifecycles, operations,
+      maintenance tracking, document handling, reporting, messaging, and user/security administration.
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>2. Technology Stack</h2>
+    <ul>
+      <li>Frontend framework: React 19 + TypeScript + Vite</li>
+      <li>Routing: React Router with lazy-loaded route modules</li>
+      <li>State/API: Redux Toolkit + RTK Query + Axios base query</li>
+      <li>Styling: Tailwind CSS v4 + design tokens</li>
+      <li>Utilities: html2canvas + jsPDF for PDF export, xlsx for spreadsheet workflows</li>
+      <li>Realtime: Laravel Echo + Pusher</li>
+      <li>Desktop packaging: Tauri 2 and Electron build paths</li>
+      <li>Testing: Vitest + Testing Library</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>3. Architecture & Organization</h2>
+    <ul>
+      <li><strong>src/app</strong>: app shell, route definitions, guarded layouts, global store wiring</li>
+      <li><strong>src/features</strong>: domain modules (auth, finance, inventory, maintenance, operations, etc.)</li>
+      <li><strong>src/shared</strong>: cross-cutting hooks, UI atoms, icons, utilities, common API helpers</li>
+      <li><strong>Permission-gated routing</strong>: RequireAuth + RequireRole wrappers around protected pages</li>
+      <li><strong>Code splitting</strong>: lazy imports for most route-level pages</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>4. Feature Inventory (Comprehensive)</h2>
+    <table>
+      <thead>
+        <tr><th>Domain</th><th>Implemented Capabilities</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Authentication</td>
+          <td>Login, Registration, Forgot Password, OTP verification flow, authenticated dashboard access gating.</td>
+        </tr>
+        <tr>
+          <td>Dashboard</td>
+          <td>Summary cards/metrics, entry-point navigation to all operational modules, lazy-loaded dashboard pages.</td>
+        </tr>
+        <tr>
+          <td>Finance</td>
+          <td>Expense and budget/accounts dashboards, filters, account selector, budget statement generation, budget detail view, income recording/deletion, dynamic currency support, expense creation/editing, expense detail slider, PDF export from expense slider.</td>
+        </tr>
+        <tr>
+          <td>Inventory & Procurement</td>
+          <td>Inventory listing/details/forms, requisitions and requisition details, suppliers, RFQ details, purchase orders (list/form/detail), procurement lifecycle pages.</td>
+        </tr>
+        <tr>
+          <td>Operations</td>
+          <td>Operations listing/details/create/edit, after-action report workflows, map/location picker support.</td>
+        </tr>
+        <tr>
+          <td>Maintenance</td>
+          <td>Maintenance dashboards, planning/compliance/tracking tabs, work orders list/detail APIs, defects, maintenance program CRUD, maintenance inventory interactions.</td>
+        </tr>
+        <tr>
+          <td>Assets</td>
+          <td>Assets listing, add/edit forms for aircraft/vehicle/facility, asset details, defect logging, after-action related forms.</td>
+        </tr>
+        <tr>
+          <td>Personnel</td>
+          <td>Personnel directory, add/edit personnel records, detail pages, unit and role-linked datasets.</td>
+        </tr>
+        <tr>
+          <td>Units</td>
+          <td>Unit list, unit form, unit details, integration across budgets/inventory/personnel workflows.</td>
+        </tr>
+        <tr>
+          <td>Reports & Documents</td>
+          <td>Dedicated reports and documents modules with role-based access controls.</td>
+        </tr>
+        <tr>
+          <td>Messaging & Realtime</td>
+          <td>Messages module with compose state management and realtime channel scaffolding (Echo/Pusher).</td>
+        </tr>
+        <tr>
+          <td>Security & Users</td>
+          <td>Security console route and user management pages (view/add), permission-driven access checks.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>5. Routing & Access Control Highlights</h2>
+    <ul>
+      <li>Protected routes across finance, inventory, operations, maintenance, security, reports, and documents.</li>
+      <li>Fine-grained permission arrays used to gate each domain module.</li>
+      <li>Graceful loading states with route-level suspense fallbacks.</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>6. Build & Deployment Readiness</h2>
+    <ul>
+      <li>Web production build pipeline: <code>tsc -b && vite build</code></li>
+      <li>Tauri desktop build validated for macOS Intel target (<code>x86_64-apple-darwin</code>)</li>
+      <li>Electron scripts included for alternate desktop packaging flows</li>
+      <li>Firebase deployment command present and recently executed in workspace terminal history</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>7. Screenshots (Captured from Running App)</h2>
+
+    <div class="shot">
+      <h3>7.1 Login Screen</h3>
+      <img src="screenshots/login.png" alt="Login screen" />
+      <div class="caption">Captured from /auth/login</div>
+    </div>
+
+    <div class="shot">
+      <h3>7.2 Registration Screen</h3>
+      <img src="screenshots/register.png" alt="Register screen" />
+      <div class="caption">Captured from /auth/register</div>
+    </div>
+
+    <div class="shot">
+      <h3>7.3 Forgot Password Screen</h3>
+      <img src="screenshots/forgot-password.png" alt="Forgot password screen" />
+      <div class="caption">Captured from /auth/forgot-password</div>
+    </div>
+
+    <p><em>Note:</em> Dashboard module screenshots require authenticated session credentials, so this report includes authenticated-entry screens that are publicly reachable.</p>
+  </div>
+
+  <div class="section">
+    <h2>8. Recent Improvements Observed</h2>
+    <ul>
+      <li>Finance expense edit flow enabled and wired from expense action menu.</li>
+      <li>Expense detail side slider implemented with in-panel PDF export.</li>
+      <li>Dynamic budget/account currency rendering introduced in finance pages.</li>
+      <li>Optional finance form fields expanded (vendor dropdown, purchase/work order dropdowns, date handling).</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>9. Recommended Next Steps</h2>
+    <ul>
+      <li>Add authenticated screenshot set (dashboard, finance, inventory, maintenance) using a staging test account.</li>
+      <li>Address large bundle chunks via route-level/manual chunking strategy.</li>
+      <li>Create a product-facing release note template and map each module to release train ownership.</li>
+      <li>Expand automated tests for core finance edit/update and PDF export paths.</li>
+    </ul>
+  </div>
+</body>
+</html>

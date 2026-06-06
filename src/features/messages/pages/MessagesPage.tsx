@@ -16,12 +16,15 @@ import { useGetUsersQuery } from "@/features/users/api";
 import { useGetOperationsQuery } from "@/features/operations/api";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
 import { useGetAssetsQuery } from "@/features/assets/api";
+import { useStartCallMutation } from "@/features/calls/api";
+import { setOutgoingCall } from "@/features/calls/callSlice";
 import {
   useGetPurchaseOrdersQuery,
   useGetInventoriesQuery,
 } from "@/features/inventory/api";
 import { getEchoClient } from "@/shared/realtime/echo";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { playMessageBeep } from "@/shared/utils/sound";
 import { useTheme } from "@/context/ThemeContext";
 import { openCompose } from "@/features/messages/composeSlice";
 
@@ -88,6 +91,36 @@ const getAttachablePath = (
     default:
       return null;
   }
+};
+
+const getConversationPeerId = (
+  conversation: {
+    user: MessageUser;
+    messages: MessageItem[];
+  } | null,
+  currentUserId: number,
+): number | null => {
+  if (!conversation) return null;
+
+  if (conversation.user.id && conversation.user.id !== currentUserId) {
+    return conversation.user.id;
+  }
+
+  for (const message of conversation.messages) {
+    if (message.sender_id !== currentUserId) {
+      return message.sender_id;
+    }
+
+    const recipient = (message.recipients || []).find(
+      (item) => item.id !== currentUserId,
+    );
+
+    if (recipient?.id) {
+      return recipient.id;
+    }
+  }
+
+  return null;
 };
 
 export const MessagesPage = () => {
@@ -190,6 +223,7 @@ export const MessagesPage = () => {
   const [sendMessage, { isLoading: isSending }] = useSendMessageMutation();
   const [updateMessage, { isLoading: isUpdating }] = useUpdateMessageMutation();
   const [deleteMessage, { isLoading: isDeleting }] = useDeleteMessageMutation();
+  const [startCall, { isLoading: isStartingCall }] = useStartCallMutation();
 
   const unreadCount = useMemo(
     () => inboxMessages.filter((message) => message.is_read === false).length,
@@ -239,14 +273,17 @@ export const MessagesPage = () => {
     for (const message of allMessages) {
       const participantIds = new Set<number>();
 
-      if (message.sender_id !== currentUserId) {
-        participantIds.add(message.sender_id);
-      }
-
-      for (const recipient of message.recipients || []) {
-        if (recipient.id !== currentUserId) {
-          participantIds.add(recipient.id);
+      if (message.sender_id === currentUserId) {
+        // Outbound: open a thread per recipient.
+        for (const recipient of message.recipients || []) {
+          if (recipient.id !== currentUserId) {
+            participantIds.add(recipient.id);
+          }
         }
+      } else {
+        // Inbound: thread is only with the sender. CC'd recipients are shown
+        // inside the message bubble, not as separate conversations.
+        participantIds.add(message.sender_id);
       }
 
       participantIds.forEach((participantId) => {
@@ -289,6 +326,10 @@ export const MessagesPage = () => {
   const selectedConversation = useMemo(() => {
     return conversations.find((conversation) => conversation.user.id === selectedConversationUserId) || null;
   }, [conversations, selectedConversationUserId]);
+
+  const selectedConversationPeerId = useMemo(() => {
+    return getConversationPeerId(selectedConversation, currentUserId);
+  }, [selectedConversation, currentUserId]);
 
   const attachableSelectionOptions = useMemo(() => {
     if (attachableType === "operation") {
@@ -354,6 +395,7 @@ export const MessagesPage = () => {
     echo.private(channel).listen(".message.delivered", () => {
       void refetchInbox();
       void refetchSent();
+      void playMessageBeep();
       dispatch(
         showToast({
           message: "New message received",
@@ -518,6 +560,24 @@ export const MessagesPage = () => {
     }
   };
 
+  const handleStartVideoCall = async () => {
+    if (!selectedConversation) return;
+
+    const calleeId = selectedConversationPeerId;
+    if (!calleeId || calleeId === currentUserId) {
+      dispatch(showToast({ message: "Invalid call recipient", type: "error" }));
+      return;
+    }
+
+    try {
+      const call = await startCall({ callee_id: calleeId }).unwrap();
+      dispatch(setOutgoingCall(call));
+      dispatch(showToast({ message: `Calling ${userName(selectedConversation.user)}...`, type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Unable to start call", type: "error" }));
+    }
+  };
+
   if (!canViewMessages) {
     return (
       <div className={`rounded-xl border p-6 text-sm ${isDark ? "border-[#0A4D66]/30 bg-[#001219] text-gray-300" : "border-gray-200 bg-white text-gray-600"}`}>
@@ -551,20 +611,20 @@ export const MessagesPage = () => {
       </div>
 
       <div className="grid h-[calc(100vh-190px)] grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
-        <div className={`rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.35)] ${panelBg}`}>
-          <div className={`border-b px-4 py-3 text-xs ${mutedText} ${panelDivider}`}>
+        <div className={`flex h-full min-h-0 flex-col rounded-2xl border shadow-[0_20px_50px_rgba(0,0,0,0.35)] ${panelBg}`}>
+          <div className={`shrink-0 border-b px-4 py-3 text-xs ${mutedText} ${panelDivider}`}>
             Conversations ({conversations.length})
           </div>
 
           {(isInboxFetching || isSentFetching) && (
-            <div className={`px-4 py-3 text-xs ${subtleText}`}>Loading conversations...</div>
+            <div className={`shrink-0 px-4 py-3 text-xs ${subtleText}`}>Loading conversations...</div>
           )}
 
           {!isInboxFetching && !isSentFetching && conversations.length === 0 && (
-            <div className={`px-4 py-8 text-sm ${subtleText}`}>No conversations yet.</div>
+            <div className={`shrink-0 px-4 py-8 text-sm ${subtleText}`}>No conversations yet.</div>
           )}
 
-          <div className={`h-[calc(100%-44px)] overflow-y-auto ${listDivider}`}>
+          <div className={`min-h-0 flex-1 overflow-y-auto ${listDivider}`}>
             {conversations.map((conversation) => {
               const lastMessage = conversation.messages[conversation.messages.length - 1];
               const isActive = selectedConversationUserId === conversation.user.id;
@@ -607,10 +667,25 @@ export const MessagesPage = () => {
           ) : (
             <>
               <div className={`border-b px-4 py-3 ${panelDivider} ${isDark ? "bg-[#04131A]" : "bg-gray-50"}`}>
-                <p className={`text-sm font-semibold ${titleText}`}>{userName(selectedConversation.user)}</p>
-                <p className={`text-xs ${mutedText}`}>
-                  {selectedConversation.messages.length} messages in this thread
-                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className={`text-sm font-semibold ${titleText}`}>{userName(selectedConversation.user)}</p>
+                    <p className={`text-xs ${mutedText}`}>
+                      {selectedConversation.messages.length} messages in this thread
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleStartVideoCall()}
+                    disabled={isStartingCall || !selectedConversationPeerId}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[#128C7E] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#20a193] disabled:opacity-60"
+                    title="Start video call"
+                    aria-label="Start video call"
+                  >
+                    <Icon icon="mdi:video" className="h-4 w-4" />
+                    Video Call
+                  </button>
+                </div>
               </div>
 
               <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4 ${msgAreaBg}`}>

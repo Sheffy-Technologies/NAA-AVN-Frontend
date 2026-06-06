@@ -88,11 +88,21 @@ const TABS: Array<{ id: DashboardTabId; label: string }> = [
   { id: "personnel", label: "Personnel" },
 ];
 
-const CardItem = ({ card }: { card: Card }) => (
+const CardItem = ({
+  card,
+  onClick,
+}: {
+  card: Card;
+  onClick?: () => void;
+}) => (
   <button
     type="button"
+    onClick={onClick}
     className={cn(
-      "w-full text-left rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between transition-colors cursor-default",
+      "w-full text-left rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between transition-colors",
+      onClick
+        ? "cursor-pointer hover:border-[#7FD5FF]/50"
+        : "cursor-default",
       card.bgClass || "bg-[#001219]",
     )}
   >
@@ -715,7 +725,11 @@ export const DashboardPage = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {operationsCards.map((c) => (
-              <CardItem key={c.label} card={c} />
+              <CardItem
+                key={c.label}
+                card={c}
+                onClick={() => navigate("/dashboard/operations")}
+              />
             ))}
           </div>
 
@@ -733,7 +747,60 @@ export const DashboardPage = () => {
               />
             }
           >
-            <div className="w-full overflow-x-auto">
+            <div className="md:hidden divide-y divide-[#0A4D66]/20">
+              {isFetchingOps && (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              )}
+              {!isFetchingOps && filteredOperationsRows.length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No upcoming operations
+                </div>
+              )}
+              {filteredOperationsRows.map((op) => (
+                <div
+                  key={op.id ?? `${op.name ?? "operation"}-${op.created_at ?? ""}`}
+                  className="space-y-3 px-4 py-4"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">{op.name || "—"}</p>
+                    <p className="text-xs text-gray-400">
+                      {op.operation_type?.name || "—"}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">Unit</p>
+                    <p className="text-right text-gray-200">{op.unit?.name || "—"}</p>
+                    <p className="text-gray-400">Priority</p>
+                    <p className="text-right text-gray-200">{op.priority || "—"}</p>
+                    <p className="text-gray-400">Status</p>
+                    <p className="text-right text-gray-200">{op.status || "—"}</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        op.id
+                          ? navigate(`/dashboard/operations/${op.id}`)
+                          : undefined
+                      }
+                      className={cn(
+                        "inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors",
+                        op.id
+                          ? "text-gray-200"
+                          : "text-gray-500 cursor-not-allowed",
+                      )}
+                      disabled={!op.id}
+                      title="View operation details"
+                      aria-label="View operation details"
+                    >
+                      <Icon icon="mdi:dots-horizontal" className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-gray-400">
                   <tr className="border-b border-[#0A4D66]/30">
@@ -826,7 +893,11 @@ export const DashboardPage = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {maintenanceCards.map((c) => (
-              <CardItem key={c.label} card={c} />
+              <CardItem
+                key={c.label}
+                card={c}
+                onClick={() => navigate("/dashboard/maintenance")}
+              />
             ))}
           </div>
 
@@ -844,7 +915,44 @@ export const DashboardPage = () => {
               />
             }
           >
-            <div className="w-full overflow-x-auto">
+            <div className="md:hidden divide-y divide-[#0A4D66]/20">
+              {isFetchingMaintenance && (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              )}
+              {!isFetchingMaintenance && filteredMaintenanceRows.length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No recent aircrafts
+                </div>
+              )}
+              {filteredMaintenanceRows.map((a) => (
+                <div key={a.id} className="space-y-3 px-4 py-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{a.name || "—"}</p>
+                    <p className="text-xs text-gray-400">{a.tail_number || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">Insp (Hrs)</p>
+                    <p className="text-right text-gray-200">
+                      {formatMetric(a.inspection_interval, "hrs", { space: false })}
+                    </p>
+                    <p className="text-gray-400">Insp (Cyc)</p>
+                    <p className="text-right text-gray-200">
+                      {formatMetric(a.inspection_interval_cycle, "cyc")}
+                    </p>
+                    <p className="text-gray-400">Total Hrs</p>
+                    <p className="text-right text-gray-200">
+                      {formatMetric(a.total_airframe_hours, "hrs", { space: false })}
+                    </p>
+                    <p className="text-gray-400">Total Cyc</p>
+                    <p className="text-right text-gray-200">
+                      {formatMetric(a.total_cycles, "cyc")}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-gray-400">
                   <tr className="border-b border-[#0A4D66]/30">
@@ -991,7 +1099,11 @@ export const DashboardPage = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {financeCards.map((c) => (
-              <CardItem key={c.label} card={c} />
+              <CardItem
+                key={c.label}
+                card={c}
+                onClick={() => navigate("/dashboard/finance")}
+              />
             ))}
           </div>
 
@@ -1009,7 +1121,56 @@ export const DashboardPage = () => {
               />
             }
           >
-            <div className="w-full overflow-x-auto">
+            <div className="md:hidden divide-y divide-[#0A4D66]/20">
+              {isFetchingFinance && (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              )}
+              {!isFetchingFinance && filteredFinanceRows.length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No recent finance logs
+                </div>
+              )}
+              {filteredFinanceRows.slice(0, 7).map((e) => (
+                <div key={e.id} className="space-y-3 px-4 py-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{e.part_name || "—"}</p>
+                    <p className="text-xs text-gray-400">{e.expense_category?.name || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">Quantity</p>
+                    <p className="text-right text-gray-200">{e.quantity ?? "—"}</p>
+                    <p className="text-gray-400">Unit Cost</p>
+                    <p className="text-right text-gray-200">
+                      {typeof e.unit_cost === "number" ? `₦${e.unit_cost.toLocaleString()}` : "—"}
+                    </p>
+                    <p className="text-gray-400">Total Cost</p>
+                    <p className="text-right text-gray-200">
+                      {typeof e.total_cost === "number" ? `₦${e.total_cost.toLocaleString()}` : "—"}
+                    </p>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate("/dashboard/finance", {
+                          state: {
+                            activeTab: "expenses",
+                            expenseId: e.id,
+                          },
+                        })
+                      }
+                      className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                      title="View finance details"
+                      aria-label="View finance details"
+                    >
+                      <Icon icon="mdi:dots-horizontal" className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-gray-400">
                   <tr className="border-b border-[#0A4D66]/30">
@@ -1063,7 +1224,14 @@ export const DashboardPage = () => {
                       <td className="px-4 py-3 text-right">
                         <button
                           type="button"
-                          onClick={() => navigate("/dashboard/finance")}
+                          onClick={() =>
+                            navigate("/dashboard/finance", {
+                              state: {
+                                activeTab: "expenses",
+                                expenseId: e.id,
+                              },
+                            })
+                          }
                           className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
                           title="View finance details"
                           aria-label="View finance details"
@@ -1090,7 +1258,11 @@ export const DashboardPage = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {inventoryCards.map((c) => (
-              <CardItem key={c.label} card={c} />
+              <CardItem
+                key={c.label}
+                card={c}
+                onClick={() => navigate("/dashboard/inventory")}
+              />
             ))}
           </div>
 
@@ -1108,7 +1280,47 @@ export const DashboardPage = () => {
               />
             }
           >
-            <div className="w-full overflow-x-auto">
+            <div className="md:hidden divide-y divide-[#0A4D66]/20">
+              {isFetchingInventory && (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              )}
+              {!isFetchingInventory && filteredInventoryRows.length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No recent inventories
+                </div>
+              )}
+              {filteredInventoryRows.slice(0, 7).map((i) => (
+                <div key={i.id} className="space-y-3 px-4 py-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{i.description || "—"}</p>
+                    <p className="text-xs text-gray-400">{i.part_number || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">Current Stock</p>
+                    <p className="text-right text-gray-200">
+                      {typeof i.current_stock === "number" ? i.current_stock : "—"}
+                    </p>
+                    <p className="text-gray-400">Unit</p>
+                    <p className="text-right text-gray-200">{i.unit?.name || "—"}</p>
+                    <p className="text-gray-400">Expiry</p>
+                    <p className="text-right text-gray-200">{i.expiry_date || "—"}</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/dashboard/inventory/${i.id}`)}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                      title="View inventory details"
+                      aria-label="View inventory details"
+                    >
+                      <Icon icon="mdi:dots-horizontal" className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-gray-400">
                   <tr className="border-b border-[#0A4D66]/30">
@@ -1192,7 +1404,11 @@ export const DashboardPage = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {personnelCards.map((c) => (
-              <CardItem key={c.label} card={c} />
+              <CardItem
+                key={c.label}
+                card={c}
+                onClick={() => navigate("/dashboard/personnel")}
+              />
             ))}
           </div>
 
@@ -1210,7 +1426,51 @@ export const DashboardPage = () => {
               />
             }
           >
-            <div className="w-full overflow-x-auto">
+            <div className="md:hidden divide-y divide-[#0A4D66]/20">
+              {isFetchingPersonnel && (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              )}
+              {!isFetchingPersonnel && filteredPersonnelRows.length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No recent personnel
+                </div>
+              )}
+              {filteredPersonnelRows.slice(0, 7).map((p) => (
+                <div key={p.id} className="space-y-3 px-4 py-4">
+                  <div>
+                    <p className="text-sm font-semibold text-white">
+                      {p.full_name ||
+                        `${p.firstname ?? ""} ${p.lastname ?? ""}`.trim() ||
+                        "—"}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {p.rank?.abbreviation || p.rank?.name || "—"}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">Unit</p>
+                    <p className="text-right text-gray-200">{p.unit?.name || "—"}</p>
+                    <p className="text-gray-400">Branch</p>
+                    <p className="text-right text-gray-200">{p.branch?.name || "—"}</p>
+                    <p className="text-gray-400">Status</p>
+                    <p className="text-right text-gray-200">{p.status || "—"}</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/dashboard/personnel/${p.id}`)}
+                      className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
+                      title="View personnel details"
+                      aria-label="View personnel details"
+                    >
+                      <Icon icon="mdi:dots-horizontal" className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-gray-400">
                   <tr className="border-b border-[#0A4D66]/30">

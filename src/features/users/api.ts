@@ -17,6 +17,11 @@ export type UserRecord = {
   updated_at?: string | null;
 };
 
+export type SelfUserRecord = UserRecord & {
+  role_names?: string[];
+  permissions?: string[];
+};
+
 type UsersApiResponse =
   | UserRecord[]
   | {
@@ -58,6 +63,23 @@ export const usersApi = createApi({
         data,
       }),
     }),
+    updateMe: builder.mutation<
+      SelfUserRecord,
+      Partial<
+        Pick<
+          UserRecord,
+          "firstname" | "lastname" | "username" | "email" | "phone_number"
+        > & {
+          password: string;
+        }
+      >
+    >({
+      query: (data) => ({
+        url: "/auth/me",
+        method: "PUT",
+        data,
+      }),
+    }),
     createUser: builder.mutation<UserRecord, {
       firstname?: string | null;
       lastname?: string | null;
@@ -75,4 +97,9 @@ export const usersApi = createApi({
   }),
 });
 
-export const { useGetUsersQuery, useUpdateUserMutation, useCreateUserMutation } = usersApi;
+export const {
+  useGetUsersQuery,
+  useUpdateUserMutation,
+  useUpdateMeMutation,
+  useCreateUserMutation,
+} = usersApi;
