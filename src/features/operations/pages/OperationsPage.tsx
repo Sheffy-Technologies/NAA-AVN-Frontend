@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import * as XLSX from "xlsx";
 import { cn } from "@/shared/utils/cn";
 import { useGetOperationsQuery } from "../api";
 import { OperationsMapView } from "../components/OperationsMapView";
@@ -61,6 +62,9 @@ export const OperationsPage = () => {
   const navigate = useNavigate();
   const { data: operations = [], isLoading } = useGetOperationsQuery();
   const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUnitId, setSelectedUnitId] = useState("all");
+  const [selectedPriority, setSelectedPriority] = useState("all");
   const [scheduleDate, setScheduleDate] = useState<Date>(() =>
     startOfLocalDay(new Date()),
   );
@@ -76,6 +80,76 @@ export const OperationsPage = () => {
     };
   }, [operations]);
 
+  const unitOptions = useMemo(() => {
+    const map = new Map<number, string>();
+    operations.forEach((op) => {
+      if (op.unit?.id && op.unit?.name && !map.has(op.unit.id)) {
+        map.set(op.unit.id, op.unit.name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({
+      id,
+      name,
+    }));
+  }, [operations]);
+
+  const filteredOperations = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+
+    return operations.filter((op) => {
+      if (
+        selectedUnitId !== "all" &&
+        String(op.unit?.id ?? "") !== selectedUnitId
+      ) {
+        return false;
+      }
+
+      if (selectedPriority !== "all" && op.priority !== selectedPriority) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const searchFields = [
+        op.name,
+        op.description,
+        op.priority,
+        op.status,
+        op.unit?.name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchFields.includes(query);
+    });
+  }, [operations, searchTerm, selectedPriority, selectedUnitId]);
+
+  const handleDownloadExcel = () => {
+    if (filteredOperations.length === 0) return;
+
+    const rows = filteredOperations.map((op) => ({
+      Purpose: op.description || "-",
+      Type: op.name || "-",
+      Unit: op.unit?.name || "-",
+      Priority: op.priority || "-",
+      Status: op.status || "-",
+      Start: op.start_date_time || "-",
+      End: op.end_date_time || "-",
+      Duration: op.duration_label || "-",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Operations");
+    XLSX.writeFile(
+      workbook,
+      `operations-${new Date().toISOString().slice(0, 10)}.xlsx`,
+    );
+  };
+
   const renderScheduleView = () => {
     const timelineHours = Array.from({ length: 24 }, (_, i) => i);
     const dayStart = startOfLocalDay(scheduleDate);
@@ -87,7 +161,7 @@ export const OperationsPage = () => {
       gridTemplateColumns: `repeat(24, ${timelineColumnWidth}px)`,
     };
 
-    const scheduleOperations = operations
+    const scheduleOperations = filteredOperations
       .map((op) => {
         const start = parseApiDateTime(op.start_date_time);
         const end =
@@ -365,7 +439,7 @@ export const OperationsPage = () => {
             </tr>
           </thead>
           <tbody>
-            {operations.map((op, idx) => (
+            {filteredOperations.map((op, idx) => (
               <tr
                 key={op.id}
                 onClick={() => navigate(String(op.id))}
@@ -398,6 +472,16 @@ export const OperationsPage = () => {
                 </td>
               </tr>
             ))}
+            {!isLoading && filteredOperations.length === 0 && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-6 py-8 text-center text-gray-400"
+                >
+                  No operations match the selected filters.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -406,7 +490,7 @@ export const OperationsPage = () => {
 
   const renderGridView = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {operations.map((op) => (
+      {filteredOperations.map((op) => (
         <div
           key={op.id}
           onClick={() => navigate(String(op.id))}
@@ -441,6 +525,11 @@ export const OperationsPage = () => {
           </div>
         </div>
       ))}
+      {filteredOperations.length === 0 && (
+        <div className="col-span-full rounded-xl border border-[#0A4D66]/40 bg-[#001219] p-6 text-center text-sm text-gray-400">
+          No operations match the selected filters.
+        </div>
+      )}
     </div>
   );
 
@@ -460,6 +549,8 @@ export const OperationsPage = () => {
               <input
                 type="text"
                 placeholder="Search"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="bg-[#001219] border border-[#0A4D66]/40 rounded text-sm pl-9 pr-3 py-1.5 focus:outline-none focus:border-cyan-500/50 w-64"
               />
             </div>
@@ -547,14 +638,55 @@ export const OperationsPage = () => {
 
             <div className="h-6 w-px bg-[#0A4D66]/40 mx-1"></div>
 
-            <button className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 flex items-center gap-1">
-              All Units <Icon icon="mdi:chevron-down" className="w-4 h-4" />
-            </button>
-            <button className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 flex items-center gap-1">
-              All Priority <Icon icon="mdi:chevron-down" className="w-4 h-4" />
-            </button>
+            <div className="relative">
+              <select
+                value={selectedUnitId}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+                className="appearance-none px-3 py-1.5 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 focus:outline-none"
+                aria-label="Filter operations by unit"
+              >
+                <option value="all">All Units</option>
+                {unitOptions.map((unit) => (
+                  <option key={unit.id} value={String(unit.id)}>
+                    {unit.name}
+                  </option>
+                ))}
+              </select>
+              <Icon
+                icon="mdi:chevron-down"
+                className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              />
+            </div>
+            <div className="relative">
+              <select
+                value={selectedPriority}
+                onChange={(e) => setSelectedPriority(e.target.value)}
+                className="appearance-none px-3 py-1.5 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 focus:outline-none"
+                aria-label="Filter operations by priority"
+              >
+                <option value="all">All Priority</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+              <Icon
+                icon="mdi:chevron-down"
+                className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              />
+            </div>
 
-            <button className="p-1.5 text-gray-400 hover:text-white">
+            <button
+              onClick={handleDownloadExcel}
+              disabled={filteredOperations.length === 0}
+              className={cn(
+                "p-1.5 transition-colors",
+                filteredOperations.length === 0
+                  ? "text-gray-600 cursor-not-allowed"
+                  : "text-gray-400 hover:text-white",
+              )}
+              title="Download operations as Excel"
+              aria-label="Download operations as Excel"
+            >
               <Icon icon="mdi:download" className="w-5 h-5" />
             </button>
             <button
@@ -577,7 +709,7 @@ export const OperationsPage = () => {
           <>
             {viewMode === "map" && (
               <OperationsMapView
-                operations={operations}
+                operations={filteredOperations}
                 onSelectOperation={(id) => navigate(String(id))}
               />
             )}

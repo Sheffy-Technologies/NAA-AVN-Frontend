@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useGetFinanceDashboardQuery,
   useGetExpensesQuery,
@@ -35,6 +36,7 @@ type ExpenseRow = {
   unit: string;
   unitId: number;
   expenseType: string;
+  currencySymbol: string;
   unitCost: number;
   totalCost: number;
   budgetId: number;
@@ -58,6 +60,7 @@ type BudgetRow = {
 
 export const FinancePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<FinanceTabKey>("expenses");
 
@@ -80,11 +83,14 @@ export const FinancePage = () => {
   const { data: expenseCategoriesData } = useGetExpenseCategoriesQuery();
   const { data: unitsData } = useGetUnitsQuery();
 
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(
-    null,
-  );
+  const [selectedAccountId, setSelectedAccountId] = useState<
+    number | null | "default"
+  >("default");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  const resolvedSelectedAccountId =
+    selectedAccountId === "default" ? (budgetsData?.[0]?.id ?? null) : selectedAccountId;
 
   const [expensesViewMode, setExpensesViewMode] =
     useState<FinanceViewMode>("table");
@@ -97,16 +103,19 @@ export const FinancePage = () => {
   const [openExpenseDetailId, setOpenExpenseDetailId] = useState<number | null>(
     null,
   );
+  const [activeExpenseId, setActiveExpenseId] = useState<number | null>(null);
+  const [isExportingExpensePdf, setIsExportingExpensePdf] = useState(false);
   const [openBudgetActionId, setOpenBudgetActionId] = useState<number | null>(
     null,
   );
   const expensesTableRef = useRef<HTMLDivElement>(null);
   const budgetsTableRef = useRef<HTMLDivElement>(null);
+  const expenseSliderRef = useRef<HTMLDivElement>(null);
 
   const summaryCards = useMemo(() => {
     const selected =
-      selectedAccountId != null
-        ? (budgetsData ?? []).find((b) => b.id === selectedAccountId)
+      resolvedSelectedAccountId != null
+        ? (budgetsData ?? []).find((b) => b.id === resolvedSelectedAccountId)
         : undefined;
 
     const symbol =
@@ -184,34 +193,62 @@ export const FinancePage = () => {
         icon: "mdi:bank-outline",
       },
     ];
-  }, [dashboard, selectedAccountId, budgetsData]);
+  }, [dashboard, resolvedSelectedAccountId, budgetsData]);
 
   const expenses: ExpenseRow[] = useMemo(() => {
     if (!expensesData) return [];
 
-    return expensesData.map((expense: FinanceExpense) => ({
-      id: expense.id,
-      expenseId: `EXP-${expense.id.toString().padStart(5, "0")}`,
-      date: new Date(expense.created_at).toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }),
-      createdAt: expense.created_at,
-      category: expense.expense_category?.name ?? "-",
-      categoryId: expense.expense_category_id,
-      partName: expense.part_name,
-      partNumber: expense.part_number,
-      quantity: expense.quantity,
-      unit: expense.unit?.name ?? "-",
-      unitId: expense.unit_id,
-      expenseType: expense.expense_type?.name ?? "-",
-      unitCost: expense.unit_cost,
-      totalCost: expense.total_cost,
-      budgetId: expense.budget_id,
-      budgetName: expense.budget?.name ?? "-",
-    }));
+    return expensesData.map((expense: FinanceExpense) => {
+      const expenseDateSource = expense.date || expense.created_at;
+
+      return {
+        id: expense.id,
+        expenseId: `EXP-${expense.id.toString().padStart(5, "0")}`,
+        date: new Date(expenseDateSource).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+        createdAt: expenseDateSource,
+        category: expense.expense_category?.name ?? "-",
+        categoryId: expense.expense_category_id,
+        partName: expense.part_name,
+        partNumber: expense.part_number,
+        quantity: expense.quantity,
+        unit: expense.unit?.name ?? "-",
+        unitId: expense.unit_id,
+        expenseType: expense.expense_type?.name ?? "-",
+        currencySymbol:
+          expense.budget?.currency?.symbol ?? expense.budget?.currency?.code ?? "₦",
+        unitCost: expense.unit_cost,
+        totalCost: expense.total_cost,
+        budgetId: expense.budget_id,
+        budgetName: expense.budget?.name ?? "-",
+      };
+    });
   }, [expensesData]);
+
+  useEffect(() => {
+    const routeState = location.state as
+      | {
+          activeTab?: FinanceTabKey;
+          expenseId?: number;
+        }
+      | undefined;
+
+    if (!routeState) return;
+
+    if (routeState.activeTab === "expenses" || routeState.activeTab === "budgets") {
+      setActiveTab(routeState.activeTab);
+    }
+
+    if (typeof routeState.expenseId === "number") {
+      setActiveExpenseId(routeState.expenseId);
+      setOpenExpenseDetailId(null);
+    }
+
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   const budgets: BudgetRow[] = useMemo(() => {
     if (!budgetsData) return [];
@@ -378,14 +415,24 @@ export const FinancePage = () => {
 
   const selectedAccount = useMemo(
     () =>
-      selectedAccountId != null
-        ? (budgetsData ?? []).find((b) => b.id === selectedAccountId) ?? null
+      resolvedSelectedAccountId != null
+        ? (budgetsData ?? []).find((b) => b.id === resolvedSelectedAccountId) ?? null
         : null,
-    [selectedAccountId, budgetsData],
+    [resolvedSelectedAccountId, budgetsData],
+  );
+
+  const activeExpense = useMemo(
+    () => (expensesData ?? []).find((expense) => expense.id === activeExpenseId),
+    [activeExpenseId, expensesData],
+  );
+
+  const activeExpenseRow = useMemo(
+    () => expenses.find((expense) => expense.id === activeExpenseId),
+    [activeExpenseId, expenses],
   );
 
   const handleGenerateReport = () => {
-    if (selectedAccountId == null) {
+    if (resolvedSelectedAccountId == null) {
       dispatch(
         showToast({
           message: "Select an account to generate its statement",
@@ -394,11 +441,52 @@ export const FinancePage = () => {
       );
       return;
     }
-    navigate(`/dashboard/finance/budgets/${selectedAccountId}/statement`);
+    navigate(`/dashboard/finance/budgets/${resolvedSelectedAccountId}/statement`);
   };
 
   const handleViewBudget = (id: number) => {
     navigate(`/dashboard/finance/budgets/${id}`);
+  };
+
+  const handleViewExpense = (id: number) => {
+    setActiveExpenseId(id);
+    setOpenExpenseDetailId(null);
+  };
+
+  const handleEditExpense = (id: number) => {
+    const expenseToEdit = (expensesData ?? []).find((expense) => expense.id === id);
+
+    if (!expenseToEdit) {
+      dispatch(showToast({ message: "Expense record not found", type: "error" }));
+      return;
+    }
+
+    setOpenExpenseDetailId(null);
+    setActiveExpenseId(null);
+
+    navigate("/dashboard/finance/add", {
+      state: {
+        mode: "edit",
+        expense: expenseToEdit,
+      },
+    });
+  };
+
+  const handleDownloadExpensePdf = async () => {
+    if (!activeExpenseRow || !expenseSliderRef.current) return;
+
+    try {
+      setIsExportingExpensePdf(true);
+      await downloadElementAsPdf({
+        element: expenseSliderRef.current,
+        fileName: `expense-${activeExpenseRow.expenseId}`,
+      });
+      dispatch(showToast({ message: "Expense PDF exported", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to export expense PDF", type: "error" }));
+    } finally {
+      setIsExportingExpensePdf(false);
+    }
   };
 
   return (
@@ -434,7 +522,7 @@ export const FinancePage = () => {
                   }}
                   className={cn(
                     "w-full px-3 py-2 text-left text-xs sm:text-sm hover:bg-[#0A4D66]/30",
-                    selectedAccountId == null
+                    resolvedSelectedAccountId == null
                       ? "text-[#7FD5FF]"
                       : "text-gray-200",
                   )}
@@ -458,7 +546,7 @@ export const FinancePage = () => {
                       }}
                       className={cn(
                         "w-full px-3 py-2 text-left text-xs sm:text-sm hover:bg-[#0A4D66]/30 flex items-center justify-between gap-2",
-                        selectedAccountId === b.id
+                        resolvedSelectedAccountId === b.id
                           ? "text-[#7FD5FF]"
                           : "text-gray-200",
                       )}
@@ -475,25 +563,38 @@ export const FinancePage = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleGenerateReport}
-          disabled={selectedAccountId == null}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors",
-            selectedAccountId == null
-              ? "bg-[#0A4D66]/30 text-gray-400 cursor-not-allowed"
-              : "bg-emerald-500 text-black hover:bg-emerald-600",
-          )}
-          title={
-            selectedAccountId == null
-              ? "Select an account to generate a statement"
-              : "Generate account statement"
-          }
-        >
-          <Icon icon="mdi:file-document-outline" className="w-4 h-4" />
-          <span>Generate Report</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleGenerateReport}
+            disabled={resolvedSelectedAccountId == null}
+            className={cn(
+              "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors",
+              resolvedSelectedAccountId == null
+                ? "bg-[#0A4D66]/30 text-gray-400 cursor-not-allowed"
+                : "bg-emerald-500 text-black hover:bg-emerald-600",
+            )}
+            title={
+              resolvedSelectedAccountId == null
+                ? "Select an account to generate a statement"
+                : "Generate account statement"
+            }
+          >
+            <Icon icon="mdi:file-document-outline" className="w-4 h-4" />
+            <span>Generate Report</span>
+          </button>
+
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
+            onClick={handleOpenPrimaryAction}
+          >
+            <Icon icon="mdi:plus" className="w-4 h-4" />
+            <span>
+              {activeTab === "budgets" ? "Add Account" : "Add Expense"}
+            </span>
+          </button>
+        </div>
       </section>
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
@@ -773,23 +874,6 @@ export const FinancePage = () => {
               </div>
             )}
 
-            <button
-              type="button"
-              className="hidden lg:inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-gray-300"
-            >
-              <Icon icon="mdi:download-outline" className="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
-              onClick={handleOpenPrimaryAction}
-            >
-              <Icon icon="mdi:plus" className="w-4 h-4" />
-              <span>
-                {activeTab === "budgets" ? "Add Account" : "Add Finance"}
-              </span>
-            </button>
           </div>
         </div>
 
@@ -859,10 +943,12 @@ export const FinancePage = () => {
                         {row.quantity}
                       </td>
                       <td className="px-4 py-3 align-middle text-white">
-                        ₦{row.unitCost.toLocaleString()}
+                        {row.currencySymbol}
+                        {row.unitCost.toLocaleString()}
                       </td>
                       <td className="px-4 sm:px-6 py-3 align-middle text-right text-white">
-                        ₦{row.totalCost.toLocaleString()}
+                        {row.currencySymbol}
+                        {row.totalCost.toLocaleString()}
                       </td>
                       <td className="px-4 py-3 align-middle text-white">
                         {row.budgetName}
@@ -884,6 +970,7 @@ export const FinancePage = () => {
                             <div className="py-1 text-xs text-gray-200">
                               <button
                                 type="button"
+                                onClick={() => handleViewExpense(row.id)}
                                 className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
                               >
                                 <Icon
@@ -894,6 +981,7 @@ export const FinancePage = () => {
                               </button>
                               <button
                                 type="button"
+                                onClick={() => handleEditExpense(row.id)}
                                 className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
                               >
                                 <Icon
@@ -901,16 +989,6 @@ export const FinancePage = () => {
                                   className="w-4 h-4 text-gray-300"
                                 />
                                 <span>Edit</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:download-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Download</span>
                               </button>
                               <button
                                 type="button"
@@ -965,7 +1043,8 @@ export const FinancePage = () => {
                       <div className="text-right text-xs">
                         <p className="text-gray-400">Total Cost</p>
                         <p className="font-semibold text-white">
-                          ₦{row.totalCost.toLocaleString()}
+                          {row.currencySymbol}
+                          {row.totalCost.toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -1213,6 +1292,98 @@ export const FinancePage = () => {
           </div>
         )}
       </section>
+
+      {activeExpenseId !== null && activeExpenseRow && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/40"
+            onClick={() => setActiveExpenseId(null)}
+            aria-hidden="true"
+          />
+          <aside className="fixed right-0 top-0 z-50 h-full w-full max-w-md bg-[#001219] border-l border-[#0A4D66]/50 shadow-2xl overflow-y-auto">
+            <div ref={expenseSliderRef} className="p-5 space-y-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">
+                    Expense Details
+                  </p>
+                  <h2 className="text-lg font-semibold text-white mt-1">
+                    {activeExpenseRow.partName}
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">{activeExpenseRow.expenseId}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveExpenseId(null)}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-300 hover:bg-[#0A4D66]/40"
+                >
+                  <Icon icon="mdi:close" className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="rounded-lg border border-[#0A4D66]/40 bg-[#001825] divide-y divide-[#0A4D66]/30">
+                <div className="px-4 py-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Category</span>
+                  <span className="text-white">{activeExpenseRow.category}</span>
+                </div>
+                <div className="px-4 py-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Budget</span>
+                  <span className="text-white">{activeExpenseRow.budgetName}</span>
+                </div>
+                <div className="px-4 py-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Quantity</span>
+                  <span className="text-white">{activeExpenseRow.quantity}</span>
+                </div>
+                <div className="px-4 py-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Unit Cost</span>
+                  <span className="text-white">
+                    {activeExpenseRow.currencySymbol}
+                    {activeExpenseRow.unitCost.toLocaleString()}
+                  </span>
+                </div>
+                <div className="px-4 py-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Total Cost</span>
+                  <span className="text-white font-semibold">
+                    {activeExpenseRow.currencySymbol}
+                    {activeExpenseRow.totalCost.toLocaleString()}
+                  </span>
+                </div>
+                <div className="px-4 py-3 flex items-center justify-between text-sm">
+                  <span className="text-gray-400">Date</span>
+                  <span className="text-white">{activeExpenseRow.date}</span>
+                </div>
+                <div className="px-4 py-3 text-sm">
+                  <p className="text-gray-400 mb-1">Work Order / Remark</p>
+                  <p className="text-white wrap-break-word">{activeExpense?.work_order || "-"}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleEditExpense(activeExpenseRow.id)}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-[#0369A1] px-3 py-2 text-sm font-medium text-white hover:bg-[#0369A1]/90"
+                >
+                  <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadExpensePdf}
+                  disabled={isExportingExpensePdf}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black hover:bg-emerald-600",
+                    isExportingExpensePdf && "opacity-70 cursor-not-allowed",
+                  )}
+                >
+                  <Icon icon="mdi:file-pdf-box" className="w-4 h-4" />
+                  <span>{isExportingExpensePdf ? "Exporting..." : "Download PDF"}</span>
+                </button>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
     </div>
   );
 };

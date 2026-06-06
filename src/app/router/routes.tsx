@@ -788,11 +788,9 @@ export const router = createBrowserRouter([
       {
         path: "users",
         element: (
-          <RequireRole requiredPermissions={["users.viewAny"]}>
-            <Suspense fallback={loadingElement}>
-              <UserDetailsPage />
-            </Suspense>
-          </RequireRole>
+          <Suspense fallback={loadingElement}>
+            <UserDetailsPage />
+          </Suspense>
         ),
       },
       {

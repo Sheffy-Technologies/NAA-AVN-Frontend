@@ -127,7 +127,7 @@ export const BudgetInfoPage = () => {
     const nowQuarter = Math.floor(nowMonth / 3);
 
     return relatedExpenses.filter((expense) => {
-      const rowDate = new Date(expense.created_at);
+      const rowDate = new Date(expense.date || expense.created_at);
       const rowMonth = rowDate.getMonth();
       const rowYear = rowDate.getFullYear();
       const rowQuarter = Math.floor(rowMonth / 3);
@@ -168,6 +168,18 @@ export const BudgetInfoPage = () => {
         year: "numeric",
       })
     : "-";
+
+  const budgetCurrency = budget?.currency?.symbol || budget?.currency?.code || "₦";
+
+  const formatBudgetCurrency = (value: number | string) => {
+    const numeric = typeof value === "string" ? Number(value) : value;
+    const safe = Number.isFinite(numeric) ? numeric : 0;
+
+    return `${budgetCurrency}${safe.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   const budgetStatus = useMemo(() => {
     if (!budget?.start_date || !budget?.end_date) {
@@ -307,7 +319,7 @@ export const BudgetInfoPage = () => {
             </button>
           </div>
 
-          <div className="flex items-center justify-center gap-2 flex-[2]">
+          <div className="flex items-center justify-center gap-2 flex-2">
             <button
               type="button"
               onClick={() => setActiveTab("info")}
@@ -383,7 +395,7 @@ export const BudgetInfoPage = () => {
                     Budget
                   </p>
                   <p className="text-lg sm:text-xl font-semibold text-white">
-                    ₦{budget.amount.toLocaleString()}
+                    {formatBudgetCurrency(budget.amount)}
                   </p>
                 </div>
                 <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
@@ -399,7 +411,7 @@ export const BudgetInfoPage = () => {
                     Total Expense
                   </p>
                   <p className="text-lg sm:text-xl font-semibold text-white">
-                    ₦{totalExpenseAmount.toLocaleString()}
+                    {formatBudgetCurrency(totalExpenseAmount)}
                   </p>
                 </div>
                 <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
@@ -415,7 +427,7 @@ export const BudgetInfoPage = () => {
                     Remaining Amount
                   </p>
                   <p className="text-lg sm:text-xl font-semibold text-white">
-                    ₦{remainingAmount.toLocaleString()}
+                    {formatBudgetCurrency(remainingAmount)}
                   </p>
                 </div>
                 <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
@@ -665,13 +677,15 @@ export const BudgetInfoPage = () => {
                             {expense.quantity}
                           </td>
                           <td className="px-4 py-3 text-white">
-                            ₦{expense.unit_cost.toLocaleString()}
+                            {formatBudgetCurrency(expense.unit_cost)}
                           </td>
                           <td className="px-4 py-3 text-white">
-                            ₦{expense.total_cost.toLocaleString()}
+                            {formatBudgetCurrency(expense.total_cost)}
                           </td>
                           <td className="px-4 py-3 text-white">
-                            {new Date(expense.created_at).toLocaleDateString(
+                            {new Date(
+                              expense.date || expense.created_at,
+                            ).toLocaleDateString(
                               "en-GB",
                               {
                                 day: "2-digit",
@@ -681,7 +695,9 @@ export const BudgetInfoPage = () => {
                             )}
                           </td>
                           <td className="px-4 py-3 text-white">
-                            {new Date(expense.created_at).toLocaleTimeString(
+                            {new Date(
+                              expense.date || expense.created_at,
+                            ).toLocaleTimeString(
                               "en-GB",
                               {
                                 hour: "2-digit",
@@ -742,7 +758,7 @@ export const BudgetInfoPage = () => {
                           <div className="text-right text-xs">
                             <p className="text-gray-400">Total Cost</p>
                             <p className="font-semibold text-white">
-                              ₦{expense.total_cost.toLocaleString()}
+                              {formatBudgetCurrency(expense.total_cost)}
                             </p>
                           </div>
                         </div>
@@ -755,7 +771,9 @@ export const BudgetInfoPage = () => {
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-gray-400">Date</span>
                           <span className="text-white">
-                            {new Date(expense.created_at).toLocaleDateString(
+                            {new Date(
+                              expense.date || expense.created_at,
+                            ).toLocaleDateString(
                               "en-GB",
                               {
                                 day: "2-digit",
@@ -936,10 +954,7 @@ export const BudgetInfoPage = () => {
                           <td className="px-3 py-2">{row.reference || "-"}</td>
                           <td className="px-3 py-2">{row.description || "-"}</td>
                           <td className="px-3 py-2 text-right whitespace-nowrap">
-                            {Number(row.amount).toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            {formatBudgetCurrency(row.amount)}
                           </td>
                           <td className="px-3 py-2 text-right">
                             <button

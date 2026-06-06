@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
-import { useGetUsersQuery, useUpdateUserMutation } from "@/features/users/api";
-import { AUTH_STORAGE_KEY } from "@/features/auth/authSlice";
+import { useGetMeQuery } from "@/features/security/api";
+import { useUpdateMeMutation } from "@/features/users/api";
+import { updateCurrentUser } from "@/features/auth/authSlice";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 
@@ -30,8 +31,8 @@ export const UserDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const authUser = useAppSelector((state) => state.auth.user);
-  const { data: users = [], isLoading } = useGetUsersQuery();
-  const [updateUser, { isLoading: isUpdating }] = useUpdateUserMutation();
+  const { data: me, isLoading } = useGetMeQuery();
+  const [updateMe, { isLoading: isUpdating }] = useUpdateMeMutation();
 
   const [values, setValues] = useState<FormValues>(emptyValues);
   const [submitMessage, setSubmitMessage] = useState<string | null>(null);
@@ -39,35 +40,10 @@ export const UserDetailsPage = () => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
-  const persistedAuthUserId = useMemo(() => {
-    if (typeof window === "undefined") return null;
-
-    try {
-      const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
-      if (!raw) return null;
-
-      const parsed = JSON.parse(raw) as { user?: { id?: string | number } };
-      const rawId = parsed.user?.id;
-      const id = rawId != null ? Number(rawId) : NaN;
-
-      return Number.isFinite(id) ? id : null;
-    } catch {
-      return null;
-    }
-  }, []);
-
   const selectedUser = useMemo(() => {
-    if (!users.length) return null;
-
-    const authUserId =
-      persistedAuthUserId ?? (authUser?.id ? Number(authUser.id) : null);
-    if (authUserId) {
-      const matchedUser = users.find((user) => user.id === authUserId);
-      if (matchedUser) return matchedUser;
-    }
-
-    return users[0] || null;
-  }, [users, authUser, persistedAuthUserId]);
+    if (me) return me;
+    return authUser ?? null;
+  }, [authUser, me]);
 
   useEffect(() => {
     if (!selectedUser) return;
@@ -97,19 +73,35 @@ export const UserDetailsPage = () => {
     if (!selectedUser) return;
 
     try {
-      await updateUser({
-        id: selectedUser.id,
-        data: {
-          firstname: values.firstname.trim(),
-          lastname: values.lastname.trim(),
-          username: values.username.trim(),
-          email: values.email.trim(),
-          phone_number: values.phone_number.trim(),
-          ...(values.password.trim()
-            ? { password: values.password.trim() }
-            : {}),
-        },
+      const updatedUser = await updateMe({
+        firstname: values.firstname.trim(),
+        lastname: values.lastname.trim(),
+        username: values.username.trim(),
+        email: values.email.trim(),
+        phone_number: values.phone_number.trim(),
+        ...(values.password.trim()
+          ? { password: values.password.trim() }
+          : {}),
       }).unwrap();
+      dispatch(
+        updateCurrentUser({
+          id: String(updatedUser.id),
+          firstname: updatedUser.firstname ?? undefined,
+          lastname: updatedUser.lastname ?? undefined,
+          username: updatedUser.username ?? undefined,
+          email: updatedUser.email ?? undefined,
+          phone_number: updatedUser.phone_number ?? undefined,
+          roles: (updatedUser.roles ?? [])
+            .filter((role) => Boolean(role?.name))
+            .map((role) => ({
+              id: role.id,
+              name: role.name as string,
+              guard_name: role.guard_name ?? undefined,
+            })),
+          role_names: updatedUser.role_names,
+          permissions: updatedUser.permissions,
+        }),
+      );
       setSubmitMessage("User details updated successfully.");
     } catch {
       setSubmitError("Failed to update user details. Please try again.");

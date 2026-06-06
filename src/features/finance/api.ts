@@ -140,6 +140,7 @@ export type FinanceExpense = {
   quantity: number;
   unit_cost: number;
   total_cost: number;
+  date?: string | null;
   created_at: string;
   updated_at: string;
   expense_category: FinanceExpenseCategory;
@@ -150,7 +151,7 @@ export type FinanceExpense = {
 };
 
 export type CreateExpensePayload = {
-  expense_category_id: number;
+  expense_category_id?: number;
   expense_type_id: number;
   aircraft_id: number;
   unit_id: number;
@@ -161,7 +162,10 @@ export type CreateExpensePayload = {
   quantity: number;
   unit_cost: number;
   total_cost: number;
+  date?: string;
 };
+
+export type UpdateExpensePayload = Partial<CreateExpensePayload>;
 
 export type CreateBudgetPayload = {
   name: string;
@@ -198,6 +202,20 @@ export const financeApi = createApi({
         data: body,
       }),
       invalidatesTags: [{ type: "Expenses", id: "LIST" }],
+    }),
+    updateExpense: builder.mutation<
+      FinanceExpense,
+      { id: number; body: UpdateExpensePayload }
+    >({
+      query: ({ id, body }) => ({
+        url: `/expenses/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+      invalidatesTags: (_result, _error, arg) => [
+        { type: "Expenses", id: "LIST" },
+        { type: "Expenses", id: arg.id },
+      ],
     }),
     deleteExpense: builder.mutation<void, number>({
       query: (id) => ({
@@ -319,6 +337,7 @@ export const {
   useGetFinanceDashboardQuery,
   useGetExpensesQuery,
   useCreateExpenseMutation,
+  useUpdateExpenseMutation,
   useDeleteExpenseMutation,
   useCreateBudgetMutation,
   useDeleteBudgetMutation,

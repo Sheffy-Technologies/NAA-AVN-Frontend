@@ -1,16 +1,28 @@
 import { useMemo, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
   useCreateExpenseMutation,
+  useUpdateExpenseMutation,
   useGetBudgetsQuery,
   // useGetExpenseCategoriesQuery,
   useGetExpenseTypesQuery,
   type FinanceBudget,
+  type FinanceExpense,
   // type FinanceExpenseCategory,
   type FinanceExpenseType,
 } from "@/features/finance/api";
+import {
+  useGetPurchaseOrdersQuery,
+  useGetSuppliersQuery,
+  type PurchaseOrder,
+  type InventorySupplier,
+} from "@/features/inventory/api";
+import {
+  useGetWorkOrdersQuery,
+  type WorkOrderResponse,
+} from "@/features/maintenance/api";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 
 type FinanceFormValues = {
@@ -22,10 +34,12 @@ type FinanceFormValues = {
   part_number: string;
   part_name: string;
   vendor_supplier: string;
+  purchase_order: string;
+  maintenance_work_order: string;
   remark: string;
-  work_order: string;
   quantity: string;
   unit_cost: string;
+  date: string;
 };
 
 const emptyFormValues: FinanceFormValues = {
@@ -37,27 +51,69 @@ const emptyFormValues: FinanceFormValues = {
   part_number: "",
   part_name: "",
   vendor_supplier: "",
+  purchase_order: "",
+  maintenance_work_order: "",
   remark: "",
-  work_order: "",
   quantity: "",
   unit_cost: "",
+  date: "",
 };
 
 export const FinanceFormPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const editState = location.state as
+    | {
+        mode?: "edit";
+        expense?: FinanceExpense;
+      }
+    | undefined;
+  const editingExpense = editState?.mode === "edit" ? editState.expense : undefined;
+  const isEditing = Boolean(editingExpense?.id);
 
   const { data: budgetsData } = useGetBudgetsQuery();
   const { data: unitsData } = useGetUnitsQuery();
+  const { data: suppliersData } = useGetSuppliersQuery();
+  const { data: purchaseOrdersData } = useGetPurchaseOrdersQuery();
+  const { data: workOrdersData } = useGetWorkOrdersQuery();
   // const { data: categoriesData } = useGetExpenseCategoriesQuery();
   const { data: expenseTypesData } = useGetExpenseTypesQuery();
 
-  const [values, setValues] = useState<FinanceFormValues>(emptyFormValues);
+  const initialValues: FinanceFormValues = editingExpense
+    ? {
+        budget_id: editingExpense.budget_id,
+        unit_id: editingExpense.unit_id,
+        expense_category_id: editingExpense.expense_category_id ?? "",
+        expense_type_id: editingExpense.expense_type_id,
+        aircraft_id: editingExpense.aircraft_id,
+        part_number: editingExpense.part_number ?? "",
+        part_name: editingExpense.part_name ?? "",
+        vendor_supplier: "",
+        purchase_order: "",
+        maintenance_work_order: "",
+        remark: editingExpense.work_order ?? "",
+        quantity: String(editingExpense.quantity ?? ""),
+        unit_cost: String(editingExpense.unit_cost ?? ""),
+        date: editingExpense.date || editingExpense.created_at
+          ? new Date(
+              editingExpense.date || editingExpense.created_at,
+            ).toISOString().split("T")[0]
+          : "",
+      }
+    : emptyFormValues;
+
+  const [values, setValues] = useState<FinanceFormValues>(initialValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [createExpense, { isLoading }] = useCreateExpenseMutation();
+  const [updateExpense, { isLoading: isUpdating }] = useUpdateExpenseMutation();
 
   const budgets = (budgetsData ?? []) as FinanceBudget[];
   const units = (unitsData ?? []) as Unit[];
+  const suppliers = (suppliersData ?? []) as InventorySupplier[];
+  const purchaseOrders = (purchaseOrdersData ?? []) as PurchaseOrder[];
+  const workOrders = (workOrdersData ?? []) as WorkOrderResponse[];
   // const categories = (categoriesData ?? []) as FinanceExpenseCategory[];
   const expenseTypes = (expenseTypesData ?? []) as FinanceExpenseType[];
 
@@ -139,11 +195,6 @@ export const FinanceFormPage = () => {
       return;
     }
 
-    if (values.expense_category_id === "") {
-      setSubmitError("Select a category.");
-      return;
-    }
-
     const selectedExpenseTypeId =
       typeof values.expense_type_id === "number"
         ? values.expense_type_id
@@ -164,11 +215,6 @@ export const FinanceFormPage = () => {
       return;
     }
 
-    if (!values.vendor_supplier.trim()) {
-      setSubmitError("Enter vendor/supplier.");
-      return;
-    }
-
     if (
       Number.isNaN(parsedQuantity) ||
       Number.isNaN(parsedUnitCost) ||
@@ -180,6 +226,10 @@ export const FinanceFormPage = () => {
     }
 
     const derivedWorkOrder = [
+      values.purchase_order.trim() ? `PO: ${values.purchase_order.trim()}` : "",
+      values.maintenance_work_order.trim()
+        ? `WO: ${values.maintenance_work_order.trim()}`
+        : "",
       values.vendor_supplier.trim(),
       values.remark.trim(),
     ]
@@ -187,8 +237,10 @@ export const FinanceFormPage = () => {
       .join(" | ");
 
     try {
-      await createExpense({
-        expense_category_id: values.expense_category_id as number,
+      const payload = {
+        ...(typeof values.expense_category_id === "number"
+          ? { expense_category_id: values.expense_category_id }
+          : {}),
         expense_type_id: selectedExpenseTypeId,
         aircraft_id: selectedAircraftId,
         unit_id:
@@ -202,11 +254,25 @@ export const FinanceFormPage = () => {
         quantity: parsedQuantity,
         unit_cost: parsedUnitCost,
         total_cost: computedTotalCost,
-      }).unwrap();
+        ...(values.date ? { date: values.date } : {}),
+      };
+
+      if (isEditing && editingExpense) {
+        await updateExpense({
+          id: editingExpense.id,
+          body: payload,
+        }).unwrap();
+      } else {
+        await createExpense(payload).unwrap();
+      }
 
       navigate("/dashboard/finance");
     } catch {
-      setSubmitError("Failed to save finance record. Please try again.");
+      setSubmitError(
+        isEditing
+          ? "Failed to update expense record. Please try again."
+          : "Failed to save finance record. Please try again.",
+      );
     }
   };
 
@@ -214,7 +280,7 @@ export const FinanceFormPage = () => {
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          ADD FINANCE
+          {isEditing ? "EDIT EXPENSE" : "ADD EXPENSE"}
         </h1>
         <button
           type="button"
@@ -229,7 +295,11 @@ export const FinanceFormPage = () => {
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 sm:p-6">
         <div className="mb-4 text-[11px] sm:text-xs text-gray-400">
           <span className="font-semibold text-white">EXPENSE ID:{` `}</span>
-          <span>Auto-generated</span>
+          <span>
+            {isEditing && editingExpense
+              ? `EXP-${String(editingExpense.id).padStart(5, "0")}`
+              : "Auto-generated"}
+          </span>
         </div>
 
         <div className="grid gap-4">
@@ -285,13 +355,19 @@ export const FinanceFormPage = () => {
               <label className="text-[11px] text-gray-400">
                 Vendor/Supplier
               </label>
-              <input
-                type="text"
+              <select
                 value={values.vendor_supplier}
                 onChange={handleChange("vendor_supplier")}
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
-                placeholder="Enter Vendor/Supplier"
-              />
+                aria-label="Select Vendor/Supplier"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
+              >
+                <option value="">Select Vendor/Supplier (Optional)</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.name}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -369,6 +445,67 @@ export const FinanceFormPage = () => {
               />
             </div>
           </div>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">
+                Purchase Order
+              </label>
+              <select
+                value={values.purchase_order}
+                onChange={handleChange("purchase_order")}
+                aria-label="Select Purchase Order"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
+              >
+                <option value="">Select Purchase Order (Optional)</option>
+                {purchaseOrders.map((purchaseOrder) => {
+                  const purchaseOrderLabel =
+                    purchaseOrder.name?.trim() ||
+                    `PO-${String(purchaseOrder.id).padStart(5, "0")}`;
+
+                  return (
+                    <option key={purchaseOrder.id} value={purchaseOrderLabel}>
+                      {purchaseOrderLabel}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Work Order</label>
+              <select
+                value={values.maintenance_work_order}
+                onChange={handleChange("maintenance_work_order")}
+                aria-label="Select Work Order"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
+              >
+                <option value="">Select Work Order (Optional)</option>
+                {workOrders.map((workOrder) => {
+                  const workOrderLabel =
+                    workOrder.title?.trim() ||
+                    `WO-${String(workOrder.id).padStart(5, "0")}`;
+
+                  return (
+                    <option key={workOrder.id} value={workOrderLabel}>
+                      {workOrderLabel}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] text-gray-400">Date</label>
+              <input
+                type="date"
+                value={values.date}
+                onChange={handleChange("date")}
+                aria-label="Select Date"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+              />
+            </div>
+          </div>
         </div>
 
         {submitError && (
@@ -381,11 +518,11 @@ export const FinanceFormPage = () => {
             onClick={handleSubmit}
             className={cn(
               "w-full sm:w-90 px-6 sm:px-10 py-2.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
-              isLoading && "opacity-70 cursor-not-allowed",
+              (isLoading || isUpdating) && "opacity-70 cursor-not-allowed",
             )}
-            disabled={isLoading}
+            disabled={isLoading || isUpdating}
           >
-            {isLoading ? "Saving..." : "Save"}
+            {isLoading || isUpdating ? "Saving..." : "Save"}
           </button>
         </div>
       </section>
