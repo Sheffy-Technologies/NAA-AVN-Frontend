@@ -112,6 +112,7 @@ export type DashboardHomeResponse = {
 export type DashboardOperationsRecentOperation = {
   id?: number;
   name?: string;
+  description?: string;
   status?: string;
   priority?: string;
   date?: string;

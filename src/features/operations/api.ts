@@ -70,9 +70,28 @@ export type OperationAssignedAsset = {
   flight_hours?: number | string | null;
   landing?: number | null;
   cycle?: number | null;
+  // Nested shape (some endpoints)
   asset?: OperationAssetDetails | null;
   pilot?: OperationAssetPerson | null;
   co_pilot?: OperationAssetPerson | null;
+  // Flat shape returned by the operations list/detail endpoint
+  name?: string | null;
+  serial_number?: string | null;
+  model?: string | null;
+  tail_number?: string | null;
+  type?: string | null;
+  pilot_details?: OperationAssetPerson & {
+    service_number?: string | null;
+    call_sign?: string | null;
+    email?: string | null;
+    phone_number?: string | null;
+  } | null;
+  co_pilot_details?: OperationAssetPerson & {
+    service_number?: string | null;
+    call_sign?: string | null;
+    email?: string | null;
+    phone_number?: string | null;
+  } | null;
   estimated_distance_nm?: number | null;
   estimated_flight_hours?: number | null;
   estimated_flight_time_label?: string | null;

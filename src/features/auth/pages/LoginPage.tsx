@@ -55,6 +55,7 @@ export const LoginPage = () => {
     {},
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     const newErrors: typeof errors = {};
@@ -106,7 +107,12 @@ export const LoginPage = () => {
               : errorBody.message,
           );
 
-        dispatch(showToast({ message: extracted || "Unable to login. Please try again.", type: "error" }));
+        dispatch(
+          showToast({
+            message: extracted || "Unable to login. Please try again.",
+            type: "error",
+          }),
+        );
         return;
       }
 
@@ -172,7 +178,12 @@ export const LoginPage = () => {
 
       navigate("/dashboard");
     } catch {
-      dispatch(showToast({ message: "Network error. Please check your connection and try again.", type: "error" }));
+      dispatch(
+        showToast({
+          message: "Network error. Please check your connection and try again.",
+          type: "error",
+        }),
+      );
     } finally {
       setIsLoading(false);
     }
@@ -180,21 +191,26 @@ export const LoginPage = () => {
 
   return (
     <div className="flex flex-col items-center gap-10">
-
       <div className="flex flex-col items-center gap-4 mt-6">
-        <div className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}>
+        <div
+          className={`w-20 h-20 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}
+        >
           <img
             src="/images/logo.png"
             alt="Nigerian Army Aviation logo"
             className="w-full h-full object-contain"
           />
         </div>
-        <h1 className={`text-xl sm:text-2xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-          Nigerian Army Aviation Database
+        <h1
+          className={`text-xl sm:text-2xl font-semibold ${isDark ? "text-white" : "text-gray-900"}`}
+        >
+          Nigerian Army Command System
         </h1>
       </div>
 
-      <div className={`w-full max-w-md rounded-lg px-8 py-10 border ${isDark ? "bg-[#001219] border-[#0A4D66]/50" : "bg-white border-gray-200 shadow-sm"}`}>
+      <div
+        className={`w-full max-w-md rounded-lg px-8 py-10 border ${isDark ? "bg-[#001219] border-[#0A4D66]/50" : "bg-white border-gray-200 shadow-sm"}`}
+      >
         <form onSubmit={handleSubmit} className="space-y-6">
           <Input
             label="Username or Email"
@@ -210,7 +226,7 @@ export const LoginPage = () => {
 
           <Input
             label="Password"
-            type="password"
+            type={showPassword ? "text" : "password"}
             placeholder="Enter Password"
             value={formData.password}
             className={loginInputClass}
@@ -219,6 +235,8 @@ export const LoginPage = () => {
               setFormData((prev) => ({ ...prev, password: e.target.value }))
             }
             error={errors.password}
+            rightIcon={showPassword ? "mdi:eye-off-outline" : "mdi:eye-outline"}
+            onRightIconClick={() => setShowPassword((prev) => !prev)}
           />
 
           <div className="flex items-center justify-end">

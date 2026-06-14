@@ -66,13 +66,22 @@ const NAV_ITEMS: NavItem[] = [
     name: "Finances",
     path: "/dashboard/finance",
     icon: "mdi:wallet-outline",
-    requiredPermissions: ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"],
+    requiredPermissions: [
+      "dashboard.finance.view",
+      "expenses.viewAny",
+      "budgets.viewAny",
+    ],
   },
   {
     name: "Security",
     path: "/dashboard/security",
     icon: "mdi:shield-outline",
-    requiredPermissions: ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"],
+    requiredPermissions: [
+      "roles.viewAny",
+      "permissions.viewAny",
+      "devices.viewAny",
+      "activity-logs.viewAny",
+    ],
   },
   {
     name: "Reports",
@@ -143,7 +152,8 @@ export const Sidebar = () => {
   };
 
   const signedInUser = useMemo(() => {
-    if (typeof window === "undefined") return { name: "User", rolesLabel: "No role" };
+    if (typeof window === "undefined")
+      return { name: "User", rolesLabel: "No role" };
 
     try {
       const stored = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -198,12 +208,14 @@ export const Sidebar = () => {
   };
 
   /* ── theme-derived classes ─────────────────────────── */
-  const sidebarBg   = isDark ? "bg-[#001219] border-[#0A4D66]/30" : "bg-white border-gray-200";
+  const sidebarBg = isDark
+    ? "bg-[#001219] border-[#0A4D66]/30"
+    : "bg-white border-gray-200";
   const defaultText = isDark ? "text-gray-400" : "text-gray-600";
-  const logoTitle   = isDark ? "text-white" : "text-gray-900";
-  const logoSub     = isDark ? "text-gray-500" : "text-gray-400";
-  const sectionLbl  = isDark ? "text-gray-500" : "text-gray-400";
-  const dividerCls  = isDark ? "border-[#0A4D66]/30" : "border-gray-200";
+  const logoTitle = isDark ? "text-white" : "text-gray-900";
+  const logoSub = isDark ? "text-gray-500" : "text-gray-400";
+  const sectionLbl = isDark ? "text-gray-500" : "text-gray-400";
+  const dividerCls = isDark ? "border-[#0A4D66]/30" : "border-gray-200";
   const profileCard = isDark
     ? "bg-[#001219] border-[#0A4D66]/30 hover:bg-[#0A4D66]/30"
     : "bg-gray-50 border-gray-200 hover:bg-gray-100";
@@ -247,10 +259,14 @@ export const Sidebar = () => {
     );
 
   return (
-    <aside className={`w-64 border-r flex flex-col h-screen ${sidebarBg} ${defaultText}`}>
+    <aside
+      className={`w-64 border-r flex flex-col h-screen ${sidebarBg} ${defaultText}`}
+    >
       {/* Logo Area */}
       <div className="p-6 flex items-center gap-3">
-        <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}>
+        <div
+          className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}
+        >
           <img
             src="/images/logo.png"
             alt="NA AVN logo"
@@ -282,7 +298,9 @@ export const Sidebar = () => {
         ))}
 
         <div className={`pt-3 mt-3 border-t ${dividerCls}`}>
-          <div className={`px-4 pb-2 text-[10px] uppercase tracking-widest ${sectionLbl}`}>
+          <div
+            className={`px-4 pb-2 text-[10px] uppercase tracking-widest ${sectionLbl}`}
+          >
             Messaging
           </div>
           <div className="space-y-1">
@@ -301,7 +319,9 @@ export const Sidebar = () => {
       </nav>
 
       {/* Bottom Section */}
-      <div className={`p-3 mt-auto border-t ${dividerCls} ${isDark ? "bg-[#001219]" : "bg-white"}`}>
+      <div
+        className={`p-3 mt-auto border-t ${dividerCls} ${isDark ? "bg-[#001219]" : "bg-white"}`}
+      >
         <div className="space-y-1 mb-4">
           {visibleBottomItems.map((item) => (
             <NavLink
@@ -324,13 +344,17 @@ export const Sidebar = () => {
         </div>
 
         {/* User Profile */}
-        <div className={`mx-2 p-3 rounded-lg border flex items-center gap-3 cursor-pointer transition-colors ${profileCard}`}>
+        <div
+          className={`mx-2 p-3 rounded-lg border flex items-center gap-3 cursor-pointer transition-colors ${profileCard}`}
+        >
           <div className="w-8 h-8 rounded-full bg-gray-400 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className={`text-sm font-medium truncate ${profileName}`}>
               {signedInUser.name}
             </p>
-            <p className={`text-xs truncate ${profileRole}`}>{signedInUser.rolesLabel}</p>
+            <p className={`text-xs truncate ${profileRole}`}>
+              {signedInUser.rolesLabel}
+            </p>
           </div>
         </div>
       </div>

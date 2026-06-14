@@ -34,17 +34,20 @@ src/
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone <repository-url>
    cd naavn-ddbms
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Start the development server:
+
    ```bash
    npm run dev
    ```
@@ -74,4 +77,4 @@ npm run test
 
 ## License
 
-Private - Nigerian Army Aviation Database
+Private - Nigerian Army Command System

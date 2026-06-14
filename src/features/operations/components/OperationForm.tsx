@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTheme } from "@/context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { forward as toMgrs, toPoint as mgrsToPoint } from "mgrs";
@@ -203,6 +204,7 @@ export const OperationForm = ({
   isSubmitting,
 }: OperationFormProps) => {
   const navigate = useNavigate();
+  const { isDark } = useTheme();
   const [coordinateInputMode, setCoordinateInputMode] =
     useState<CoordinateInputMode>("latlon");
   const [activeMapTarget, setActiveMapTarget] = useState<MapTarget>(
@@ -497,7 +499,7 @@ export const OperationForm = ({
           {isCreateMode ? (
             <button
               onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
+              className={`inline-flex items-center gap-2 transition-colors text-sm font-medium ${isDark ? "text-white/80 hover:text-white" : "text-gray-600 hover:text-gray-900"}`}
               type="button"
             >
               <Icon icon="mdi:arrow-left" className="w-5 h-5" />

@@ -158,6 +158,9 @@ const TableToolbar = ({
   onResetFilter,
   onDownload,
   isDownloadDisabled,
+  viewMode,
+  onViewList,
+  onViewGrid,
 }: {
   resetCount?: number | string;
   unitOptions: UnitFilterOption[];
@@ -166,6 +169,9 @@ const TableToolbar = ({
   onResetFilter: () => void;
   onDownload: () => void;
   isDownloadDisabled?: boolean;
+  viewMode?: "table" | "card";
+  onViewList?: () => void;
+  onViewGrid?: () => void;
 }) => (
   <div className="flex items-center gap-3">
     <div className="flex items-center gap-1">
@@ -173,7 +179,13 @@ const TableToolbar = ({
         type="button"
         title="List view"
         aria-label="List view"
-        className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
+        onClick={onViewList}
+        className={cn(
+          "p-2 rounded transition-colors",
+          viewMode === "card"
+            ? "hover:bg-[#0A4D66]/30 text-gray-400"
+            : "bg-[#0A4D66]/40 text-white",
+        )}
       >
         <Icon icon="mdi:view-list" className="w-5 h-5" />
       </button>
@@ -181,7 +193,13 @@ const TableToolbar = ({
         type="button"
         title="Grid view"
         aria-label="Grid view"
-        className="p-2 rounded hover:bg-[#0A4D66]/30 text-gray-300 transition-colors"
+        onClick={onViewGrid}
+        className={cn(
+          "p-2 rounded transition-colors",
+          viewMode === "card"
+            ? "bg-[#0A4D66]/40 text-white"
+            : "hover:bg-[#0A4D66]/30 text-gray-400",
+        )}
       >
         <Icon icon="mdi:view-grid" className="w-5 h-5" />
       </button>
@@ -238,6 +256,7 @@ const TableToolbar = ({
 export const DashboardPage = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<DashboardTabId>("operations");
+  const [operationsViewMode, setOperationsViewMode] = useState<"table" | "card">("table");
   const [selectedUnitByTab, setSelectedUnitByTab] = useState<
     Record<DashboardTabId, string>
   >({
@@ -728,7 +747,11 @@ export const DashboardPage = () => {
               <CardItem
                 key={c.label}
                 card={c}
-                onClick={() => navigate("/dashboard/operations")}
+                onClick={() =>
+                  navigate(
+                    `/dashboard/operations?status=${c.label.toLowerCase()}`,
+                  )
+                }
               />
             ))}
           </div>
@@ -744,9 +767,13 @@ export const DashboardPage = () => {
                 onResetFilter={() => resetTabUnitFilter("operations")}
                 onDownload={handleDownloadOperations}
                 isDownloadDisabled={filteredOperationsRows.length === 0}
+                viewMode={operationsViewMode}
+                onViewList={() => setOperationsViewMode("table")}
+                onViewGrid={() => setOperationsViewMode("card")}
               />
             }
           >
+            {/* Mobile card list — always shown on small screens */}
             <div className="md:hidden divide-y divide-[#0A4D66]/20">
               {isFetchingOps && (
                 <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
@@ -793,18 +820,113 @@ export const DashboardPage = () => {
                       title="View operation details"
                       aria-label="View operation details"
                     >
-                      <Icon icon="mdi:dots-horizontal" className="w-5 h-5" />
+                      <Icon icon="mdi:eye-outline" className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
               ))}
             </div>
 
+            {/* Card view — desktop */}
+            {operationsViewMode === "card" && (
+              <div className="hidden md:block p-4">
+                {isFetchingOps && (
+                  <p className="text-sm text-gray-400 py-4">Loading…</p>
+                )}
+                {!isFetchingOps && filteredOperationsRows.length === 0 && (
+                  <p className="text-sm text-gray-400 py-4">No upcoming operations</p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {filteredOperationsRows.map((op: DashboardOperationsRecentOperation) => {
+                    const statusColors: Record<string, string> = {
+                      planned: "bg-blue-400",
+                      completed: "bg-emerald-400",
+                      ongoing: "bg-amber-400",
+                      aborted: "bg-red-500",
+                    };
+                    const priorityColors: Record<string, string> = {
+                      low: "text-emerald-400",
+                      medium: "text-amber-300",
+                      high: "text-red-400",
+                    };
+                    return (
+                      <div
+                        key={op.id ?? `${op.name ?? "operation"}-${op.created_at ?? ""}`}
+                        className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 flex flex-col gap-3 hover:border-[#7FD5FF]/40 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">
+                              {op.name || "—"}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {op.operation_type?.name || "—"}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span
+                              className={cn(
+                                "w-2 h-2 rounded-full",
+                                statusColors[op.status ?? ""] ?? "bg-gray-400",
+                              )}
+                            />
+                            <span className="text-xs capitalize text-gray-300">
+                              {op.status || "—"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                          <span className="text-gray-400">Unit</span>
+                          <span className="text-gray-200 text-right truncate">
+                            {op.unit?.name || "—"}
+                          </span>
+                          <span className="text-gray-400">Priority</span>
+                          <span
+                            className={cn(
+                              "text-right capitalize font-medium",
+                              priorityColors[op.priority ?? ""] ?? "text-gray-200",
+                            )}
+                          >
+                            {op.priority || "—"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-end pt-1 border-t border-[#0A4D66]/30">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              op.id
+                                ? navigate(`/dashboard/operations/${op.id}`)
+                                : undefined
+                            }
+                            disabled={!op.id}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded hover:bg-[#0A4D66]/40 transition-colors",
+                              op.id ? "text-[#7FD5FF]" : "text-gray-500 cursor-not-allowed",
+                            )}
+                            title="View operation details"
+                            aria-label="View operation details"
+                          >
+                            <Icon icon="mdi:eye-outline" className="w-4 h-4" />
+                            View
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Table view — desktop */}
+            {operationsViewMode === "table" && (
             <div className="hidden md:block w-full overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-gray-400">
                   <tr className="border-b border-[#0A4D66]/30">
                     <th className="px-4 py-3 text-left">Operation</th>
+                    <th className="px-4 py-3 text-left">Purpose</th>
                     <th className="px-4 py-3 text-left">Type</th>
                     <th className="px-4 py-3 text-left">Unit</th>
                     <th className="px-4 py-3 text-left">Priority</th>
@@ -815,7 +937,7 @@ export const DashboardPage = () => {
                 <tbody className="text-gray-200">
                   {isFetchingOps && (
                     <tr>
-                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                      <td className="px-4 py-6 text-gray-400" colSpan={7}>
                         Loading…
                       </td>
                     </tr>
@@ -823,7 +945,7 @@ export const DashboardPage = () => {
                   {!isFetchingOps &&
                     filteredOperationsRows.length === 0 && (
                       <tr>
-                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        <td className="px-4 py-6 text-gray-400" colSpan={7}>
                           No upcoming operations
                         </td>
                       </tr>
@@ -839,6 +961,9 @@ export const DashboardPage = () => {
                       >
                         <td className="px-4 py-3 font-medium text-white">
                           {op.name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {op.description || "—"}
                         </td>
                         <td className="px-4 py-3 text-gray-300">
                           {op.operation_type?.name || "—"}
@@ -871,7 +996,7 @@ export const DashboardPage = () => {
                             disabled={!op.id}
                           >
                             <Icon
-                              icon="mdi:dots-horizontal"
+                              icon="mdi:eye-outline"
                               className="w-5 h-5"
                             />
                           </button>
@@ -882,6 +1007,7 @@ export const DashboardPage = () => {
                 </tbody>
               </table>
             </div>
+            )}
           </TableShell>
         </div>
       )}
@@ -1185,14 +1311,14 @@ export const DashboardPage = () => {
                 <tbody className="text-gray-200">
                   {isFetchingFinance && (
                     <tr>
-                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                      <td className="px-4 py-6 text-gray-400" colSpan={7}>
                         Loading…
                       </td>
                     </tr>
                   )}
                   {!isFetchingFinance && filteredFinanceRows.length === 0 && (
                     <tr>
-                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                      <td className="px-4 py-6 text-gray-400" colSpan={7}>
                         No recent finance logs
                       </td>
                     </tr>
@@ -1335,7 +1461,7 @@ export const DashboardPage = () => {
                 <tbody className="text-gray-200">
                   {isFetchingInventory && (
                     <tr>
-                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                      <td className="px-4 py-6 text-gray-400" colSpan={7}>
                         Loading…
                       </td>
                     </tr>
@@ -1343,7 +1469,7 @@ export const DashboardPage = () => {
                   {!isFetchingInventory &&
                     filteredInventoryRows.length === 0 && (
                       <tr>
-                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        <td className="px-4 py-6 text-gray-400" colSpan={7}>
                           No recent inventories
                         </td>
                       </tr>
@@ -1485,7 +1611,7 @@ export const DashboardPage = () => {
                 <tbody className="text-gray-200">
                   {isFetchingPersonnel && (
                     <tr>
-                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                      <td className="px-4 py-6 text-gray-400" colSpan={7}>
                         Loading…
                       </td>
                     </tr>
@@ -1493,7 +1619,7 @@ export const DashboardPage = () => {
                   {!isFetchingPersonnel &&
                     filteredPersonnelRows.length === 0 && (
                       <tr>
-                        <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        <td className="px-4 py-6 text-gray-400" colSpan={7}>
                           No recent personnel
                         </td>
                       </tr>

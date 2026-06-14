@@ -373,7 +373,7 @@ export const AfterActionReportForm = ({
                       Aircraft Name
                     </label>
                     <p className="text-sm text-white font-semibold">
-                      {asset.asset?.name || "N/A"}
+                      {asset.name || asset.asset?.name || "N/A"}
                     </p>
                   </div>
                   <div>
@@ -381,7 +381,9 @@ export const AfterActionReportForm = ({
                       Pilot In Command
                     </label>
                     <p className="text-sm text-white font-semibold">
-                      {asset.pilot ? getPersonnelDisplayName(asset.pilot) : "N/A"}
+                      {(asset.pilot_details || asset.pilot)
+                        ? getPersonnelDisplayName(asset.pilot_details ?? asset.pilot!)
+                        : "N/A"}
                     </p>
                   </div>
                   <div>
@@ -389,7 +391,9 @@ export const AfterActionReportForm = ({
                       Co-Pilot
                     </label>
                     <p className="text-sm text-white font-semibold">
-                      {asset.co_pilot ? getPersonnelDisplayName(asset.co_pilot) : "N/A"}
+                      {(asset.co_pilot_details || asset.co_pilot)
+                        ? getPersonnelDisplayName(asset.co_pilot_details ?? asset.co_pilot!)
+                        : "N/A"}
                     </p>
                   </div>
                 </div>

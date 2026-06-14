@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import * as XLSX from "xlsx";
 import { cn } from "@/shared/utils/cn";
@@ -60,11 +60,17 @@ const priorityTextColor: Record<string, string> = {
 
 export const OperationsPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: operations = [], isLoading } = useGetOperationsQuery();
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("all");
   const [selectedPriority, setSelectedPriority] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>(() => {
+    const status = searchParams.get("status");
+    const validStatuses = ["planned", "completed", "ongoing", "aborted"];
+    return status && validStatuses.includes(status) ? status : "all";
+  });
   const [scheduleDate, setScheduleDate] = useState<Date>(() =>
     startOfLocalDay(new Date()),
   );
@@ -108,6 +114,10 @@ export const OperationsPage = () => {
         return false;
       }
 
+      if (selectedStatus !== "all" && op.status !== selectedStatus) {
+        return false;
+      }
+
       if (!query) {
         return true;
       }
@@ -125,14 +135,15 @@ export const OperationsPage = () => {
 
       return searchFields.includes(query);
     });
-  }, [operations, searchTerm, selectedPriority, selectedUnitId]);
+  }, [operations, searchTerm, selectedPriority, selectedUnitId, selectedStatus]);
 
   const handleDownloadExcel = () => {
     if (filteredOperations.length === 0) return;
 
     const rows = filteredOperations.map((op) => ({
+      Operation: op.name || "-",
       Purpose: op.description || "-",
-      Type: op.name || "-",
+      Type: op.operation_type?.name || "-",
       Unit: op.unit?.name || "-",
       Priority: op.priority || "-",
       Status: op.status || "-",
@@ -430,7 +441,8 @@ export const OperationsPage = () => {
         <table className="min-w-full text-sm text-gray-200">
           <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
             <tr>
-              <th className="text-left px-6 py-3 font-medium">Purpose</th>
+              <th className="text-left px-6 py-3 font-medium">Operation</th>
+              <th className="text-left px-4 py-3 font-medium">Purpose</th>
               <th className="text-left px-4 py-3 font-medium">Type</th>
               <th className="text-left px-4 py-3 font-medium">Departure</th>
               <th className="text-left px-4 py-3 font-medium">Destination</th>
@@ -448,10 +460,9 @@ export const OperationsPage = () => {
                   idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                 )}
               >
-                <td className="px-6 py-3 font-medium text-white">
-                  {op.description}
-                </td>
-                <td className="px-4 py-3 text-gray-200">{op.name}</td>
+                <td className="px-6 py-3 font-medium text-white">{op.name || "—"}</td>
+                <td className="px-4 py-3 text-gray-200">{op.description || "—"}</td>
+                <td className="px-4 py-3 text-gray-200">{op.operation_type?.name || "—"}</td>
                 <td className="px-4 py-3 text-gray-200">{op.unit.name}</td>
                 <td className="px-4 py-3 text-gray-200">{op.unit.name}</td>
                 <td className="px-4 py-3">
@@ -466,8 +477,15 @@ export const OperationsPage = () => {
                   </div>
                 </td>
                 <td className="px-6 py-3 text-right">
-                  <button className="text-gray-400 hover:text-white">
-                    <Icon icon="mdi:dots-horizontal" className="w-5 h-5" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(String(op.id));
+                    }}
+                    className="text-gray-400 hover:text-white"
+                    aria-label="View operation details"
+                  >
+                    <Icon icon="mdi:eye-outline" className="w-5 h-5" />
                   </button>
                 </td>
               </tr>
@@ -475,7 +493,7 @@ export const OperationsPage = () => {
             {!isLoading && filteredOperations.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-6 py-8 text-center text-gray-400"
                 >
                   No operations match the selected filters.
@@ -521,7 +539,9 @@ export const OperationsPage = () => {
               />
               <span className="capitalize">{op.status}</span>
             </div>
-            <span>{new Date(op.start_date_time).toLocaleDateString()}</span>
+            <span>
+              {parseApiDateTime(op.start_date_time)?.toLocaleDateString() ?? "—"}
+            </span>
           </div>
         </div>
       ))}
@@ -554,37 +574,38 @@ export const OperationsPage = () => {
                 className="bg-[#001219] border border-[#0A4D66]/40 rounded text-sm pl-9 pr-3 py-1.5 focus:outline-none focus:border-cyan-500/50 w-64"
               />
             </div>
-            <div className="flex gap-2">
-              <button className="relative p-2 text-gray-400 hover:text-white">
-                <Icon icon="mdi:bell" className="w-5 h-5" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
-            </div>
           </div>
         </div>
 
         {/* Filters and Controls */}
         <div className="flex flex-wrap items-center justify-between gap-4 bg-[#001219] p-3 rounded-lg border border-[#0A4D66]/40">
-          <div className="flex items-center gap-6 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-blue-400"></span>{" "}
-              Planned:{" "}
-              <span className="font-bold text-white">{stats.planned}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span>{" "}
-              Completed:{" "}
-              <span className="font-bold text-white">{stats.completed}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span>{" "}
-              Ongoing:{" "}
-              <span className="font-bold text-white">{stats.ongoing}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-red-500"></span> Aborted:{" "}
-              <span className="font-bold text-white">{stats.aborted}</span>
-            </div>
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            {(
+              [
+                { status: "planned", dot: "bg-blue-400", label: "Planned", count: stats.planned },
+                { status: "completed", dot: "bg-emerald-400", label: "Completed", count: stats.completed },
+                { status: "ongoing", dot: "bg-amber-400", label: "Ongoing", count: stats.ongoing },
+                { status: "aborted", dot: "bg-red-500", label: "Aborted", count: stats.aborted },
+              ] as const
+            ).map(({ status, dot, label, count }) => (
+              <button
+                key={status}
+                type="button"
+                onClick={() =>
+                  setSelectedStatus((prev) => (prev === status ? "all" : status))
+                }
+                className={cn(
+                  "flex items-center gap-2 rounded px-2 py-1 transition-colors",
+                  selectedStatus === status
+                    ? "bg-[#0A4D66]/40 ring-1 ring-[#0A4D66]"
+                    : "hover:bg-[#0A4D66]/20",
+                )}
+              >
+                <span className={cn("w-2 h-2 rounded-full", dot)} />
+                {label}:{" "}
+                <span className="font-bold text-white">{count}</span>
+              </button>
+            ))}
           </div>
 
           <div className="flex items-center gap-3">
