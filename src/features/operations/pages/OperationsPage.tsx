@@ -4,9 +4,8 @@ import { Icon } from "@iconify/react";
 import * as XLSX from "xlsx";
 import { cn } from "@/shared/utils/cn";
 import { useGetOperationsQuery } from "../api";
-import { OperationsMapView } from "../components/OperationsMapView";
 
-type ViewMode = "table" | "grid" | "map" | "schedule";
+type ViewMode = "table" | "grid";
 
 const parseApiDateTime = (value: string): Date | null => {
   const trimmed = String(value || "").trim();
@@ -18,32 +17,6 @@ const parseApiDateTime = (value: string): Date | null => {
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed;
 };
-
-const parseDateOnly = (value: string): Date | null => {
-  const trimmed = String(value || "").trim();
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (!match) return null;
-  const year = Number(match[1]);
-  const monthIndex = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  if (
-    !Number.isFinite(year) ||
-    !Number.isFinite(monthIndex) ||
-    !Number.isFinite(day)
-  ) {
-    return null;
-  }
-  return new Date(year, monthIndex, day);
-};
-
-const startOfLocalDay = (date: Date): Date =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate());
-
-const addLocalDays = (date: Date, days: number): Date =>
-  new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.min(max, Math.max(min, value));
 
 const statusDotColor: Record<string, string> = {
   planned: "bg-blue-400",
@@ -71,12 +44,6 @@ export const OperationsPage = () => {
     const validStatuses = ["planned", "completed", "ongoing", "aborted"];
     return status && validStatuses.includes(status) ? status : "all";
   });
-  const [scheduleDate, setScheduleDate] = useState<Date>(() =>
-    startOfLocalDay(new Date()),
-  );
-  const [scheduleDateInput, setScheduleDateInput] =
-    useState<HTMLInputElement | null>(null);
-
   const stats = useMemo(() => {
     return {
       planned: operations.filter((op) => op.status === "planned").length,
@@ -158,280 +125,6 @@ export const OperationsPage = () => {
     XLSX.writeFile(
       workbook,
       `operations-${new Date().toISOString().slice(0, 10)}.xlsx`,
-    );
-  };
-
-  const renderScheduleView = () => {
-    const timelineHours = Array.from({ length: 24 }, (_, i) => i);
-    const dayStart = startOfLocalDay(scheduleDate);
-    const dayEnd = addLocalDays(dayStart, 1);
-    const today = startOfLocalDay(new Date());
-    const isToday = dayStart.getTime() === today.getTime();
-    const timelineColumnWidth = 128;
-    const timelineGridStyle = {
-      gridTemplateColumns: `repeat(24, ${timelineColumnWidth}px)`,
-    };
-
-    const scheduleOperations = filteredOperations
-      .map((op) => {
-        const start = parseApiDateTime(op.start_date_time);
-        const end =
-          parseApiDateTime(op.end_date_time) ??
-          (start ? new Date(start.getTime() + 60 * 60 * 1000) : null);
-        return { op, start, end };
-      })
-      .filter(
-        ({ start, end }) => start && end && start < dayEnd && end > dayStart,
-      )
-      .sort((a, b) => (a.start!.getTime() ?? 0) - (b.start!.getTime() ?? 0));
-
-    const headerLabel = new Intl.DateTimeFormat("en-US", {
-      weekday: "short",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    })
-      .format(dayStart)
-      .toUpperCase();
-
-    const scheduleDateValue = `${dayStart.getFullYear()}-${String(dayStart.getMonth() + 1).padStart(2, "0")}-${String(dayStart.getDate()).padStart(2, "0")}`;
-
-    const formatTime = (date: Date) =>
-      new Intl.DateTimeFormat("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }).format(date);
-
-    return (
-      <div className="bg-[#00121a] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <input
-          ref={setScheduleDateInput}
-          type="date"
-          value={scheduleDateValue}
-          onChange={(e) => {
-            const parsed = parseDateOnly(e.target.value);
-            if (!parsed) return;
-            setScheduleDate(startOfLocalDay(parsed));
-          }}
-          className="absolute opacity-0 w-0 h-0 pointer-events-none"
-          tabIndex={-1}
-          aria-hidden="true"
-        />
-
-        <div
-          className="relative overflow-x-auto overscroll-x-contain scroll-smooth"
-          style={{
-            background:
-              "linear-gradient(to right, #001219 0rem, #001219 17rem, transparent 17rem)",
-          }}
-        >
-          <div className="w-max min-w-full">
-            <div className="flex border-b border-[#0A4D66]/40">
-              <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001219] p-3">
-                <div className="space-y-2">
-                  <div className="flex items-stretch border border-[#0A4D66]/50 bg-[#001219] overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!scheduleDateInput) return;
-                        const anyInput =
-                          scheduleDateInput as HTMLInputElement & {
-                            showPicker?: () => void;
-                          };
-                        if (typeof anyInput.showPicker === "function") {
-                          anyInput.showPicker();
-                        } else {
-                          scheduleDateInput.click();
-                        }
-                      }}
-                      className="flex min-w-0 flex-1 items-center gap-3 bg-[#001219] px-4 text-left hover:bg-[#001219] transition-colors"
-                    >
-                      <Icon
-                        icon="mdi:calendar-blank-outline"
-                        className="w-4 h-4 shrink-0 text-[#B7E6FF]"
-                      />
-                      <span className="truncate text-sm font-semibold uppercase tracking-wide text-white">
-                        {headerLabel}
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setScheduleDate((d) => addLocalDays(d, -1))
-                      }
-                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#001219] text-[#B7E6FF] hover:bg-[#001219] transition-colors"
-                      aria-label="Previous day"
-                    >
-                      <Icon icon="mdi:chevron-left" className="w-5 h-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setScheduleDate((d) => addLocalDays(d, 1))}
-                      className="flex h-12 w-11 items-center justify-center border-l border-[#0A4D66]/50 bg-[#001219] text-[#B7E6FF] hover:bg-[#001219] transition-colors"
-                      aria-label="Next day"
-                    >
-                      <Icon icon="mdi:chevron-right" className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-xs uppercase tracking-wide text-[#B7E6FF]">
-                      Selected Date
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setScheduleDate(today)}
-                      disabled={isToday}
-                      className={cn(
-                        "rounded border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors",
-                        isToday
-                          ? "border-[#0A4D66]/30 text-gray-500 cursor-default"
-                          : "border-[#0A4D66]/50 text-[#B7E6FF] hover:bg-[#001219]",
-                      )}
-                    >
-                      Today
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid bg-[#001219]" style={timelineGridStyle}>
-                {timelineHours.map((h) => (
-                  <div
-                    key={h}
-                    className="flex h-16 items-center justify-center border-l border-[#0A4D66]/40 bg-[#0d4d6b] px-3 text-xs font-medium tracking-wide text-[#D9F3FF]"
-                  >
-                    {h.toString().padStart(2, "0")}:00
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="min-h-100 relative bg-[#001219]">
-              {scheduleOperations.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-gray-400">
-                  No operations scheduled for this date.
-                </div>
-              ) : (
-                <>
-                  <div className="absolute inset-y-0 left-68 pointer-events-none">
-                    <div className="grid h-full" style={timelineGridStyle}>
-                      {timelineHours.map((h) => (
-                        <div
-                          key={h}
-                          className="h-full border-l border-[#0A4D66]/30 bg-[#00273a]/35"
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="relative z-10 min-h-100 divide-y divide-[#0A4D66]/30">
-                    {scheduleOperations.map(({ op, start, end }) => {
-                      const safeStart = start!;
-                      const safeEnd = end!;
-                      const visibleStart =
-                        safeStart < dayStart ? dayStart : safeStart;
-                      const visibleEnd = safeEnd > dayEnd ? dayEnd : safeEnd;
-                      const startMinutes = clamp(
-                        Math.round(
-                          (visibleStart.getTime() - dayStart.getTime()) / 60000,
-                        ),
-                        0,
-                        1440,
-                      );
-                      const endMinutes = clamp(
-                        Math.round(
-                          (visibleEnd.getTime() - dayStart.getTime()) / 60000,
-                        ),
-                        0,
-                        1440,
-                      );
-                      const leftPct = (startMinutes / 1440) * 100;
-                      const widthPct = Math.max(
-                        ((endMinutes - startMinutes) / 1440) * 100,
-                        0.5,
-                      );
-                      const barLabel = `${op.name} • ${formatTime(safeStart)} - ${formatTime(safeEnd)}`;
-
-                      return (
-                        <div
-                          key={op.id}
-                          className="flex h-[78px] group relative"
-                        >
-                          <div className="w-68 shrink-0 sticky left-0 z-20 border-r border-[#0A4D66]/40 bg-[#001219] p-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-14 w-14 shrink-0 items-center justify-center bg-[#14506d] text-[#B7E6FF]">
-                                <Icon
-                                  icon={
-                                    op.is_flight
-                                      ? "mdi:helicopter"
-                                      : "mdi:briefcase-outline"
-                                  }
-                                  className="w-7 h-7"
-                                />
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[13px] font-bold uppercase leading-5 text-white">
-                                  {op.unit.name}
-                                </p>
-                                <p className="truncate text-sm font-semibold text-[#B7E6FF]">
-                                  {op.name}
-                                </p>
-                                <div className="mt-1 flex items-center gap-2 text-sm text-white/90">
-                                  <span
-                                    className={cn(
-                                      "h-2.5 w-2.5 rounded-full",
-                                      statusDotColor[op.status] ||
-                                        "bg-gray-400",
-                                    )}
-                                  />
-                                  <span className="capitalize">
-                                    {op.status}
-                                  </span>
-                                  <span className="text-white/45">•</span>
-                                  <span>{op.duration_label}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div
-                            className="h-full relative border-b border-[#0A4D66]/20"
-                            style={{ width: `${timelineColumnWidth * 24}px` }}
-                          >
-                            <div
-                              className={cn(
-                                "absolute left-0 top-1/2 flex h-12 -translate-y-1/2 items-center rounded-sm px-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.04)]",
-                                op.status === "completed"
-                                  ? "bg-emerald-500"
-                                  : op.status === "planned"
-                                    ? "bg-blue-500"
-                                    : op.status === "aborted"
-                                      ? "bg-red-500"
-                                      : "bg-amber-500",
-                              )}
-                              style={{
-                                left: `${leftPct}%`,
-                                width: `${widthPct}%`,
-                              }}
-                              title={barLabel}
-                            >
-                              <span className="truncate">{barLabel}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
     );
   };
 
@@ -622,29 +315,6 @@ export const OperationsPage = () => {
                 <Icon icon="mdi:table" className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setViewMode("map")}
-                className={cn(
-                  "p-1.5 rounded transition-colors",
-                  viewMode === "map"
-                    ? "bg-[#0A4D66] text-white"
-                    : "text-gray-400 hover:text-white",
-                )}
-              >
-                <Icon icon="mdi:map" className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode("schedule")}
-                className={cn(
-                  "p-1.5 rounded transition-colors",
-                  viewMode === "schedule"
-                    ? "bg-[#0A4D66] text-white"
-                    : "text-gray-400 hover:text-white",
-                )}
-              >
-                <Icon icon="mdi:calendar-month" className="w-4 h-4" />
-              </button>
-
-              <button
                 onClick={() => setViewMode("grid")}
                 className={cn(
                   "p-1.5 rounded transition-colors",
@@ -728,13 +398,6 @@ export const OperationsPage = () => {
           </div>
         ) : (
           <>
-            {viewMode === "map" && (
-              <OperationsMapView
-                operations={filteredOperations}
-                onSelectOperation={(id) => navigate(String(id))}
-              />
-            )}
-            {viewMode === "schedule" && renderScheduleView()}
             {viewMode === "table" && renderTableView()}
             {viewMode === "grid" && renderGridView()}
           </>

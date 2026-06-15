@@ -230,6 +230,8 @@ export type Facility = {
   unit_id?: number | null;
   image?: string | null;
   image_url?: string | null;
+  longitude?: string | null;
+  latitude?: string | null;
   serviceability_status?: Asset["serviceability_status"] | null;
   operation_status?: string | null;
   status?: string | null;

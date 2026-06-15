@@ -18,6 +18,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { FacilitiesMapView } from "@/features/assets/components/FacilitiesMapView";
 
 const TABS = [
   { id: "aircraft", label: "Aircrafts", icon: "mdi:airplane" },
@@ -30,7 +31,7 @@ const TABS = [
 export const AssetsPage = () => {
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState("aircraft");
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [viewMode, setViewMode] = useState<"table" | "grid" | "map">("table");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [selectedOperationStatus, setSelectedOperationStatus] =
     useState<string>("all");
@@ -314,6 +315,7 @@ export const AssetsPage = () => {
               key={tab.id}
               onClick={() => {
                 setActiveTab(tab.id);
+                setViewMode("table");
                 if (tab.id !== "aircraft") {
                   setSelectedUnitId("all");
                   setSelectedOperationStatus("all");
@@ -342,17 +344,6 @@ export const AssetsPage = () => {
         <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
           {/* Top Row: View Switcher, Stats, Filters, Add Button */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-            <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
-              <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium capitalize">
-                {TABS.find((t) => t.id === activeTab)?.label}
-              </button>
-              {activeTab !== "facility" && (
-                <button className="px-3 py-1.5 text-gray-400 hover:text-white rounded text-xs font-medium">
-                  Operations
-                </button>
-              )}
-            </div>
-
             {/* View Icons */}
             <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
               <button
@@ -381,6 +372,21 @@ export const AssetsPage = () => {
               >
                 <Icon icon="mdi:view-grid" className="w-4 h-4" />
               </button>
+              {activeTab === "facility" && (
+                <button
+                  onClick={() => setViewMode("map")}
+                  title="Map view"
+                  aria-label="Switch to map view"
+                  className={cn(
+                    "p-1.5 rounded transition-colors",
+                    viewMode === "map"
+                      ? "bg-[#0A4D66] text-white"
+                      : "text-gray-400 hover:text-white",
+                  )}
+                >
+                  <Icon icon="mdi:map" className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             <div className="flex-1" />
@@ -481,8 +487,16 @@ export const AssetsPage = () => {
           </div>
         </div>
 
-        {/* View Content */}
-        {viewMode === "table" ? (
+        {/* Facilities Map View */}
+        {viewMode === "map" && activeTab === "facility" && (
+          <FacilitiesMapView
+            facilities={facilities ?? []}
+            onSelectFacility={(id) => navigate(`/dashboard/assets/${id}`)}
+          />
+        )}
+
+        {/* Table / Grid View Content */}
+        {viewMode !== "map" && (viewMode === "table" ? (
           <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-hidden overflow-x-auto">
             {activeTab === "vehicle" ? (
               <table className="w-full text-left border-collapse min-w-[1000px]">
@@ -954,7 +968,7 @@ export const AssetsPage = () => {
               })
             )}
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

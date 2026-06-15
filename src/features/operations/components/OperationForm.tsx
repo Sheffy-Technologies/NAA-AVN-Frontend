@@ -599,64 +599,18 @@ export const OperationForm = ({
                 </div>
               </div>
 
-              {!isCreateMode ? (
-                <>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-400 font-medium">Departure Time</label>
-                    <input
-                      type="time"
-                      value={formData.start_time}
-                      onChange={(e) =>
-                        setFormData({ ...formData, start_time: e.target.value })
-                      }
-                      title="Departure time"
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-400 font-medium">Return Time</label>
-                    <input
-                      type="time"
-                      value={formData.end_time}
-                      onChange={(e) =>
-                        setFormData({ ...formData, end_time: e.target.value })
-                      }
-                      title="Return time"
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-400 font-medium">Start Date</label>
-                    <input
-                      type="date"
-                      value={formData.start_date}
-                      onChange={(e) =>
-                        setFormData({ ...formData, start_date: e.target.value })
-                      }
-                      title="Start date"
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                      required
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-400 font-medium">End Date</label>
-                    <input
-                      type="date"
-                      value={formData.end_date}
-                      onChange={(e) =>
-                        setFormData({ ...formData, end_date: e.target.value })
-                      }
-                      title="End date"
-                      className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                    />
-                  </div>
-                </>
-              ) : null}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs text-gray-400 font-medium">Operation Date</label>
+                <input
+                  type="date"
+                  value={formData.start_date}
+                  onChange={(e) =>
+                    setFormData({ ...formData, start_date: e.target.value })
+                  }
+                  title="Operation date"
+                  className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                />
+              </div>
 
               <div className="flex flex-col gap-2">
                 <label className="text-xs text-gray-400 font-medium">Priority</label>

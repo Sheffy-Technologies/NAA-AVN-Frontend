@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { useAppDispatch } from "@/app/store";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
+import { useTheme } from "@/context/ThemeContext";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import { useGetOperationsQuery } from "@/features/operations/api";
 import { showToast } from "@/shared/store/toastSlice";
@@ -119,6 +120,7 @@ const extractApiErrorMessage = (error: unknown): string => {
 };
 
 export const AddAssetPage = () => {
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const { id: routeId } = useParams<{ id: string }>();
@@ -1622,7 +1624,7 @@ export const AddAssetPage = () => {
               className={[
                 "pb-3 text-sm font-medium transition-colors",
                 activeTab === tab.key
-                  ? "text-white border-b-2 border-[#7FD5FF]"
+                  ? `${isDark ? "text-white" : "text-[#0373B0]"} border-b-2 border-[#7FD5FF]`
                   : "text-gray-400 hover:text-gray-200",
               ].join(" ")}
             >
