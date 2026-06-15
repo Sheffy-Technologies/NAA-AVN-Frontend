@@ -244,9 +244,9 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
   const iconBtn = isDark
     ? "hover:bg-[#0A4D66]/30 text-gray-400"
     : "hover:bg-gray-100 text-gray-500";
-  const searchCls = isDark
-    ? "bg-[#001219] border border-[#0A4D66]/50 text-white placeholder-gray-500 focus:border-[#7FD5FF]"
-    : "bg-gray-100 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-[#0369A1]";
+  // const searchCls = isDark
+  //   ? "bg-[#001219] border border-[#0A4D66]/50 text-white placeholder-gray-500 focus:border-[#7FD5FF]"
+  //   : "bg-gray-100 border border-gray-200 text-gray-900 placeholder-gray-400 focus:border-[#0369A1]";
   const dropdownCls = isDark
     ? "bg-[#001825] border-[#0A4D66]/40 shadow-[0_25px_80px_rgba(0,0,0,0.55)]"
     : "bg-white border-gray-200 shadow-[0_8px_32px_rgba(0,0,0,0.12)]";

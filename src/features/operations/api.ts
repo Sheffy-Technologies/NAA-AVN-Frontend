@@ -151,7 +151,7 @@ export type UpdateOperationStatusRequest = {
 };
 
 export type ContactPhoto = {
-  file: string; // base64 or path
+  file: string; // URL returned by the upload endpoint
 };
 
 export type Contact = {

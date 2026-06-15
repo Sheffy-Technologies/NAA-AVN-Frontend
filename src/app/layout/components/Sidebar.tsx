@@ -212,8 +212,6 @@ export const Sidebar = () => {
     ? "bg-[#001219] border-[#0A4D66]/30"
     : "bg-white border-gray-200";
   const defaultText = isDark ? "text-gray-400" : "text-gray-600";
-  const logoTitle = isDark ? "text-white" : "text-gray-900";
-  const logoSub = isDark ? "text-gray-500" : "text-gray-400";
   const sectionLbl = isDark ? "text-gray-500" : "text-gray-400";
   const dividerCls = isDark ? "border-[#0A4D66]/30" : "border-gray-200";
   const profileCard = isDark
@@ -263,24 +261,12 @@ export const Sidebar = () => {
       className={`w-64 border-r flex flex-col h-screen ${sidebarBg} ${defaultText}`}
     >
       {/* Logo Area */}
-      <div className="p-6 flex items-center gap-3">
-        <div
-          className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center ${isDark ? "bg-[#001219]" : "bg-gray-100"}`}
-        >
-          <img
-            src="/images/logo.png"
-            alt="NA AVN logo"
-            className="w-full h-full object-contain"
-          />
-        </div>
-        <div>
-          <h1 className={`font-bold text-lg tracking-wider ${logoTitle}`}>
-            NA AVN
-          </h1>
-          <p className={`text-[10px] uppercase tracking-widest ${logoSub}`}>
-            Digital Data Base Management System
-          </p>
-        </div>
+      <div className="p-6 flex items-center">
+        <img
+          src={isDark ? "/images/logoDarkMode.png" : "/images/logoLightMode.png"}
+          alt="NA AVN logo"
+          className="h-10 object-contain"
+        />
       </div>
 
       {/* Main Navigation */}

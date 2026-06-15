@@ -11,7 +11,7 @@ import {
   type Operation,
 } from "../api";
 import { useGetInventoriesQuery } from "@/features/inventory/api";
-import { useGetAssetsQuery } from "@/features/assets/api";
+import { useGetAssetsQuery, useUploadAssetImageMutation } from "@/features/assets/api";
 
 interface AfterActionReportFormProps {
   operationId: number;
@@ -51,6 +51,7 @@ export const AfterActionReportForm = ({
 }: AfterActionReportFormProps) => {
   const [createReport, { isLoading }] = useCreateAfterActionReportMutation();
   const [updateOperation] = useUpdateOperationMutation();
+  const [uploadImage] = useUploadAssetImageMutation();
   const { data: fetchedOperation } = useGetOperationByIdQuery(operationId);
   const operation = initialOperation || fetchedOperation;
   const { data: inventories = [] } = useGetInventoriesQuery();
@@ -70,6 +71,7 @@ export const AfterActionReportForm = ({
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [resources, setResources] = useState<ResourceUtilization[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState<Set<string>>(new Set());
   const [flightTimes, setFlightTimes] = useState<Record<number, {
     departure_takeoff: string;
     departure_landing: string;
@@ -140,25 +142,63 @@ export const AfterActionReportForm = ({
     setContacts(newContacts);
   };
 
-  const handlePhotoUpload = (
-    index: number,
+  const handlePhotoUpload = async (
+    contactIndex: number,
     e: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        const newContacts = [...contacts];
-        const existingPhotos = newContacts[index]?.photos ?? [];
-        if (!newContacts[index]) return;
-        newContacts[index] = {
-          ...newContacts[index],
-          photos: [...existingPhotos, { file: base64String }],
-        };
-        setContacts(newContacts);
+    if (!e.target.files || !e.target.files[0]) return;
+    const file = e.target.files[0];
+    // Reset input so the same file can be re-selected if needed
+    e.target.value = "";
+
+    const photoIndex = (contacts[contactIndex]?.photos ?? []).length;
+    const key = `${contactIndex}-${photoIndex}`;
+
+    // Insert placeholder while uploading
+    setContacts((prev) => {
+      const updated = [...prev];
+      if (!updated[contactIndex]) return prev;
+      updated[contactIndex] = {
+        ...updated[contactIndex],
+        photos: [...(updated[contactIndex].photos ?? []), { file: "" }],
       };
-      reader.readAsDataURL(file);
+      return updated;
+    });
+    setUploadingPhotos((prev) => new Set(prev).add(key));
+
+    try {
+      const result = await uploadImage(file).unwrap();
+      const url =
+        result.image_url ||
+        result.file_url ||
+        result.image ||
+        result.file ||
+        result.data ||
+        "";
+
+      setContacts((prev) => {
+        const updated = [...prev];
+        const photos = [...(updated[contactIndex]?.photos ?? [])];
+        photos[photoIndex] = { file: url };
+        updated[contactIndex] = { ...updated[contactIndex], photos };
+        return updated;
+      });
+    } catch {
+      // Remove the placeholder on failure
+      setContacts((prev) => {
+        const updated = [...prev];
+        const photos = (updated[contactIndex]?.photos ?? []).filter(
+          (_, i) => i !== photoIndex,
+        );
+        updated[contactIndex] = { ...updated[contactIndex], photos };
+        return updated;
+      });
+    } finally {
+      setUploadingPhotos((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -824,27 +864,38 @@ export const AfterActionReportForm = ({
 
               {/* Photos */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {(contact.photos ?? []).map((photo, photoIndex) => (
-                  <div
-                    key={photoIndex}
-                    className="relative h-32 bg-[#001825] border border-[#0A4D66]/40 rounded-lg overflow-hidden group"
-                  >
-                    <img
-                      src={photo.file}
-                      alt={`Contact ${index + 1} Photo ${photoIndex + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removePhoto(index, photoIndex)}
-                      title={`Remove photo ${photoIndex + 1}`}
-                      aria-label={`Remove photo ${photoIndex + 1}`}
-                      className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                {(contact.photos ?? []).map((photo, photoIndex) => {
+                  const isUploading = uploadingPhotos.has(`${index}-${photoIndex}`);
+                  return (
+                    <div
+                      key={photoIndex}
+                      className="relative h-32 bg-[#001825] border border-[#0A4D66]/40 rounded-lg overflow-hidden group"
                     >
-                      <Icon icon="mdi:close" className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      {isUploading ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Icon icon="mdi:loading" className="w-8 h-8 text-[#7FD5FF] animate-spin" />
+                        </div>
+                      ) : (
+                        <>
+                          <img
+                            src={photo.file}
+                            alt={`Contact ${index + 1} Photo ${photoIndex + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(index, photoIndex)}
+                            title={`Remove photo ${photoIndex + 1}`}
+                            aria-label={`Remove photo ${photoIndex + 1}`}
+                            className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Icon icon="mdi:close" className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
                 <label className="flex flex-col items-center justify-center gap-2 h-32 bg-[#001825] border border-dashed border-[#0A4D66]/40 rounded-lg hover:bg-[#001825] transition-colors cursor-pointer">
                   <div className="p-2 bg-[#0369A1]/10 rounded-full text-[#7FD5FF]">
                     <Icon icon="mdi:plus" className="w-5 h-5" />
