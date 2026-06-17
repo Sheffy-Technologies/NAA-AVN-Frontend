@@ -158,13 +158,6 @@ const InventoryFormContent = ({
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof InventoryFormValues, string>> = {};
 
-    if (!values.description.trim()) newErrors.description = "Required";
-    if (!values.serial_number.trim()) newErrors.serial_number = "Required";
-    if (!values.part_number.trim()) newErrors.part_number = "Required";
-    if (!values.current_stock.trim()) newErrors.current_stock = "Required";
-    if (!values.re_order_level.trim()) newErrors.re_order_level = "Required";
-    if (!values.unit_id) newErrors.unit_id = "Required";
-
     if (
       values.re_order_level.trim() &&
       (Number.isNaN(parsedPayload.reOrderNumeric) ||
@@ -212,9 +205,11 @@ const InventoryFormContent = ({
             ? values.expense_category_id
             : Number(values.expense_category_id),
       unit_id:
-        typeof values.unit_id === "number"
-          ? values.unit_id
-          : Number(values.unit_id),
+        values.unit_id === ""
+          ? null
+          : typeof values.unit_id === "number"
+            ? values.unit_id
+            : Number(values.unit_id),
       serial_number: values.serial_number.trim(),
       part_number: values.part_number.trim(),
       current_stock: currentStockNumeric ?? 0,

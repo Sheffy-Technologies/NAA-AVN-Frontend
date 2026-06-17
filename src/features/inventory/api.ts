@@ -96,7 +96,7 @@ export type CreateInventoryPayload = {
     | string;
   asset_id: number | null;
   expense_category_id: number | null;
-  unit_id: number;
+  unit_id: number | null;
   serial_number: string;
   part_number: string;
   current_stock: number;

@@ -86,17 +86,9 @@ const INVENTORY_TABS = [
   },
 ] as const;
 
-const STOCK_SUB_TABS = [
-  { id: "all", label: "All" },
-  { id: "aircraft_spares", label: "Aircraft spares" },
-  { id: "consumables", label: "Consumables" },
-  { id: "ground_support", label: "Ground support" },
-  { id: "general", label: "General(Qm Stores)" },
-] as const;
-
 const STOCK_TABLE_COLUMNS = [
   { key: "description", header: "Item Description", className: "px-6 py-4" },
-  { key: "serial", header: "Serial No", className: "px-6 py-4" },
+  { key: "serial", header: "Unit", className: "px-6 py-4" },
   { key: "aircraft", header: "Aircraft Type", className: "px-6 py-4" },
   { key: "category", header: "Category", className: "px-6 py-4" },
   { key: "level", header: "Stock Level", className: "px-6 py-4" },
@@ -108,8 +100,6 @@ const STOCK_TABLE_COLUMNS = [
   { key: "updated", header: "Last Updated", className: "px-6 py-4" },
   { key: "action", header: "Action", className: "px-6 py-4 text-right" },
 ] as const;
-
-type StockSubTabId = (typeof STOCK_SUB_TABS)[number]["id"];
 
 const stockLevelColor: Record<InventoryStatusLevel, string> = {
   High: "text-emerald-400",
@@ -209,29 +199,6 @@ const formatNaira = (value: number | string | null | undefined) => {
       : Number.parseFloat(String(value).replace(/[₦,]/g, ""));
   if (Number.isNaN(numeric)) return String(value);
   return `₦${numeric.toLocaleString()}`;
-};
-
-const normalizeInventoryType = (value: string | null | undefined) => {
-  const normalized = (value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  if (normalized === "aircraft_spares" || normalized === "aircraft") {
-    return "aircraft_spares";
-  }
-  if (normalized === "ground_support") return "ground_support";
-  if (
-    normalized === "oem" ||
-    normalized === "consumable" ||
-    normalized === "consumables"
-  ) {
-    return "consumables";
-  }
-  if (
-    normalized === "general" ||
-    normalized === "others" ||
-    normalized === "other"
-  ) {
-    return "general";
-  }
-  return normalized;
 };
 
 type UpdateStockAdjustmentType = "add" | "remove" | "audit";
@@ -463,7 +430,7 @@ export const InventoryPage = () => {
 
   // State for Tabs and Filters
   const [activeTab, setActiveTab] = useState(initialTab);
-  const [activeSubTab, setActiveSubTab] = useState<StockSubTabId>("all");
+  const [activeSubTab, setActiveSubTab] = useState("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [updateStockRow, setUpdateStockRow] = useState<InventoryRow | null>(
@@ -630,11 +597,21 @@ export const InventoryPage = () => {
     });
   }, [inventoriesData, aircraftAssets]);
 
+  const stockSubTabs = useMemo(() => {
+    const seen = new Set<string>();
+    const dynamic: { id: string; label: string }[] = [];
+    for (const row of inventoryRows) {
+      if (row.category && !seen.has(row.category)) {
+        seen.add(row.category);
+        dynamic.push({ id: row.category, label: row.category });
+      }
+    }
+    return [{ id: "all", label: "All" }, ...dynamic];
+  }, [inventoryRows]);
+
   const filteredInventoryRows = useMemo(() => {
     if (activeSubTab === "all") return inventoryRows;
-    return inventoryRows.filter(
-      (row) => normalizeInventoryType(row.type) === activeSubTab,
-    );
+    return inventoryRows.filter((row) => row.category === activeSubTab);
   }, [inventoryRows, activeSubTab]);
 
   const stats = [
@@ -1027,7 +1004,7 @@ export const InventoryPage = () => {
               </div>
               <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
-                  {STOCK_SUB_TABS.map((subTab) => (
+                  {stockSubTabs.map((subTab) => (
                     <button
                       key={subTab.id}
                       type="button"
@@ -1195,7 +1172,7 @@ export const InventoryPage = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-gray-400">
-                      {row.serialNumber}
+                      {row.unit}
                     </td>
                     <td className="px-6 py-4 text-gray-400">
                       {row.aircraftType}
