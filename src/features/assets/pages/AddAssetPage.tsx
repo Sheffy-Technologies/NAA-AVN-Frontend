@@ -282,6 +282,11 @@ export const AddAssetPage = () => {
       service_life_limit_cycles: "",
       cycles_since_overhaul: "",
       overhaul_limit_cycles: "",
+      track_by_calendar: false,
+      calendar_manufacture_date: "",
+      calendar_last_inspection_date: "",
+      calendar_expiry_date: "",
+      calendar_interval_type: "monthly",
     },
   ]);
 
@@ -293,6 +298,7 @@ export const AddAssetPage = () => {
         component_type: "",
         ata_chapter_id: "",
         track_by: "hours" as TrackByKey,
+        track_by_calendar: false,
         part_number: "",
         serial_number: "",
         life_limit_hours: "",
@@ -306,6 +312,10 @@ export const AddAssetPage = () => {
         service_life_limit_cycles: "",
         cycles_since_overhaul: "",
         overhaul_limit_cycles: "",
+        calendar_manufacture_date: "",
+        calendar_last_inspection_date: "",
+        calendar_expiry_date: "",
+        calendar_interval_type: "monthly",
       },
     ],
   ]);
@@ -315,6 +325,7 @@ export const AddAssetPage = () => {
       component_type: "",
       ata_chapter_id: "",
       track_by: "hours" as TrackByKey,
+      track_by_calendar: false,
       part_number: "",
       serial_number: "",
       life_limit_hours: "",
@@ -328,6 +339,10 @@ export const AddAssetPage = () => {
       service_life_limit_cycles: "",
       cycles_since_overhaul: "",
       overhaul_limit_cycles: "",
+      calendar_manufacture_date: "",
+      calendar_last_inspection_date: "",
+      calendar_expiry_date: "",
+      calendar_interval_type: "monthly",
     },
   ]);
 
@@ -350,6 +365,11 @@ export const AddAssetPage = () => {
       service_life_limit_cycles: "",
       cycles_since_overhaul: "",
       overhaul_limit_cycles: "",
+      track_by_calendar: false,
+      calendar_manufacture_date: "",
+      calendar_last_inspection_date: "",
+      calendar_expiry_date: "",
+      calendar_interval_type: "monthly",
     },
   ]);
 
@@ -493,6 +513,11 @@ export const AddAssetPage = () => {
             : "") ??
           "",
       ),
+      track_by_calendar: false,
+      calendar_manufacture_date: "",
+      calendar_last_inspection_date: "",
+      calendar_expiry_date: "",
+      calendar_interval_type: "monthly",
     }));
 
     setEngines(
@@ -513,6 +538,11 @@ export const AddAssetPage = () => {
               service_life_limit_cycles: "",
               cycles_since_overhaul: "",
               overhaul_limit_cycles: "",
+              track_by_calendar: false,
+              calendar_manufacture_date: "",
+              calendar_last_inspection_date: "",
+              calendar_expiry_date: "",
+              calendar_interval_type: "monthly",
             },
           ],
     );
@@ -523,6 +553,7 @@ export const AddAssetPage = () => {
           component_type: "",
           ata_chapter_id: "",
           track_by: "hours",
+          track_by_calendar: false,
           part_number: "",
           serial_number: "",
           life_limit_hours: "",
@@ -536,6 +567,10 @@ export const AddAssetPage = () => {
           service_life_limit_cycles: "",
           cycles_since_overhaul: "",
           overhaul_limit_cycles: "",
+          calendar_manufacture_date: "",
+          calendar_last_inspection_date: "",
+          calendar_expiry_date: "",
+          calendar_interval_type: "monthly",
         },
       ]),
     );
@@ -583,6 +618,11 @@ export const AddAssetPage = () => {
             : "") ??
           "",
       ),
+      track_by_calendar: false,
+      calendar_manufacture_date: "",
+      calendar_last_inspection_date: "",
+      calendar_expiry_date: "",
+      calendar_interval_type: "monthly",
     }));
 
     setComponents(
@@ -593,6 +633,7 @@ export const AddAssetPage = () => {
               component_type: "",
               ata_chapter_id: "",
               track_by: "hours",
+              track_by_calendar: false,
               part_number: "",
               serial_number: "",
               life_limit_hours: "",
@@ -606,6 +647,10 @@ export const AddAssetPage = () => {
               service_life_limit_cycles: "",
               cycles_since_overhaul: "",
               overhaul_limit_cycles: "",
+              calendar_manufacture_date: "",
+              calendar_last_inspection_date: "",
+              calendar_expiry_date: "",
+              calendar_interval_type: "monthly",
             },
           ],
     );
@@ -745,6 +790,11 @@ export const AddAssetPage = () => {
         service_life_limit_cycles: "5000",
         cycles_since_overhaul: "10",
         overhaul_limit_cycles: "1000",
+        track_by_calendar: false,
+        calendar_manufacture_date: "",
+        calendar_last_inspection_date: "",
+        calendar_expiry_date: "",
+        calendar_interval_type: "monthly",
       },
     ]);
     setActiveEngineIndex(0);
@@ -757,6 +807,7 @@ export const AddAssetPage = () => {
             ? String(componentAtaChapterId)
             : "",
           track_by: "hours",
+          track_by_calendar: false,
           part_number: "ECP-001",
           serial_number: "ECSN-001",
           life_limit_hours: "1000",
@@ -770,6 +821,10 @@ export const AddAssetPage = () => {
           service_life_limit_cycles: "3000",
           cycles_since_overhaul: "2",
           overhaul_limit_cycles: "600",
+          calendar_manufacture_date: "",
+          calendar_last_inspection_date: "",
+          calendar_expiry_date: "",
+          calendar_interval_type: "monthly",
         },
       ],
     ]);
@@ -781,6 +836,7 @@ export const AddAssetPage = () => {
           ? String(componentAtaChapterId)
           : "",
         track_by: "hours",
+        track_by_calendar: false,
         part_number: "CP-1001",
         serial_number: "CSN-1001",
         life_limit_hours: "1500",
@@ -794,6 +850,10 @@ export const AddAssetPage = () => {
         service_life_limit_cycles: "6000",
         cycles_since_overhaul: "5",
         overhaul_limit_cycles: "1200",
+        calendar_manufacture_date: "",
+        calendar_last_inspection_date: "",
+        calendar_expiry_date: "",
+        calendar_interval_type: "monthly",
       },
     ]);
 
@@ -802,6 +862,7 @@ export const AddAssetPage = () => {
         component_type: avionicTypeId ? String(avionicTypeId) : "",
         ata_chapter_id: avionicAtaChapterId ? String(avionicAtaChapterId) : "",
         track_by: "hours",
+        track_by_calendar: false,
         part_number: "AVP-2001",
         serial_number: "AVSN-2001",
         model: "Avionic Model X",
@@ -816,6 +877,10 @@ export const AddAssetPage = () => {
         service_life_limit_cycles: "0",
         cycles_since_overhaul: "0",
         overhaul_limit_cycles: "0",
+        calendar_manufacture_date: "",
+        calendar_last_inspection_date: "",
+        calendar_expiry_date: "",
+        calendar_interval_type: "monthly",
       },
     ]);
 
@@ -910,6 +975,11 @@ export const AddAssetPage = () => {
         service_life_limit_cycles: "",
         cycles_since_overhaul: "",
         overhaul_limit_cycles: "",
+        track_by_calendar: false,
+        calendar_manufacture_date: "",
+        calendar_last_inspection_date: "",
+        calendar_expiry_date: "",
+        calendar_interval_type: "monthly",
       },
     ]);
     setEngineComponentsByEngine([
@@ -919,6 +989,7 @@ export const AddAssetPage = () => {
           component_type: "",
           ata_chapter_id: "",
           track_by: "hours",
+          track_by_calendar: false,
           part_number: "",
           serial_number: "",
           life_limit_hours: "",
@@ -932,6 +1003,10 @@ export const AddAssetPage = () => {
           service_life_limit_cycles: "",
           cycles_since_overhaul: "",
           overhaul_limit_cycles: "",
+          calendar_manufacture_date: "",
+          calendar_last_inspection_date: "",
+          calendar_expiry_date: "",
+          calendar_interval_type: "monthly",
         },
       ],
     ]);
@@ -963,6 +1038,7 @@ export const AddAssetPage = () => {
                 component_type: "",
                 ata_chapter_id: "",
                 track_by: "hours",
+                track_by_calendar: false,
                 part_number: "",
                 serial_number: "",
                 life_limit_hours: "",
@@ -976,6 +1052,10 @@ export const AddAssetPage = () => {
                 service_life_limit_cycles: "",
                 cycles_since_overhaul: "",
                 overhaul_limit_cycles: "",
+                calendar_manufacture_date: "",
+                calendar_last_inspection_date: "",
+                calendar_expiry_date: "",
+                calendar_interval_type: "monthly",
               },
             ]
           : list,
@@ -1650,6 +1730,7 @@ export const AddAssetPage = () => {
                       component_type: "",
                       ata_chapter_id: "",
                       track_by: "hours",
+                      track_by_calendar: false,
                       part_number: "",
                       serial_number: "",
                       life_limit_hours: "",
@@ -1663,6 +1744,10 @@ export const AddAssetPage = () => {
                       overhaul_limit_cycles: "",
                       hours_used: "",
                       installed_at: "",
+                      calendar_manufacture_date: "",
+                      calendar_last_inspection_date: "",
+                      calendar_expiry_date: "",
+                      calendar_interval_type: "monthly",
                     })
                   }
                   className="flex items-center gap-1 bg-[#001825] text-[#001219] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
@@ -1683,20 +1768,25 @@ export const AddAssetPage = () => {
                   })();
 
                   const nextInspectionDue = (() => {
-                    const last = Number(comp.time_since_overhaul);
-                    const limit = Number(comp.overhaul_limit);
-                    if (!limit || Number.isNaN(limit))
-                      return { label: "next inspection due", value: "00 hrs" };
-                    const delta = (Number.isNaN(last) ? 0 : last) - limit;
-                    if (delta > 0) {
+                    const lastInspectionHrs = Number(comp.time_since_overhaul);
+                    const interval = Number(comp.overhaul_limit);
+                    const currentHrs = Number(comp.time_since_new);
+                    if (!interval || Number.isNaN(interval))
+                      return { label: "Next Inspection Due", value: "00 hrs" };
+                    const nextDueAt =
+                      (Number.isNaN(lastInspectionHrs) ? 0 : lastInspectionHrs) +
+                      interval;
+                    const current = Number.isNaN(currentHrs) ? 0 : currentHrs;
+                    const remaining = nextDueAt - current;
+                    if (remaining < 0) {
                       return {
-                        label: "inspection overdue by",
-                        value: `${delta} hrs`,
+                        label: "Inspection Overdue By",
+                        value: `${Math.abs(remaining)} hrs`,
                       };
                     }
                     return {
-                      label: "next inspection due",
-                      value: `${Math.abs(delta)} hrs`,
+                      label: "Next Inspection Due",
+                      value: `${remaining} hrs`,
                     };
                   })();
 
@@ -1770,6 +1860,23 @@ export const AddAssetPage = () => {
                             className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
                           />
                           <span className="text-gray-300">Cycles</span>
+                        </label>
+                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={comp.track_by_calendar}
+                            onChange={() =>
+                              updateItem(
+                                setComponents,
+                                components,
+                                idx,
+                                "track_by_calendar",
+                                !comp.track_by_calendar,
+                              )
+                            }
+                            className="h-4 w-4 rounded border-gray-500 text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                          />
+                          <span className="text-gray-300">Calendar</span>
                         </label>
                       </div>
 
@@ -1982,29 +2089,6 @@ export const AddAssetPage = () => {
                             </div>
                             <div className="space-y-1">
                               <label className="text-xs text-gray-400">
-                                Interval Unit
-                              </label>
-                              <select
-                                title="Component Inspection Interval Unit"
-                                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                                value={comp.inspection_interval_unit || "hours"}
-                                onChange={(e) =>
-                                  updateItem(
-                                    setComponents,
-                                    components,
-                                    idx,
-                                    "inspection_interval_unit",
-                                    e.target.value,
-                                  )
-                                }
-                              >
-                                <option value="hours">Hours</option>
-                                <option value="months">Months</option>
-                                <option value="cycle">Cycle</option>
-                              </select>
-                            </div>
-                            <div className="space-y-1">
-                              <label className="text-xs text-gray-400">
                                 {nextInspectionDue.label}
                               </label>
                               <div className="text-2xl font-bold text-white">
@@ -2116,37 +2200,159 @@ export const AddAssetPage = () => {
                             </div>
                           </div>
                           <div className="space-y-1">
-                            <label className="text-xs text-gray-400">
-                              {(() => {
-                                const last = Number(comp.cycles_since_overhaul);
-                                const limit = Number(
-                                  comp.overhaul_limit_cycles,
+                            {(() => {
+                              const lastInspectionCyc = Number(comp.cycles_since_overhaul);
+                              const interval = Number(comp.overhaul_limit_cycles);
+                              const currentCyc = Number(comp.cycles_since_new);
+                              if (!interval || Number.isNaN(interval)) {
+                                return (
+                                  <>
+                                    <label className="text-xs text-gray-400">Next Inspection Due</label>
+                                    <div className="text-2xl font-bold text-white">00 Cyc</div>
+                                  </>
                                 );
-                                if (!limit || Number.isNaN(limit))
-                                  return "next inspection due";
-                                const delta =
-                                  (Number.isNaN(last) ? 0 : last) - limit;
-                                return delta > 0
-                                  ? "inspection overdue by"
-                                  : "next inspection due";
-                              })()}
-                            </label>
-                            <div className="text-2xl font-bold text-white">
-                              {(() => {
-                                const last = Number(comp.cycles_since_overhaul);
-                                const limit = Number(
-                                  comp.overhaul_limit_cycles,
-                                );
-                                if (!limit || Number.isNaN(limit))
-                                  return "00 Cyc";
-                                const delta =
-                                  (Number.isNaN(last) ? 0 : last) - limit;
-                                return delta > 0
-                                  ? `${delta} Cyc`
-                                  : `${Math.abs(delta)} Cyc`;
-                              })()}
-                            </div>
+                              }
+                              const nextDueAt =
+                                (Number.isNaN(lastInspectionCyc) ? 0 : lastInspectionCyc) +
+                                interval;
+                              const current = Number.isNaN(currentCyc) ? 0 : currentCyc;
+                              const remaining = nextDueAt - current;
+                              return remaining < 0 ? (
+                                <>
+                                  <label className="text-xs text-gray-400">Inspection Overdue By</label>
+                                  <div className="text-2xl font-bold text-white">{Math.abs(remaining)} Cyc</div>
+                                </>
+                              ) : (
+                                <>
+                                  <label className="text-xs text-gray-400">Next Inspection Due</label>
+                                  <div className="text-2xl font-bold text-white">{remaining} Cyc</div>
+                                </>
+                              );
+                            })()}
                           </div>
+                        </div>
+                      )}
+
+                      {comp.track_by_calendar && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Installation Date</label>
+                            <input
+                              type="date"
+                              title="Calendar Installation Date"
+                              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                              value={comp.installed_at}
+                              onChange={(e) =>
+                                updateItem(setComponents, components, idx, "installed_at", e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Manufacture Date</label>
+                            <input
+                              type="date"
+                              title="Calendar Manufacture Date"
+                              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                              value={comp.calendar_manufacture_date}
+                              onChange={(e) =>
+                                updateItem(setComponents, components, idx, "calendar_manufacture_date", e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Last Inspection Date</label>
+                            <input
+                              type="date"
+                              title="Calendar Last Inspection Date"
+                              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                              value={comp.calendar_last_inspection_date}
+                              onChange={(e) =>
+                                updateItem(setComponents, components, idx, "calendar_last_inspection_date", e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Expiry Date</label>
+                            <input
+                              type="date"
+                              title="Calendar Expiry Date"
+                              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                              value={comp.calendar_expiry_date}
+                              onChange={(e) =>
+                                updateItem(setComponents, components, idx, "calendar_expiry_date", e.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Tracking Interval Type</label>
+                            <select
+                              title="Calendar Interval Type"
+                              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                              value={comp.calendar_interval_type}
+                              onChange={(e) =>
+                                updateItem(setComponents, components, idx, "calendar_interval_type", e.target.value)
+                              }
+                            >
+                              <option value="monthly">Monthly</option>
+                              <option value="quarterly">Quarterly</option>
+                              <option value="yearly">Yearly</option>
+                            </select>
+                          </div>
+                          {(() => {
+                            if (!comp.calendar_last_inspection_date) return null;
+
+                            const lastDate = new Date(comp.calendar_last_inspection_date);
+                            if (Number.isNaN(lastDate.getTime())) return null;
+
+                            const nextDate = new Date(lastDate);
+                            if (comp.calendar_interval_type === "monthly") {
+                              nextDate.setMonth(nextDate.getMonth() + 1);
+                            } else if (comp.calendar_interval_type === "quarterly") {
+                              nextDate.setMonth(nextDate.getMonth() + 3);
+                            } else if (comp.calendar_interval_type === "yearly") {
+                              nextDate.setFullYear(nextDate.getFullYear() + 1);
+                            }
+
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            nextDate.setHours(0, 0, 0, 0);
+                            const msPerDay = 1000 * 60 * 60 * 24;
+                            const daysRemaining = Math.round((nextDate.getTime() - today.getTime()) / msPerDay);
+
+                            const nextLabel = nextDate.toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            });
+
+                            let statusLabel: string;
+                            let statusValue: string;
+                            if (daysRemaining > 0) {
+                              statusLabel = "Inspection Due In";
+                              statusValue = `${daysRemaining} Days`;
+                            } else if (daysRemaining === 0) {
+                              statusLabel = "Inspection Due";
+                              statusValue = "Today";
+                            } else {
+                              statusLabel = "Inspection Overdue By";
+                              statusValue = `${Math.abs(daysRemaining)} Days`;
+                            }
+
+                            return (
+                              <>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">Next Inspection Due Date</label>
+                                  <div className="text-lg font-bold text-white">{nextLabel}</div>
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">{statusLabel}</label>
+                                  <div className={`text-2xl font-bold ${daysRemaining < 0 ? "text-red-400" : daysRemaining === 0 ? "text-amber-400" : "text-white"}`}>
+                                    {statusValue}
+                                  </div>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -2238,24 +2444,6 @@ export const AddAssetPage = () => {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-xs text-gray-400">Interval Unit</label>
-                <select
-                  title="Interval Unit"
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                  value={formData.default_inspection_interval_unit}
-                  onChange={(e) =>
-                    handleInputChange(
-                      "default_inspection_interval_unit",
-                      e.target.value,
-                    )
-                  }
-                >
-                  <option value="hours">Hours</option>
-                  <option value="months">Months</option>
-                  <option value="cycle">Cycle</option>
-                </select>
-              </div>
-              <div className="space-y-1">
                 <label className="text-xs text-gray-400">Maintenance Strategy</label>
                 <select
                   title="Maintenance Strategy"
@@ -2325,6 +2513,23 @@ export const AddAssetPage = () => {
                           className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                         />
                         Cycles
+                      </label>
+                      <label className="flex items-center gap-2 text-sm text-gray-400">
+                        <input
+                          type="checkbox"
+                          checked={engines[activeEngineIndex].track_by_calendar}
+                          onChange={() =>
+                            updateItem(
+                              setEngines,
+                              engines,
+                              activeEngineIndex,
+                              "track_by_calendar",
+                              !engines[activeEngineIndex].track_by_calendar,
+                            )
+                          }
+                          className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
+                        />
+                        Calendar
                       </label>
                     </div>
                   </div>
@@ -2710,6 +2915,120 @@ export const AddAssetPage = () => {
                       </div>
                     </div>
                   )}
+
+                  {engines[activeEngineIndex].track_by_calendar && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Installation Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Installation Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={engines[activeEngineIndex].installation_date}
+                          onChange={(e) =>
+                            updateItem(setEngines, engines, activeEngineIndex, "installation_date", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Manufacture Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Manufacture Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={engines[activeEngineIndex].calendar_manufacture_date}
+                          onChange={(e) =>
+                            updateItem(setEngines, engines, activeEngineIndex, "calendar_manufacture_date", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Last Inspection Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Last Inspection Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={engines[activeEngineIndex].calendar_last_inspection_date}
+                          onChange={(e) =>
+                            updateItem(setEngines, engines, activeEngineIndex, "calendar_last_inspection_date", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Expiry Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Expiry Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={engines[activeEngineIndex].calendar_expiry_date}
+                          onChange={(e) =>
+                            updateItem(setEngines, engines, activeEngineIndex, "calendar_expiry_date", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Tracking Interval Type</label>
+                        <select
+                          title="Calendar Interval Type"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          value={engines[activeEngineIndex].calendar_interval_type}
+                          onChange={(e) =>
+                            updateItem(setEngines, engines, activeEngineIndex, "calendar_interval_type", e.target.value)
+                          }
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="yearly">Yearly</option>
+                        </select>
+                      </div>
+                      {(() => {
+                        const eng = engines[activeEngineIndex];
+                        if (!eng.calendar_last_inspection_date) return null;
+                        const lastDate = new Date(eng.calendar_last_inspection_date);
+                        if (Number.isNaN(lastDate.getTime())) return null;
+                        const nextDate = new Date(lastDate);
+                        if (eng.calendar_interval_type === "monthly") {
+                          nextDate.setMonth(nextDate.getMonth() + 1);
+                        } else if (eng.calendar_interval_type === "quarterly") {
+                          nextDate.setMonth(nextDate.getMonth() + 3);
+                        } else if (eng.calendar_interval_type === "yearly") {
+                          nextDate.setFullYear(nextDate.getFullYear() + 1);
+                        }
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        nextDate.setHours(0, 0, 0, 0);
+                        const msPerDay = 1000 * 60 * 60 * 24;
+                        const daysRemaining = Math.round((nextDate.getTime() - today.getTime()) / msPerDay);
+                        const nextLabel = nextDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                        let statusLabel: string;
+                        let statusValue: string;
+                        if (daysRemaining > 0) {
+                          statusLabel = "Inspection Due In";
+                          statusValue = `${daysRemaining} Days`;
+                        } else if (daysRemaining === 0) {
+                          statusLabel = "Inspection Due";
+                          statusValue = "Today";
+                        } else {
+                          statusLabel = "Inspection Overdue By";
+                          statusValue = `${Math.abs(daysRemaining)} Days`;
+                        }
+                        return (
+                          <>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Next Inspection Due Date</label>
+                              <div className="text-lg font-bold text-white">{nextLabel}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">{statusLabel}</label>
+                              <div className={`text-2xl font-bold ${daysRemaining < 0 ? "text-red-400" : daysRemaining === 0 ? "text-amber-400" : "text-white"}`}>
+                                {statusValue}
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -2761,20 +3080,15 @@ export const AddAssetPage = () => {
                                 <div className="flex gap-4">
                                   <label className="flex items-center gap-2 text-sm text-gray-400">
                                     <input
-                                      type="radio"
-                                      name={`engineComponentTrackBy-${idx}`}
-                                      value="hours"
-                                      checked={comp.track_by === "hours"}
+                                      type="checkbox"
+                                      checked={comp.track_by === "hours" || comp.track_by === "both"}
                                       onChange={() =>
                                         setEngineComponentsByEngine((prev) =>
                                           prev.map((list, i) =>
                                             i === activeEngineIndex
                                               ? list.map((c, j) =>
                                                   j === idx
-                                                    ? {
-                                                        ...c,
-                                                        track_by: "hours",
-                                                      }
+                                                    ? { ...c, track_by: toggleTrackBy(c.track_by, "hours") }
                                                     : c,
                                                 )
                                               : list,
@@ -2787,20 +3101,15 @@ export const AddAssetPage = () => {
                                   </label>
                                   <label className="flex items-center gap-2 text-sm text-gray-400">
                                     <input
-                                      type="radio"
-                                      name={`engineComponentTrackBy-${idx}`}
-                                      value="cycles"
-                                      checked={comp.track_by === "cycles"}
+                                      type="checkbox"
+                                      checked={comp.track_by === "cycles" || comp.track_by === "both"}
                                       onChange={() =>
                                         setEngineComponentsByEngine((prev) =>
                                           prev.map((list, i) =>
                                             i === activeEngineIndex
                                               ? list.map((c, j) =>
                                                   j === idx
-                                                    ? {
-                                                        ...c,
-                                                        track_by: "cycles",
-                                                      }
+                                                    ? { ...c, track_by: toggleTrackBy(c.track_by, "cycles") }
                                                     : c,
                                                 )
                                               : list,
@@ -2813,17 +3122,15 @@ export const AddAssetPage = () => {
                                   </label>
                                   <label className="flex items-center gap-2 text-sm text-gray-400">
                                     <input
-                                      type="radio"
-                                      name={`engineComponentTrackBy-${idx}`}
-                                      value="both"
-                                      checked={comp.track_by === "both"}
+                                      type="checkbox"
+                                      checked={comp.track_by_calendar}
                                       onChange={() =>
                                         setEngineComponentsByEngine((prev) =>
                                           prev.map((list, i) =>
                                             i === activeEngineIndex
                                               ? list.map((c, j) =>
                                                   j === idx
-                                                    ? { ...c, track_by: "both" }
+                                                    ? { ...c, track_by_calendar: !c.track_by_calendar }
                                                     : c,
                                                 )
                                               : list,
@@ -2832,7 +3139,7 @@ export const AddAssetPage = () => {
                                       }
                                       className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                                     />
-                                    Hours &amp; Cycles
+                                    Calendar
                                   </label>
                                 </div>
                               </div>
@@ -3343,6 +3650,159 @@ export const AddAssetPage = () => {
                                 </div>
                               </div>
                             )}
+
+                            {comp.track_by_calendar && (
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">Installation Date</label>
+                                  <input
+                                    type="date"
+                                    title="Calendar Installation Date"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                                    value={comp.installed_at}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx ? { ...c, installed_at: e.target.value } : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">Manufacture Date</label>
+                                  <input
+                                    type="date"
+                                    title="Calendar Manufacture Date"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                                    value={comp.calendar_manufacture_date}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx ? { ...c, calendar_manufacture_date: e.target.value } : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">Last Inspection Date</label>
+                                  <input
+                                    type="date"
+                                    title="Calendar Last Inspection Date"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                                    value={comp.calendar_last_inspection_date}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx ? { ...c, calendar_last_inspection_date: e.target.value } : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">Expiry Date</label>
+                                  <input
+                                    type="date"
+                                    title="Calendar Expiry Date"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                                    value={comp.calendar_expiry_date}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx ? { ...c, calendar_expiry_date: e.target.value } : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-400">Tracking Interval Type</label>
+                                  <select
+                                    title="Calendar Interval Type"
+                                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                                    value={comp.calendar_interval_type}
+                                    onChange={(e) =>
+                                      setEngineComponentsByEngine((prev) =>
+                                        prev.map((list, i) =>
+                                          i === activeEngineIndex
+                                            ? list.map((c, j) =>
+                                                j === idx ? { ...c, calendar_interval_type: e.target.value } : c,
+                                              )
+                                            : list,
+                                        ),
+                                      )
+                                    }
+                                  >
+                                    <option value="monthly">Monthly</option>
+                                    <option value="quarterly">Quarterly</option>
+                                    <option value="yearly">Yearly</option>
+                                  </select>
+                                </div>
+                                {(() => {
+                                  if (!comp.calendar_last_inspection_date) return null;
+                                  const lastDate = new Date(comp.calendar_last_inspection_date);
+                                  if (Number.isNaN(lastDate.getTime())) return null;
+                                  const nextDate = new Date(lastDate);
+                                  if (comp.calendar_interval_type === "monthly") {
+                                    nextDate.setMonth(nextDate.getMonth() + 1);
+                                  } else if (comp.calendar_interval_type === "quarterly") {
+                                    nextDate.setMonth(nextDate.getMonth() + 3);
+                                  } else if (comp.calendar_interval_type === "yearly") {
+                                    nextDate.setFullYear(nextDate.getFullYear() + 1);
+                                  }
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  nextDate.setHours(0, 0, 0, 0);
+                                  const msPerDay = 1000 * 60 * 60 * 24;
+                                  const daysRemaining = Math.round((nextDate.getTime() - today.getTime()) / msPerDay);
+                                  const nextLabel = nextDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                                  let statusLabel: string;
+                                  let statusValue: string;
+                                  if (daysRemaining > 0) {
+                                    statusLabel = "Inspection Due In";
+                                    statusValue = `${daysRemaining} Days`;
+                                  } else if (daysRemaining === 0) {
+                                    statusLabel = "Inspection Due";
+                                    statusValue = "Today";
+                                  } else {
+                                    statusLabel = "Inspection Overdue By";
+                                    statusValue = `${Math.abs(daysRemaining)} Days`;
+                                  }
+                                  return (
+                                    <>
+                                      <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">Next Inspection Due Date</label>
+                                        <div className="text-lg font-bold text-white">{nextLabel}</div>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <label className="text-xs text-gray-400">{statusLabel}</label>
+                                        <div className={`text-2xl font-bold ${daysRemaining < 0 ? "text-red-400" : daysRemaining === 0 ? "text-amber-400" : "text-white"}`}>
+                                          {statusValue}
+                                        </div>
+                                      </div>
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ),
@@ -3381,6 +3841,11 @@ export const AddAssetPage = () => {
                     service_life_limit_cycles: "",
                     cycles_since_overhaul: "",
                     overhaul_limit_cycles: "",
+                    track_by_calendar: false,
+                    calendar_manufacture_date: "",
+                    calendar_last_inspection_date: "",
+                    calendar_expiry_date: "",
+                    calendar_interval_type: "monthly",
                   })
                 }
                 className="flex items-center gap-1 bg-[#001825] text-[#001219] px-2 py-0.5 rounded text-xs font-bold hover:bg-gray-200"
@@ -3424,17 +3889,15 @@ export const AddAssetPage = () => {
                     <div className="flex gap-4">
                       <label className="flex items-center gap-2 text-sm text-gray-400">
                         <input
-                          type="radio"
-                          name={`avionicsTrackBy-${idx}`}
-                          value="hours"
-                          checked={comp.track_by === "hours"}
+                          type="checkbox"
+                          checked={comp.track_by === "hours" || comp.track_by === "both"}
                           onChange={() =>
                             updateItem(
                               setAvionicsComponents,
                               avionicsComponents,
                               idx,
                               "track_by",
-                              "hours",
+                              toggleTrackBy(comp.track_by, "hours"),
                             )
                           }
                           className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
@@ -3443,17 +3906,15 @@ export const AddAssetPage = () => {
                       </label>
                       <label className="flex items-center gap-2 text-sm text-gray-400">
                         <input
-                          type="radio"
-                          name={`avionicsTrackBy-${idx}`}
-                          value="cycles"
-                          checked={comp.track_by === "cycles"}
+                          type="checkbox"
+                          checked={comp.track_by === "cycles" || comp.track_by === "both"}
                           onChange={() =>
                             updateItem(
                               setAvionicsComponents,
                               avionicsComponents,
                               idx,
                               "track_by",
-                              "cycles",
+                              toggleTrackBy(comp.track_by, "cycles"),
                             )
                           }
                           className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
@@ -3462,22 +3923,20 @@ export const AddAssetPage = () => {
                       </label>
                       <label className="flex items-center gap-2 text-sm text-gray-400">
                         <input
-                          type="radio"
-                          name={`avionicsTrackBy-${idx}`}
-                          value="both"
-                          checked={comp.track_by === "both"}
+                          type="checkbox"
+                          checked={comp.track_by_calendar}
                           onChange={() =>
                             updateItem(
                               setAvionicsComponents,
                               avionicsComponents,
                               idx,
-                              "track_by",
-                              "both",
+                              "track_by_calendar",
+                              !comp.track_by_calendar,
                             )
                           }
                           className="text-[#7FD5FF] focus:ring-[#7FD5FF]"
                         />
-                        Hours &amp; Cycles
+                        Calendar
                       </label>
                     </div>
                   </div>
@@ -3892,6 +4351,119 @@ export const AddAssetPage = () => {
                           })()}
                         </div>
                       </div>
+                    </div>
+                  )}
+
+                  {comp.track_by_calendar && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Installation Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Installation Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={comp.installed_at}
+                          onChange={(e) =>
+                            updateItem(setAvionicsComponents, avionicsComponents, idx, "installed_at", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Manufacture Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Manufacture Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={comp.calendar_manufacture_date}
+                          onChange={(e) =>
+                            updateItem(setAvionicsComponents, avionicsComponents, idx, "calendar_manufacture_date", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Last Inspection Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Last Inspection Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={comp.calendar_last_inspection_date}
+                          onChange={(e) =>
+                            updateItem(setAvionicsComponents, avionicsComponents, idx, "calendar_last_inspection_date", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Expiry Date</label>
+                        <input
+                          type="date"
+                          title="Calendar Expiry Date"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                          value={comp.calendar_expiry_date}
+                          onChange={(e) =>
+                            updateItem(setAvionicsComponents, avionicsComponents, idx, "calendar_expiry_date", e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs text-gray-400">Tracking Interval Type</label>
+                        <select
+                          title="Calendar Interval Type"
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                          value={comp.calendar_interval_type}
+                          onChange={(e) =>
+                            updateItem(setAvionicsComponents, avionicsComponents, idx, "calendar_interval_type", e.target.value)
+                          }
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="yearly">Yearly</option>
+                        </select>
+                      </div>
+                      {(() => {
+                        if (!comp.calendar_last_inspection_date) return null;
+                        const lastDate = new Date(comp.calendar_last_inspection_date);
+                        if (Number.isNaN(lastDate.getTime())) return null;
+                        const nextDate = new Date(lastDate);
+                        if (comp.calendar_interval_type === "monthly") {
+                          nextDate.setMonth(nextDate.getMonth() + 1);
+                        } else if (comp.calendar_interval_type === "quarterly") {
+                          nextDate.setMonth(nextDate.getMonth() + 3);
+                        } else if (comp.calendar_interval_type === "yearly") {
+                          nextDate.setFullYear(nextDate.getFullYear() + 1);
+                        }
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        nextDate.setHours(0, 0, 0, 0);
+                        const msPerDay = 1000 * 60 * 60 * 24;
+                        const daysRemaining = Math.round((nextDate.getTime() - today.getTime()) / msPerDay);
+                        const nextLabel = nextDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+                        let statusLabel: string;
+                        let statusValue: string;
+                        if (daysRemaining > 0) {
+                          statusLabel = "Inspection Due In";
+                          statusValue = `${daysRemaining} Days`;
+                        } else if (daysRemaining === 0) {
+                          statusLabel = "Inspection Due";
+                          statusValue = "Today";
+                        } else {
+                          statusLabel = "Inspection Overdue By";
+                          statusValue = `${Math.abs(daysRemaining)} Days`;
+                        }
+                        return (
+                          <>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">Next Inspection Due Date</label>
+                              <div className="text-lg font-bold text-white">{nextLabel}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-gray-400">{statusLabel}</label>
+                              <div className={`text-2xl font-bold ${daysRemaining < 0 ? "text-red-400" : daysRemaining === 0 ? "text-amber-400" : "text-white"}`}>
+                                {statusValue}
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
