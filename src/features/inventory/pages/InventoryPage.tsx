@@ -201,6 +201,21 @@ const formatNaira = (value: number | string | null | undefined) => {
   return `₦${numeric.toLocaleString()}`;
 };
 
+const downloadCsv = (filename: string, rows: string[][]) => {
+  const content = rows
+    .map((row) =>
+      row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 type UpdateStockAdjustmentType = "add" | "remove" | "audit";
 
 type UpdateStockModalProps = {
@@ -850,6 +865,75 @@ export const InventoryPage = () => {
     navigate(`/dashboard/inventory/rfq/${rfqId}`);
   };
 
+  const handleExportStocks = () => {
+    const headers = ["Item Description", "Part Number", "Unit", "Aircraft Type", "Category", "Stock Level", "Current Stock", "Reorder Level", "Last Updated"];
+    const rows = filteredInventoryRows.map((r) => [
+      r.description || r.partName,
+      r.partNumber,
+      r.unit,
+      r.aircraftType,
+      r.category,
+      r.stockLevel,
+      String(r.currentStock),
+      String(r.reorderLevel),
+      formatDateShort(r.lastUpdated),
+    ]);
+    downloadCsv("inventories.csv", [headers, ...rows]);
+  };
+
+  const handleExportRequisitions = () => {
+    const headers = ["Date", "Time", "Requesting Location", "Total Cost", "Status", "Last Updated By"];
+    const rows = (requisitionsData ?? []).map((r) => {
+      const lastUpdatedBy = typeof r.last_updated_by === "string" ? r.last_updated_by : (r.last_updated_by?.name ?? "-");
+      const location = r.requesting_unit?.name ?? (r.requesting_unit_id ? `Unit #${r.requesting_unit_id}` : "-");
+      return [
+        formatDateShort(r.created_at),
+        formatTimeShort(r.created_at),
+        location,
+        formatNaira(r.total_cost),
+        normalizeRequisitionStatus(r.status),
+        lastUpdatedBy,
+      ];
+    });
+    downloadCsv("requisitions.csv", [headers, ...rows]);
+  };
+
+  const handleExportPartsRequisitions = () => {
+    const headers = ["Requisition ID", "Work Order", "Requested Qty", "Created", "RFQ Status"];
+    const rows = partRequisitions.map((r) => [
+      `REQ #${r.id}`,
+      r.work_order_id ? `WO #${r.work_order_id}` : "-",
+      String(r.quantity),
+      `${formatDateShort(r.created_at)} ${formatTimeShort(r.created_at)}`,
+      existingRfqStockMovementIds.has(r.id) ? "RFQ Requested" : "Pending RFQ",
+    ]);
+    downloadCsv("parts-requisitions.csv", [headers, ...rows]);
+  };
+
+  const handleExportPurchaseOrders = () => {
+    const headers = ["PO ID", "Name", "Status", "Order Date", "Expected Delivery"];
+    const rows = (purchaseOrdersData as PurchaseOrderListRow[]).map((o) => [
+      `#${o.id}`,
+      o.name || `PO #${o.id}`,
+      o.status || "-",
+      formatDateShort(o.order_date),
+      formatDateShort(o.expected_date_of_delivery),
+    ]);
+    downloadCsv("purchase-orders.csv", [headers, ...rows]);
+  };
+
+  const handleExportSuppliers = () => {
+    const headers = ["Supplier", "Contact", "Email", "Address", "Created"];
+    const rows = suppliersData.map((s) => [
+      s.name,
+      s.contact || "-",
+      s.email || "-",
+      s.address || "-",
+      formatDateShort(s.created_at),
+    ]);
+    downloadCsv("suppliers.csv", [headers, ...rows]);
+  };
+
   const renderLifecycleCards = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 border-t border-[#0A4D66]/40 pt-4">
       {lifecycleCardData.map((item) => (
@@ -1123,6 +1207,14 @@ export const InventoryPage = () => {
                   </div>
                 </div>
 
+                <button
+                  type="button"
+                  onClick={handleExportStocks}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:download" className="w-4 h-4" />
+                  Export CSV
+                </button>
                 <button
                   type="button"
                   onClick={() => navigate("/dashboard/inventory/add")}
@@ -1417,6 +1509,14 @@ export const InventoryPage = () => {
                   </select>
                 </div>
 
+                <button
+                  type="button"
+                  onClick={handleExportRequisitions}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:download" className="w-4 h-4" />
+                  Export CSV
+                </button>
                 <Link
                   to="/dashboard/inventory/requisitions/add"
                   className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
@@ -1686,6 +1786,14 @@ export const InventoryPage = () => {
 
                 <button
                   type="button"
+                  onClick={handleExportPartsRequisitions}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:download" className="w-4 h-4" />
+                  Export CSV
+                </button>
+                <button
+                  type="button"
                   onClick={handleRequestRfqFromPartsRequisitions}
                   disabled={
                     isCreatingPartsRfq ||
@@ -1899,6 +2007,14 @@ export const InventoryPage = () => {
 
                 <div className="flex-1" />
 
+                <button
+                  type="button"
+                  onClick={handleExportPurchaseOrders}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:download" className="w-4 h-4" />
+                  Export CSV
+                </button>
                 <Link
                   to="/dashboard/inventory/purchase-orders/new"
                   className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
@@ -2010,6 +2126,14 @@ export const InventoryPage = () => {
 
                 <div className="flex-1" />
 
+                <button
+                  type="button"
+                  onClick={handleExportSuppliers}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:download" className="w-4 h-4" />
+                  Export CSV
+                </button>
                 <Link
                   to="/dashboard/inventory/suppliers/add"
                   className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
