@@ -7,7 +7,6 @@ import { useGetAssetsQuery } from "@/features/assets/api";
 import {
   useGetPersonnelQuery,
   useCreatePersonnelMutation,
-  useGetPersonnelRanksQuery,
 } from "@/features/personnel/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import {
@@ -257,7 +256,7 @@ export const OperationForm = ({
   type QuickAddPersonnelTarget = { assetIndex: number; role: "pilot_id" | "co_pilot_id" };
   const [showAddPersonnelModal, setShowAddPersonnelModal] = useState(false);
   const [addPersonnelTarget, setAddPersonnelTarget] = useState<QuickAddPersonnelTarget | null>(null);
-  const [quickAddForm, setQuickAddForm] = useState({ firstname: "", lastname: "", rank_id: "", unit_id: "" });
+  const [quickAddForm, setQuickAddForm] = useState({ call_sign: "" });
   const [quickAddedPersonnel, setQuickAddedPersonnel] = useState<Array<{ id: number; firstname: string; lastname: string; rank?: { name?: string | null } | null; call_sign?: string | null }>>([]);
   const [createPersonnel, { isLoading: isCreatingPersonnel }] = useCreatePersonnelMutation();
 
@@ -273,7 +272,6 @@ export const OperationForm = ({
     specialties: [],
     status: [],
   });
-  const { data: personnelRanks = [] } = useGetPersonnelRanksQuery();
 
   const isCreateMode = mode === "create";
   const pageTitle = isCreateMode ? "ADD OPERATION" : "EDIT OPERATION";
@@ -460,7 +458,7 @@ export const OperationForm = ({
 
   const openAddPersonnelModal = (assetIndex: number, role: "pilot_id" | "co_pilot_id") => {
     setAddPersonnelTarget({ assetIndex, role });
-    setQuickAddForm({ firstname: "", lastname: "", rank_id: "", unit_id: formData.unit_id });
+    setQuickAddForm({ call_sign: "" });
     setShowAddPersonnelModal(true);
   };
 
@@ -469,15 +467,14 @@ export const OperationForm = ({
     if (!addPersonnelTarget) return;
     try {
       const created = await createPersonnel({
-        firstname: quickAddForm.firstname.trim(),
-        lastname: quickAddForm.lastname.trim(),
-        rank_id: Number(quickAddForm.rank_id),
-        unit_id: Number(quickAddForm.unit_id),
+        firstname: "Nil",
+        lastname: "Nil",
+        call_sign: quickAddForm.call_sign.trim(),
         is_expatriate: true,
       }).unwrap();
       setQuickAddedPersonnel((prev) => [
         ...prev,
-        { id: created.id, firstname: created.firstname, lastname: created.lastname, rank: created.rank },
+        { id: created.id, firstname: created.firstname, lastname: created.lastname, rank: created.rank, call_sign: created.call_sign },
       ]);
       setAssets((prev) => {
         const next = [...prev];
@@ -1312,68 +1309,17 @@ export const OperationForm = ({
           <p className="text-xs text-gray-400">
             This person will be added as an expatriate and immediately available for selection.
           </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400 font-medium">First Name</label>
-              <input
-                type="text"
-                value={quickAddForm.firstname}
-                onChange={(e) => setQuickAddForm((prev) => ({ ...prev, firstname: e.target.value }))}
-                placeholder="First name"
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                required
-                autoFocus
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs text-gray-400 font-medium">Last Name</label>
-              <input
-                type="text"
-                value={quickAddForm.lastname}
-                onChange={(e) => setQuickAddForm((prev) => ({ ...prev, lastname: e.target.value }))}
-                placeholder="Last name"
-                className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                required
-              />
-            </div>
-          </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-gray-400 font-medium">Rank</label>
-            <div className="relative">
-              <select
-                value={quickAddForm.rank_id}
-                onChange={(e) => setQuickAddForm((prev) => ({ ...prev, rank_id: e.target.value }))}
-                className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                required
-              >
-                <option value="">Select Rank</option>
-                {personnelRanks.map((rank) => (
-                  <option key={rank.id} value={rank.id}>
-                    {rank.name}
-                  </option>
-                ))}
-              </select>
-              <Icon icon="mdi:chevron-down" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-gray-400 font-medium">Unit</label>
-            <div className="relative">
-              <select
-                value={quickAddForm.unit_id}
-                onChange={(e) => setQuickAddForm((prev) => ({ ...prev, unit_id: e.target.value }))}
-                className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                required
-              >
-                <option value="">Select Unit</option>
-                {units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </option>
-                ))}
-              </select>
-              <Icon icon="mdi:chevron-down" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
+            <label className="text-xs text-gray-400 font-medium">Call Sign</label>
+            <input
+              type="text"
+              value={quickAddForm.call_sign}
+              onChange={(e) => setQuickAddForm((prev) => ({ ...prev, call_sign: e.target.value }))}
+              placeholder="e.g. JS01"
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              required
+              autoFocus
+            />
           </div>
           <div className="flex justify-end gap-3 pt-1">
             <button
@@ -1385,7 +1331,7 @@ export const OperationForm = ({
             </button>
             <button
               type="submit"
-              disabled={isCreatingPersonnel || !quickAddForm.firstname.trim() || !quickAddForm.lastname.trim() || !quickAddForm.rank_id || !quickAddForm.unit_id}
+              disabled={isCreatingPersonnel || !quickAddForm.call_sign.trim()}
               className="px-5 py-2 bg-[#0369A1] text-white text-sm font-semibold rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
             >
               {isCreatingPersonnel ? "Adding..." : "Add Personnel"}

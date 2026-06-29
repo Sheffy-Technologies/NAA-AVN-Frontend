@@ -110,8 +110,8 @@ export type PersonnelFilters = {
 
 export type CreatePersonnelRequest = {
   service_number?: string;
-  rank_id: string | number;
-  unit_id: string | number;
+  rank_id?: string | number | null;
+  unit_id?: string | number | null;
   branch_id?: string | number | null;
   corp_id?: string | number | null;
   specialty_id?: string | number | null;

@@ -132,10 +132,10 @@ export const OperationsPage = () => {
         <table className="min-w-full text-sm text-gray-200">
           <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
             <tr>
-              <th className="text-left px-6 py-3 font-medium">Name</th>
+              <th className="text-left px-6 py-3 font-medium">Region</th>
               <th className="text-left px-4 py-3 font-medium">Date</th>
               <th className="text-left px-4 py-3 font-medium">Type</th>
-              <th className="text-left px-4 py-3 font-medium">Category</th>
+              <th className="text-left px-4 py-3 font-medium">Name</th>
               <th className="text-left px-4 py-3 font-medium">Unit</th>
               <th className="text-left px-4 py-3 font-medium">Status</th>
               <th className="text-right px-6 py-3 font-medium">Action</th>
