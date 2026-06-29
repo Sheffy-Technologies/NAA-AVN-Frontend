@@ -354,6 +354,17 @@ export const operationsApi = createApi({
       }),
       invalidatesTags: ["OperationCategories"],
     }),
+    createOperationType: builder.mutation<
+      OperationType,
+      { name: string; description?: string | null }
+    >({
+      query: (body) => ({
+        url: "/operation-types",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: ["OperationTypes"],
+    }),
     createOperation: builder.mutation<Operation, CreateOperationRequest>({
       query: (body) => ({
         url: "/operations",
@@ -417,6 +428,7 @@ export const {
   useGetOperationTypesQuery,
   useGetOperationCategoriesQuery,
   useCreateOperationCategoryMutation,
+  useCreateOperationTypeMutation,
   useCreateOperationMutation,
   useUpdateOperationMutation,
   useUpdateOperationStatusMutation,

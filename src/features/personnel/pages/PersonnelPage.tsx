@@ -157,11 +157,11 @@ export const PersonnelPage = () => {
       serviceNo: p.service_number,
       name: `${p.firstname} ${p.lastname}`,
       image: p.image,
-      rank: p.rank.name,
+      rank: p.rank?.name ?? "",
       callSign: p.call_sign,
-      unit: p.unit.name,
-      branch: p.branch.name,
-      specialty: p.specialty.name,
+      unit: p.unit?.name ?? "",
+      branch: p.branch?.name ?? "",
+      specialty: p.specialty?.name ?? "",
       status: mapStatus(p.status),
     }));
   }, [apiPersonnel]);

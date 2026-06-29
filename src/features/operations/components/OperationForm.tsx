@@ -13,6 +13,7 @@ import {
   useGetOperationTypesQuery,
   useGetOperationCategoriesQuery,
   useCreateOperationCategoryMutation,
+  useCreateOperationTypeMutation,
   type CreateOperationRequest,
   type Operation,
   type OperationAsset,
@@ -253,6 +254,12 @@ export const OperationForm = ({
   const [createOperationCategory, { isLoading: isCreatingCategory }] =
     useCreateOperationCategoryMutation();
 
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeDescription, setNewTypeDescription] = useState("");
+  const [createOperationType, { isLoading: isCreatingType }] =
+    useCreateOperationTypeMutation();
+
   type QuickAddPersonnelTarget = { assetIndex: number; role: "pilot_id" | "co_pilot_id" };
   const [showAddPersonnelModal, setShowAddPersonnelModal] = useState(false);
   const [addPersonnelTarget, setAddPersonnelTarget] = useState<QuickAddPersonnelTarget | null>(null);
@@ -490,6 +497,26 @@ export const OperationForm = ({
     }
   };
 
+  const handleAddType = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newTypeName.trim()) return;
+    try {
+      const created = await createOperationType({
+        name: newTypeName.trim(),
+        description: newTypeDescription.trim() || null,
+      }).unwrap();
+      setFormData((prev) => ({
+        ...prev,
+        operation_type_id: String(created.id),
+      }));
+      setNewTypeName("");
+      setNewTypeDescription("");
+      setShowTypeModal(false);
+    } catch {
+      // error handled silently
+    }
+  };
+
   const handleAddCategory = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!newCategoryName.trim()) return;
@@ -679,9 +706,17 @@ export const OperationForm = ({
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Operation Type
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-gray-400 font-medium">Operation Type</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowTypeModal(true)}
+                    className="flex items-center gap-1 text-xs text-[#7FD5FF] hover:text-white transition-colors"
+                  >
+                    <Icon icon="mdi:plus-circle-outline" className="w-3.5 h-3.5" />
+                    Add New
+                  </button>
+                </div>
                 <div className="relative">
                   <select
                     value={formData.operation_type_id}
@@ -1241,6 +1276,63 @@ export const OperationForm = ({
           </div>
         </form>
       </div>
+
+      <Modal
+        open={showTypeModal}
+        onClose={() => {
+          setShowTypeModal(false);
+          setNewTypeName("");
+          setNewTypeDescription("");
+        }}
+        title="Add Operation Type"
+      >
+        <form onSubmit={handleAddType} className="space-y-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-gray-400 font-medium">Name</label>
+            <input
+              type="text"
+              value={newTypeName}
+              onChange={(e) => setNewTypeName(e.target.value)}
+              placeholder="e.g. Surveillance, Strike, Patrol"
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              required
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-gray-400 font-medium">
+              Description <span className="text-gray-600">(optional)</span>
+            </label>
+            <textarea
+              value={newTypeDescription}
+              onChange={(e) => setNewTypeDescription(e.target.value)}
+              placeholder="Short description"
+              rows={3}
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600 resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setShowTypeModal(false);
+                setNewTypeName("");
+                setNewTypeDescription("");
+              }}
+              className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isCreatingType || !newTypeName.trim()}
+              className="px-5 py-2 bg-[#0369A1] text-white text-sm font-semibold rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+            >
+              {isCreatingType ? "Adding..." : "Add Type"}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={showCategoryModal}
