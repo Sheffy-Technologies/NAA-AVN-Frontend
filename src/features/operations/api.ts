@@ -17,6 +17,14 @@ export type OperationType = {
   updated_at: string;
 };
 
+export type OperationCategory = {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type OperationAsset = {
   asset_id: number;
   pilot_id: number | null;
@@ -106,6 +114,7 @@ export type CreateOperationRequest = {
   name: string;
   unit_id: number;
   operation_type_id?: number | null;
+  operation_category_id?: number | null;
   asset_id?: number | null;
   start_date_time?: string;
   end_date_time?: string;
@@ -207,6 +216,7 @@ export type Operation = {
   id: number;
   unit_id: number;
   operation_type_id: number | null;
+  operation_category_id: number | null;
   name: string;
   start_date_time: string;
   end_date_time: string;
@@ -220,6 +230,7 @@ export type Operation = {
   duration_label: string;
   unit: OperationUnit;
   operation_type: OperationType | null;
+  operation_category: OperationCategory | null;
   assets: OperationAssignedAsset[];
   afterActionReport: AfterActionReport | null;
   after_action_report?: AfterActionReport | null;
@@ -285,7 +296,7 @@ const getOperationLocation = (operation: Operation) => {
 export const operationsApi = createApi({
   reducerPath: "operationsApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Operations", "OperationTypes", "OperationDetails"],
+  tagTypes: ["Operations", "OperationTypes", "OperationCategories", "OperationDetails"],
   endpoints: (builder) => ({
     getOperations: builder.query<Operation[], GetOperationsParams | void>({
       query: (params) => ({
@@ -324,6 +335,24 @@ export const operationsApi = createApi({
         method: "GET",
       }),
       providesTags: ["OperationTypes"],
+    }),
+    getOperationCategories: builder.query<OperationCategory[], void>({
+      query: () => ({
+        url: "/operation-categories",
+        method: "GET",
+      }),
+      providesTags: ["OperationCategories"],
+    }),
+    createOperationCategory: builder.mutation<
+      OperationCategory,
+      { name: string; description?: string | null }
+    >({
+      query: (body) => ({
+        url: "/operation-categories",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: ["OperationCategories"],
     }),
     createOperation: builder.mutation<Operation, CreateOperationRequest>({
       query: (body) => ({
@@ -386,6 +415,8 @@ export const {
   useGetOperationsQuery,
   useGetOperationByIdQuery,
   useGetOperationTypesQuery,
+  useGetOperationCategoriesQuery,
+  useCreateOperationCategoryMutation,
   useCreateOperationMutation,
   useUpdateOperationMutation,
   useUpdateOperationStatusMutation,

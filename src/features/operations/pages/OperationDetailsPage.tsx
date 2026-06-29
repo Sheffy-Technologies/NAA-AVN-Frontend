@@ -46,9 +46,14 @@ const getPersonName = (person: unknown) => {
   const lastName = typeof record.lastname === "string" ? record.lastname : "";
   const otherNames =
     typeof record.othernames === "string" ? record.othernames : "";
+  const callSign =
+    typeof record.call_sign === "string" && record.call_sign.trim()
+      ? record.call_sign.trim()
+      : null;
   const fullName = `${firstName} ${lastName} ${otherNames}`.trim();
   if (!fullName) return "N/A";
-  return rank ? `${rank} ${fullName}` : fullName;
+  const base = rank ? `${rank} ${fullName}` : fullName;
+  return callSign ? `${base} (${callSign})` : base;
 };
 
 const getPersonId = (person: unknown): number | null => {
@@ -286,11 +291,26 @@ const OperationTab = ({
       ? `${Number(operation.arrival_latitude).toFixed(6)}, ${Number(operation.arrival_longitude).toFixed(6)}`
       : "N/A");
 
+  const formatDate = (value?: string | null) => {
+    if (!value) return "N/A";
+    const normalized = value.includes("T") ? value : value.replace(" ", "T");
+    const d = new Date(normalized);
+    if (Number.isNaN(d.getTime())) return value.slice(0, 10);
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <InfoRow label="Purpose" value={operation.name} />
+          <InfoRow
+            label="Operation Name"
+            value={operation.operation_category?.name || "N/A"}
+          />
+          <InfoRow
+            label="Region"
+            value={operation.name || "N/A"}
+          />
           <InfoRow
             label="Type"
             value={operation.operation_type?.name || "N/A"}
@@ -313,8 +333,56 @@ const OperationTab = ({
               )
             }
           />
-          <InfoRow label="Departure" value={departureLabel} />
-          <InfoRow label="Destination" value={arrivalLabel} />
+          <InfoRow label="Date" value={formatDate(operation.start_date_time)} />
+          {operation.end_date_time ? (
+            <InfoRow label="End Date" value={formatDate(operation.end_date_time)} />
+          ) : null}
+          {operation.duration_label ? (
+            <InfoRow label="Duration" value={operation.duration_label} />
+          ) : null}
+          <InfoRow
+            label="Priority"
+            value={
+              <span
+                className={cn(
+                  "capitalize font-semibold",
+                  operation.priority === "high"
+                    ? "text-red-400"
+                    : operation.priority === "medium"
+                      ? "text-amber-300"
+                      : "text-emerald-400",
+                )}
+              >
+                {operation.priority || "N/A"}
+              </span>
+            }
+          />
+          <InfoRow
+            label="Status"
+            value={
+              <div className="flex items-center gap-2">
+                <span className="capitalize">{operation.status}</span>
+                <span
+                  className={cn(
+                    "w-2 h-2 rounded-full",
+                    operation.status === "completed"
+                      ? "bg-emerald-400"
+                      : operation.status === "ongoing"
+                        ? "bg-amber-400"
+                        : operation.status === "aborted"
+                          ? "bg-red-500"
+                          : "bg-blue-400",
+                  )}
+                />
+              </div>
+            }
+          />
+          {departureLabel !== "N/A" ? (
+            <InfoRow label="Departure" value={departureLabel} />
+          ) : null}
+          {arrivalLabel !== "N/A" ? (
+            <InfoRow label="Destination" value={arrivalLabel} />
+          ) : null}
           {operation.waypoints && operation.waypoints.length > 0 ? (
             <InfoRow
               label="Waypoints"
@@ -337,28 +405,6 @@ const OperationTab = ({
               }
             />
           ) : null}
-          <InfoRow
-            label="Status"
-            value={
-              <div className="flex items-center gap-2">
-                <span className="capitalize">{operation.status}</span>
-                <span
-                  className={cn(
-                    "w-2 h-2 rounded-full",
-                    operation.status === "completed"
-                      ? "bg-emerald-400"
-                      : operation.status === "ongoing"
-                        ? "bg-amber-400"
-                        : operation.status === "aborted"
-                          ? "bg-red-500"
-                          : "bg-blue-400",
-                  )}
-                />
-              </div>
-            }
-          />
-
-          
         </div>
 
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">

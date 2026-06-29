@@ -65,6 +65,7 @@ export type Personnel = {
   specialty_id: number;
   corp_id: number;
   service_number: string;
+  is_expatriate?: boolean;
   firstname: string;
   lastname: string;
   othernames: string;
@@ -108,20 +109,21 @@ export type PersonnelFilters = {
 };
 
 export type CreatePersonnelRequest = {
-  service_number: string;
+  service_number?: string;
   rank_id: string | number;
   unit_id: string | number;
-  branch_id: string | number;
-  corp_id: string | number;
-  specialty_id: string | number;
+  branch_id?: string | number | null;
+  corp_id?: string | number | null;
+  specialty_id?: string | number | null;
   firstname: string;
   lastname: string;
+  is_expatriate?: boolean;
   othernames?: string;
-  phone_number: string;
-  email: string;
-  address: string;
-  blood_group: string;
-  call_sign: string;
+  phone_number?: string;
+  email?: string;
+  address?: string;
+  blood_group?: string;
+  call_sign?: string;
   status?: string;
   rating_type?: string;
   image?: string;

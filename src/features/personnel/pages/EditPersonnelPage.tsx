@@ -755,7 +755,7 @@ export const EditPersonnelPage = () => {
             <SelectField
               label="Branch"
               name="branch_id"
-              value={formData.branch_id}
+              value={formData.branch_id ?? 0}
               onChange={handleChange}
               required
             >
@@ -766,7 +766,7 @@ export const EditPersonnelPage = () => {
             <SelectField
               label="Specialty"
               name="specialty_id"
-              value={formData.specialty_id}
+              value={formData.specialty_id ?? 0}
               onChange={handleChange}
               required
             >
@@ -799,7 +799,7 @@ export const EditPersonnelPage = () => {
             <SelectField
               label="Corp"
               name="corp_id"
-              value={formData.corp_id}
+              value={formData.corp_id ?? 0}
               onChange={handleChange}
               required
             >
