@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import * as XLSX from "xlsx";
 import { cn } from "@/shared/utils/cn";
-import { useGetOperationsQuery } from "../api";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
+import {
+  useGetOperationsQuery,
+  useUpdateOperationStatusMutation,
+} from "../api";
 
 type ViewMode = "table" | "grid";
 
@@ -33,12 +38,17 @@ const priorityTextColor: Record<string, string> = {
 
 export const OperationsPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   const { data: operations = [], isLoading } = useGetOperationsQuery();
+  const [updateOperationStatus] = useUpdateOperationStatusMutation();
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("all");
   const [selectedPriority, setSelectedPriority] = useState("all");
+  const [updatingOperationId, setUpdatingOperationId] = useState<number | null>(
+    null,
+  );
   const [selectedStatus, setSelectedStatus] = useState<string>(() => {
     const status = searchParams.get("status");
     const validStatuses = ["planned", "completed", "ongoing", "aborted"];
@@ -104,6 +114,29 @@ export const OperationsPage = () => {
     });
   }, [operations, searchTerm, selectedPriority, selectedUnitId, selectedStatus]);
 
+  const statusOptions = ["planned", "ongoing", "completed", "aborted"] as const;
+
+  const handleStatusChange = async (
+    operationId: number,
+    currentStatus: string,
+    nextStatus: (typeof statusOptions)[number],
+  ) => {
+    if (!operationId || updatingOperationId === operationId) return;
+    if (currentStatus === nextStatus) return;
+
+    setUpdatingOperationId(operationId);
+    try {
+      await updateOperationStatus({ id: operationId, status: nextStatus }).unwrap();
+      dispatch(showToast({ message: "Operation status updated", type: "success" }));
+    } catch {
+      dispatch(
+        showToast({ message: "Failed to update operation status", type: "error" }),
+      );
+    } finally {
+      setUpdatingOperationId(null);
+    }
+  };
+
   const handleDownloadExcel = () => {
     if (filteredOperations.length === 0) return;
 
@@ -166,7 +199,27 @@ export const OperationsPage = () => {
                         statusDotColor[op.status] || "bg-gray-400",
                       )}
                     />
-                    <span className="capitalize">{op.status}</span>
+                    <select
+                      value={op.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleStatusChange(
+                          op.id,
+                          op.status,
+                          e.target.value as (typeof statusOptions)[number],
+                        );
+                      }}
+                      disabled={updatingOperationId === op.id}
+                      className="appearance-none bg-transparent border border-[#0A4D66]/40 rounded px-2 py-0.5 text-xs capitalize text-gray-200 focus:outline-none disabled:opacity-60"
+                      aria-label="Update operation status"
+                    >
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status} className="bg-[#001825]">
+                          {status}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </td>
                 <td className="px-6 py-3 text-right">
@@ -242,7 +295,27 @@ export const OperationsPage = () => {
                   statusDotColor[op.status] || "bg-gray-400",
                 )}
               />
-              <span className="capitalize">{op.status}</span>
+              <select
+                value={op.status}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleStatusChange(
+                    op.id,
+                    op.status,
+                    e.target.value as (typeof statusOptions)[number],
+                  );
+                }}
+                disabled={updatingOperationId === op.id}
+                className="appearance-none bg-transparent border border-[#0A4D66]/40 rounded px-2 py-0.5 text-xs capitalize text-gray-200 focus:outline-none disabled:opacity-60"
+                aria-label="Update operation status"
+              >
+                {statusOptions.map((status) => (
+                  <option key={status} value={status} className="bg-[#001825]">
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-center gap-2">
               <span>{parseApiDateTime(op.start_date_time)?.toLocaleDateString() ?? "—"}</span>
