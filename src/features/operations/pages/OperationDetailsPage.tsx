@@ -106,10 +106,6 @@ const renderAssetCard = (
   const assetName =
     (typeof baseAsset.name === "string" && baseAsset.name) ||
     (entry.asset_id ? `Asset #${entry.asset_id}` : `Asset ${index + 1}`);
-  const assetType =
-    (typeof baseAsset.model === "string" && baseAsset.model) ||
-    (typeof baseAsset.type === "string" && baseAsset.type) ||
-    "N/A";
   const tailNumber =
     (typeof baseAsset.tail_number === "string" && baseAsset.tail_number) ||
     "N/A";
@@ -170,7 +166,6 @@ const renderAssetCard = (
         ) : null}
       </div>
       <InfoRow label="Name" value={assetName} />
-      <InfoRow label="Type" value={String(assetType)} />
       <InfoRow label="Tail Number" value={String(tailNumber)} />
       <InfoRow label="Serviceability" value={String(serviceability)} />
       <InfoRow label="Total Hours" value={String(totalHours)} />

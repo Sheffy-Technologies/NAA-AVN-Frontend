@@ -613,7 +613,7 @@ export const AssetsPage = () => {
                 <thead>
                   <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
                     <th className="px-6 py-4 font-medium"> Name</th>
-                    <th className="px-6 py-4 font-medium">Type</th>
+                    <th className="px-6 py-4 font-medium">Tail Number</th>
                     <th className="px-6 py-4 font-medium">Unit</th>
                     <th className="px-6 py-4 font-medium">Defects</th>
                     <th className="px-6 py-4 font-medium">Status</th>
@@ -671,7 +671,9 @@ export const AssetsPage = () => {
                             {asset.name}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-gray-300">{asset.model}</td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {asset.tail_number || "-"}
+                        </td>
                         <td className="px-6 py-4 text-gray-300">
                           {getUnitName(asset.unit_id)}
                         </td>

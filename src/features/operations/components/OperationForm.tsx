@@ -167,12 +167,8 @@ const convertMgrsToLatLon = (value: string) => {
 
 const extractDate = (value?: string | null) => {
   if (!value) return "";
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-  return date.toISOString().slice(0, 10);
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : value.slice(0, 10);
 };
 
 const extractTime = (value?: string | null) => {
@@ -212,6 +208,40 @@ const mapOperationToFormData = (operation: Operation): OperationFormData => ({
   description: operation.description ?? "",
 });
 
+const mapAssignedAssetsToForm = (operation?: Operation | null): OperationAsset[] => {
+  const mappedAssets =
+    operation?.assets
+      ?.map((asset) => {
+        const relationAsset = asset as OperationAsset & {
+          id?: number;
+          pivot?: {
+            asset_id?: number;
+            pilot_id?: number | null;
+            co_pilot_id?: number | null;
+          } | null;
+        };
+
+        const assetId =
+          relationAsset.asset_id ?? relationAsset.id ?? relationAsset.pivot?.asset_id ?? 0;
+        const pilotId = relationAsset.pilot_id ?? relationAsset.pivot?.pilot_id ?? null;
+        const coPilotId =
+          relationAsset.co_pilot_id ?? relationAsset.pivot?.co_pilot_id ?? null;
+
+        return {
+          asset_id: assetId,
+          pilot_id: pilotId,
+          co_pilot_id: coPilotId,
+        };
+      })
+      .filter((asset) => Boolean(asset.asset_id)) ?? [];
+
+  if (mappedAssets.length > 0) {
+    return mappedAssets;
+  }
+
+  return [{ asset_id: 0, pilot_id: null, co_pilot_id: null }];
+};
+
 export const OperationForm = ({
   mode,
   initialOperation,
@@ -245,7 +275,7 @@ export const OperationForm = ({
       : [],
   );
   const [assets, setAssets] = useState<OperationAsset[]>([
-    { asset_id: 0, pilot_id: null, co_pilot_id: null },
+    ...mapAssignedAssetsToForm(initialOperation),
   ]);
 
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -596,15 +626,13 @@ export const OperationForm = ({
 
     payload.waypoints = validWaypoints;
 
-    if (isCreateMode) {
-      payload.operation_assets = assets
-        .filter((asset) => asset.asset_id)
-        .map((asset) => ({
-          asset_id: asset.asset_id,
-          pilot_id: asset.pilot_id ?? null,
-          co_pilot_id: asset.co_pilot_id ?? null,
-        }));
-    }
+    payload.operation_assets = assets
+      .filter((asset) => asset.asset_id)
+      .map((asset) => ({
+        asset_id: asset.asset_id,
+        pilot_id: asset.pilot_id ?? null,
+        co_pilot_id: asset.co_pilot_id ?? null,
+      }));
 
     await onSubmit(payload);
   };
@@ -1139,8 +1167,7 @@ export const OperationForm = ({
             )}
           </section>
 
-          {isCreateMode ? (
-            <section>
+          <section>
               <div className="flex items-center gap-4 mb-4 border-b border-[#0A4D66]/40 pb-2">
                 <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider">
                   Aircraft
@@ -1195,7 +1222,7 @@ export const OperationForm = ({
                               key={aircraft.asset_id ?? aircraft.id}
                               value={aircraft.asset_id ?? aircraft.id}
                             >
-                              {aircraft.name} ({aircraft.type})
+                              {aircraft.name} ({aircraft.tail_number || "-"})
                             </option>
                           ))}
                         </select>
@@ -1263,7 +1290,6 @@ export const OperationForm = ({
                 ))}
               </div>
             </section>
-          ) : null}
 
           <div className="mt-10 flex justify-end border-t border-[#0A4D66]/30 pt-8">
             <button
