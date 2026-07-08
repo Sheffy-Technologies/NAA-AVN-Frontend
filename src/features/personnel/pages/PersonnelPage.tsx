@@ -82,6 +82,9 @@ export const PersonnelPage = () => {
     all: true,
     selected: [],
   });
+  const [expatriateFilter, setExpatriateFilter] = useState<
+    "all" | "true" | "false"
+  >("true");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: units = [] } = useGetUnitsQuery();
@@ -123,6 +126,8 @@ export const PersonnelPage = () => {
       specialties: effectiveSpecialtiesSelected,
       status: statusFilter.selected,
       corps: [],
+      is_expatriate:
+        expatriateFilter === "all" ? undefined : expatriateFilter === "true",
     }),
     [
       unitFilter.selected,
@@ -130,6 +135,7 @@ export const PersonnelPage = () => {
       branchFilter.selected,
       effectiveSpecialtiesSelected,
       statusFilter.selected,
+      expatriateFilter,
     ],
   );
 
@@ -170,7 +176,7 @@ export const PersonnelPage = () => {
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [statusMenuForId, setStatusMenuForId] = useState<string | null>(null);
   const [openFilterMenu, setOpenFilterMenu] = useState<
-    "units" | "ranks" | "branches" | "specialties" | "status" | null
+    "units" | "ranks" | "branches" | "specialties" | "status" | "expatriate" | null
   >(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const filterBarRef = useRef<HTMLDivElement>(null);
@@ -241,6 +247,7 @@ export const PersonnelPage = () => {
     setBranchFilter({ all: true, selected: [] });
     setSpecialtyFilter({ all: true, selected: [] });
     setStatusFilter({ all: true, selected: [] });
+    setExpatriateFilter("true");
     setOpenFilterMenu(null);
   };
   useClickOutside(
@@ -367,13 +374,14 @@ export const PersonnelPage = () => {
             >
               <Icon icon="mdi:filter-variant" className="w-4 h-4" />
               <span className="hidden sm:inline">Filters</span>
-              {[
+              {([
                 unitFilter,
                 rankFilter,
                 branchFilter,
                 specialtyFilter,
                 statusFilter,
-              ].some((f) => !f.all) && (
+              ].some((f) => !f.all) ||
+                expatriateFilter !== "true") && (
                 <span className="w-2 h-2 rounded-full bg-[#0369A1]" />
               )}
             </button>
@@ -645,6 +653,60 @@ export const PersonnelPage = () => {
                           }
                           label={status}
                         />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenFilterMenu((current) =>
+                      current === "expatriate" ? null : "expatriate",
+                    )
+                  }
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
+                >
+                  <span>
+                    {expatriateFilter === "all"
+                      ? "All Personnel"
+                      : expatriateFilter === "true"
+                        ? "Expatriate"
+                        : "Non-Expatriate"}
+                  </span>
+                  <Icon icon="mdi:chevron-down" className="w-4 h-4" />
+                </button>
+                {openFilterMenu === "expatriate" && (
+                  <div className="absolute right-0 mt-2 z-20 w-48 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                    <div className="space-y-1">
+                      {(
+                        [
+                          { value: "all", label: "All Personnel" },
+                          { value: "true", label: "Expatriate" },
+                          { value: "false", label: "Non-Expatriate" },
+                        ] as const
+                      ).map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setExpatriateFilter(option.value);
+                            setOpenFilterMenu(null);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between px-2 py-1.5 rounded text-left hover:bg-[#0A4D66]/40",
+                            expatriateFilter === option.value
+                              ? "text-[#7FD5FF]"
+                              : "text-gray-200",
+                          )}
+                        >
+                          <span>{option.label}</span>
+                          {expatriateFilter === option.value && (
+                            <Icon icon="mdi:check" className="w-4 h-4" />
+                          )}
+                        </button>
                       ))}
                     </div>
                   </div>

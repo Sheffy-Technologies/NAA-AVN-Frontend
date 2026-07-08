@@ -8,6 +8,7 @@ import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useDeleteOperationMutation,
   useGetOperationByIdQuery,
+  useUpdateOperationMutation,
   useUpdateOperationStatusMutation,
   type Operation,
   type OperationAssignedAsset,
@@ -260,14 +261,68 @@ const renderAssetCard = (
   );
 };
 
+const extractDatePart = (value?: string | null) => {
+  if (!value) return "";
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : value.slice(0, 10);
+};
+
+const extractTimePart = (value?: string | null) => {
+  if (!value) return "00:00";
+  const match = value.match(/(\d{2}):(\d{2})/);
+  return match ? `${match[1]}:${match[2]}` : "00:00";
+};
+
+type DateTimeDraft = {
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+};
+
 const OperationTab = ({
   operation,
   navigate,
+  onUpdateDateTime,
+  isSavingDateTime,
 }: {
   operation: Operation;
   navigate: (path: string) => void;
+  onUpdateDateTime: (payload: {
+    start_date_time?: string;
+    end_date_time?: string;
+  }) => Promise<void>;
+  isSavingDateTime: boolean;
 }) => {
+  const [editDates, setEditDates] = useState<DateTimeDraft | null>(null);
+
   if (!operation) return null;
+
+  const startEditingDates = () => {
+    setEditDates({
+      startDate: extractDatePart(operation.start_date_time),
+      startTime: extractTimePart(operation.start_date_time),
+      endDate: extractDatePart(operation.end_date_time),
+      endTime: extractTimePart(operation.end_date_time),
+    });
+  };
+
+  const cancelEditingDates = () => setEditDates(null);
+
+  const saveDates = async () => {
+    if (!editDates) return;
+    const startDateTime = editDates.startDate
+      ? `${editDates.startDate}T${editDates.startTime}:00`
+      : undefined;
+    const endDateTime = editDates.endDate
+      ? `${editDates.endDate}T${editDates.endTime}:00`
+      : undefined;
+    await onUpdateDateTime({
+      start_date_time: startDateTime,
+      end_date_time: endDateTime,
+    });
+    setEditDates(null);
+  };
 
   const departureLabel =
     operation.departure_location ||
@@ -328,10 +383,107 @@ const OperationTab = ({
               )
             }
           />
-          <InfoRow label="Date" value={formatDate(operation.start_date_time)} />
-          {operation.end_date_time ? (
-            <InfoRow label="End Date" value={formatDate(operation.end_date_time)} />
-          ) : null}
+          <div className="flex flex-col gap-2 py-3 border-b border-[#0A4D66]/40">
+            <div className="flex items-center justify-between">
+              <span className="text-[#7FD5FF] font-medium text-sm">
+                Date{operation.end_date_time ? " / End Date" : ""}:
+              </span>
+              {!editDates ? (
+                <button
+                  type="button"
+                  onClick={startEditingDates}
+                  title="Edit operation dates"
+                  className="text-gray-400 hover:text-[#7FD5FF] transition-colors"
+                >
+                  <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+                </button>
+              ) : null}
+            </div>
+
+            {editDates ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Start Date</label>
+                    <input
+                      type="date"
+                      value={editDates.startDate}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, startDate: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Start Time</label>
+                    <input
+                      type="time"
+                      value={editDates.startTime}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, startTime: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">End Date</label>
+                    <input
+                      type="date"
+                      value={editDates.endDate}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, endDate: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">End Time</label>
+                    <input
+                      type="time"
+                      value={editDates.endTime}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, endTime: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={saveDates}
+                    disabled={isSavingDateTime}
+                    className="px-3 py-1.5 rounded bg-[#0369A1] text-white text-xs font-semibold hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+                  >
+                    {isSavingDateTime ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditingDates}
+                    disabled={isSavingDateTime}
+                    className="px-3 py-1.5 rounded border border-[#0A4D66]/40 text-xs text-gray-300 hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <span className="text-white font-bold text-sm">
+                {formatDate(operation.start_date_time)}
+                {operation.end_date_time
+                  ? ` – ${formatDate(operation.end_date_time)}`
+                  : ""}
+              </span>
+            )}
+          </div>
           {operation.duration_label ? (
             <InfoRow label="Duration" value={operation.duration_label} />
           ) : null}
@@ -663,6 +815,8 @@ export const OperationDetailsPage = () => {
     useDeleteOperationMutation();
   const [updateOperationStatus, { isLoading: isUpdatingStatus }] =
     useUpdateOperationStatusMutation();
+  const [updateOperation, { isLoading: isSavingDateTime }] =
+    useUpdateOperationMutation();
 
   const statusOptions = ["planned", "completed", "ongoing", "aborted"] as const;
 
@@ -712,6 +866,27 @@ export const OperationDetailsPage = () => {
     } catch {
       dispatch(
         showToast({ message: "Failed to delete operation", type: "error" }),
+      );
+    }
+  };
+
+  const handleUpdateDateTime = async (payload: {
+    start_date_time?: string;
+    end_date_time?: string;
+  }) => {
+    if (!operation.id) return;
+
+    try {
+      await updateOperation({ id: operation.id, data: payload }).unwrap();
+      dispatch(
+        showToast({ message: "Operation dates updated", type: "success" }),
+      );
+    } catch {
+      dispatch(
+        showToast({
+          message: "Failed to update operation dates",
+          type: "error",
+        }),
       );
     }
   };
@@ -899,7 +1074,12 @@ export const OperationDetailsPage = () => {
       {/* Content */}
       <div ref={contentRef} className="flex-1">
         {activeTab === "operation" ? (
-          <OperationTab operation={operation} navigate={navigate} />
+          <OperationTab
+            operation={operation}
+            navigate={navigate}
+            onUpdateDateTime={handleUpdateDateTime}
+            isSavingDateTime={isSavingDateTime}
+          />
         ) : (
           <AARTab
             operation={operation}

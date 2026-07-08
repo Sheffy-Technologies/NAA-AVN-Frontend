@@ -106,6 +106,7 @@ export type PersonnelFilters = {
   corps: number[];
   specialties: number[];
   status: string[];
+  is_expatriate?: boolean;
 };
 
 export type CreatePersonnelRequest = {
