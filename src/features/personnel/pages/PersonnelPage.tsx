@@ -84,7 +84,7 @@ export const PersonnelPage = () => {
   });
   const [expatriateFilter, setExpatriateFilter] = useState<
     "all" | "true" | "false"
-  >("true");
+  >("false");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: units = [] } = useGetUnitsQuery();
@@ -247,7 +247,7 @@ export const PersonnelPage = () => {
     setBranchFilter({ all: true, selected: [] });
     setSpecialtyFilter({ all: true, selected: [] });
     setStatusFilter({ all: true, selected: [] });
-    setExpatriateFilter("true");
+    setExpatriateFilter("false");
     setOpenFilterMenu(null);
   };
   useClickOutside(
@@ -381,7 +381,7 @@ export const PersonnelPage = () => {
                 specialtyFilter,
                 statusFilter,
               ].some((f) => !f.all) ||
-                expatriateFilter !== "true") && (
+                expatriateFilter !== "false") && (
                 <span className="w-2 h-2 rounded-full bg-[#0369A1]" />
               )}
             </button>

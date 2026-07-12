@@ -591,6 +591,12 @@ export const inventoryApi = createApi({
         data: body,
       }),
     }),
+    sendPurchaseOrder: builder.mutation<PurchaseOrder, number | string>({
+      query: (id) => ({
+        url: `/purchase-orders/${id}/send`,
+        method: "POST",
+      }),
+    }),
     getGoodsReceivedNotes: builder.query<GoodsReceivedNote[], void>({
       query: () => ({
         url: "/goods-received-notes",
@@ -640,6 +646,7 @@ export const {
   useGetPurchaseOrderByIdQuery,
   useCreatePurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
+  useSendPurchaseOrderMutation,
   useGetGoodsReceivedNotesQuery,
   useCreateGoodsReceivedNoteMutation,
 } = inventoryApi;

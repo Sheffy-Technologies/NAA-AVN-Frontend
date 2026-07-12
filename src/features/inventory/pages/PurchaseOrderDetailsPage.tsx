@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useCreateGoodsReceivedNoteMutation,
   useGetPurchaseOrderByIdQuery,
+  useSendPurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
 } from "../api";
 
@@ -23,13 +27,17 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export default function PurchaseOrderDetailsPage() {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [grnFormOpen, setGrnFormOpen] = useState(false);
   const [grnDate, setGrnDate] = useState(todayIso());
   const [grnNotes, setGrnNotes] = useState("");
   const [grnQtyMap, setGrnQtyMap] = useState<Record<number, string>>({});
   const [grnError, setGrnError] = useState<string | null>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const {
     data: order,
@@ -42,6 +50,8 @@ export default function PurchaseOrderDetailsPage() {
     useUpdatePurchaseOrderMutation();
   const [createGoodsReceivedNote, { isLoading: isCreatingGrn }] =
     useCreateGoodsReceivedNoteMutation();
+  const [sendPurchaseOrder, { isLoading: isSendingToVendor }] =
+    useSendPurchaseOrderMutation();
 
   const isSubmittingGrn = isUpdatingStatus || isCreatingGrn;
 
@@ -113,6 +123,86 @@ export default function PurchaseOrderDetailsPage() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!contentRef.current || !order || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: contentRef.current,
+        fileName: `purchase-order-${order.id}`,
+        backgroundColor: "#001219",
+      });
+      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!order || isExportingExcel) return;
+
+    setIsExportingExcel(true);
+    try {
+      const XLSX = await import("xlsx");
+      const workbook = XLSX.utils.book_new();
+
+      const summaryRows = [
+        {
+          "Purchase Order ID": order.id,
+          Name: order.name || `Purchase Order #${order.id}`,
+          Status: order.status || "-",
+          Supplier: order.supplier?.name || "-",
+          "Order Date": formatDate(order.order_date),
+          "Expected Delivery": formatDate(order.expected_date_of_delivery),
+          Currency: order.currency?.code || "-",
+        },
+      ];
+
+      const itemRows = (order.items ?? []).map((item) => ({
+        "Inventory ID": item.inventory_id,
+        "Part Number": item.part_number || item.inventory?.part_number || "-",
+        "Qty Ordered": item.quantity_ordered ?? "-",
+        "Qty Received": item.quantity_received ?? "-",
+        "Unit Price": item.unit_price ?? "-",
+      }));
+
+      const addSheet = (name: string, rows: Array<Record<string, string | number>>) => {
+        const data = rows.length > 0 ? rows : [{ Info: "No records" }];
+        const sheet = XLSX.utils.json_to_sheet(data);
+        XLSX.utils.book_append_sheet(workbook, sheet, name);
+      };
+
+      addSheet("Summary", summaryRows);
+      addSheet("Items", itemRows);
+
+      XLSX.writeFile(workbook, `purchase-order-${order.id}.xlsx`);
+      dispatch(showToast({ message: "Excel downloaded", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to download Excel", type: "error" }));
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handleSendToVendor = async () => {
+    if (!order || isSendingToVendor) return;
+
+    try {
+      await sendPurchaseOrder(order.id).unwrap();
+      dispatch(
+        showToast({ message: "Purchase order sent to vendor", type: "success" }),
+      );
+      refetch();
+    } catch {
+      dispatch(
+        showToast({ message: "Failed to send purchase order to vendor", type: "error" }),
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-gray-400">
@@ -155,6 +245,49 @@ export default function PurchaseOrderDetailsPage() {
             <Icon icon="mdi:arrow-left" className="w-4 h-4" />
             Back
           </button>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Icon
+              icon={isExportingExcel ? "mdi:loading" : "mdi:file-excel-outline"}
+              className={cn("w-4 h-4", isExportingExcel && "animate-spin")}
+            />
+            {isExportingExcel ? "Exporting..." : "Export Excel"}
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Icon
+              icon={isDownloadingPdf ? "mdi:loading" : "mdi:file-pdf-box"}
+              className={cn("w-4 h-4", isDownloadingPdf && "animate-spin")}
+            />
+            {isDownloadingPdf ? "Downloading..." : "Export PDF"}
+          </button>
+          {order.supplier && (
+            <button
+              type="button"
+              onClick={handleSendToVendor}
+              disabled={isSendingToVendor || !order.supplier.email}
+              title={
+                order.supplier.email
+                  ? undefined
+                  : "Supplier has no email address on file"
+              }
+              className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#0369A1] text-black text-xs font-semibold shadow hover:bg-[#0369A1]/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              <Icon
+                icon={isSendingToVendor ? "mdi:loading" : "mdi:email-send-outline"}
+                className={cn("w-4 h-4", isSendingToVendor && "animate-spin")}
+              />
+              {isSendingToVendor ? "Sending..." : "Send to Vendor"}
+            </button>
+          )}
           {order.status !== "received" && (
             <button
               type="button"
@@ -316,64 +449,66 @@ export default function PurchaseOrderDetailsPage() {
         </div>
       )}
 
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-        <div>
-          <p className="text-gray-400">Status</p>
-          <p className="text-white font-medium capitalize">{order.status || "-"}</p>
-        </div>
-        <div>
-          <p className="text-gray-400">Order Date</p>
-          <p className="text-white font-medium">{formatDate(order.order_date)}</p>
-        </div>
-        <div>
-          <p className="text-gray-400">Expected Delivery</p>
-          <p className="text-white font-medium">
-            {formatDate(order.expected_date_of_delivery)}
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-        <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-3">Items</h2>
-        {order.items?.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-175">
-              <thead>
-                <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                  <th className="px-4 py-3 font-medium">Inventory</th>
-                  <th className="px-4 py-3 font-medium">Part Number</th>
-                  <th className="px-4 py-3 font-medium text-right">Qty Ordered</th>
-                  <th className="px-4 py-3 font-medium text-right">Qty Received</th>
-                  <th className="px-4 py-3 font-medium text-right">Unit Price</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                {order.items.map((item, idx) => (
-                  <tr
-                    key={item.id ?? `${item.inventory_id}-${idx}`}
-                    className={idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]"}
-                  >
-                    <td className="px-4 py-3 text-gray-200">#{item.inventory_id}</td>
-                    <td className="px-4 py-3 text-white">
-                      {item.part_number || item.inventory?.part_number || "-"}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-200">
-                      {item.quantity_ordered ?? "-"}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-200">
-                      {item.quantity_received ?? "-"}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-200">
-                      {item.unit_price ?? "-"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div ref={contentRef} className="space-y-6">
+        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="text-gray-400">Status</p>
+            <p className="text-white font-medium capitalize">{order.status || "-"}</p>
           </div>
-        ) : (
-          <p className="text-sm text-gray-400">No items found.</p>
-        )}
+          <div>
+            <p className="text-gray-400">Order Date</p>
+            <p className="text-white font-medium">{formatDate(order.order_date)}</p>
+          </div>
+          <div>
+            <p className="text-gray-400">Expected Delivery</p>
+            <p className="text-white font-medium">
+              {formatDate(order.expected_date_of_delivery)}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
+          <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-3">Items</h2>
+          {order.items?.length ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-175">
+                <thead>
+                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <th className="px-4 py-3 font-medium">Inventory</th>
+                    <th className="px-4 py-3 font-medium">Part Number</th>
+                    <th className="px-4 py-3 font-medium text-right">Qty Ordered</th>
+                    <th className="px-4 py-3 font-medium text-right">Qty Received</th>
+                    <th className="px-4 py-3 font-medium text-right">Unit Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  {order.items.map((item, idx) => (
+                    <tr
+                      key={item.id ?? `${item.inventory_id}-${idx}`}
+                      className={idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]"}
+                    >
+                      <td className="px-4 py-3 text-gray-200">#{item.inventory_id}</td>
+                      <td className="px-4 py-3 text-white">
+                        {item.part_number || item.inventory?.part_number || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-200">
+                        {item.quantity_ordered ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-200">
+                        {item.quantity_received ?? "-"}
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-200">
+                        {item.unit_price ?? "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">No items found.</p>
+          )}
+        </div>
       </div>
     </div>
   );

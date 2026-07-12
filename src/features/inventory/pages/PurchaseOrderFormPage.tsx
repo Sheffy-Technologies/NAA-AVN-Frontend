@@ -71,6 +71,14 @@ export default function PurchaseOrderFormPage() {
     return map;
   }, [rfqs]);
 
+  const rfqById = useMemo(() => {
+    const map = new Map<number, (typeof rfqs)[number]>();
+    rfqs.forEach((rfq) => {
+      map.set(rfq.id, rfq);
+    });
+    return map;
+  }, [rfqs]);
+
   const approvedBidById = useMemo(() => {
     const map = new Map<number, (typeof approvedBids)[number]>();
     approvedBids.forEach((quote) => {
@@ -116,6 +124,41 @@ export default function PurchaseOrderFormPage() {
     unit_price: "",
   });
   const [error, setError] = useState<string | null>(null);
+
+  // Preselect items from the parts requisition (stock movement) the RFQ was raised
+  // from, since the RFQ/quotation/PO chain all trace back to the same requisition.
+  const [rfqItemsSynced, setRfqItemsSynced] = useState(false);
+  if (!rfqItemsSynced && form.rfq_id && items.length === 0 && rfqs.length > 0) {
+    const linkedRfq = rfqById.get(Number(form.rfq_id));
+    if (linkedRfq) {
+      const requisitionLines = (linkedRfq.stock_movement?.stocks ?? []).filter(
+        (line) => typeof line.inventory_id === "number",
+      );
+
+      if (requisitionLines.length > 0) {
+        setRfqItemsSynced(true);
+        setItems(
+          requisitionLines.map((line) => {
+            const quantity = line.quantity_approved || line.quantity_requested || 1;
+            const item: PurchaseOrderItemPayload = {
+              inventory_id: line.inventory_id as number,
+              quantity_ordered: quantity,
+            };
+
+            const partNumber = line.inventory?.part_number;
+            if (partNumber) item.part_number = partNumber;
+
+            const unitCost = Number(line.inventory?.unit_cost);
+            if (!Number.isNaN(unitCost) && unitCost > 0) item.unit_price = unitCost;
+
+            return item;
+          }),
+        );
+      } else {
+        setRfqItemsSynced(true);
+      }
+    }
+  }
 
   const handleAddItem = () => {
     if (!itemDraft.inventory_id) return;
@@ -404,6 +447,14 @@ export default function PurchaseOrderFormPage() {
           <div className="flex items-center gap-2 mb-2">
             <span className="font-semibold text-white">Items</span>
           </div>
+          {rfqItemsSynced && form.rfq_id && items.length > 0 && (
+            <p className="mb-2 text-xs text-[#7FD5FF] flex items-center gap-1.5">
+              <Icon icon="mdi:information-outline" className="w-3.5 h-3.5" />
+              Preselected from the parts requisition linked to{" "}
+              {rfqNumberById.get(Number(form.rfq_id)) || `RFQ #${form.rfq_id}`}. Review
+              quantities and prices before submitting.
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-2">
             <select
               title="Inventory Item"
