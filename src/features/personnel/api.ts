@@ -110,7 +110,7 @@ export type PersonnelFilters = {
 };
 
 export type CreatePersonnelRequest = {
-  service_number?: string;
+  service_number?: string | null;
   rank_id?: string | number | null;
   unit_id?: string | number | null;
   branch_id?: string | number | null;

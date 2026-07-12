@@ -43,6 +43,14 @@ const createEmptyDeployment = (): DeploymentFormData => ({
   end_date: "",
 });
 
+const toNullableId = (
+  value: string | number | null | undefined,
+): number | null => {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
 // Reusable Components within the page for simplicity
 
 const InputField = ({
@@ -440,12 +448,14 @@ export const EditPersonnelPage = () => {
           flight_hours: Number(flightHours[assetId] || 0),
           notes: "",
         })),
-        // Ensure numeric fields are numbers
-        rank_id: Number(formData.rank_id),
-        unit_id: Number(formData.unit_id),
-        branch_id: Number(formData.branch_id),
-        specialty_id: Number(formData.specialty_id),
-        corp_id: Number(formData.corp_id),
+        // These are optional; an unselected dropdown resolves to "" or 0, which
+        // must become null rather than 0 (an invalid foreign key) on submit.
+        rank_id: toNullableId(formData.rank_id),
+        unit_id: toNullableId(formData.unit_id),
+        branch_id: toNullableId(formData.branch_id),
+        specialty_id: toNullableId(formData.specialty_id),
+        corp_id: toNullableId(formData.corp_id),
+        service_number: (formData.service_number ?? "").trim() || null,
         image: imageUrl || undefined,
         deployments: normalizedDeployments.length
           ? normalizedDeployments
@@ -628,9 +638,8 @@ export const EditPersonnelPage = () => {
               <InputField
                 label="Service No."
                 name="service_number"
-                value={formData.service_number}
+                value={formData.service_number ?? ""}
                 onChange={handleChange}
-                required
                 placeholder="Enter Service No."
               />
               <SelectField
@@ -638,7 +647,6 @@ export const EditPersonnelPage = () => {
                 name="rank_id"
                 value={formData.rank_id ?? ""}
                 onChange={handleChange}
-                required
               >
                 <option value="">Select Rank</option>
                 {renderOptions(ranks)}
@@ -648,7 +656,6 @@ export const EditPersonnelPage = () => {
                 name="blood_group"
                 value={formData.blood_group}
                 onChange={handleChange}
-                required
               >
                 <option value="">Select Blood Group</option>
                 <option value="A+">A+</option>
@@ -757,7 +764,6 @@ export const EditPersonnelPage = () => {
               name="branch_id"
               value={formData.branch_id ?? 0}
               onChange={handleChange}
-              required
             >
               <option value="">Select Branch</option>
               {renderOptions(branches)}
@@ -768,7 +774,6 @@ export const EditPersonnelPage = () => {
               name="specialty_id"
               value={formData.specialty_id ?? 0}
               onChange={handleChange}
-              required
             >
               <option value="">Select Specialty</option>
               {renderOptions(specialties)}
@@ -790,7 +795,6 @@ export const EditPersonnelPage = () => {
               name="unit_id"
               value={formData.unit_id ?? ""}
               onChange={handleChange}
-              required
             >
               <option value="">Select Unit</option>
               {renderOptions(units)}
@@ -801,7 +805,6 @@ export const EditPersonnelPage = () => {
               name="corp_id"
               value={formData.corp_id ?? 0}
               onChange={handleChange}
-              required
             >
               <option value="">Select Corp</option>
               {renderOptions(corps)}
@@ -905,7 +908,6 @@ export const EditPersonnelPage = () => {
               name="phone_number"
               value={formData.phone_number}
               onChange={handleChange}
-              required
             />
             <InputField
               label="Address"
@@ -913,7 +915,6 @@ export const EditPersonnelPage = () => {
               value={formData.address}
               onChange={handleChange}
               className="sm:col-span-2"
-              required
             />
           </div>
         </div>
