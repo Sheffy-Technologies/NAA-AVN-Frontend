@@ -93,7 +93,6 @@ const NAV_ITEMS: NavItem[] = [
     name: "Documents",
     path: "/dashboard/documents",
     icon: "mdi:book-open-page-variant",
-    requiredPermissions: ["documents.viewAny"],
   },
 ];
 

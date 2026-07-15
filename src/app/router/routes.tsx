@@ -306,7 +306,8 @@ const MESSAGES_ROUTE_PERMISSIONS: string[] = [];
 const FINANCE_ROUTE_PERMISSIONS = ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"];
 const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"];
 const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
-const DOCUMENTS_ROUTE_PERMISSIONS = ["documents.viewAny"];
+// Open to any authenticated user regardless of role, same as messages.
+const DOCUMENTS_ROUTE_PERMISSIONS: string[] = [];
 const MAINTENANCE_ROUTE_PERMISSIONS = ["dashboard.maintenance.view", "work-orders.viewAny", "maintenance-programs.viewAny"];
 
 const guardWithPermissions = (
