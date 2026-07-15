@@ -131,6 +131,11 @@ const DocumentsPage = lazy(() =>
     default: module.DocumentsPage,
   })),
 );
+const DocumentCorrespondencePage = lazy(() =>
+  import("@/features/documents/pages/DocumentCorrespondencePage").then((module) => ({
+    default: module.DocumentCorrespondencePage,
+  })),
+);
 const ReportsPage = lazy(() =>
   import("@/features/reports/pages/ReportsPage").then((module) => ({
     default: module.ReportsPage,
@@ -652,6 +657,14 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <DocumentsPage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "documents/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <DocumentCorrespondencePage />
           </Suspense>
         ), DOCUMENTS_ROUTE_PERMISSIONS),
       },

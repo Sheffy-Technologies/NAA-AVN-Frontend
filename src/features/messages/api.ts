@@ -8,7 +8,8 @@ export type MessageAttachableType =
   | "maintenance-event"
   | "purchase-order"
   | "asset"
-  | "inventory";
+  | "inventory"
+  | "document";
 
 export type MessageUser = {
   id: number;

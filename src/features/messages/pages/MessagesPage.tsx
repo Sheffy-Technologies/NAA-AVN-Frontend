@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
@@ -12,6 +12,7 @@ import {
   type MessageItem,
   type MessageUser,
 } from "@/features/messages/api";
+import { useCreateDocumentMutation } from "@/features/documents/api";
 import { useGetUsersQuery } from "@/features/users/api";
 import { useGetOperationsQuery } from "@/features/operations/api";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
@@ -32,6 +33,7 @@ const ATTACHABLE_OPTIONS: Array<{
   value: MessageAttachableType;
   label: string;
 }> = [
+  { value: "document", label: "Document" },
   { value: "operation", label: "Operation" },
   { value: "work-order", label: "Work Order" },
   { value: "work-order-task", label: "Work Order Task" },
@@ -88,6 +90,8 @@ const getAttachablePath = (
       return `/dashboard/assets/${id}`;
     case "inventory":
       return `/dashboard/inventory/${id}`;
+    case "document":
+      return `/dashboard/documents/${id}`;
     default:
       return null;
   }
@@ -187,8 +191,12 @@ export const MessagesPage = () => {
   const [replyBody, setReplyBody] = useState("");
   const [attachableType, setAttachableType] = useState<MessageAttachableType | "">("");
   const [attachableId, setAttachableId] = useState<string>("");
+  const [uploadedDocumentTitle, setUploadedDocumentTitle] = useState<
+    string | null
+  >(null);
   const [isRecipientPickerOpen, setIsRecipientPickerOpen] = useState(false);
   const [isAttachPickerOpen, setIsAttachPickerOpen] = useState(false);
+  const documentInputRef = useRef<HTMLInputElement>(null);
 
   const {
     data: inboxMessages = [],
@@ -224,6 +232,8 @@ export const MessagesPage = () => {
   const [updateMessage, { isLoading: isUpdating }] = useUpdateMessageMutation();
   const [deleteMessage, { isLoading: isDeleting }] = useDeleteMessageMutation();
   const [startCall, { isLoading: isStartingCall }] = useStartCallMutation();
+  const [createDocument, { isLoading: isUploadingDocument }] =
+    useCreateDocumentMutation();
 
   const unreadCount = useMemo(
     () => inboxMessages.filter((message) => message.is_read === false).length,
@@ -374,8 +384,11 @@ export const MessagesPage = () => {
 
   const selectedAttachableOption = useMemo(() => {
     if (!attachableId) return null;
+    if (attachableType === "document") {
+      return { id: Number(attachableId), label: uploadedDocumentTitle ?? "Uploaded document" };
+    }
     return attachableSelectionOptions.find((option) => String(option.id) === attachableId) || null;
-  }, [attachableId, attachableSelectionOptions]);
+  }, [attachableId, attachableType, attachableSelectionOptions, uploadedDocumentTitle]);
 
   useEffect(() => {
     if (!authUser?.id || !authToken || !canViewMessages) {
@@ -485,8 +498,27 @@ export const MessagesPage = () => {
     setReplyBody("");
     setAttachableType("");
     setAttachableId("");
+    setUploadedDocumentTitle(null);
     setIsRecipientPickerOpen(false);
     setIsAttachPickerOpen(false);
+  };
+
+  const handleDocumentSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const document = await createDocument(formData).unwrap();
+      setAttachableId(String(document.id));
+      setUploadedDocumentTitle(document.title || document.name || file.name);
+    } catch {
+      dispatch(showToast({ message: "Failed to upload document", type: "error" }));
+    }
   };
 
   const handleSend = async () => {
@@ -918,6 +950,7 @@ export const MessagesPage = () => {
                                 onClick={() => {
                                   setAttachableType(option.value);
                                   setAttachableId("");
+                                  setUploadedDocumentTitle(null);
                                 }}
                                 className={`rounded-lg border px-2 py-1.5 text-xs transition-colors ${
                                   attachableType === option.value
@@ -930,7 +963,50 @@ export const MessagesPage = () => {
                             ))}
                           </div>
 
-                          {attachableType && (
+                          {attachableType === "document" && (
+                            <div className="space-y-2">
+                              <label className={`text-xs ${mutedText}`}>File</label>
+                              <input
+                                ref={documentInputRef}
+                                type="file"
+                                onChange={(event) => void handleDocumentSelected(event)}
+                                className="hidden"
+                              />
+                              {attachableId ? (
+                                <div className="flex items-center gap-2">
+                                  <span className={`inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs ${pickerInput}`}>
+                                    <Icon icon="mdi:file-document-outline" className="h-3.5 w-3.5" />
+                                    {uploadedDocumentTitle}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setAttachableId("");
+                                      setUploadedDocumentTitle(null);
+                                    }}
+                                    className={pickerClose}
+                                  >
+                                    <Icon icon="mdi:trash-can-outline" className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => documentInputRef.current?.click()}
+                                  disabled={isUploadingDocument}
+                                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs transition-colors disabled:opacity-60 ${typeChipInactive}`}
+                                >
+                                  <Icon
+                                    icon={isUploadingDocument ? "mdi:loading" : "mdi:upload-outline"}
+                                    className={`h-4 w-4 ${isUploadingDocument ? "animate-spin" : ""}`}
+                                  />
+                                  {isUploadingDocument ? "Uploading..." : "Upload Document"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {attachableType && attachableType !== "document" && (
                             <div className="space-y-2">
                               <label className={`text-xs ${mutedText}`}>Select item</label>
                               {attachableSelectionOptions.length > 0 ? (
