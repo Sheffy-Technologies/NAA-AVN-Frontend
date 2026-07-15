@@ -3,11 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
+  useCreateInventoryMutation,
   useCreateInventoryRequisitionMutation,
   useGetExpenseCategoriesQuery,
   useGetInventoriesQuery,
 } from "@/features/inventory/api";
 import { useGetAssetsQuery } from "@/features/assets/api";
+
+// Requisitions only draw from the central store's stock (unit_id 1).
+const REQUISITION_UNIT_ID = 1;
 
 type RequisitionLine = {
   id: string;
@@ -25,6 +29,16 @@ const createEmptyLine = (): RequisitionLine => ({
   quantity: "",
 });
 
+type NewInventoryDraft = {
+  part_number: string;
+  description: string;
+};
+
+const createEmptyInventoryDraft = (): NewInventoryDraft => ({
+  part_number: "",
+  description: "",
+});
+
 export const InventoryRequisitionFormPage = () => {
   const navigate = useNavigate();
 
@@ -32,13 +46,28 @@ export const InventoryRequisitionFormPage = () => {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { data: aircraftAssets = [] } = useGetAssetsQuery({ type: "aircraft" });
-  const { data: inventories = [], isLoading: isInventoriesLoading } =
-    useGetInventoriesQuery();
+  const {
+    data: inventories = [],
+    isLoading: isInventoriesLoading,
+    refetch: refetchInventories,
+  } = useGetInventoriesQuery({ unit_id: REQUISITION_UNIT_ID });
   const { data: expenseCategories = [], isLoading: isCategoriesLoading } =
     useGetExpenseCategoriesQuery();
 
   const [createRequisition, { isLoading: isSubmitting }] =
     useCreateInventoryRequisitionMutation();
+  const [createInventory, { isLoading: isCreatingInventory }] =
+    useCreateInventoryMutation();
+
+  const [addInventoryLineIndex, setAddInventoryLineIndex] = useState<
+    number | null
+  >(null);
+  const [newInventoryDraft, setNewInventoryDraft] = useState<NewInventoryDraft>(
+    createEmptyInventoryDraft(),
+  );
+  const [addInventoryError, setAddInventoryError] = useState<string | null>(
+    null,
+  );
 
   const isAircraftCategory = useMemo(() => {
     const aircraftCategoryIds = new Set(
@@ -78,6 +107,73 @@ export const InventoryRequisitionFormPage = () => {
       if (prev.length === 1) return [createEmptyLine()];
       return prev.filter((_, idx) => idx !== index);
     });
+  };
+
+  const handleOpenAddInventory = (index: number) => {
+    const line = lines[index];
+    if (line.expenseCategoryId === "") {
+      setSubmitError("Select a stock type before adding a new inventory item.");
+      return;
+    }
+    if (isAircraftCategory(line.expenseCategoryId) && line.aircraftAssetId === "") {
+      setSubmitError("Select an aircraft type before adding a new inventory item.");
+      return;
+    }
+
+    setSubmitError(null);
+    setAddInventoryError(null);
+    setNewInventoryDraft(createEmptyInventoryDraft());
+    setAddInventoryLineIndex(index);
+  };
+
+  const handleCloseAddInventory = () => {
+    setAddInventoryLineIndex(null);
+    setAddInventoryError(null);
+  };
+
+  const handleCreateInventory = async () => {
+    if (addInventoryLineIndex === null) return;
+    const line = lines[addInventoryLineIndex];
+
+    if (
+      !newInventoryDraft.part_number.trim() &&
+      !newInventoryDraft.description.trim()
+    ) {
+      setAddInventoryError("Enter a part number or description.");
+      return;
+    }
+
+    setAddInventoryError(null);
+
+    try {
+      const created = await createInventory({
+        store: "others",
+        asset_id:
+          isAircraftCategory(line.expenseCategoryId) &&
+          line.aircraftAssetId !== ""
+            ? line.aircraftAssetId
+            : null,
+        expense_category_id:
+          line.expenseCategoryId === "" ? null : line.expenseCategoryId,
+        unit_id: REQUISITION_UNIT_ID,
+        serial_number: "",
+        part_number: newInventoryDraft.part_number.trim(),
+        current_stock: 0,
+        re_order_level: 0,
+        unit_cost: 0,
+        measurement_unit: "",
+        expiry_date: null,
+        date_received: null,
+        remark: "",
+        description: newInventoryDraft.description.trim(),
+      }).unwrap();
+
+      await refetchInventories();
+      updateLine(addInventoryLineIndex, { inventoryId: created.id });
+      setAddInventoryLineIndex(null);
+    } catch {
+      setAddInventoryError("Failed to add inventory item. Please try again.");
+    }
   };
 
   const validate = () => {
@@ -166,17 +262,9 @@ export const InventoryRequisitionFormPage = () => {
               const availableInventories =
                 line.expenseCategoryId === ""
                   ? []
-                  : inventories.filter((inv) => {
-                      if (inv.expense_category_id !== line.expenseCategoryId) {
-                        return false;
-                      }
-                      if (showAircraftType) {
-                        return line.aircraftAssetId === ""
-                          ? false
-                          : inv.asset_id === line.aircraftAssetId;
-                      }
-                      return true;
-                    });
+                  : inventories.filter(
+                      (inv) => inv.expense_category_id === line.expenseCategoryId,
+                    );
 
               return (
                 <div key={line.id} className="space-y-3">
@@ -244,7 +332,6 @@ export const InventoryRequisitionFormPage = () => {
                                 aircraftAssetId: e.target.value
                                   ? Number(e.target.value)
                                   : "",
-                                inventoryId: "",
                               })
                             }
                             className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF] appearance-none"
@@ -265,9 +352,19 @@ export const InventoryRequisitionFormPage = () => {
                     )}
 
                     <div className="space-y-1">
-                      <label className="text-[11px] text-gray-400">
-                        Item Description
-                      </label>
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[11px] text-gray-400">
+                          Item Description
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddInventory(index)}
+                          className="inline-flex items-center gap-1 text-[11px] text-[#7FD5FF] hover:text-white transition-colors"
+                        >
+                          <Icon icon="mdi:plus-circle-outline" className="w-3.5 h-3.5" />
+                          Add Inventory
+                        </button>
+                      </div>
                       <div className="relative">
                         <select
                           value={line.inventoryId}
@@ -278,16 +375,10 @@ export const InventoryRequisitionFormPage = () => {
                                 : "",
                             })
                           }
-                          disabled={
-                            isInventoriesLoading ||
-                            (showAircraftType && line.aircraftAssetId === "")
-                          }
+                          disabled={isInventoriesLoading}
                           className={cn(
                             "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF] appearance-none",
-                            (isInventoriesLoading ||
-                              (showAircraftType &&
-                                line.aircraftAssetId === "")) &&
-                              "opacity-70 cursor-not-allowed",
+                            isInventoriesLoading && "opacity-70 cursor-not-allowed",
                           )}
                         >
                           <option value="">
@@ -351,6 +442,92 @@ export const InventoryRequisitionFormPage = () => {
           </div>
         </div>
       </section>
+
+      {addInventoryLineIndex !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+          <div className="w-full max-w-md rounded-xl border border-[#0A4D66]/40 bg-[#001219] p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-white uppercase">
+                Add Inventory Item
+              </h2>
+              <button
+                type="button"
+                onClick={handleCloseAddInventory}
+                className="text-gray-400 hover:text-white"
+              >
+                <Icon icon="mdi:close" className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label className="text-[11px] text-gray-400">
+                  Part Number
+                </label>
+                <input
+                  type="text"
+                  value={newInventoryDraft.part_number}
+                  onChange={(e) =>
+                    setNewInventoryDraft((prev) => ({
+                      ...prev,
+                      part_number: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF]"
+                  placeholder="Enter Part Number"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] text-gray-400">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={newInventoryDraft.description}
+                  onChange={(e) =>
+                    setNewInventoryDraft((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF]"
+                  placeholder="Enter Description"
+                />
+              </div>
+            </div>
+
+            {addInventoryError && (
+              <div className="text-[11px] text-red-400">{addInventoryError}</div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={handleCloseAddInventory}
+                className="rounded border border-[#0A4D66]/50 px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/20 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateInventory}
+                disabled={isCreatingInventory}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded bg-[#0369A1] px-4 py-2 text-xs font-semibold text-black hover:bg-[#0369A1]/90 transition-colors",
+                  isCreatingInventory && "opacity-70 cursor-not-allowed",
+                )}
+              >
+                <Icon
+                  icon={isCreatingInventory ? "mdi:loading" : "mdi:check-bold"}
+                  className={cn("w-4 h-4", isCreatingInventory && "animate-spin")}
+                />
+                {isCreatingInventory ? "Adding..." : "Add Item"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

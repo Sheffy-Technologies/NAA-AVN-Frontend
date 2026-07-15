@@ -191,16 +191,6 @@ const formatTimeShort = (isoString: string | null | undefined) => {
   });
 };
 
-const formatNaira = (value: number | string | null | undefined) => {
-  if (value === null || value === undefined || value === "") return "-";
-  const numeric =
-    typeof value === "number"
-      ? value
-      : Number.parseFloat(String(value).replace(/[₦,]/g, ""));
-  if (Number.isNaN(numeric)) return String(value);
-  return `₦${numeric.toLocaleString()}`;
-};
-
 const downloadCsv = (filename: string, rows: string[][]) => {
   const content = rows
     .map((row) =>
@@ -882,7 +872,7 @@ export const InventoryPage = () => {
   };
 
   const handleExportRequisitions = () => {
-    const headers = ["Date", "Time", "Requesting Location", "Total Cost", "Status", "Last Updated By"];
+    const headers = ["Date", "Time", "Requesting Location", "Status", "Last Updated By"];
     const rows = (requisitionsData ?? []).map((r) => {
       const lastUpdatedBy = typeof r.last_updated_by === "string" ? r.last_updated_by : (r.last_updated_by?.name ?? "-");
       const location = r.requesting_unit?.name ?? (r.requesting_unit_id ? `Unit #${r.requesting_unit_id}` : "-");
@@ -890,7 +880,6 @@ export const InventoryPage = () => {
         formatDateShort(r.created_at),
         formatTimeShort(r.created_at),
         location,
-        formatNaira(r.total_cost),
         normalizeRequisitionStatus(r.status),
         lastUpdatedBy,
       ];
@@ -1588,9 +1577,6 @@ export const InventoryPage = () => {
                       <th className="px-6 py-4 font-medium">
                         Requesting Location
                       </th>
-                      <th className="px-6 py-4 font-medium text-right">
-                        Total Cost
-                      </th>
                       <th className="px-6 py-4 font-medium">Status</th>
                       <th className="px-6 py-4 font-medium">Last Updated By</th>
                       <th className="px-6 py-4 font-medium text-right">
@@ -1602,7 +1588,7 @@ export const InventoryPage = () => {
                     {isRequisitionsLoading ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={6}
                           className="px-6 py-8 text-center text-gray-500"
                         >
                           Loading requisitions...
@@ -1611,7 +1597,7 @@ export const InventoryPage = () => {
                     ) : (requisitionsData?.length ?? 0) === 0 ? (
                       <tr>
                         <td
-                          colSpan={7}
+                          colSpan={6}
                           className="px-6 py-8 text-center text-gray-500"
                         >
                           No requisitions found.
@@ -1648,9 +1634,6 @@ export const InventoryPage = () => {
                             </td>
                             <td className="px-6 py-4 text-gray-200">
                               {requestingLocation}
-                            </td>
-                            <td className="px-6 py-4 text-right font-mono text-white">
-                              {formatNaira(requisition.total_cost)}
                             </td>
                             <td className="px-6 py-4">
                               <span
@@ -1747,23 +1730,13 @@ export const InventoryPage = () => {
                           </div>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
-                          <div>
-                            <span className="text-gray-500 block mb-1">
-                              Location
-                            </span>
-                            <span className="text-white font-medium">
-                              {requestingLocation}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-gray-500 block mb-1">
-                              Total Cost
-                            </span>
-                            <span className="text-white font-medium font-mono">
-                              {formatNaira(requisition.total_cost)}
-                            </span>
-                          </div>
+                        <div className="mt-4 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
+                          <span className="text-gray-500 block mb-1">
+                            Location
+                          </span>
+                          <span className="text-white font-medium">
+                            {requestingLocation}
+                          </span>
                         </div>
                       </button>
                     );

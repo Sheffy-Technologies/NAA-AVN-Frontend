@@ -84,6 +84,7 @@ export type InventoryFilters = {
   categories?: number[];
   aircraft_types?: number[];
   type?: string;
+  unit_id?: number;
 };
 
 export type CreateInventoryPayload = {
@@ -143,14 +144,25 @@ export type InventoryRequisitionStatus =
   | "received"
   | "pending";
 
+export type InventoryRequisitionRequester = {
+  id: number;
+  firstname?: string | null;
+  lastname?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+};
+
 export type InventoryRequisition = {
   id: number;
   requesting_unit_id: number | null;
+  user_id?: number | null;
   total_cost: number | string | null;
   status: InventoryRequisitionStatus | string;
   created_at: string;
   updated_at: string;
   requesting_unit?: InventoryUnit;
+  requested_by?: InventoryRequisitionRequester | null;
   last_updated_by?: { id: number; name: string } | string | null;
 };
 

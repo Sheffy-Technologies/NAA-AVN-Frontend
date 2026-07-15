@@ -75,11 +75,14 @@ export const ProcurementLifecyclePage = () => {
     notes: "",
   });
 
-  const [rfqForm, setRfqForm] = useState({
-    stock_movement_id: "",
+  // Preselect the requisition when arriving from a "Start RFQ" shortcut
+  // (e.g. an out-of-stock item on an Inventory Requisition's details page).
+  const [rfqForm, setRfqForm] = useState(() => ({
+    stock_movement_id:
+      new URLSearchParams(location.search).get("stock_movement_id") ?? "",
     supplier_ids: [] as number[],
     notes: "",
-  });
+  }));
 
   const [quotationForm, setQuotationForm] = useState({
     rfq_id: "",

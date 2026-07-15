@@ -6,6 +6,7 @@ import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
+  useCreateStockMovementMutation,
   useGetInventoryRequisitionByIdQuery,
   useUpdateInventoryRequisitionMutation,
 } from "@/features/inventory/api";
@@ -42,23 +43,6 @@ const statusDotColor: Record<StatusLabel, string> = {
   Unknown: "bg-gray-500",
 };
 
-const formatNaira = (value: number | string | null | undefined) => {
-  if (value === null || value === undefined || value === "") return "₦0";
-  const numeric =
-    typeof value === "number"
-      ? value
-      : Number.parseFloat(String(value).replace(/[₦,]/g, ""));
-  if (Number.isNaN(numeric)) return String(value);
-  return `₦${numeric.toLocaleString()}`;
-};
-
-const toNumber = (value: number | string | null | undefined) => {
-  if (value === null || value === undefined || value === "") return 0;
-  if (typeof value === "number") return value;
-  const parsed = Number.parseFloat(String(value).replace(/[,]/g, ""));
-  return Number.isNaN(parsed) ? 0 : parsed;
-};
-
 export const InventoryRequisitionDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -74,17 +58,21 @@ export const InventoryRequisitionDetailsPage = () => {
 
   const [updateRequisition, { isLoading: isSaving }] =
     useUpdateInventoryRequisitionMutation();
+  const [createStockMovement] = useCreateStockMovementMutation();
 
   const [remark, setRemark] = useState("");
   const [hasEditedRemark, setHasEditedRemark] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [startingRfqForLineId, setStartingRfqForLineId] = useState<
+    number | null
+  >(null);
 
   const [approvedEdits, setApprovedEdits] = useState<Record<number, string>>(
     {},
   );
 
-  const derived = useMemo(() => {
-    const items = (detail?.items ?? []).map((line) => {
+  const requisitionItems = useMemo(() => {
+    return (detail?.items ?? []).map((line) => {
       const fallbackApproved =
         line.approved_quantity !== null && line.approved_quantity !== undefined
           ? String(line.approved_quantity)
@@ -100,12 +88,7 @@ export const InventoryRequisitionDetailsPage = () => {
       const requestedQty = line.requested_quantity ?? 0;
       const availableQty =
         line.available_quantity ?? line.inventory?.current_stock ?? 0;
-      const unit = line.inventory?.measurement_unit || "Litres";
-      const unitCost = toNumber(line.unit_cost ?? line.inventory?.unit_cost);
-      const approvedCost =
-        line.approved_cost !== null && line.approved_cost !== undefined
-          ? toNumber(line.approved_cost)
-          : unitCost * (Number.isNaN(approvedQty) ? 0 : approvedQty);
+      const unit = line.inventory?.measurement_unit || null;
       const newStockLevel =
         availableQty - (Number.isNaN(approvedQty) ? 0 : approvedQty);
       const itemDescription =
@@ -120,32 +103,38 @@ export const InventoryRequisitionDetailsPage = () => {
         requested: { qty: requestedQty, unit },
         available: { qty: availableQty, unit },
         approved: { qty: approvedQtyRaw, unit },
-        approvedCost,
         newStockLevel: { qty: Math.max(0, newStockLevel), unit },
       };
     });
-
-    const totalApprovedCost = items.reduce(
-      (sum, item) => sum + item.approvedCost,
-      0,
-    );
-
-    return { items, totalApprovedCost };
   }, [detail?.items, approvedEdits]);
 
   const header = useMemo(() => {
     const requestingLocation =
       detail?.requesting_unit?.name ??
-      (detail?.requesting_unit_id
-        ? "Inventory Location"
-        : "Inventory Location");
+      (detail?.requesting_unit_id ? `Unit #${detail.requesting_unit_id}` : "-");
+    const requestingUnitDescription = detail?.requesting_unit?.description ?? null;
     const lastUpdatedBy =
       typeof detail?.last_updated_by === "string"
         ? detail.last_updated_by
         : (detail?.last_updated_by?.name ?? "Admin");
+    const requester = detail?.requested_by;
+    const requestedByName = requester
+      ? [requester.firstname, requester.lastname].filter(Boolean).join(" ").trim() ||
+        requester.username ||
+        requester.email ||
+        `User #${requester.id}`
+      : detail?.user_id
+        ? `User #${detail.user_id}`
+        : "-";
     const status = normalizeStatus(detail?.status);
 
-    return { requestingLocation, lastUpdatedBy, status };
+    return {
+      requestingLocation,
+      requestingUnitDescription,
+      requestedByName,
+      lastUpdatedBy,
+      status,
+    };
   }, [detail]);
 
   const handleExit = () => {
@@ -239,6 +228,38 @@ export const InventoryRequisitionDetailsPage = () => {
     }
   };
 
+  const handleStartRfq = async (row: (typeof requisitionItems)[number]) => {
+    if (!detail || startingRfqForLineId !== null) return;
+
+    setStartingRfqForLineId(row.id);
+    try {
+      const shortfall = Math.max(1, row.requested.qty - row.available.qty);
+      const movement = await createStockMovement({
+        movement_type: "issue",
+        quantity: shortfall,
+        requesting_unit_id: detail.requesting_unit_id ?? null,
+        notes: `Shortfall from Inventory Requisition #${detail.id}`,
+        stocks: [
+          {
+            inventory_id: row.inventoryId,
+            quantity_requested: shortfall,
+            quantity_approved: 0,
+          },
+        ],
+      }).unwrap();
+
+      navigate(
+        `/dashboard/inventory/procurement-lifecycle?stock_movement_id=${movement.id}#rfq-section`,
+      );
+    } catch {
+      dispatch(
+        showToast({ message: "Failed to start RFQ for this item", type: "error" }),
+      );
+    } finally {
+      setStartingRfqForLineId(null);
+    }
+  };
+
   if (!id) {
     return (
       <div className="p-6 text-center text-gray-400">Invalid request.</div>
@@ -302,6 +323,17 @@ export const InventoryRequisitionDetailsPage = () => {
               <span className="text-white font-semibold">
                 {header.requestingLocation}
               </span>
+              {header.requestingUnitDescription && (
+                <span className="text-gray-400">
+                  ({header.requestingUnitDescription})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#7FD5FF]">Requested By:</span>
+              <span className="text-white font-semibold">
+                {header.requestedByName}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[#7FD5FF]">Last Updated By:</span>
@@ -335,12 +367,12 @@ export const InventoryRequisitionDetailsPage = () => {
                   <th className="px-4 py-3 font-medium">Requested</th>
                   <th className="px-4 py-3 font-medium">Available</th>
                   <th className="px-4 py-3 font-medium">Approved</th>
-                  <th className="px-4 py-3 font-medium">Approved Cost</th>
                   <th className="px-4 py-3 font-medium">New Stock Level</th>
+                  <th className="px-4 py-3 font-medium">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                {derived.items.map((row, index) => (
+                {requisitionItems.map((row, index) => (
                   <tr
                     key={row.id}
                     className={cn(
@@ -378,30 +410,44 @@ export const InventoryRequisitionDetailsPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-white font-semibold">
-                      {formatNaira(row.approvedCost)}
-                    </td>
                     <td className="px-4 py-3 text-gray-200">
                       <span className="font-semibold text-white">
                         {row.newStockLevel.qty}
                       </span>{" "}
                       {row.newStockLevel.unit}
                     </td>
+                    <td className="px-4 py-3">
+                      {row.requested.qty > row.available.qty && (
+                        <button
+                          type="button"
+                          onClick={() => handleStartRfq(row)}
+                          disabled={startingRfqForLineId !== null}
+                          title="Requested quantity exceeds available stock"
+                          className={cn(
+                            "inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
+                          )}
+                        >
+                          <Icon
+                            icon={
+                              startingRfqForLineId === row.id
+                                ? "mdi:loading"
+                                : "mdi:cart-arrow-down"
+                            }
+                            className={cn(
+                              "w-3.5 h-3.5",
+                              startingRfqForLineId === row.id && "animate-spin",
+                            )}
+                          />
+                          {startingRfqForLineId === row.id
+                            ? "Starting..."
+                            : "Start RFQ"}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-
-          <div className="mt-6 flex items-end justify-end">
-            <div className="text-right">
-              <div className="text-[11px] text-gray-400">
-                Total Approved Cost
-              </div>
-              <div className="mt-1 text-white font-bold text-xl">
-                {formatNaira(derived.totalApprovedCost)}
-              </div>
-            </div>
           </div>
 
           <div className="mt-6 space-y-2">
