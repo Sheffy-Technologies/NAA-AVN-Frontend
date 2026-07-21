@@ -142,13 +142,13 @@ export const FinancePage = () => {
       return [
         {
           id: "allocated",
-          label: "Allocated",
+          label: "Total Amount Received",
           value: fmtCurrency(allocated),
           icon: "mdi:wallet-outline",
         },
         {
           id: "income",
-          label: "Total Income",
+          label: "Allocated amount",
           value: fmtCurrency(totalIncome),
           icon: "mdi:cash-plus",
         },
