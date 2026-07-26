@@ -78,6 +78,11 @@ export type Personnel = {
   rating_type: string;
   status: string;
   image: string | null;
+  // Pass fields
+  last_pass_date: string | null;
+  pass_duration: number;
+  next_pass_date: string | null;
+  pass_status: string | null;
   created_at: string;
   updated_at: string;
   rank: PersonnelRank;

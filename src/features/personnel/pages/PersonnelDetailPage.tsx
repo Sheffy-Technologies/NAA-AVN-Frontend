@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetPersonnelByIdQuery, useDeletePersonnelMutation } from "@/features/personnel/api";
+import { useGetPersonnelPassByIdQuery } from "@/features/personnel/passApi";
+import { InitiatePassModal } from "../components/InitiatePassModal";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
@@ -164,8 +166,14 @@ export const PersonnelDetailPage = () => {
       skip: !id,
     });
   const [deletePersonnel, { isLoading: isDeleting }] = useDeletePersonnelMutation();
-  const [activeTab, setActiveTab] = useState<"bio" | "activity">("bio");
+  const [activeTab, setActiveTab] = useState<"bio" | "activity" | "pass">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
+  const [showInitiatePassModal, setShowInitiatePassModal] = useState(false);
+
+  const { data: passData, isLoading: isPassLoading } = useGetPersonnelPassByIdQuery(
+    id ?? "",
+    { skip: !id || activeTab !== "pass" },
+  );
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
@@ -370,6 +378,22 @@ export const PersonnelDetailPage = () => {
                   className="w-4 h-4 text-gray-400"
                 />
                 <span>Activity Log</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("pass")}
+                className={cn(
+                  "inline-flex items-center gap-2 pb-1 border-b-2",
+                  activeTab === "pass"
+                    ? "border-[#7FD5FF] text-white"
+                    : "border-transparent text-gray-400 hover:text-gray-200",
+                )}
+              >
+                <Icon
+                  icon="mdi:calendar-check-outline"
+                  className="w-4 h-4 text-gray-400"
+                />
+                <span>Pass</span>
               </button>
             </div>
 
@@ -854,7 +878,191 @@ export const PersonnelDetailPage = () => {
             )}
           </div>
         )}
+
+        {/* ── Pass Tab ─────────────────────────────────────── */}
+        {activeTab === "pass" && (
+          <div className="p-4 sm:p-6">
+            {/* Overview cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+              {[
+                {
+                  label: "Last Pass",
+                  value: passData?.personnel?.last_pass_date
+                    ? new Date(passData.personnel.last_pass_date).toLocaleDateString(
+                        "en-GB",
+                        { day: "numeric", month: "short", year: "numeric" },
+                      )
+                    : "—",
+                  icon: "mdi:calendar-arrow-left",
+                },
+                {
+                  label: "Next Pass",
+                  value: passData?.personnel?.next_pass_date
+                    ? new Date(passData.personnel.next_pass_date).toLocaleDateString(
+                        "en-GB",
+                        { day: "numeric", month: "short", year: "numeric" },
+                      )
+                    : "—",
+                  icon: "mdi:calendar-arrow-right",
+                },
+                {
+                  label: "Pass Due In",
+                  value: passData?.personnel?.next_pass_date
+                    ? (() => {
+                        const diff = Math.ceil(
+                          (new Date(passData.personnel.next_pass_date).getTime() -
+                            Date.now()) /
+                            86400000,
+                        );
+                        if (diff < 0) return `${Math.abs(diff)}d overdue`;
+                        if (diff === 0) return "Today";
+                        return `${diff} days`;
+                      })()
+                    : "—",
+                  icon: "mdi:clock-fast",
+                },
+                {
+                  label: "Total Passes",
+                  value: passData?.total_passes ?? 0,
+                  icon: "mdi:counter",
+                },
+                {
+                  label: "Pass Status",
+                  value:
+                    ({
+                      upcoming: "Upcoming",
+                      due_for_pass: "Due for Pass",
+                      pending_approval: "Pending Approval",
+                      on_pass: "On Pass",
+                      overdue: "Overdue",
+                    } as Record<string, string>)[
+                      passData?.personnel?.pass_status ?? ""
+                    ] ??
+                    passData?.personnel?.pass_status ??
+                    "—",
+                  icon: "mdi:information-outline",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-3 flex flex-col gap-1"
+                >
+                  <div className="flex items-center gap-1.5 text-gray-400 text-[10px] uppercase tracking-wide">
+                    <Icon icon={card.icon} className="w-3.5 h-3.5" />
+                    {card.label}
+                  </div>
+                  <span className="text-sm font-semibold text-white">
+                    {card.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Initiate Pass */}
+            <div className="flex justify-end mb-4">
+              <button
+                type="button"
+                onClick={() => setShowInitiatePassModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90"
+              >
+                <Icon icon="mdi:plus" className="w-4 h-4" />
+                Initiate Pass
+              </button>
+            </div>
+
+            {/* Pass History Table */}
+            {isPassLoading ? (
+              <div className="flex items-center justify-center py-10 text-gray-400 text-sm gap-2">
+                <span className="h-4 w-4 border-2 border-[#0A4D66]/60 border-t-transparent rounded-full animate-spin" />
+                Loading pass history...
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded border border-[#0A4D66]/40">
+                <table className="min-w-full text-xs text-gray-200 whitespace-nowrap">
+                  <thead>
+                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] text-gray-400 uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left">Start Date</th>
+                      <th className="px-4 py-3 text-left">End Date</th>
+                      <th className="px-4 py-3 text-left">Duration</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Remarks</th>
+                      <th className="px-4 py-3 text-left">Created By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(passData?.personnel?.passes ?? []).length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                          No pass records yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      (passData?.personnel?.passes ?? []).map((pass, i) => (
+                        <tr
+                          key={pass.id}
+                          className={cn(
+                            "border-t border-[#0A4D66]/40",
+                            i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )}
+                        >
+                          <td className="px-4 py-3 text-white">
+                            {new Date(pass.start_date).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-white">
+                            {new Date(pass.end_date).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-white">{pass.duration}d</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={cn(
+                                "text-xs font-medium capitalize",
+                                {
+                                  pending: "text-amber-400",
+                                  approved: "text-blue-400",
+                                  active: "text-emerald-400",
+                                  completed: "text-gray-400",
+                                  rejected: "text-red-400",
+                                }[pass.status] ?? "text-gray-400",
+                              )}
+                            >
+                              {pass.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
+                            {pass.remarks ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-white">
+                            {pass.created_by_user
+                              ? `${pass.created_by_user.firstname ?? ""} ${pass.created_by_user.lastname ?? ""}`.trim()
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </section>
+
+      <InitiatePassModal
+        open={showInitiatePassModal}
+        onClose={() => setShowInitiatePassModal(false)}
+        personnelId={id ? Number(id) : undefined}
+        personnelName={
+          apiPerson ? `${apiPerson.firstname} ${apiPerson.lastname}` : undefined
+        }
+      />
     </div>
   );
 };

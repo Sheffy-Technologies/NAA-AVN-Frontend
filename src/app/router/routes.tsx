@@ -248,6 +248,11 @@ const EditPersonnelPage = lazy(() =>
     default: module.EditPersonnelPage,
   })),
 );
+const PassPage = lazy(() =>
+  import("@/features/personnel/pages/PassPage").then((module) => ({
+    default: module.PassPage,
+  })),
+);
 const ComingSoonPage = lazy(() =>
   import("@/features/dashboard/pages/ComingSoonPage").then((module) => ({
     default: module.ComingSoonPage,
@@ -490,6 +495,14 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <PersonnelPage />
+          </Suspense>
+        ), PERSONNEL_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "personnel/pass",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <PassPage />
           </Suspense>
         ), PERSONNEL_ROUTE_PERMISSIONS),
       },
