@@ -436,6 +436,10 @@ export const InventoryPage = () => {
   // State for Tabs and Filters
   const [activeTab, setActiveTab] = useState(initialTab);
   const [activeSubTab, setActiveSubTab] = useState("all");
+  const [stockSearchQuery, setStockSearchQuery] = useState("");
+  const [stockStatFilter, setStockStatFilter] = useState<
+    "all" | "inStock" | "low" | "expired" | "critical"
+  >("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [updateStockRow, setUpdateStockRow] = useState<InventoryRow | null>(
@@ -614,46 +618,97 @@ export const InventoryPage = () => {
     return [{ id: "all", label: "All" }, ...dynamic];
   }, [inventoryRows]);
 
-  const filteredInventoryRows = useMemo(() => {
-    if (activeSubTab === "all") return inventoryRows;
-    return inventoryRows.filter((row) => row.category === activeSubTab);
-  }, [inventoryRows, activeSubTab]);
+  const isExpiredRow = (row: InventoryRow) => {
+    if (!row.expiryDate) return false;
+    const expiryDate = new Date(row.expiryDate);
+    return !Number.isNaN(expiryDate.getTime()) && expiryDate < new Date();
+  };
 
-  const stats = [
+  const categorySearchFilteredRows = useMemo(() => {
+    const byCategory =
+      activeSubTab === "all"
+        ? inventoryRows
+        : inventoryRows.filter((row) => row.category === activeSubTab);
+
+    const query = stockSearchQuery.trim().toLowerCase();
+    if (!query) return byCategory;
+
+    return byCategory.filter((row) =>
+      [
+        row.description,
+        row.partName,
+        row.partNumber,
+        row.serialNumber,
+        row.nsn,
+        row.inventoryId,
+      ].some((field) => field?.toLowerCase().includes(query)),
+    );
+  }, [inventoryRows, activeSubTab, stockSearchQuery]);
+
+  const filteredInventoryRows = useMemo(() => {
+    switch (stockStatFilter) {
+      case "inStock":
+        return categorySearchFilteredRows.filter((row) => row.currentStock > 0);
+      case "low":
+        return categorySearchFilteredRows.filter((row) => row.stockLevel === "Low");
+      case "expired":
+        return categorySearchFilteredRows.filter(isExpiredRow);
+      case "critical":
+        return categorySearchFilteredRows.filter(
+          (row) => row.stockLevel === "Critical",
+        );
+      default:
+        return categorySearchFilteredRows;
+    }
+  }, [categorySearchFilteredRows, stockStatFilter]);
+
+  const stats: Array<{
+    id: "all" | "inStock" | "low" | "expired" | "critical";
+    label: string;
+    value: number;
+    color: string;
+    clickable: boolean;
+  }> = [
     {
+      id: "all",
       label: "Total Items",
-      value: filteredInventoryRows.length,
+      value: categorySearchFilteredRows.length,
       color: "bg-[#0369A1]",
+      clickable: true,
     },
     {
+      id: "inStock",
       label: "Total In Stock",
-      value: filteredInventoryRows.reduce(
+      value: categorySearchFilteredRows.reduce(
         (total, row) => total + row.currentStock,
         0,
       ),
       color: "bg-emerald-400",
+      clickable: false,
     },
     {
+      id: "low",
       label: "Low In Stock",
-      value: filteredInventoryRows.filter((row) => row.stockLevel === "Low")
+      value: categorySearchFilteredRows.filter((row) => row.stockLevel === "Low")
         .length,
       color: "bg-amber-400",
+      clickable: true,
     },
     {
+      id: "expired",
       label: "Expired",
-      value: filteredInventoryRows.filter((row) => {
-        if (!row.expiryDate) return false;
-        const expiryDate = new Date(row.expiryDate);
-        return !Number.isNaN(expiryDate.getTime()) && expiryDate < new Date();
-      }).length,
+      value: categorySearchFilteredRows.filter(isExpiredRow).length,
       color: "bg-red-400",
+      clickable: true,
     },
     {
+      id: "critical",
       label: "Critical",
-      value: filteredInventoryRows.filter(
+      value: categorySearchFilteredRows.filter(
         (row) => row.stockLevel === "Critical",
       ).length,
       color: "bg-red-600",
+      clickable: true,
     },
   ];
 
@@ -1094,6 +1149,31 @@ export const InventoryPage = () => {
                   ))}
                 </div>
 
+                <div className="relative w-full lg:w-64">
+                  <Icon
+                    icon="mdi:magnify"
+                    className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    value={stockSearchQuery}
+                    onChange={(e) => setStockSearchQuery(e.target.value)}
+                    placeholder="Search description, part number..."
+                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded pl-9 pr-8 py-1.5 text-xs text-white placeholder:text-gray-500 outline-none focus:border-[#7FD5FF]"
+                  />
+                  {stockSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setStockSearchQuery("")}
+                      title="Clear search"
+                      aria-label="Clear search"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
                 <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   <button
                     type="button"
@@ -1215,16 +1295,38 @@ export const InventoryPage = () => {
               </div>
 
               <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
-                {stats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex items-center space-x-2 whitespace-nowrap"
-                  >
-                    <div className={cn("w-2 h-2 rounded-full", stat.color)} />
-                    <span className="text-gray-400">{stat.label}:</span>
-                    <span className="text-white font-bold">{stat.value}</span>
-                  </div>
-                ))}
+                {stats.map((stat) =>
+                  stat.clickable ? (
+                    <button
+                      key={stat.id}
+                      type="button"
+                      onClick={() =>
+                        setStockStatFilter((current) =>
+                          current === stat.id ? "all" : stat.id,
+                        )
+                      }
+                      className={cn(
+                        "flex items-center space-x-2 whitespace-nowrap rounded-full px-2 py-1 transition-colors",
+                        stockStatFilter === stat.id
+                          ? "bg-[#0A4D66]/50 ring-1 ring-[#7FD5FF]/60"
+                          : "hover:bg-[#0A4D66]/25",
+                      )}
+                    >
+                      <div className={cn("w-2 h-2 rounded-full", stat.color)} />
+                      <span className="text-gray-400">{stat.label}:</span>
+                      <span className="text-white font-bold">{stat.value}</span>
+                    </button>
+                  ) : (
+                    <div
+                      key={stat.id}
+                      className="flex items-center space-x-2 whitespace-nowrap px-2 py-1"
+                    >
+                      <div className={cn("w-2 h-2 rounded-full", stat.color)} />
+                      <span className="text-gray-400">{stat.label}:</span>
+                      <span className="text-white font-bold">{stat.value}</span>
+                    </div>
+                  ),
+                )}
               </div>
             </div>
 

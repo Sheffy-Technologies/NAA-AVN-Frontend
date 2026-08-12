@@ -4,16 +4,20 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
 import { InitiatePassModal } from "../components/InitiatePassModal";
+import { EditPassModal } from "../components/EditPassModal";
 import {
   useGetPersonnelPassQuery,
   useGetPassesQuery,
   useDeletePassMutation,
+  useUpdatePassMutation,
+  useRecomputePassStatusesMutation,
+  type Pass,
   type PassStatus,
   type PassRecordStatus,
 } from "../passApi";
 import { useGetPersonnelRanksQuery } from "../api";
 import { useGetUnitsQuery } from "@/shared/api/units";
-import { useAppDispatch } from "@/app/store";
+import { useAppDispatch, useAppSelector } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 
@@ -91,9 +95,13 @@ export const PassPage = () => {
   const [historySearch, setHistorySearch] = useState("");
 
   const [openActionId, setOpenActionId] = useState<number | null>(null);
+  const [editingPass, setEditingPass] = useState<Pass | null>(null);
   const actionMenuRef = useRef<HTMLTableCellElement>(null);
 
   useClickOutside(actionMenuRef, () => setOpenActionId(null), openActionId !== null);
+
+  const authUser = useAppSelector((state) => state.auth.user);
+  const currentUserId = authUser?.id ? Number(authUser.id) : null;
 
   const { data: units = [] } = useGetUnitsQuery();
   const { data: ranks = [] } = useGetPersonnelRanksQuery();
@@ -114,6 +122,25 @@ export const PassPage = () => {
   });
 
   const [deletePass] = useDeletePassMutation();
+  const [updatePass, { isLoading: isUpdatingPass }] = useUpdatePassMutation();
+  const [recomputePassStatuses, { isLoading: isRecomputing }] =
+    useRecomputePassStatusesMutation();
+
+  const handleRecomputeStatuses = async () => {
+    try {
+      const result = await recomputePassStatuses().unwrap();
+      dispatch(
+        showToast({
+          message: `Recalculated pass status for ${result.personnel_count} personnel.`,
+          type: "success",
+        }),
+      );
+    } catch {
+      dispatch(
+        showToast({ message: "Failed to recalculate pass statuses", type: "error" }),
+      );
+    }
+  };
 
   const handleDeletePass = async (id: number) => {
     if (!window.confirm("Delete this pass record?")) return;
@@ -122,6 +149,23 @@ export const PassPage = () => {
       dispatch(showToast({ message: "Pass deleted", type: "success" }));
     } catch {
       dispatch(showToast({ message: "Failed to delete pass", type: "error" }));
+    }
+  };
+
+  const handleDecidePass = async (id: number, decision: "approved" | "rejected") => {
+    try {
+      await updatePass({
+        id,
+        data: { status: decision, approved_by: currentUserId },
+      }).unwrap();
+      dispatch(
+        showToast({
+          message: decision === "approved" ? "Pass approved" : "Pass declined",
+          type: "success",
+        }),
+      );
+    } catch {
+      dispatch(showToast({ message: "Failed to update pass", type: "error" }));
     }
   };
 
@@ -158,14 +202,29 @@ export const PassPage = () => {
           <h2 className="text-sm font-semibold tracking-wide text-white uppercase">
             Pass Management
           </h2>
-          <button
-            type="button"
-            onClick={() => setShowInitiateModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90"
-          >
-            <Icon icon="mdi:plus" className="w-4 h-4" />
-            Initiate Pass
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleRecomputeStatuses()}
+              disabled={isRecomputing}
+              title="Recalculate last/next pass date and status for all personnel"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#0A4D66]/40 text-xs text-gray-300 hover:bg-[#0A4D66]/30 disabled:opacity-50"
+            >
+              <Icon
+                icon={isRecomputing ? "mdi:loading" : "mdi:refresh"}
+                className={cn("w-4 h-4", isRecomputing && "animate-spin")}
+              />
+              {isRecomputing ? "Recalculating..." : "Recalculate"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowInitiateModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90"
+            >
+              <Icon icon="mdi:plus" className="w-4 h-4" />
+              Initiate Pass
+            </button>
+          </div>
         </div>
 
         {/* Inner tabs: Personnel | Pass History */}
@@ -361,18 +420,48 @@ export const PassPage = () => {
                               <Icon icon="mdi:eye-outline" className="w-3 h-3" />
                               View
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => setShowInitiateModal(true)}
-                              title="Initiate pass"
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0369A1]/60 text-[10px] text-[#7FD5FF] hover:bg-[#0369A1]/20"
-                            >
-                              <Icon
-                                icon="mdi:calendar-plus-outline"
-                                className="w-3 h-3"
-                              />
-                              Pass
-                            </button>
+                            {p.pass_status === "pending_approval" &&
+                            p.pending_pass ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDecidePass(p.pending_pass!.id, "approved")
+                                  }
+                                  disabled={isUpdatingPass}
+                                  title="Approve pass"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-emerald-500/60 text-[10px] text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-50"
+                                >
+                                  <Icon icon="mdi:check" className="w-3 h-3" />
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDecidePass(p.pending_pass!.id, "rejected")
+                                  }
+                                  disabled={isUpdatingPass}
+                                  title="Decline pass"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded border border-red-500/60 text-[10px] text-red-300 hover:bg-red-500/20 disabled:opacity-50"
+                                >
+                                  <Icon icon="mdi:close" className="w-3 h-3" />
+                                  Decline
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setShowInitiateModal(true)}
+                                title="Initiate pass"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0369A1]/60 text-[10px] text-[#7FD5FF] hover:bg-[#0369A1]/20"
+                              >
+                                <Icon
+                                  icon="mdi:calendar-plus-outline"
+                                  className="w-3 h-3"
+                                />
+                                Pass
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -579,6 +668,17 @@ export const PassPage = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    setEditingPass(pass);
+                                    setOpenActionId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                                >
+                                  <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
                                     handleDeletePass(pass.id);
                                     setOpenActionId(null);
                                   }}
@@ -608,6 +708,8 @@ export const PassPage = () => {
         open={showInitiateModal}
         onClose={() => setShowInitiateModal(false)}
       />
+
+      <EditPassModal pass={editingPass} onClose={() => setEditingPass(null)} />
     </div>
   );
 };

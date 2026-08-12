@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Modal from "@/shared/ui/modal/Modal";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -47,9 +47,14 @@ export const InitiatePassModal = ({
 }: Props) => {
   const dispatch = useAppDispatch();
   const [initiatePass, { isLoading }] = useInitiatePassMutation();
-  const { data: allPersonnel = [] } = useGetPersonnelQuery(
+  const { data: allPersonnelData = [] } = useGetPersonnelQuery(
     { units: [], ranks: [], branches: [], specialties: [], status: [], corps: [] },
     { skip: !!personnelId },
+  );
+  // Expatriates aren't tracked through the pass/leave workflow.
+  const allPersonnel = useMemo(
+    () => allPersonnelData.filter((p) => !p.is_expatriate),
+    [allPersonnelData],
   );
 
   const [form, setForm] = useState({

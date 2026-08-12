@@ -53,6 +53,7 @@ export type PersonnelWithPass = {
   rank: PersonnelRank;
   unit: PersonnelBasicEntity;
   latest_pass?: Pass | null;
+  pending_pass?: Pass | null;
 };
 
 export type PersonnelPassDetail = {
@@ -158,6 +159,15 @@ export const passApi = createApi({
         { type: "PersonnelPass", id: "LIST" },
       ],
     }),
+
+    // Recompute last/next pass date + status for every personnel with a pass
+    recomputePassStatuses: builder.mutation<
+      { message: string; personnel_count: number },
+      void
+    >({
+      query: () => ({ url: "/passes/recompute", method: "POST" }),
+      invalidatesTags: [{ type: "PersonnelPass", id: "LIST" }],
+    }),
   }),
 });
 
@@ -168,4 +178,5 @@ export const {
   useInitiatePassMutation,
   useUpdatePassMutation,
   useDeletePassMutation,
+  useRecomputePassStatusesMutation,
 } = passApi;

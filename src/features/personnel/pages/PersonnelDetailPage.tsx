@@ -4,6 +4,7 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetPersonnelByIdQuery, useDeletePersonnelMutation } from "@/features/personnel/api";
 import { useGetPersonnelPassByIdQuery } from "@/features/personnel/passApi";
+import { useGetAttendanceQuery } from "@/features/personnel/attendanceApi";
 import { InitiatePassModal } from "../components/InitiatePassModal";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
@@ -166,7 +167,7 @@ export const PersonnelDetailPage = () => {
       skip: !id,
     });
   const [deletePersonnel, { isLoading: isDeleting }] = useDeletePersonnelMutation();
-  const [activeTab, setActiveTab] = useState<"bio" | "activity" | "pass">("bio");
+  const [activeTab, setActiveTab] = useState<"bio" | "activity" | "pass" | "attendance">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
   const [showInitiatePassModal, setShowInitiatePassModal] = useState(false);
 
@@ -174,6 +175,27 @@ export const PersonnelDetailPage = () => {
     id ?? "",
     { skip: !id || activeTab !== "pass" },
   );
+
+  const { data: attendanceLogs = [], isLoading: isAttendanceLoading } = useGetAttendanceQuery(
+    { personnel_id: id ? Number(id) : undefined },
+    { skip: !id || activeTab !== "attendance" },
+  );
+
+  const attendanceStats = useMemo(() => {
+    if (!attendanceLogs.length) return { present: 0, absent: 0, late: 0, rate: 0, daysTillNextLeave: null };
+    const present = attendanceLogs.filter((l) => l.status === "present" || l.status === "late").length;
+    const absent = attendanceLogs.filter((l) => l.status === "absent").length;
+    const total = attendanceLogs.length;
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+    // Next leave every 4 months from last_pass_date or today
+    let daysTillNextLeave: number | null = null;
+    if (apiPerson?.next_pass_date) {
+      const diff = Math.ceil((new Date(apiPerson.next_pass_date).getTime() - Date.now()) / 86400000);
+      daysTillNextLeave = diff;
+    }
+    return { present, absent, late: attendanceLogs.filter((l) => l.status === "late").length, rate, daysTillNextLeave };
+  }, [attendanceLogs, apiPerson]);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
@@ -394,6 +416,22 @@ export const PersonnelDetailPage = () => {
                   className="w-4 h-4 text-gray-400"
                 />
                 <span>Pass</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("attendance")}
+                className={cn(
+                  "inline-flex items-center gap-2 pb-1 border-b-2",
+                  activeTab === "attendance"
+                    ? "border-[#7FD5FF] text-white"
+                    : "border-transparent text-gray-400 hover:text-gray-200",
+                )}
+              >
+                <Icon
+                  icon="mdi:clipboard-check-outline"
+                  className="w-4 h-4 text-gray-400"
+                />
+                <span>Attendance</span>
               </button>
             </div>
 
@@ -1046,6 +1084,116 @@ export const PersonnelDetailPage = () => {
                           </td>
                         </tr>
                       ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+        {/* ── Attendance Tab ───────────────────────────────── */}
+        {activeTab === "attendance" && (
+          <div className="p-4 sm:p-6">
+            {/* Overview cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+              {[
+                { label: "Days Present", value: attendanceStats.present, icon: "mdi:check-circle-outline", color: "text-emerald-400" },
+                { label: "Days Absent", value: attendanceStats.absent, icon: "mdi:close-circle-outline", color: "text-red-400" },
+                { label: "Late Arrivals", value: attendanceStats.late, icon: "mdi:clock-alert-outline", color: "text-amber-400" },
+                { label: "Attendance Rate", value: `${attendanceStats.rate}%`, icon: "mdi:percent-outline", color: "text-blue-400" },
+                {
+                  label: "Days Till Next Leave",
+                  value: attendanceStats.daysTillNextLeave !== null
+                    ? attendanceStats.daysTillNextLeave < 0
+                      ? `${Math.abs(attendanceStats.daysTillNextLeave)}d overdue`
+                      : `${attendanceStats.daysTillNextLeave}d`
+                    : "—",
+                  icon: "mdi:calendar-clock",
+                  color: attendanceStats.daysTillNextLeave !== null && attendanceStats.daysTillNextLeave < 0 ? "text-red-400" : "text-white",
+                },
+              ].map((card) => (
+                <div key={card.label} className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-3 flex flex-col gap-1">
+                  <div className="flex items-center gap-1.5 text-gray-400 text-[10px] uppercase tracking-wide">
+                    <Icon icon={card.icon} className="w-3.5 h-3.5" />
+                    {card.label}
+                  </div>
+                  <span className={cn("text-sm font-semibold", card.color)}>
+                    {card.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Attendance records table */}
+            {isAttendanceLoading ? (
+              <div className="flex items-center justify-center py-10 text-gray-400 text-sm gap-2">
+                <span className="h-4 w-4 border-2 border-[#0A4D66]/60 border-t-transparent rounded-full animate-spin" />
+                Loading attendance...
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded border border-[#0A4D66]/40">
+                <table className="min-w-full text-xs text-gray-200 whitespace-nowrap">
+                  <thead>
+                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] text-gray-400 uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left">Date</th>
+                      <th className="px-4 py-3 text-left">Clock In</th>
+                      <th className="px-4 py-3 text-left">Clock Out</th>
+                      <th className="px-4 py-3 text-left">Duration</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">In Range</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendanceLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                          No attendance records yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      attendanceLogs.slice(0, 30).map((log, i) => {
+                        const formatTime = (t: string | null) => {
+                          if (!t) return "—";
+                          return new Date(`1970-01-01T${t}`).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+                        };
+                        const durationLabel = (mins: number | null) => {
+                          if (!mins) return "—";
+                          const h = Math.floor(mins / 60);
+                          const m = mins % 60;
+                          return h > 0 ? `${h}h ${m}m` : `${m}m`;
+                        };
+                        const statusColors: Record<string, string> = {
+                          present: "text-emerald-400",
+                          late: "text-amber-400",
+                          absent: "text-red-400",
+                          half_day: "text-blue-400",
+                        };
+                        return (
+                          <tr
+                            key={log.id}
+                            className={cn("border-t border-[#0A4D66]/40", i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]")}
+                          >
+                            <td className="px-4 py-3 text-white">
+                              {new Date(log.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="px-4 py-3 text-emerald-400">{formatTime(log.clock_in)}</td>
+                            <td className="px-4 py-3 text-red-400">{formatTime(log.clock_out)}</td>
+                            <td className="px-4 py-3">{durationLabel(log.duration_minutes)}</td>
+                            <td className="px-4 py-3">
+                              <span className={cn("font-medium capitalize", statusColors[log.status] ?? "text-gray-400")}>
+                                {log.status.replace("_", " ")}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3">
+                              {log.is_within_range ? (
+                                <Icon icon="mdi:check-circle-outline" className="w-4 h-4 text-emerald-400" />
+                              ) : (
+                                <Icon icon="mdi:map-marker-off-outline" className="w-4 h-4 text-amber-400" />
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

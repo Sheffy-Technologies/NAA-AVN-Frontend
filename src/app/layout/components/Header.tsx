@@ -14,6 +14,8 @@ import { useGetMessagesQuery } from "@/features/messages/api";
 import { useAppSelector } from "@/shared/hooks/redux";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { useTheme } from "@/context/ThemeContext";
+import { ClockInModal } from "@/features/personnel/components/ClockInModal";
+import { useGetMyAttendanceStatusQuery } from "@/features/personnel/attendanceApi";
 
 type HeaderProps = {
   onOpenSidebar?: () => void;
@@ -31,6 +33,9 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
   const [isEmergenciesOpen, setIsEmergenciesOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const [isClockInOpen, setIsClockInOpen] = useState(false);
+
+  const { data: myAttendance } = useGetMyAttendanceStatusQuery();
   const emergenciesRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -266,6 +271,7 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
   const mainIconSize = "w-6 h-6";
 
   return (
+    <>
     <header
       className={`h-16 border-b px-4 md:px-6 flex items-center justify-between ${hdrBg}`}
     >
@@ -692,6 +698,23 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
               </div>
             )}
           </div>
+          {/* Clock In / Out — available to all users */}
+          <button
+            type="button"
+            onClick={() => setIsClockInOpen(true)}
+            title={myAttendance?.clocked_in ? (myAttendance.clocked_out ? "Duty complete" : "Clock out") : "Clock in"}
+            aria-label="Clock in or out"
+            className={`p-2 rounded-full transition-colors relative ${iconBtn}`}
+          >
+            <Icon
+              icon={myAttendance?.clocked_in && !myAttendance.clocked_out ? "mdi:logout" : "mdi:login"}
+              className={mainIconSize}
+            />
+            {myAttendance?.clocked_in && !myAttendance.clocked_out && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-500 rounded-full" />
+            )}
+          </button>
+
           <button
             className={`p-2 rounded-full transition-colors relative ${iconBtn}`}
             type="button"
@@ -717,5 +740,8 @@ export const Header = ({ onOpenSidebar }: HeaderProps) => {
         </div>
       </div>
     </header>
+
+    <ClockInModal open={isClockInOpen} onClose={() => setIsClockInOpen(false)} />
+    </>
   );
 };

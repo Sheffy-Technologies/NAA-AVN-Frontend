@@ -66,8 +66,14 @@ export const SecurityPage = () => {
   const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
   const [assignRolesUserId, setAssignRolesUserId] = useState<number | null>(null);
   const [assignRolesDraft, setAssignRolesDraft] = useState<string[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityEventFilter, setActivityEventFilter] = useState("");
 
-  const { data: logs = [], isLoading } = useGetActivityLogsQuery();
+  const { data: activityLogsResponse, isLoading } = useGetActivityLogsQuery({
+    page: activityPage,
+    event: activityEventFilter || undefined,
+  });
   const { data: devices = [], isLoading: isDevicesLoading } = useGetDevicesQuery();
   const [updateDeviceStatus, { isLoading: isUpdatingDeviceStatus }] = useUpdateDeviceStatusMutation();
   const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery();
@@ -121,6 +127,35 @@ export const SecurityPage = () => {
     }
   };
 
+  const [passIntervalDraft, setPassIntervalDraft] = useState("");
+
+  useEffect(() => {
+    if (systemSettings?.pass_interval_months !== undefined) {
+      setPassIntervalDraft(String(systemSettings.pass_interval_months));
+    }
+  }, [systemSettings]);
+
+  const handleSavePassInterval = async () => {
+    const months = Number(passIntervalDraft);
+    if (!Number.isInteger(months) || months < 1 || months > 24) {
+      dispatch(
+        showToast({
+          message: "Enter a valid pass interval between 1 and 24 months.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    try {
+      await updateSystemSettings({ pass_interval_months: months }).unwrap();
+      dispatch(showToast({ message: "Pass interval updated.", type: "success" }));
+      void refetchSystemSettings();
+    } catch {
+      dispatch(showToast({ message: "Failed to update pass interval.", type: "error" }));
+    }
+  };
+
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
@@ -168,8 +203,19 @@ export const SecurityPage = () => {
     });
   }, [users]);
 
+  const filteredUserRows = useMemo(() => {
+    const query = userSearchQuery.trim().toLowerCase();
+    if (!query) return userRows;
+
+    return userRows.filter((row) =>
+      [row.name, row.email, row.phone, ...row.roles].some((field) =>
+        field?.toLowerCase().includes(query),
+      ),
+    );
+  }, [userRows, userSearchQuery]);
+
   const displayRows = useMemo(() => {
-    return logs.map((log) => {
+    return (activityLogsResponse?.data ?? []).map((log) => {
       const createdAt = log.created_at ? new Date(log.created_at) : null;
       const validDate = createdAt && !Number.isNaN(createdAt.getTime());
       const date =
@@ -206,12 +252,13 @@ export const SecurityPage = () => {
         name,
         email: log.causer?.email || "-",
         action: log.description || log.action || "-",
+        event: log.event || "-",
         userType: log.user_type || "-",
         deviceCode: log.device_code || "-",
         unit: log.unit?.name || "-",
       };
     });
-  }, [logs]);
+  }, [activityLogsResponse]);
 
   const deviceRows = useMemo(() => {
     return devices.map((device) => {
@@ -501,19 +548,23 @@ export const SecurityPage = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm text-gray-300">{currentDateTime} Abuja</span>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Icon
-              icon="mdi:magnify"
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              placeholder="Search"
-              className="w-80 rounded border border-[#2B2B2B] bg-[#1A1A1A] px-9 py-2 text-sm text-white placeholder:text-gray-500 focus:border-[#0A4D66] focus:outline-none"
-            />
+        {activeTab === "user" && (
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Icon
+                icon="mdi:magnify"
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={userSearchQuery}
+                onChange={(event) => setUserSearchQuery(event.target.value)}
+                placeholder="Search name, email, phone..."
+                className="w-80 rounded border border-[#2B2B2B] bg-[#1A1A1A] px-9 py-2 text-sm text-white placeholder:text-gray-500 focus:border-[#0A4D66] focus:outline-none"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-8 border-b border-[#0A4D66]/40">
@@ -538,6 +589,23 @@ export const SecurityPage = () => {
                     : "Activity Log"}
           </h2>
           <div className="flex items-center gap-3">
+            {activeTab === "activity" ? (
+              <select
+                aria-label="Filter by status"
+                title="Filter by status"
+                value={activityEventFilter}
+                onChange={(event) => {
+                  setActivityEventFilter(event.target.value);
+                  setActivityPage(1);
+                }}
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-sm text-white outline-none focus:border-[#7FD5FF]"
+              >
+                <option value="">All Statuses</option>
+                <option value="created">Created</option>
+                <option value="updated">Updated</option>
+                <option value="deleted">Deleted</option>
+              </select>
+            ) : null}
             {activeTab === "user" ? (
               <button
                 onClick={() => navigate("/dashboard/users/add")}
@@ -564,6 +632,7 @@ export const SecurityPage = () => {
                   <th className="px-6 py-3 font-medium">Time</th>
                   <th className="px-6 py-3 font-medium">Name</th>
                   <th className="px-6 py-3 font-medium">Action</th>
+                  <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium">User Type</th>
                   <th className="px-6 py-3 font-medium">Device Code</th>
                   <th className="px-6 py-3 font-medium">Unit</th>
@@ -572,13 +641,13 @@ export const SecurityPage = () => {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
                       Loading activity logs...
                     </td>
                   </tr>
                 ) : displayRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
                       No activity logs found
                     </td>
                   </tr>
@@ -600,6 +669,7 @@ export const SecurityPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">{row.action}</td>
+                      <td className="px-6 py-4 capitalize">{row.event}</td>
                       <td className="px-6 py-4">{row.userType}</td>
                       <td className="px-6 py-4">{row.deviceCode}</td>
                       <td className="whitespace-nowrap px-6 py-4">{row.unit}</td>
@@ -608,6 +678,39 @@ export const SecurityPage = () => {
                 )}
               </tbody>
             </table>
+
+            {activityLogsResponse && activityLogsResponse.last_page > 1 && (
+              <div className="flex items-center justify-between border-t border-[#0A4D66]/30 px-6 py-3 text-sm text-gray-300">
+                <span>
+                  Page {activityLogsResponse.current_page} of{" "}
+                  {activityLogsResponse.last_page} · {activityLogsResponse.total} total
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActivityPage((page) => Math.max(1, page - 1))}
+                    disabled={activityLogsResponse.current_page <= 1}
+                    className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActivityPage((page) =>
+                        Math.min(activityLogsResponse.last_page, page + 1),
+                      )
+                    }
+                    disabled={
+                      activityLogsResponse.current_page >= activityLogsResponse.last_page
+                    }
+                    className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : activeTab === "device" ? (
           <div className="overflow-x-auto">
@@ -704,14 +807,16 @@ export const SecurityPage = () => {
                       Loading users...
                     </td>
                   </tr>
-                ) : userRows.length === 0 ? (
+                ) : filteredUserRows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                      No users found
+                      {userSearchQuery
+                        ? "No users match your search"
+                        : "No users found"}
                     </td>
                   </tr>
                 ) : (
-                  userRows.map((row, index) => (
+                  filteredUserRows.map((row, index) => (
                     <tr
                       key={row.id}
                       className={cn(
@@ -1094,6 +1199,51 @@ export const SecurityPage = () => {
                 {isSavingSystemSettings ? (
                   <span className={cn("ml-2", subtleText)}>Saving…</span>
                 ) : null}
+              </div>
+            </div>
+
+            <div className={cn("rounded-xl border p-5", borderSubtleCls, cardBg)}>
+              <h3 className={cn("text-base font-semibold", titleText)}>
+                Pass Interval
+              </h3>
+              <p className={cn("mt-1 text-sm", mutedText)}>
+                How often (in months) personnel become due for their next pass,
+                counted from the start date of their last pass. Used to compute
+                each personnel&apos;s next pass date and status.
+              </p>
+              {isSystemSettingsLoading ? (
+                <p className={cn("mt-2 text-xs", subtleText)}>Loading current setting…</p>
+              ) : null}
+
+              <div className="mt-4 flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={passIntervalDraft}
+                  onChange={(event) => setPassIntervalDraft(event.target.value)}
+                  disabled={isSystemSettingsLoading || isSavingSystemSettings}
+                  aria-label="Pass interval in months"
+                  className={cn("w-24 rounded border px-3 py-2 text-sm focus:outline-none", borderCls, isDark ? "bg-[#001219] text-white" : "bg-white text-gray-900")}
+                />
+                <span className={cn("text-sm", mutedText)}>months</span>
+                <button
+                  type="button"
+                  onClick={() => void handleSavePassInterval()}
+                  disabled={isSystemSettingsLoading || isSavingSystemSettings}
+                  className={cn("inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold disabled:opacity-60", accentChipBorder, accentBtnBg, accentText)}
+                >
+                  <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                  {isSavingSystemSettings ? "Saving..." : "Save"}
+                </button>
+              </div>
+
+              <div className={cn("mt-4 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs", borderCls, chipBg)}>
+                <Icon icon="mdi:calendar-clock" className={cn("h-4 w-4", accentText)} />
+                <span className={chipText}>
+                  Current: every {systemSettings?.pass_interval_months ?? 4} month
+                  {(systemSettings?.pass_interval_months ?? 4) === 1 ? "" : "s"}
+                </span>
               </div>
             </div>
           </div>

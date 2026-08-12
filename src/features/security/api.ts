@@ -5,6 +5,7 @@ export type PermissionName = string;
 
 export type ActivityLog = {
   id: number;
+  event?: string | null;
   action?: string | null;
   description?: string | null;
   user_type?: string | null;
@@ -119,8 +120,24 @@ export type MeResponse = {
   permissions: string[];
 };
 
+export type ActivityLogFilters = {
+  page?: number;
+  per_page?: number;
+  event?: string;
+  causer_id?: number;
+};
+
+export type PaginatedActivityLogs = {
+  data: ActivityLog[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+};
+
 type ActivityLogApiResponse =
   | ActivityLog[]
+  | PaginatedActivityLogs
   | {
       data?: ActivityLog[];
       results?: ActivityLog[];
@@ -145,6 +162,7 @@ type RolesApiResponse =
 
 export type SystemSettings = {
   otp_login_enabled?: boolean;
+  pass_interval_months?: number;
   [key: string]: unknown;
 };
 
@@ -159,15 +177,42 @@ export const securityApi = createApi({
   baseQuery: axiosBaseQuery(),
   tagTypes: ["ActivityLog", "Device", "Role", "Permission", "UserRole", "SystemSettings"],
   endpoints: (builder) => ({
-    getActivityLogs: builder.query<ActivityLog[], void>({
-      query: () => ({
+    getActivityLogs: builder.query<PaginatedActivityLogs, ActivityLogFilters | void>({
+      query: (filters) => ({
         url: "/activity/logs",
         method: "GET",
+        params: filters || undefined,
       }),
       providesTags: ["ActivityLog"],
-      transformResponse: (response: ActivityLogApiResponse) => {
-        if (Array.isArray(response)) return response;
-        return response.data || response.results || response.logs || [];
+      transformResponse: (response: ActivityLogApiResponse): PaginatedActivityLogs => {
+        if (Array.isArray(response)) {
+          return {
+            data: response,
+            current_page: 1,
+            last_page: 1,
+            per_page: response.length,
+            total: response.length,
+          };
+        }
+
+        if ("current_page" in response && Array.isArray(response.data)) {
+          const data = response.data;
+          return {
+            data,
+            current_page: response.current_page ?? 1,
+            last_page: response.last_page ?? 1,
+            per_page: response.per_page ?? data.length,
+            total: response.total ?? data.length,
+          };
+        }
+
+        const fallback = response as {
+          data?: ActivityLog[];
+          results?: ActivityLog[];
+          logs?: ActivityLog[];
+        };
+        const data = fallback.data || fallback.results || fallback.logs || [];
+        return { data, current_page: 1, last_page: 1, per_page: data.length, total: data.length };
       },
     }),
     getDevices: builder.query<Device[], void>({

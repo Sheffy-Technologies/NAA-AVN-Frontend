@@ -15,6 +15,12 @@ const TABS = [
     icon: "mdi:calendar-check-outline",
     end: false,
   },
+  {
+    label: "Attendance",
+    path: "/dashboard/personnel/attendance",
+    icon: "mdi:clipboard-check-outline",
+    end: false,
+  },
 ];
 
 export const PersonnelModuleTabs = () => (

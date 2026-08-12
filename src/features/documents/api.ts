@@ -10,6 +10,21 @@ export type DocumentUser = {
   email?: string | null;
 };
 
+export type DocumentAction = {
+  id: number;
+  document_id: number;
+  created_by: number | null;
+  action_type: "treat" | "inform" | "approve" | "sign" | "acknowledge" | "forward" | string;
+  description: string | null;
+  location: string | null;
+  action_addressees: { id: number; name?: string | null }[] | null;
+  informed_addressees: { id: number; name?: string | null }[] | null;
+  status: "pending" | "completed" | string;
+  completed_at: string | null;
+  created_at: string | null;
+  created_by_user?: DocumentUser | null;
+};
+
 export type DocumentItem = {
   id: number;
   title?: string | null;
@@ -24,6 +39,15 @@ export type DocumentItem = {
   file_size?: number | string | null;
   size?: number | string | null;
   status?: string | null;
+  // Classification & tracking fields
+  file_header?: string | null;
+  file_reference?: string | null;
+  classification?: "classified" | "open" | string | null;
+  current_location?: string | null;
+  current_action?: string | null;
+  assigned_personnel?: { id: number; firstname?: string | null; lastname?: string | null; pivot?: { access?: "read" | "write" } }[] | null;
+  actions?: DocumentAction[] | null;
+  latest_action?: DocumentAction | null;
   created_at?: string | null;
   updated_at?: string | null;
   uploaded_by?: DocumentUser | null;
@@ -62,10 +86,25 @@ export type CreateDocumentMinutePayload = {
   forwarded_to_user_id?: number | null;
 };
 
+export type CreateDocumentActionPayload = {
+  action_type: string;
+  description?: string | null;
+  location?: string | null;
+  action_addressees?: number[] | null;
+  informed_addressees?: number[] | null;
+  status?: string;
+};
+
+export type UpdateDocumentActionPayload = {
+  documentId: number | string;
+  actionId: number | string;
+  data: Partial<CreateDocumentActionPayload>;
+};
+
 export const documentsApi = createApi({
   reducerPath: "documentsApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Document", "DocumentMinute"],
+  tagTypes: ["Document", "DocumentMinute", "DocumentAction"],
   endpoints: (builder) => ({
     getDocuments: builder.query<DocumentItem[], void>({
       query: () => ({
@@ -116,6 +155,30 @@ export const documentsApi = createApi({
         { type: "DocumentMinute", id: document_id },
       ],
     }),
+
+    createDocumentAction: builder.mutation<DocumentAction, { documentId: number | string; data: CreateDocumentActionPayload }>({
+      query: ({ documentId, data }) => ({
+        url: `/documents/${documentId}/actions`,
+        method: "POST",
+        data,
+      }),
+      invalidatesTags: (_result, _error, { documentId }) => [
+        { type: "Document", id: documentId },
+        { type: "DocumentAction", id: documentId },
+      ],
+    }),
+
+    updateDocumentAction: builder.mutation<DocumentAction, UpdateDocumentActionPayload>({
+      query: ({ documentId, actionId, data }) => ({
+        url: `/documents/${documentId}/actions/${actionId}`,
+        method: "PUT",
+        data,
+      }),
+      invalidatesTags: (_result, _error, { documentId }) => [
+        { type: "Document", id: documentId },
+        { type: "DocumentAction", id: documentId },
+      ],
+    }),
   }),
 });
 
@@ -125,4 +188,6 @@ export const {
   useCreateDocumentMutation,
   useGetDocumentMinutesQuery,
   useCreateDocumentMinuteMutation,
+  useCreateDocumentActionMutation,
+  useUpdateDocumentActionMutation,
 } = documentsApi;
