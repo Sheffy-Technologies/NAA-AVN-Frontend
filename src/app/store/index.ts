@@ -6,6 +6,7 @@ import authReducer, {
 import { dashboardApi } from "@/features/dashboard/api";
 import { personnelApi } from "@/features/personnel/api";
 import { passApi } from "@/features/personnel/passApi";
+import { courseApi } from "@/features/personnel/courseApi";
 import { attendanceApi } from "@/features/personnel/attendanceApi";
 import { inventoryApi } from "@/features/inventory/api";
 import { financeApi } from "@/features/finance/api";
@@ -55,6 +56,7 @@ export const store = configureStore({
     [dashboardApi.reducerPath]: dashboardApi.reducer,
     [personnelApi.reducerPath]: personnelApi.reducer,
     [passApi.reducerPath]: passApi.reducer,
+    [courseApi.reducerPath]: courseApi.reducer,
     [attendanceApi.reducerPath]: attendanceApi.reducer,
     [inventoryApi.reducerPath]: inventoryApi.reducer,
     [financeApi.reducerPath]: financeApi.reducer,
@@ -76,6 +78,7 @@ export const store = configureStore({
       dashboardApi.middleware,
       personnelApi.middleware,
       passApi.middleware,
+      courseApi.middleware,
       attendanceApi.middleware,
       inventoryApi.middleware,
       financeApi.middleware,

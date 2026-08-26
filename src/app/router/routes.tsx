@@ -258,6 +258,11 @@ const AttendancePage = lazy(() =>
     default: module.AttendancePage,
   })),
 );
+const CoursePage = lazy(() =>
+  import("@/features/personnel/pages/CoursePage").then((module) => ({
+    default: module.CoursePage,
+  })),
+);
 const ComingSoonPage = lazy(() =>
   import("@/features/dashboard/pages/ComingSoonPage").then((module) => ({
     default: module.ComingSoonPage,
@@ -516,6 +521,14 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AttendancePage />
+          </Suspense>
+        ), PERSONNEL_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "personnel/courses",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <CoursePage />
           </Suspense>
         ), PERSONNEL_ROUTE_PERMISSIONS),
       },

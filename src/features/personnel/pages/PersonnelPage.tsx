@@ -22,6 +22,8 @@ import { useClickOutside } from "@/shared/hooks/useClickOutside";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
+type FlightStatus = "no_flights" | "current" | "due_for_flight" | "overdue" | null;
+
 type Personnel = {
   id: string;
   unitId: number;
@@ -37,6 +39,30 @@ type Personnel = {
   branch: string;
   specialty: string;
   status: PersonnelStatus;
+  isPilot: boolean;
+  flightStatus: FlightStatus;
+  nextFlightDueDate: string | null;
+};
+
+const FLIGHT_STATUS_LABELS: Record<NonNullable<FlightStatus>, string> = {
+  no_flights: "No Flights Logged",
+  current: "Current",
+  due_for_flight: "Due for Flight",
+  overdue: "Overdue for Flight",
+};
+
+const FLIGHT_STATUS_COLORS: Record<NonNullable<FlightStatus>, string> = {
+  no_flights: "text-gray-400 bg-gray-400/10",
+  current: "text-emerald-400 bg-emerald-400/10",
+  due_for_flight: "text-amber-400 bg-amber-400/10",
+  overdue: "text-red-400 bg-red-400/10",
+};
+
+const FLIGHT_STATUS_DOT: Record<NonNullable<FlightStatus>, string> = {
+  no_flights: "bg-gray-400",
+  current: "bg-emerald-400",
+  due_for_flight: "bg-amber-400",
+  overdue: "bg-red-400",
 };
 
 type MultiFilterState<T> = {
@@ -170,6 +196,9 @@ export const PersonnelPage = () => {
       branch: p.branch?.name ?? "",
       specialty: p.specialty?.name ?? "",
       status: mapStatus(p.status),
+      isPilot: p.is_pilot,
+      flightStatus: p.flight_status,
+      nextFlightDueDate: p.next_flight_due_date,
     }));
   }, [apiPersonnel]);
 
@@ -236,9 +265,12 @@ export const PersonnelPage = () => {
         if (p.status === "Active") acc.active++;
         else if (p.status === "Grounded") acc.grounded++;
         else if (p.status === "Medical") acc.medical++;
+        if (p.flightStatus === "due_for_flight" || p.flightStatus === "overdue") {
+          acc.dueForFlight++;
+        }
         return acc;
       },
-      { total: filteredPersonnel.length, active: 0, grounded: 0, medical: 0 },
+      { total: filteredPersonnel.length, active: 0, grounded: 0, medical: 0, dueForFlight: 0 },
     );
   }, [filteredPersonnel]);
 
@@ -770,6 +802,11 @@ export const PersonnelPage = () => {
             <span className="text-gray-300">Medical:</span>
             <span className="font-bold text-white">{stats.medical}</span>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span className="text-gray-300">Due for Flight:</span>
+            <span className="font-bold text-white">{stats.dueForFlight}</span>
+          </div>
         </div>
 
         {viewMode === "table" && (
@@ -784,6 +821,9 @@ export const PersonnelPage = () => {
                   <th className="px-4 py-3 text-left">Rank</th>
                   <th className="px-4 py-3 text-left">
                     Call Sign
+                  </th>
+                  <th className="px-4 py-3 text-left">
+                    Flight Status
                   </th>
                   <th className="px-4 py-3 text-left">
                     Unit
@@ -802,7 +842,7 @@ export const PersonnelPage = () => {
                 {isPersonnelLoading && filteredPersonnel.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-4 sm:px-6 py-6 text-center text-gray-400"
                     >
                       <div className="inline-flex items-center gap-2">
@@ -846,6 +886,31 @@ export const PersonnelPage = () => {
                       </td>
                       <td className="px-4 py-3 align-middle text-white">
                         {p.callSign}
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        {p.isPilot && p.flightStatus ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium",
+                              FLIGHT_STATUS_COLORS[p.flightStatus],
+                            )}
+                            title={
+                              p.nextFlightDueDate
+                                ? `Due ${new Date(p.nextFlightDueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                                : undefined
+                            }
+                          >
+                            <span
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                FLIGHT_STATUS_DOT[p.flightStatus],
+                              )}
+                            />
+                            {FLIGHT_STATUS_LABELS[p.flightStatus]}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 align-middle text-white">
                         {p.unit}
@@ -1067,6 +1132,25 @@ export const PersonnelPage = () => {
                           {p.callSign}
                         </span>
                       </div>
+                      {p.isPilot && p.flightStatus && (
+                        <div className="flex flex-col col-span-2">
+                          <span className="text-gray-500 mb-0.5">Flight Status</span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 w-fit px-2 py-0.5 rounded-full text-[10px] font-medium",
+                              FLIGHT_STATUS_COLORS[p.flightStatus],
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                FLIGHT_STATUS_DOT[p.flightStatus],
+                              )}
+                            />
+                            {FLIGHT_STATUS_LABELS[p.flightStatus]}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex flex-col">
                         <span className="text-gray-500 mb-0.5">Unit</span>
                         <span className="text-white truncate">{p.unit}</span>

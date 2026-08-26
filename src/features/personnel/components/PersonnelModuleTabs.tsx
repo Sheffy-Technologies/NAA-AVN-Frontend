@@ -16,6 +16,12 @@ const TABS = [
     end: false,
   },
   {
+    label: "Course",
+    path: "/dashboard/personnel/courses",
+    icon: "mdi:school-outline",
+    end: false,
+  },
+  {
     label: "Attendance",
     path: "/dashboard/personnel/attendance",
     icon: "mdi:clipboard-check-outline",

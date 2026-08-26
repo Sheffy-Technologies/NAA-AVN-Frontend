@@ -83,6 +83,12 @@ export type Personnel = {
   pass_duration: number;
   next_pass_date: string | null;
   pass_status: string | null;
+  // Flight currency fields — personnel with a call sign are pilots and are
+  // expected to fly at least once every flight_interval_weeks.
+  is_pilot: boolean;
+  last_flight_date: string | null;
+  next_flight_due_date: string | null;
+  flight_status: "no_flights" | "current" | "due_for_flight" | "overdue" | null;
   created_at: string;
   updated_at: string;
   rank: PersonnelRank;

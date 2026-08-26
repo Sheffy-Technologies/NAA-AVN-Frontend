@@ -11,11 +11,13 @@ import {
   useGetUserRolesQuery,
   useSyncRolePermissionsMutation,
   useSyncUserRolesMutation,
+  useSyncUserUnitsMutation,
   useUpdateDeviceStatusMutation,
   useUpdateSystemSettingsMutation,
   type RoleRecord,
 } from "@/features/security/api";
 import { useGetUsersQuery } from "@/features/users/api";
+import { useGetUnitsQuery } from "@/shared/api/units";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
@@ -66,6 +68,8 @@ export const SecurityPage = () => {
   const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
   const [assignRolesUserId, setAssignRolesUserId] = useState<number | null>(null);
   const [assignRolesDraft, setAssignRolesDraft] = useState<string[]>([]);
+  const [assignUnitsUserId, setAssignUnitsUserId] = useState<number | null>(null);
+  const [assignUnitsDraft, setAssignUnitsDraft] = useState<number[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [activityPage, setActivityPage] = useState(1);
   const [activityEventFilter, setActivityEventFilter] = useState("");
@@ -77,6 +81,7 @@ export const SecurityPage = () => {
   const { data: devices = [], isLoading: isDevicesLoading } = useGetDevicesQuery();
   const [updateDeviceStatus, { isLoading: isUpdatingDeviceStatus }] = useUpdateDeviceStatusMutation();
   const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery();
+  const { data: units = [], isLoading: isUnitsLoading } = useGetUnitsQuery();
   const { data: roles = [], isLoading: isRolesLoading, refetch: refetchRoles } = useGetRolesQuery();
   const {
     data: permissionCatalog,
@@ -95,6 +100,8 @@ export const SecurityPage = () => {
     useSyncRolePermissionsMutation();
   const [syncUserRoles, { isLoading: isSavingUserRoles }] =
     useSyncUserRolesMutation();
+  const [syncUserUnits, { isLoading: isSavingUserUnits }] =
+    useSyncUserUnitsMutation();
 
   const authUser = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = useMemo(() => {
@@ -189,6 +196,8 @@ export const SecurityPage = () => {
         email: u.email || "-",
         phone: u.phone_number || "-",
         roles: (u.roles || []).map((role) => role.name).filter(Boolean) as string[],
+        unitIds: (u.units || []).map((unit) => unit.id),
+        unitNames: (u.units || []).map((unit) => unit.name),
         created: hasValid
           ? created.toLocaleString("en-GB", {
               day: "2-digit",
@@ -293,6 +302,11 @@ export const SecurityPage = () => {
   const roleOptions = useMemo(
     () => roles.map((role) => ({ value: role.name, label: role.name })),
     [roles],
+  );
+
+  const unitOptions = useMemo(
+    () => units.map((unit) => ({ value: unit.id, label: unit.name })),
+    [units],
   );
 
   const permissionOptions = useMemo(() => {
@@ -467,6 +481,37 @@ export const SecurityPage = () => {
   const assignRolesUser = useMemo(
     () => userRows.find((row) => row.id === assignRolesUserId) ?? null,
     [assignRolesUserId, userRows],
+  );
+
+  const openAssignUnitsModal = (userId: number, currentUnitIds: number[]) => {
+    setAssignUnitsUserId(userId);
+    setAssignUnitsDraft(currentUnitIds);
+  };
+
+  const closeAssignUnitsModal = () => {
+    setAssignUnitsUserId(null);
+    setAssignUnitsDraft([]);
+  };
+
+  const handleAssignUnitsSave = async () => {
+    if (assignUnitsUserId === null) return;
+    try {
+      await syncUserUnits({
+        userId: assignUnitsUserId,
+        units: assignUnitsDraft,
+      }).unwrap();
+      await refetchUsers();
+      dispatch(showToast({ message: "User units updated", type: "success" }));
+      closeAssignUnitsModal();
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to update user units", type: "error" }));
+    }
+  };
+
+  const assignUnitsUser = useMemo(
+    () => userRows.find((row) => row.id === assignUnitsUserId) ?? null,
+    [assignUnitsUserId, userRows],
   );
 
   const renderTabButton = (tab: SecurityTab, label: string) => (
@@ -796,6 +841,7 @@ export const SecurityPage = () => {
                   <th className="px-6 py-3 font-medium">Email</th>
                   <th className="px-6 py-3 font-medium">Phone</th>
                   <th className="px-6 py-3 font-medium">Roles</th>
+                  <th className="px-6 py-3 font-medium">Units</th>
                   <th className="px-6 py-3 font-medium">Created</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -803,13 +849,13 @@ export const SecurityPage = () => {
               <tbody>
                 {isUsersLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                       Loading users...
                     </td>
                   </tr>
                 ) : filteredUserRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                       {userSearchQuery
                         ? "No users match your search"
                         : "No users found"}
@@ -843,6 +889,22 @@ export const SecurityPage = () => {
                           )}
                         </div>
                       </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          {row.unitNames.length === 0 ? (
+                            <span className="text-sm text-gray-500">No units</span>
+                          ) : (
+                            row.unitNames.map((unitName, unitIndex) => (
+                              <span
+                                key={`${row.id}-unit-${row.unitIds[unitIndex]}`}
+                                className="rounded-full border border-[#0A4D66]/40 bg-[#001825] px-2.5 py-1 text-xs text-emerald-300"
+                              >
+                                {unitName}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4">{row.created}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -854,6 +916,16 @@ export const SecurityPage = () => {
                             <Icon icon="mdi:account-key-outline" className="h-3.5 w-3.5" />
                             Assign Roles
                           </button>
+                          {isSuperAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => openAssignUnitsModal(row.id, row.unitIds)}
+                              className="inline-flex items-center gap-1 rounded border border-emerald-400/40 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/10"
+                            >
+                              <Icon icon="mdi:office-building-marker-outline" className="h-3.5 w-3.5" />
+                              Assign Units
+                            </button>
+                          )}
                           <button className="text-gray-300 hover:text-white">View</button>
                         </div>
                       </td>
@@ -1316,6 +1388,74 @@ export const SecurityPage = () => {
               >
                 <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
                 {isSavingUserRoles ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {assignUnitsUserId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeAssignUnitsModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl border border-[#0A4D66]/50 bg-[#001825] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Assign Units</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  {assignUnitsUser
+                    ? `Restrict ${assignUnitsUser.name} to specific units. Leave empty for unrestricted access.`
+                    : "Restrict this user to specific units. Leave empty for unrestricted access."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAssignUnitsModal}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                <Icon icon="mdi:close" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <MultiSelect
+                label="Units"
+                placeholder={isUnitsLoading ? "Loading units..." : "Select units"}
+                options={unitOptions}
+                selectedValues={assignUnitsDraft}
+                onChange={(selected) => setAssignUnitsDraft(selected as number[])}
+                disabled={isUnitsLoading || units.length === 0}
+              />
+              {units.length === 0 && !isUnitsLoading ? (
+                <p className="mt-2 text-xs text-amber-300">
+                  No units available. Create a unit first.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeAssignUnitsModal}
+                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignUnitsSave}
+                disabled={isSavingUserUnits}
+                className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                {isSavingUserUnits ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

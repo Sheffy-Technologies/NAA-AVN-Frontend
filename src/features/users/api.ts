@@ -13,6 +13,10 @@ export type UserRecord = {
     name?: string | null;
     guard_name?: string | null;
   }>;
+  units?: Array<{
+    id: number;
+    name: string;
+  }>;
   created_at?: string | null;
   updated_at?: string | null;
 };

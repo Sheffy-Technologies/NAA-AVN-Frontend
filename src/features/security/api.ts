@@ -108,6 +108,28 @@ export type SyncUserRolesPayload = {
   roles: string[];
 };
 
+export type UnitRecord = {
+  id: number;
+  name: string;
+};
+
+export type UserUnitAssignment = {
+  user: {
+    id: number;
+    firstname?: string | null;
+    lastname?: string | null;
+    username?: string | null;
+    email?: string | null;
+    phone_number?: string | null;
+  };
+  units: UnitRecord[];
+};
+
+export type SyncUserUnitsPayload = {
+  userId: number;
+  units: number[];
+};
+
 export type MeResponse = {
   id: string | number;
   firstname?: string | null;
@@ -175,7 +197,7 @@ export type UpdateSystemSettingsPayload = Partial<SystemSettings>;
 export const securityApi = createApi({
   reducerPath: "securityApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["ActivityLog", "Device", "Role", "Permission", "UserRole", "SystemSettings"],
+  tagTypes: ["ActivityLog", "Device", "Role", "Permission", "UserRole", "UserUnit", "SystemSettings"],
   endpoints: (builder) => ({
     getActivityLogs: builder.query<PaginatedActivityLogs, ActivityLogFilters | void>({
       query: (filters) => ({
@@ -286,6 +308,23 @@ export const securityApi = createApi({
         { type: "UserRole", id: userId },
       ],
     }),
+    getUserUnits: builder.query<UserUnitAssignment, number>({
+      query: (userId) => ({
+        url: `/users/${userId}/units`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, userId) => [{ type: "UserUnit", id: userId }],
+    }),
+    syncUserUnits: builder.mutation<UserUnitAssignment, SyncUserUnitsPayload>({
+      query: ({ userId, units }) => ({
+        url: `/users/${userId}/units`,
+        method: "PUT",
+        data: { units },
+      }),
+      invalidatesTags: (_result, _error, { userId }) => [
+        { type: "UserUnit", id: userId },
+      ],
+    }),
     getMe: builder.query<MeResponse, void>({
       query: () => ({
         url: "/auth/me",
@@ -332,6 +371,8 @@ export const {
   useGetPermissionsQuery,
   useGetUserRolesQuery,
   useSyncUserRolesMutation,
+  useGetUserUnitsQuery,
+  useSyncUserUnitsMutation,
   useGetMeQuery,
   useGetSystemSettingsQuery,
   useUpdateSystemSettingsMutation,

@@ -5,7 +5,10 @@ import { cn } from "@/shared/utils/cn";
 import { useGetPersonnelByIdQuery, useDeletePersonnelMutation } from "@/features/personnel/api";
 import { useGetPersonnelPassByIdQuery } from "@/features/personnel/passApi";
 import { useGetAttendanceQuery } from "@/features/personnel/attendanceApi";
+import { useGetCoursesQuery, type Course, type CourseStatus } from "@/features/personnel/courseApi";
 import { InitiatePassModal } from "../components/InitiatePassModal";
+import { RegisterCourseModal } from "../components/RegisterCourseModal";
+import { EditCourseModal } from "../components/EditCourseModal";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
@@ -45,6 +48,10 @@ type PersonnelDetail = {
     name: string;
     hours: number;
   }[];
+  isPilot: boolean;
+  lastFlightDate: string | null;
+  nextFlightDueDate: string | null;
+  flightStatus: "no_flights" | "current" | "due_for_flight" | "overdue" | null;
 };
 
 type ActivityLogEntry = {
@@ -158,6 +165,29 @@ const statusDotColor: Record<PersonnelStatus, string> = {
   Medical: "bg-amber-300",
 };
 
+type FlightStatus = "no_flights" | "current" | "due_for_flight" | "overdue";
+
+const FLIGHT_STATUS_LABELS: Record<FlightStatus, string> = {
+  no_flights: "No Flights Logged",
+  current: "Current",
+  due_for_flight: "Due for Flight",
+  overdue: "Overdue for Flight",
+};
+
+const FLIGHT_STATUS_COLORS: Record<FlightStatus, string> = {
+  no_flights: "text-gray-400",
+  current: "text-emerald-400",
+  due_for_flight: "text-amber-400",
+  overdue: "text-red-400",
+};
+
+const COURSE_STATUS_COLORS: Record<CourseStatus, string> = {
+  scheduled: "text-blue-400",
+  ongoing: "text-emerald-400",
+  completed: "text-gray-400",
+  cancelled: "text-red-400",
+};
+
 export const PersonnelDetailPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -167,13 +197,20 @@ export const PersonnelDetailPage = () => {
       skip: !id,
     });
   const [deletePersonnel, { isLoading: isDeleting }] = useDeletePersonnelMutation();
-  const [activeTab, setActiveTab] = useState<"bio" | "activity" | "pass" | "attendance">("bio");
+  const [activeTab, setActiveTab] = useState<"bio" | "activity" | "pass" | "course" | "attendance">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
   const [showInitiatePassModal, setShowInitiatePassModal] = useState(false);
+  const [showRegisterCourseModal, setShowRegisterCourseModal] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
   const { data: passData, isLoading: isPassLoading } = useGetPersonnelPassByIdQuery(
     id ?? "",
     { skip: !id || activeTab !== "pass" },
+  );
+
+  const { data: courses = [], isLoading: isCoursesLoading } = useGetCoursesQuery(
+    { personnel_id: id ? Number(id) : undefined },
+    { skip: !id || activeTab !== "course" },
   );
 
   const { data: attendanceLogs = [], isLoading: isAttendanceLoading } = useGetAttendanceQuery(
@@ -291,6 +328,10 @@ export const PersonnelDetailPage = () => {
       aircraftRatedOn: "",
       totalFlightTimeHours: 0,
       aircraftHours: [],
+      isPilot: apiPerson.is_pilot,
+      lastFlightDate: apiPerson.last_flight_date,
+      nextFlightDueDate: apiPerson.next_flight_due_date,
+      flightStatus: apiPerson.flight_status,
     };
   }, [apiPerson]);
 
@@ -416,6 +457,22 @@ export const PersonnelDetailPage = () => {
                   className="w-4 h-4 text-gray-400"
                 />
                 <span>Pass</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("course")}
+                className={cn(
+                  "inline-flex items-center gap-2 pb-1 border-b-2",
+                  activeTab === "course"
+                    ? "border-[#7FD5FF] text-white"
+                    : "border-transparent text-gray-400 hover:text-gray-200",
+                )}
+              >
+                <Icon
+                  icon="mdi:school-outline"
+                  className="w-4 h-4 text-gray-400"
+                />
+                <span>Course</span>
               </button>
               <button
                 type="button"
@@ -812,6 +869,52 @@ export const PersonnelDetailPage = () => {
                       ))}
                     </div>
                   </div>
+
+                  {person.isPilot && (
+                    <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-[11px] uppercase text-gray-400">
+                          Flight Currency
+                        </div>
+                        {person.flightStatus && (
+                          <span
+                            className={cn(
+                              "text-xs font-medium",
+                              FLIGHT_STATUS_COLORS[person.flightStatus],
+                            )}
+                          >
+                            {FLIGHT_STATUS_LABELS[person.flightStatus]}
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 mb-0.5">Last Flight</span>
+                          <span className="text-white">
+                            {person.lastFlightDate
+                              ? new Date(person.lastFlightDate).toLocaleDateString("en-GB", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "—"}
+                          </span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-gray-500 mb-0.5">Due By</span>
+                          <span className="text-white">
+                            {person.nextFlightDueDate
+                              ? new Date(person.nextFlightDueDate).toLocaleDateString("en-GB", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "—"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1091,6 +1194,141 @@ export const PersonnelDetailPage = () => {
             )}
           </div>
         )}
+        {/* ── Course Tab ───────────────────────────────────── */}
+        {activeTab === "course" && (
+          <div className="p-4 sm:p-6">
+            {/* Overview cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: "Total Courses", value: courses.length, icon: "mdi:school-outline" },
+                {
+                  label: "Ongoing",
+                  value: courses.filter((c) => c.status === "ongoing").length,
+                  icon: "mdi:progress-clock",
+                },
+                {
+                  label: "Completed",
+                  value: courses.filter((c) => c.status === "completed").length,
+                  icon: "mdi:check-circle-outline",
+                },
+                {
+                  label: "Scheduled",
+                  value: courses.filter((c) => c.status === "scheduled").length,
+                  icon: "mdi:calendar-clock-outline",
+                },
+              ].map((card) => (
+                <div
+                  key={card.label}
+                  className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-3 flex flex-col gap-1"
+                >
+                  <div className="flex items-center gap-1.5 text-gray-400 text-[10px] uppercase tracking-wide">
+                    <Icon icon={card.icon} className="w-3.5 h-3.5" />
+                    {card.label}
+                  </div>
+                  <span className="text-sm font-semibold text-white">{card.value}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Register Course */}
+            <div className="flex justify-end mb-4">
+              <button
+                type="button"
+                onClick={() => setShowRegisterCourseModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90"
+              >
+                <Icon icon="mdi:plus" className="w-4 h-4" />
+                Register Course
+              </button>
+            </div>
+
+            {/* Course History Table */}
+            {isCoursesLoading ? (
+              <div className="flex items-center justify-center py-10 text-gray-400 text-sm gap-2">
+                <span className="h-4 w-4 border-2 border-[#0A4D66]/60 border-t-transparent rounded-full animate-spin" />
+                Loading course history...
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded border border-[#0A4D66]/40">
+                <table className="min-w-full text-xs text-gray-200 whitespace-nowrap">
+                  <thead>
+                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] text-gray-400 uppercase tracking-wide">
+                      <th className="px-4 py-3 text-left">Course</th>
+                      <th className="px-4 py-3 text-left">Institution</th>
+                      <th className="px-4 py-3 text-left">Start Date</th>
+                      <th className="px-4 py-3 text-left">End Date</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Remarks</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {courses.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                          No course records yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      courses.map((course, i) => (
+                        <tr
+                          key={course.id}
+                          className={cn(
+                            "border-t border-[#0A4D66]/40",
+                            i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )}
+                        >
+                          <td className="px-4 py-3 text-white">{course.title}</td>
+                          <td className="px-4 py-3 text-white">
+                            {course.institution ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-white">
+                            {new Date(course.start_date).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-white">
+                            {new Date(course.end_date).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={cn(
+                                "text-xs font-medium capitalize",
+                                COURSE_STATUS_COLORS[course.status],
+                              )}
+                            >
+                              {course.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
+                            {course.remarks ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setEditingCourse(course)}
+                              title="Edit course"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0A4D66]/40 text-[10px] text-gray-300 hover:bg-[#0A4D66]/30"
+                            >
+                              <Icon icon="mdi:pencil-outline" className="w-3 h-3" />
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
         {/* ── Attendance Tab ───────────────────────────────── */}
         {activeTab === "attendance" && (
           <div className="p-4 sm:p-6">
@@ -1211,6 +1449,17 @@ export const PersonnelDetailPage = () => {
           apiPerson ? `${apiPerson.firstname} ${apiPerson.lastname}` : undefined
         }
       />
+
+      <RegisterCourseModal
+        open={showRegisterCourseModal}
+        onClose={() => setShowRegisterCourseModal(false)}
+        personnelId={id ? Number(id) : undefined}
+        personnelName={
+          apiPerson ? `${apiPerson.firstname} ${apiPerson.lastname}` : undefined
+        }
+      />
+
+      <EditCourseModal course={editingCourse} onClose={() => setEditingCourse(null)} />
     </div>
   );
 };
