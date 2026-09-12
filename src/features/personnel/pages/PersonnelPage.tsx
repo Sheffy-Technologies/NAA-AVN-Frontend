@@ -12,6 +12,7 @@ import {
   useGetPersonnelBranchesQuery,
   useUpdatePersonnelMutation,
   useDeletePersonnelMutation,
+  useCreatePersonnelMutation,
   type PersonnelFilters,
 } from "@/features/personnel/api";
 import { useAppDispatch } from "@/app/store";
@@ -19,6 +20,10 @@ import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import {
+  ImportCsvModal,
+  type ImportCsvField,
+} from "@/shared/components/ImportCsvModal";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -81,6 +86,23 @@ const statusTextColor: Record<PersonnelStatus, string> = {
   Grounded: "text-red-400",
   Medical: "text-amber-300",
 };
+
+const PERSONNEL_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "firstname", label: "First Name", required: true, example: "John" },
+  { key: "lastname", label: "Last Name", required: true, example: "Doe" },
+  { key: "service_number", label: "Service Number", required: false, example: "NAF/1234" },
+  { key: "rank", label: "Rank", required: false, example: "Flight Lieutenant" },
+  { key: "unit", label: "Unit", required: false, example: "1 Squadron" },
+  { key: "branch", label: "Branch", required: false, example: "Engineering" },
+  { key: "specialty", label: "Specialty", required: false, example: "Avionics" },
+  { key: "call_sign", label: "Call Sign", required: false, example: "Eagle-1" },
+  { key: "status", label: "Status (Active/Grounded/Medical)", required: false, example: "Active" },
+  { key: "phone_number", label: "Phone Number", required: false, example: "08012345678" },
+  { key: "email", label: "Email", required: false, example: "john.doe@example.com" },
+  { key: "address", label: "Address", required: false, example: "12 Base Road" },
+  { key: "blood_group", label: "Blood Group", required: false, example: "O+" },
+  { key: "is_expatriate", label: "Is Expatriate (true/false)", required: false, example: "false" },
+];
 
 export const PersonnelPage = () => {
   const navigate = useNavigate();
@@ -168,6 +190,79 @@ export const PersonnelPage = () => {
 
   const { data: apiPersonnel, isLoading: isPersonnelLoading } =
     useGetPersonnelQuery(filters);
+
+  const [createPersonnel] = useCreatePersonnelMutation();
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  const PERSONNEL_STATUSES = ["active", "grounded", "medical"];
+
+  const handleImportPersonnelRow = async (row: Record<string, string>) => {
+    const rankMatch = row.rank
+      ? ranks.find(
+          (r) => r.name.trim().toLowerCase() === row.rank.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.rank && !rankMatch) {
+      throw new Error(`Rank "${row.rank}" not found`);
+    }
+
+    const unitMatch = row.unit
+      ? units.find(
+          (u) => u.name.trim().toLowerCase() === row.unit.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.unit && !unitMatch) {
+      throw new Error(`Unit "${row.unit}" not found`);
+    }
+
+    const branchMatch = row.branch
+      ? branches.find(
+          (b) =>
+            b.name.trim().toLowerCase() === row.branch.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.branch && !branchMatch) {
+      throw new Error(`Branch "${row.branch}" not found`);
+    }
+
+    const specialtyMatch = row.specialty
+      ? specialties.find(
+          (s) =>
+            s.name.trim().toLowerCase() === row.specialty.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.specialty && !specialtyMatch) {
+      throw new Error(`Specialty "${row.specialty}" not found`);
+    }
+
+    if (
+      row.status &&
+      !PERSONNEL_STATUSES.includes(row.status.trim().toLowerCase())
+    ) {
+      throw new Error("Status must be one of: Active, Grounded, Medical");
+    }
+
+    const isExpatriate = row.is_expatriate
+      ? row.is_expatriate.trim().toLowerCase() === "true"
+      : undefined;
+
+    await createPersonnel({
+      firstname: row.firstname,
+      lastname: row.lastname,
+      service_number: row.service_number || undefined,
+      rank_id: rankMatch?.id,
+      unit_id: unitMatch?.id,
+      branch_id: branchMatch?.id,
+      specialty_id: specialtyMatch?.id,
+      call_sign: row.call_sign || undefined,
+      status: row.status || undefined,
+      phone_number: row.phone_number || undefined,
+      email: row.email || undefined,
+      address: row.address || undefined,
+      blood_group: row.blood_group || undefined,
+      is_expatriate: isExpatriate,
+    }).unwrap();
+  };
 
   const mappedPersonnel: Personnel[] = useMemo(() => {
     if (!apiPersonnel) {
@@ -752,6 +847,15 @@ export const PersonnelPage = () => {
 
             <button
               type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded border border-[#0A4D66]/40 text-gray-200 text-xs sm:text-sm font-medium hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+            >
+              <Icon icon="mdi:upload" className="w-4 h-4" />
+              <span className="hidden sm:inline">Import CSV</span>
+              <span className="sm:hidden">Import</span>
+            </button>
+            <button
+              type="button"
               onClick={() => navigate("/dashboard/personnel/add")}
               className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
             >
@@ -1171,6 +1275,15 @@ export const PersonnelPage = () => {
           </div>
         )}
       </section>
+
+      <ImportCsvModal
+        open={isImportOpen}
+        title="Import Personnel from CSV"
+        fields={PERSONNEL_IMPORT_FIELDS}
+        sampleFileName="personnel-import-sample.csv"
+        onImportRow={handleImportPersonnelRow}
+        onClose={() => setIsImportOpen(false)}
+      />
     </div>
   );
 };

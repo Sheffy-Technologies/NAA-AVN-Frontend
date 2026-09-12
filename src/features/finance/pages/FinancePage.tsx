@@ -8,8 +8,11 @@ import {
   useGetExpensesQuery,
   useGetBudgetsQuery,
   useGetExpenseCategoriesQuery,
+  useGetExpenseTypesQuery,
+  useGetAircraftQuery,
   useDeleteExpenseMutation,
   useDeleteBudgetMutation,
+  useCreateExpenseMutation,
   type FinanceExpense,
   type FinanceBudget,
   type FinanceExpenseCategory,
@@ -18,6 +21,10 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
+import {
+  ImportCsvModal,
+  type ImportCsvField,
+} from "@/shared/components/ImportCsvModal";
 
 type FinanceTabKey = "expenses" | "budgets";
 type FinanceViewMode = "table" | "grid";
@@ -58,6 +65,20 @@ type BudgetRow = {
   createdAt: string;
 };
 
+const EXPENSE_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "part_name", label: "Item Description", required: true, example: "Hydraulic Fluid" },
+  { key: "part_number", label: "Part Number", required: true, example: "PN-77213" },
+  { key: "category", label: "Category", required: false, example: "Consumables" },
+  { key: "expense_type", label: "Expense Type", required: true, example: "Maintenance" },
+  { key: "aircraft", label: "Aircraft", required: true, example: "Mi-17" },
+  { key: "unit", label: "Unit", required: true, example: "1 Squadron" },
+  { key: "budget", label: "Budget / Account", required: true, example: "Operations Budget 2026" },
+  { key: "work_order", label: "Work Order", required: false, example: "WO-4021" },
+  { key: "quantity", label: "Quantity", required: true, example: "5" },
+  { key: "unit_cost", label: "Unit Cost", required: true, example: "2500" },
+  { key: "date", label: "Date (YYYY-MM-DD)", required: false, example: "2026-02-10" },
+];
+
 export const FinancePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,7 +102,73 @@ export const FinancePage = () => {
     isError: isBudgetsError,
   } = useGetBudgetsQuery();
   const { data: expenseCategoriesData } = useGetExpenseCategoriesQuery();
+  const { data: expenseTypesData } = useGetExpenseTypesQuery();
+  const { data: aircraftData } = useGetAircraftQuery();
   const { data: unitsData } = useGetUnitsQuery();
+  const [createExpense] = useCreateExpenseMutation();
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  const handleImportExpenseRow = async (row: Record<string, string>) => {
+    const categoryMatch = row.category
+      ? (expenseCategoriesData ?? []).find(
+          (c) =>
+            c.name.trim().toLowerCase() === row.category.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.category && !categoryMatch) {
+      throw new Error(`Category "${row.category}" not found`);
+    }
+
+    const expenseTypeMatch = (expenseTypesData ?? []).find(
+      (t) =>
+        t.name.trim().toLowerCase() === row.expense_type.trim().toLowerCase(),
+    );
+    if (!expenseTypeMatch) {
+      throw new Error(`Expense type "${row.expense_type}" not found`);
+    }
+
+    const aircraftMatch = (aircraftData ?? []).find(
+      (a) => a.name.trim().toLowerCase() === row.aircraft.trim().toLowerCase(),
+    );
+    if (!aircraftMatch) {
+      throw new Error(`Aircraft "${row.aircraft}" not found`);
+    }
+
+    const unitMatch = (unitsData ?? []).find(
+      (u) => u.name.trim().toLowerCase() === row.unit.trim().toLowerCase(),
+    );
+    if (!unitMatch) {
+      throw new Error(`Unit "${row.unit}" not found`);
+    }
+
+    const budgetMatch = (budgetsData ?? []).find(
+      (b) => b.name.trim().toLowerCase() === row.budget.trim().toLowerCase(),
+    );
+    if (!budgetMatch) {
+      throw new Error(`Budget "${row.budget}" not found`);
+    }
+
+    const quantity = Number(row.quantity);
+    const unitCost = Number(row.unit_cost);
+    if (Number.isNaN(quantity) || Number.isNaN(unitCost)) {
+      throw new Error("Quantity and Unit Cost must be numbers");
+    }
+
+    await createExpense({
+      expense_category_id: categoryMatch?.id,
+      expense_type_id: expenseTypeMatch.id,
+      aircraft_id: aircraftMatch.id,
+      unit_id: unitMatch.id,
+      budget_id: budgetMatch.id,
+      part_number: row.part_number,
+      part_name: row.part_name,
+      work_order: row.work_order || "",
+      quantity,
+      unit_cost: unitCost,
+      total_cost: quantity * unitCost,
+      date: row.date || undefined,
+    }).unwrap();
+  };
 
   const [selectedAccountId, setSelectedAccountId] = useState<
     number | null | "default"
@@ -583,6 +670,17 @@ export const FinancePage = () => {
             <Icon icon="mdi:file-document-outline" className="w-4 h-4" />
             <span>Generate Report</span>
           </button>
+
+          {activeTab === "expenses" && (
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold border border-[#0A4D66]/40 text-gray-200 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+            >
+              <Icon icon="mdi:upload" className="w-4 h-4" />
+              <span>Import CSV</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -1384,6 +1482,15 @@ export const FinancePage = () => {
           </aside>
         </>
       )}
+
+      <ImportCsvModal
+        open={isImportOpen}
+        title="Import Expenses from CSV"
+        fields={EXPENSE_IMPORT_FIELDS}
+        sampleFileName="expenses-import-sample.csv"
+        onImportRow={handleImportExpenseRow}
+        onClose={() => setIsImportOpen(false)}
+      />
     </div>
   );
 };

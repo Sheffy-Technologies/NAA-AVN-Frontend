@@ -29,6 +29,10 @@ import {
 import { cn } from "@/shared/utils/cn";
 import AssetMaintenanceProgramsSearchable from "./AssetMaintenanceProgramsSearchable";
 import { getEchoClient } from "@/shared/realtime/echo";
+import {
+  ImportCsvModal,
+  type ImportCsvField,
+} from "@/shared/components/ImportCsvModal";
 
 
 // Mirrors AddAssetPage.tsx's fallback list, used when the engine positions
@@ -52,6 +56,48 @@ const TABS = [
 ] as const;
 
 type AssetTabId = (typeof TABS)[number]["id"];
+
+const COMPONENT_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "component_type", label: "Component Type", required: true, example: "Main Rotor Blade" },
+  { key: "ata_chapter", label: "ATA Chapter", required: true, example: "62" },
+  { key: "part_number", label: "Part Number", required: true, example: "PN-10234" },
+  { key: "serial_number", label: "Serial Number", required: true, example: "SN-98213" },
+  { key: "installed_at", label: "Installed Date (YYYY-MM-DD)", required: true, example: "2026-01-15" },
+  { key: "removed_at", label: "Removed Date (YYYY-MM-DD)", required: false, example: "" },
+  { key: "time_since_new", label: "Time Since New (hours)", required: false, example: "120" },
+  { key: "service_life_limit_hours", label: "Service Life Limit (hours)", required: false, example: "5000" },
+  { key: "inspection_interval_unit", label: "Inspection Interval Unit (hours/months/cycle)", required: false, example: "hours" },
+  { key: "inspection_interval", label: "Inspection Interval", required: false, example: "100" },
+  { key: "maintenance_strategy", label: "Maintenance Strategy (hard-time/on-condition/condition)", required: false, example: "hard-time" },
+];
+
+const ENGINE_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "position", label: "Position", required: true, example: "Engine 1" },
+  { key: "category", label: "Category", required: false, example: "Turboshaft" },
+  { key: "ata_chapter", label: "ATA Chapter", required: false, example: "72" },
+  { key: "serial_number", label: "Serial Number", required: true, example: "SN-44210" },
+  { key: "model", label: "Model", required: true, example: "T700-GE-701" },
+  { key: "installation_date", label: "Installation Date (YYYY-MM-DD)", required: true, example: "2026-01-15" },
+  { key: "time_since_new", label: "Time Since New (hours)", required: false, example: "300" },
+  { key: "service_life_limit", label: "Service Life Limit (hours)", required: false, example: "8000" },
+  { key: "inspection_interval_unit", label: "Inspection Interval Unit (hours/months/cycle)", required: false, example: "hours" },
+  { key: "inspection_interval", label: "Inspection Interval", required: false, example: "150" },
+  { key: "maintenance_strategy", label: "Maintenance Strategy (hard-time/on-condition/condition)", required: false, example: "hard-time" },
+];
+
+const AVIONICS_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "avionic_category", label: "Avionic Category", required: true, example: "Radio" },
+  { key: "ata_chapter", label: "ATA Chapter", required: false, example: "23" },
+  { key: "serial_number", label: "Serial Number", required: true, example: "SN-77410" },
+  { key: "model", label: "Model", required: true, example: "ARC-210" },
+  { key: "manufacturer", label: "Manufacturer", required: false, example: "Rockwell Collins" },
+  { key: "installed_at", label: "Installed Date (YYYY-MM-DD)", required: true, example: "2026-01-15" },
+  { key: "time_since_new", label: "Time Since New (hours)", required: false, example: "80" },
+  { key: "service_life_limit", label: "Service Life Limit (hours)", required: false, example: "6000" },
+  { key: "inspection_interval_unit", label: "Inspection Interval Unit (hours/months/cycle)", required: false, example: "hours" },
+  { key: "inspection_interval", label: "Inspection Interval", required: false, example: "100" },
+  { key: "maintenance_strategy", label: "Maintenance Strategy (hard-time/on-condition/condition)", required: false, example: "hard-time" },
+];
 
 const statusDotColor: Record<string, string> = {
   planned: "bg-blue-400",
@@ -862,6 +908,181 @@ export const AssetDetailsPage = () => {
 
   const startAddAvionic = () => {
     setAvionicsDraft((prev) => [...prev, blankAvionic()]);
+    setIsEditingAvionics(true);
+  };
+
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  const matchAtaChapter = (chapters: typeof ataChapters, value: string) => {
+    const needle = value.trim().toLowerCase();
+    return chapters.find(
+      (chapter) =>
+        (chapter.chapter_number || "").trim().toLowerCase() === needle ||
+        (chapter.chapter_name || "").trim().toLowerCase() === needle ||
+        (chapter.name || "").trim().toLowerCase() === needle,
+    );
+  };
+
+  const INTERVAL_UNITS = ["hours", "months", "cycle"];
+  const MAINTENANCE_STRATEGIES = ["hard-time", "on-condition", "condition"];
+
+  const handleImportComponentRow = async (row: Record<string, string>) => {
+    const componentTypeMatch = componentTypes.find(
+      (t) =>
+        t.name.trim().toLowerCase() === row.component_type.trim().toLowerCase(),
+    );
+    if (!componentTypeMatch) {
+      throw new Error(`Component type "${row.component_type}" not found`);
+    }
+
+    const ataMatch = matchAtaChapter(componentAtaChapters, row.ata_chapter);
+    if (!ataMatch) {
+      throw new Error(`ATA chapter "${row.ata_chapter}" not found`);
+    }
+
+    const intervalUnit = row.inspection_interval_unit?.trim().toLowerCase() || "hours";
+    if (!INTERVAL_UNITS.includes(intervalUnit)) {
+      throw new Error(
+        `Inspection Interval Unit must be one of: ${INTERVAL_UNITS.join(", ")}`,
+      );
+    }
+
+    const strategy = row.maintenance_strategy?.trim().toLowerCase() || "hard-time";
+    if (!MAINTENANCE_STRATEGIES.includes(strategy)) {
+      throw new Error(
+        `Maintenance Strategy must be one of: ${MAINTENANCE_STRATEGIES.join(", ")}`,
+      );
+    }
+
+    const newComponent: Component = {
+      component_type_id: componentTypeMatch.id,
+      ata_chapter_id: ataMatch.id,
+      part_number: row.part_number,
+      serial_number: row.serial_number,
+      time_since_new: row.time_since_new || "",
+      service_life_limit_hours: row.service_life_limit_hours || "",
+      inspection_interval_unit: intervalUnit as Component["inspection_interval_unit"],
+      inspection_interval: row.inspection_interval || "",
+      inspection_interval_hours: null,
+      inspection_interval_cycles: null,
+      maintenance_strategy: strategy as Component["maintenance_strategy"],
+      installed_at: row.installed_at,
+      removed_at: row.removed_at || "",
+    };
+
+    setComponentsDraft((prev) => [...prev, newComponent]);
+    setComponentExtras((prev) => [...prev, defaultTrackingExtras()]);
+    setIsEditingComponents(true);
+  };
+
+  const handleImportEngineRow = async (row: Record<string, string>) => {
+    const positionMatch = enginePositions.find(
+      (p) => p.name.trim().toLowerCase() === row.position.trim().toLowerCase(),
+    );
+    if (!positionMatch) {
+      throw new Error(`Position "${row.position}" not found`);
+    }
+
+    const categoryMatch = row.category
+      ? engineCategories.find(
+          (c) => c.name.trim().toLowerCase() === row.category.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.category && !categoryMatch) {
+      throw new Error(`Category "${row.category}" not found`);
+    }
+
+    const ataMatch = row.ata_chapter
+      ? matchAtaChapter(engineAtaChapters, row.ata_chapter)
+      : undefined;
+    if (row.ata_chapter && !ataMatch) {
+      throw new Error(`ATA chapter "${row.ata_chapter}" not found`);
+    }
+
+    const intervalUnit = row.inspection_interval_unit?.trim().toLowerCase() || "hours";
+    if (!INTERVAL_UNITS.includes(intervalUnit)) {
+      throw new Error(
+        `Inspection Interval Unit must be one of: ${INTERVAL_UNITS.join(", ")}`,
+      );
+    }
+
+    const strategy = row.maintenance_strategy?.trim().toLowerCase() || "hard-time";
+    if (!MAINTENANCE_STRATEGIES.includes(strategy)) {
+      throw new Error(
+        `Maintenance Strategy must be one of: ${MAINTENANCE_STRATEGIES.join(", ")}`,
+      );
+    }
+
+    const newEngine: Engine = {
+      position_id: positionMatch.id,
+      category_id: categoryMatch?.id,
+      ata_chapter_id: ataMatch?.id,
+      serial_number: row.serial_number,
+      model: row.model,
+      installation_date: row.installation_date,
+      time_since_new: row.time_since_new || "",
+      service_life_limit: row.service_life_limit || "",
+      inspection_interval_unit: intervalUnit as Engine["inspection_interval_unit"],
+      inspection_interval: row.inspection_interval || "",
+      inspection_interval_hours: null,
+      inspection_interval_cycles: null,
+      maintenance_strategy: strategy as Engine["maintenance_strategy"],
+    };
+
+    setEnginesDraft((prev) => [...prev, newEngine]);
+    setEngineExtras((prev) => [...prev, defaultTrackingExtras()]);
+    setEngineComponentsDraft((prev) => [...prev, []]);
+    setEngineComponentExtras((prev) => [...prev, []]);
+    setIsEditingEngines(true);
+  };
+
+  const handleImportAvionicRow = async (row: Record<string, string>) => {
+    const categoryMatch = avionicCategories.find(
+      (c) =>
+        c.name.trim().toLowerCase() === row.avionic_category.trim().toLowerCase(),
+    );
+    if (!categoryMatch) {
+      throw new Error(`Avionic category "${row.avionic_category}" not found`);
+    }
+
+    const ataMatch = row.ata_chapter
+      ? matchAtaChapter(avionicsAtaChapters, row.ata_chapter)
+      : undefined;
+    if (row.ata_chapter && !ataMatch) {
+      throw new Error(`ATA chapter "${row.ata_chapter}" not found`);
+    }
+
+    const intervalUnit = row.inspection_interval_unit?.trim().toLowerCase() || "hours";
+    if (!INTERVAL_UNITS.includes(intervalUnit)) {
+      throw new Error(
+        `Inspection Interval Unit must be one of: ${INTERVAL_UNITS.join(", ")}`,
+      );
+    }
+
+    const strategy = row.maintenance_strategy?.trim().toLowerCase() || "hard-time";
+    if (!MAINTENANCE_STRATEGIES.includes(strategy)) {
+      throw new Error(
+        `Maintenance Strategy must be one of: ${MAINTENANCE_STRATEGIES.join(", ")}`,
+      );
+    }
+
+    const newAvionic: Avionics = {
+      avionic_category_id: categoryMatch.id,
+      ata_chapter_id: ataMatch?.id,
+      serial_number: row.serial_number,
+      model: row.model,
+      manufacturer: row.manufacturer || "",
+      installed_at: row.installed_at,
+      time_since_new: row.time_since_new || "",
+      service_life_limit: row.service_life_limit || "",
+      inspection_interval_unit: intervalUnit as Avionics["inspection_interval_unit"],
+      inspection_interval: row.inspection_interval || "",
+      maintenance_strategy: strategy as Avionics["maintenance_strategy"],
+      removed_at: "",
+    };
+
+    setAvionicsDraft((prev) => [...prev, newAvionic]);
+    setAvionicsExtras((prev) => [...prev, defaultTrackingExtras()]);
     setIsEditingAvionics(true);
   };
 
@@ -2171,6 +2392,14 @@ export const AssetDetailsPage = () => {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setIsImportOpen(true)}
+                        className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+                      >
+                        <Icon icon="mdi:upload" className="h-3.5 w-3.5" />
+                        Import CSV
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setIsEditingComponents(true)}
                         className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
                       >
@@ -2743,6 +2972,14 @@ export const AssetDetailsPage = () => {
                   >
                     <Icon icon="mdi:plus" className="h-3.5 w-3.5" />
                     Add Engine
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsImportOpen(true)}
+                    className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+                  >
+                    <Icon icon="mdi:upload" className="h-3.5 w-3.5" />
+                    Import CSV
                   </button>
                   <button
                     type="button"
@@ -3549,6 +3786,14 @@ export const AssetDetailsPage = () => {
                   >
                     <Icon icon="mdi:plus" className="h-3.5 w-3.5" />
                     Add Avionics
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsImportOpen(true)}
+                    className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+                  >
+                    <Icon icon="mdi:upload" className="h-3.5 w-3.5" />
+                    Import CSV
                   </button>
                   <button
                     type="button"
@@ -4552,6 +4797,39 @@ export const AssetDetailsPage = () => {
           </div>
         )}
       </div>
+
+      <ImportCsvModal
+        open={isImportOpen}
+        title={
+          activeTab === "engines"
+            ? "Import Engines from CSV"
+            : activeTab === "avionics"
+              ? "Import Avionics from CSV"
+              : "Import Components from CSV"
+        }
+        fields={
+          activeTab === "engines"
+            ? ENGINE_IMPORT_FIELDS
+            : activeTab === "avionics"
+              ? AVIONICS_IMPORT_FIELDS
+              : COMPONENT_IMPORT_FIELDS
+        }
+        sampleFileName={
+          activeTab === "engines"
+            ? "engines-import-sample.csv"
+            : activeTab === "avionics"
+              ? "avionics-import-sample.csv"
+              : "components-import-sample.csv"
+        }
+        onImportRow={
+          activeTab === "engines"
+            ? handleImportEngineRow
+            : activeTab === "avionics"
+              ? handleImportAvionicRow
+              : handleImportComponentRow
+        }
+        onClose={() => setIsImportOpen(false)}
+      />
     </div>
   );
 };

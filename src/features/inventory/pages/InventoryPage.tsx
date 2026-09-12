@@ -10,6 +10,9 @@ import {
   useGetStockMovementsQuery,
   useGetRfqsQuery,
   useCreateRfqMutation,
+  useCreateInventoryMutation,
+  useCreateSupplierMutation,
+  useGetExpenseCategoriesQuery,
   useGetSupplierQuotationsQuery,
   useGetGoodsReceivedNotesQuery,
   useGetSuppliersQuery,
@@ -23,6 +26,10 @@ import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import { DataTable } from "@/shared/ui/table/DataTable";
+import {
+  ImportCsvModal,
+  type ImportCsvField,
+} from "@/shared/components/ImportCsvModal";
 
 type InventoryStatusLevel = "High" | "Low" | "Critical" | "Medium" | "Unknown";
 
@@ -190,6 +197,38 @@ const formatTimeShort = (isoString: string | null | undefined) => {
     hour12: false,
   });
 };
+
+const INVENTORY_STORES = [
+  "bonded",
+  "quarantine",
+  "flammable",
+  "rubber",
+  "others",
+] as const;
+
+const INVENTORY_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "description", label: "Item Description", required: true, example: "Main Rotor Blade" },
+  { key: "part_number", label: "Part Number", required: true, example: "PN-10234" },
+  { key: "serial_number", label: "Serial Number", required: false, example: "SN-98213" },
+  { key: "store", label: "Store (bonded/quarantine/flammable/rubber/others)", required: true, example: "bonded" },
+  { key: "unit", label: "Unit", required: true, example: "1 Squadron" },
+  { key: "category", label: "Category", required: false, example: "Consumables" },
+  { key: "aircraft_type", label: "Aircraft Type", required: false, example: "Mi-17" },
+  { key: "current_stock", label: "Current Stock", required: true, example: "10" },
+  { key: "re_order_level", label: "Reorder Level", required: true, example: "2" },
+  { key: "unit_cost", label: "Unit Cost", required: true, example: "1500" },
+  { key: "measurement_unit", label: "Measurement Unit", required: true, example: "pcs" },
+  { key: "expiry_date", label: "Expiry Date (YYYY-MM-DD)", required: false, example: "2026-12-31" },
+  { key: "date_received", label: "Date Received (YYYY-MM-DD)", required: false, example: "2026-01-15" },
+  { key: "remark", label: "Remark", required: false, example: "Received in good condition" },
+];
+
+const SUPPLIER_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "name", label: "Supplier Name", required: true, example: "Sky Parts Ltd" },
+  { key: "contact", label: "Contact", required: false, example: "+234 801 234 5678" },
+  { key: "email", label: "Email", required: false, example: "sales@skyparts.com" },
+  { key: "address", label: "Address", required: false, example: "12 Airport Road, Lagos" },
+];
 
 const downloadCsv = (filename: string, rows: string[][]) => {
   const content = rows
@@ -458,6 +497,9 @@ export const InventoryPage = () => {
   const navigate = useNavigate();
   const [deleteInventory] = useDeleteInventoryMutation();
   const [createRfq, { isLoading: isCreatingPartsRfq }] = useCreateRfqMutation();
+  const [createInventory] = useCreateInventoryMutation();
+  const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const handleDeleteInventory = async (id: number, name: string) => {
     if (!window.confirm(`Delete "${name}"? This action cannot be undone.`)) return;
@@ -493,6 +535,69 @@ export const InventoryPage = () => {
     refetch: refetchInventories,
   } = useGetInventoriesQuery(apiFilters, { skip: activeTab !== "Stocks" });
 
+  const handleImportInventoryRow = async (row: Record<string, string>) => {
+    const unitMatch = units.find(
+      (u) => u.name.trim().toLowerCase() === row.unit.trim().toLowerCase(),
+    );
+    if (!unitMatch) throw new Error(`Unit "${row.unit}" not found`);
+
+    const categoryMatch = row.category
+      ? expenseCategories.find(
+          (c) =>
+            c.name.trim().toLowerCase() === row.category.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.category && !categoryMatch) {
+      throw new Error(`Category "${row.category}" not found`);
+    }
+
+    const aircraftMatch = row.aircraft_type
+      ? aircraftAssets.find(
+          (a) =>
+            a.name.trim().toLowerCase() ===
+            row.aircraft_type.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.aircraft_type && !aircraftMatch) {
+      throw new Error(`Aircraft type "${row.aircraft_type}" not found`);
+    }
+
+    const store = row.store.trim().toLowerCase();
+    if (!(INVENTORY_STORES as readonly string[]).includes(store)) {
+      throw new Error(`Store must be one of: ${INVENTORY_STORES.join(", ")}`);
+    }
+
+    const currentStock = Number(row.current_stock);
+    const reorderLevel = Number(row.re_order_level);
+    const unitCost = Number(row.unit_cost);
+    if (
+      Number.isNaN(currentStock) ||
+      Number.isNaN(reorderLevel) ||
+      Number.isNaN(unitCost)
+    ) {
+      throw new Error(
+        "Current Stock, Reorder Level, and Unit Cost must be numbers",
+      );
+    }
+
+    await createInventory({
+      store,
+      asset_id: aircraftMatch?.id ?? null,
+      expense_category_id: categoryMatch?.id ?? null,
+      unit_id: unitMatch.id,
+      serial_number: row.serial_number ?? "",
+      part_number: row.part_number,
+      current_stock: currentStock,
+      re_order_level: reorderLevel,
+      unit_cost: unitCost,
+      measurement_unit: row.measurement_unit,
+      expiry_date: row.expiry_date || null,
+      date_received: row.date_received || null,
+      remark: row.remark ?? "",
+      description: row.description,
+    }).unwrap();
+  };
+
   const requisitionFilters = useMemo(() => {
     return {
       period: requisitionPeriod === "all" ? undefined : requisitionPeriod,
@@ -505,10 +610,24 @@ export const InventoryPage = () => {
       skip: activeTab !== "Requisitions",
     });
 
-  const { data: suppliersData = [], isLoading: isSuppliersLoading } =
-    useGetSuppliersQuery(undefined, {
-      skip: activeTab !== "Suppliers" && activeTab !== "Parts Requisitions",
-    });
+  const {
+    data: suppliersData = [],
+    isLoading: isSuppliersLoading,
+    refetch: refetchSuppliers,
+  } = useGetSuppliersQuery(undefined, {
+    skip: activeTab !== "Suppliers" && activeTab !== "Parts Requisitions",
+  });
+
+  const [createSupplier] = useCreateSupplierMutation();
+
+  const handleImportSupplierRow = async (row: Record<string, string>) => {
+    await createSupplier({
+      name: row.name,
+      contact: row.contact || undefined,
+      email: row.email || undefined,
+      address: row.address || undefined,
+    }).unwrap();
+  };
 
   const {
     data: stockMovementsData = [],
@@ -1283,6 +1402,14 @@ export const InventoryPage = () => {
                 >
                   <Icon icon="mdi:download" className="w-4 h-4" />
                   Export CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsImportOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:upload" className="w-4 h-4" />
+                  Import CSV
                 </button>
                 <button
                   type="button"
@@ -2209,6 +2336,14 @@ export const InventoryPage = () => {
                   <Icon icon="mdi:download" className="w-4 h-4" />
                   Export CSV
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setIsImportOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:upload" className="w-4 h-4" />
+                  Import CSV
+                </button>
                 <Link
                   to="/dashboard/inventory/suppliers/add"
                   className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
@@ -2424,6 +2559,40 @@ export const InventoryPage = () => {
           }}
         />
       )}
+
+      <ImportCsvModal
+        open={isImportOpen}
+        title={
+          activeTab === "Suppliers"
+            ? "Import Suppliers from CSV"
+            : "Import Inventory from CSV"
+        }
+        fields={
+          activeTab === "Suppliers"
+            ? SUPPLIER_IMPORT_FIELDS
+            : INVENTORY_IMPORT_FIELDS
+        }
+        sampleFileName={
+          activeTab === "Suppliers"
+            ? "suppliers-import-sample.csv"
+            : "inventory-import-sample.csv"
+        }
+        onImportRow={
+          activeTab === "Suppliers"
+            ? handleImportSupplierRow
+            : handleImportInventoryRow
+        }
+        onClose={(result) => {
+          setIsImportOpen(false);
+          if (result && result.successCount > 0) {
+            if (activeTab === "Suppliers") {
+              refetchSuppliers();
+            } else {
+              refetchInventories();
+            }
+          }
+        }}
+      />
     </div>
   );
 };

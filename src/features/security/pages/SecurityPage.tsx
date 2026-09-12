@@ -16,7 +16,7 @@ import {
   useUpdateSystemSettingsMutation,
   type RoleRecord,
 } from "@/features/security/api";
-import { useGetUsersQuery } from "@/features/users/api";
+import { useGetUsersQuery, useUpdateUserMutation } from "@/features/users/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
@@ -70,6 +70,17 @@ export const SecurityPage = () => {
   const [assignRolesDraft, setAssignRolesDraft] = useState<string[]>([]);
   const [assignUnitsUserId, setAssignUnitsUserId] = useState<number | null>(null);
   const [assignUnitsDraft, setAssignUnitsDraft] = useState<number[]>([]);
+  const [editUserId, setEditUserId] = useState<number | null>(null);
+  const [editUserDraft, setEditUserDraft] = useState({
+    firstname: "",
+    lastname: "",
+    username: "",
+    email: "",
+    phone_number: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [editUserError, setEditUserError] = useState<string | null>(null);
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [activityPage, setActivityPage] = useState(1);
   const [activityEventFilter, setActivityEventFilter] = useState("");
@@ -102,6 +113,7 @@ export const SecurityPage = () => {
     useSyncUserRolesMutation();
   const [syncUserUnits, { isLoading: isSavingUserUnits }] =
     useSyncUserUnitsMutation();
+  const [updateUser, { isLoading: isSavingUserEdit }] = useUpdateUserMutation();
 
   const authUser = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = useMemo(() => {
@@ -514,6 +526,71 @@ export const SecurityPage = () => {
     [assignUnitsUserId, userRows],
   );
 
+  const openEditUserModal = (userId: number) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    setEditUserId(userId);
+    setEditUserError(null);
+    setEditUserDraft({
+      firstname: user.firstname || "",
+      lastname: user.lastname || "",
+      username: user.username || "",
+      email: user.email || "",
+      phone_number: user.phone_number || "",
+      password: "",
+      confirmPassword: "",
+    });
+  };
+
+  const closeEditUserModal = () => {
+    setEditUserId(null);
+    setEditUserError(null);
+  };
+
+  const handleSaveUserEdit = async () => {
+    if (editUserId === null) return;
+
+    if (editUserDraft.password || editUserDraft.confirmPassword) {
+      if (editUserDraft.password.length < 6) {
+        setEditUserError("Password must be at least 6 characters.");
+        return;
+      }
+      if (editUserDraft.password !== editUserDraft.confirmPassword) {
+        setEditUserError("Passwords do not match.");
+        return;
+      }
+    }
+
+    setEditUserError(null);
+
+    try {
+      await updateUser({
+        id: editUserId,
+        data: {
+          firstname: editUserDraft.firstname,
+          lastname: editUserDraft.lastname,
+          username: editUserDraft.username,
+          email: editUserDraft.email,
+          phone_number: editUserDraft.phone_number,
+          ...(editUserDraft.password ? { password: editUserDraft.password } : {}),
+        },
+      }).unwrap();
+
+      await refetchUsers();
+      dispatch(showToast({ message: "User details updated", type: "success" }));
+      closeEditUserModal();
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to update user", type: "error" }));
+    }
+  };
+
+  const editUser = useMemo(
+    () => userRows.find((row) => row.id === editUserId) ?? null,
+    [editUserId, userRows],
+  );
+
   const renderTabButton = (tab: SecurityTab, label: string) => (
     <button
       onClick={() => setActiveTab(tab)}
@@ -924,6 +1001,16 @@ export const SecurityPage = () => {
                             >
                               <Icon icon="mdi:office-building-marker-outline" className="h-3.5 w-3.5" />
                               Assign Units
+                            </button>
+                          )}
+                          {isSuperAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => openEditUserModal(row.id)}
+                              className="inline-flex items-center gap-1 rounded border border-amber-400/40 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/10"
+                            >
+                              <Icon icon="mdi:account-edit-outline" className="h-3.5 w-3.5" />
+                              Edit
                             </button>
                           )}
                           <button className="text-gray-300 hover:text-white">View</button>
@@ -1456,6 +1543,180 @@ export const SecurityPage = () => {
               >
                 <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
                 {isSavingUserUnits ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editUserId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeEditUserModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl border border-[#0A4D66]/50 bg-[#001825] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Edit User</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  {editUser
+                    ? `Update details or set a new password for ${editUser.name}.`
+                    : "Update user details or set a new password."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditUserModal}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                <Icon icon="mdi:close" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  First Name
+                </label>
+                <input
+                  value={editUserDraft.firstname}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      firstname: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Last Name
+                </label>
+                <input
+                  value={editUserDraft.lastname}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      lastname: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Username
+                </label>
+                <input
+                  value={editUserDraft.username}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      username: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editUserDraft.email}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Phone Number
+                </label>
+                <input
+                  value={editUserDraft.phone_number}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      phone_number: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+
+              <div className="sm:col-span-2 mt-2 border-t border-[#0A4D66]/40 pt-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-gray-400">
+                  Reset Password (optional)
+                </p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={editUserDraft.password}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="Leave blank to keep current password"
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={editUserDraft.confirmPassword}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      confirmPassword: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+            </div>
+
+            {editUserError && (
+              <p className="mt-3 text-xs text-red-400">{editUserError}</p>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeEditUserModal}
+                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveUserEdit()}
+                disabled={isSavingUserEdit}
+                className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                {isSavingUserEdit ? "Saving..." : "Save"}
               </button>
             </div>
           </div>

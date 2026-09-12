@@ -25,7 +25,7 @@ import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { getEchoClient } from "@/shared/realtime/echo";
 import { useTheme } from "@/context/ThemeContext";
-import { playCallActivatedBeep } from "@/shared/utils/sound";
+import { playCallActivatedBeep, playIncomingCallRing } from "@/shared/utils/sound";
 
 const userName = (user?: CallUser | null): string => {
   if (!user) return "Unknown User";
@@ -271,6 +271,21 @@ export const CallManager = () => {
       void cleanupRtc();
     };
   }, [cleanupRtc]);
+
+  useEffect(() => {
+    if (!incomingCall || activeCall) {
+      return;
+    }
+
+    void playIncomingCallRing();
+    const ringInterval = window.setInterval(() => {
+      void playIncomingCallRing();
+    }, 2000);
+
+    return () => {
+      window.clearInterval(ringInterval);
+    };
+  }, [incomingCall, activeCall]);
 
   const incomingCallerName = useMemo(() => userName(incomingCall?.caller), [incomingCall]);
   const outgoingRecipientName = useMemo(() => {

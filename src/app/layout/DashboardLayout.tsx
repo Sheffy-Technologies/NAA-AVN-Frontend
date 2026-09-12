@@ -3,7 +3,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
-import { UpdateBanner } from "@/shared/components/UpdateBanner";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { setCredentials } from "@/features/auth/authSlice";
 import { useGetMeQuery } from "@/features/security/api";
@@ -85,7 +84,6 @@ export const DashboardLayout = () => {
 
       <ComposeMessageModal />
       <CallManager />
-      <UpdateBanner />
 
       {showComposeFab && (
         <button
