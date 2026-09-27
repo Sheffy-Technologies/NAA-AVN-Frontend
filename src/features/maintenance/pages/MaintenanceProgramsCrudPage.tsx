@@ -12,6 +12,8 @@ import { useGetAssetsQuery, useGetAtaChaptersQuery } from "@/features/assets/api
 
 type ProgramFormState = {
   name: string;
+  category: "scheduled" | "airworthiness_directive" | "service_bulletin";
+  reference_number: string;
   description: string;
   applicability: "component" | "engine" | "avionics";
   interval_type: "hours" | "cycles" | "calendar";
@@ -24,6 +26,8 @@ type ProgramFormState = {
 
 const initialFormState: ProgramFormState = {
   name: "",
+  category: "scheduled",
+  reference_number: "",
   description: "",
   applicability: "component",
   interval_type: "hours",
@@ -32,6 +36,12 @@ const initialFormState: ProgramFormState = {
   interval_months: "",
   ata_chapter_id: "",
   asset_id: "",
+};
+
+const CATEGORY_LABELS: Record<ProgramFormState["category"], string> = {
+  scheduled: "Scheduled Maintenance",
+  airworthiness_directive: "Airworthiness Directive",
+  service_bulletin: "Service Bulletin",
 };
 
 const toNullableNumber = (value: string) => {
@@ -43,6 +53,8 @@ const toNullableNumber = (value: string) => {
 
 const toProgramFormState = (program: MaintenanceProgram): ProgramFormState => ({
   name: program.name || "",
+  category: program.category || "scheduled",
+  reference_number: program.reference_number || "",
   description: program.description || "",
   applicability: program.applicability || "component",
   interval_type: program.interval_type || "hours",
@@ -99,7 +111,8 @@ export const MaintenanceProgramsCrudPage = () => {
       return (
         program.name.toLowerCase().includes(query) ||
         (program.description || "").toLowerCase().includes(query) ||
-        (program.applicability || "").toLowerCase().includes(query)
+        (program.applicability || "").toLowerCase().includes(query) ||
+        (program.reference_number || "").toLowerCase().includes(query)
       );
     });
   }, [programs, search]);
@@ -154,6 +167,8 @@ export const MaintenanceProgramsCrudPage = () => {
     const payload = {
       ata_chapter_id: ataChapterId,
       name: form.name.trim(),
+      category: form.category,
+      reference_number: form.reference_number.trim() || null,
       description: form.description.trim() || null,
       asset_id: toNullableNumber(form.asset_id),
       interval_hours: toNullableNumber(form.interval_hours),
@@ -229,7 +244,21 @@ export const MaintenanceProgramsCrudPage = () => {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <div className="text-sm font-semibold text-white">{program.name}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-white">{program.name}</span>
+                          {program.category && program.category !== "scheduled" && (
+                            <span
+                              className={
+                                program.category === "airworthiness_directive"
+                                  ? "rounded-full border border-red-400/40 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-300"
+                                  : "rounded-full border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-300"
+                              }
+                            >
+                              {CATEGORY_LABELS[program.category]}
+                              {program.reference_number ? ` · ${program.reference_number}` : ""}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-400 mt-1">
                           {program.description || "No description"}
                         </div>
@@ -292,6 +321,28 @@ export const MaintenanceProgramsCrudPage = () => {
                 onChange={(e) => handleChange("name", e.target.value)}
                 required
               />
+
+              <div className="grid grid-cols-2 gap-3">
+                <select
+                  title="Category"
+                  className="w-full rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white"
+                  value={form.category}
+                  onChange={(e) =>
+                    handleChange("category", e.target.value as ProgramFormState["category"])
+                  }
+                >
+                  <option value="scheduled">Scheduled Maintenance</option>
+                  <option value="airworthiness_directive">Airworthiness Directive</option>
+                  <option value="service_bulletin">Service Bulletin</option>
+                </select>
+                <input
+                  className="w-full rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white"
+                  placeholder="Reference # (e.g. AD 2024-12-05)"
+                  value={form.reference_number}
+                  onChange={(e) => handleChange("reference_number", e.target.value)}
+                  disabled={form.category === "scheduled"}
+                />
+              </div>
 
               <textarea
                 className="w-full rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white"

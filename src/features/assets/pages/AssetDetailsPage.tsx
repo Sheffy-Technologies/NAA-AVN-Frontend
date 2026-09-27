@@ -22,12 +22,16 @@ import {
   useGetEngineCategoriesQuery,
   useGetEnginePositionsQuery,
   useUpdateAssetMutation,
+  useGetFlightLogsQuery,
+  useDeleteFlightLogMutation,
   type Avionics,
   type Component,
   type Engine,
+  type MaintenanceDueItem,
 } from "../api";
 import { cn } from "@/shared/utils/cn";
 import AssetMaintenanceProgramsSearchable from "./AssetMaintenanceProgramsSearchable";
+import { FlightLogModal } from "../components/FlightLogModal";
 import { getEchoClient } from "@/shared/realtime/echo";
 import {
   ImportCsvModal,
@@ -696,15 +700,22 @@ export const AssetDetailsPage = () => {
     asset?.id ? { asset_id: asset.id } : undefined,
     { skip: !asset?.id },
   );
-  const { data: complianceRecords = [] } = useGetComplianceRecordsQuery(undefined, {
-    skip: activeTab !== "maintenance",
-  });
+  const { data: complianceRecords = [], refetch: refetchComplianceRecords } = useGetComplianceRecordsQuery(
+    asset?.id ? { asset_id: asset.id } : undefined,
+    { skip: activeTab !== "maintenance" || !asset?.id },
+  );
+  const { data: flightLogs = [] } = useGetFlightLogsQuery(
+    asset?.id ? { asset_id: asset.id } : undefined,
+    { skip: activeTab !== "maintenance" || !asset?.id },
+  );
+  const [deleteFlightLog, { isLoading: isDeletingFlightLog }] = useDeleteFlightLogMutation();
   const [deleteAsset, { isLoading: isDeleting }] = useDeleteAssetMutation();
   const [updateAsset, { isLoading: isUpdating }] = useUpdateAssetMutation();
   const [selectedProgramIds, setSelectedProgramIds] = useState<Set<number>>(new Set());
   // Ad-hoc task modal and handlers removed
   const [isCreatingWorkOrder, setIsCreatingWorkOrder] = useState(false);
   const [creatingDueWorkOrderKey, setCreatingDueWorkOrderKey] = useState<string | null>(null);
+  const [showFlightLogModal, setShowFlightLogModal] = useState(false);
   // (removed duplicate ad-hoc modal state)
   const [isDownloadingAssetExport, setIsDownloadingAssetExport] = useState(false);
   const [isDownloadingMaintenanceHistoryExport, setIsDownloadingMaintenanceHistoryExport] =
@@ -1806,116 +1817,13 @@ export const AssetDetailsPage = () => {
       return dateB - dateA;
     });
 
-  type DueTrackingRow = {
-    key: string;
-    category: "Engine" | "Component";
-    itemId: number | null;
-    name: string;
-    currentHours: number | null;
-    currentCycles: number | null;
-    hoursLeft: number | null;
-    cyclesLeft: number | null;
-    isDue: boolean;
-  };
-
-  const allDueTrackingRows: DueTrackingRow[] = [
-    ...asset.engines.map((engine, index) => {
-      const currentHours = getCurrentServiceHours(engine);
-      const lastInspectionHours = toNumeric(engine.last_inspection) ?? 0;
-      const intervalHours =
-        toNumeric(engine.inspection_interval_hours) ??
-        (toIntervalUnit(engine.inspection_interval_unit) !== "cycle"
-          ? toNumeric(engine.inspection_interval)
-          : null);
-      const nextDueHours =
-        intervalHours !== null ? lastInspectionHours + intervalHours : null;
-      const hoursLeft =
-        nextDueHours !== null && currentHours !== null
-          ? nextDueHours - currentHours
-          : null;
-
-      const currentCycles = toNumeric(asset.total_cycles);
-      const lastInspectionCycles = toNumeric(asset.last_inspection_cycles) ?? 0;
-      const intervalCycles =
-        toNumeric(engine.inspection_interval_cycles) ??
-        (toIntervalUnit(engine.inspection_interval_unit) === "cycle"
-          ? toNumeric(engine.inspection_interval)
-          : null);
-      const nextDueCycles =
-        intervalCycles !== null ? lastInspectionCycles + intervalCycles : null;
-      const cyclesLeft =
-        nextDueCycles !== null && currentCycles !== null
-          ? nextDueCycles - currentCycles
-          : null;
-
-      const isDue =
-        (hoursLeft !== null && hoursLeft <= 0) ||
-        (cyclesLeft !== null && cyclesLeft <= 0);
-
-      return {
-        key: `engine-${engine.id ?? index}`,
-        category: "Engine" as const,
-        itemId: engine.id ?? null,
-        name: engine.serial_number || engine.model || `Engine ${index + 1}`,
-        currentHours,
-        currentCycles,
-        hoursLeft,
-        cyclesLeft,
-        isDue,
-      };
-    }),
-    ...asset.components.map((component, index) => {
-      const currentHours = getCurrentServiceHours(component);
-      const lastInspectionHours = toNumeric(component.last_inspection) ?? 0;
-      const intervalHours =
-        toNumeric(component.inspection_interval_hours) ??
-        (toIntervalUnit(component.inspection_interval_unit) !== "cycle"
-          ? toNumeric(component.inspection_interval)
-          : null);
-      const nextDueHours =
-        intervalHours !== null ? lastInspectionHours + intervalHours : null;
-      const hoursLeft =
-        nextDueHours !== null && currentHours !== null
-          ? nextDueHours - currentHours
-          : null;
-
-      const currentCycles = toNumeric(asset.total_cycles);
-      const lastInspectionCycles = toNumeric(asset.last_inspection_cycles) ?? 0;
-      const intervalCycles =
-        toNumeric(component.inspection_interval_cycles) ??
-        (toIntervalUnit(component.inspection_interval_unit) === "cycle"
-          ? toNumeric(component.inspection_interval)
-          : null);
-      const nextDueCycles =
-        intervalCycles !== null ? lastInspectionCycles + intervalCycles : null;
-      const cyclesLeft =
-        nextDueCycles !== null && currentCycles !== null
-          ? nextDueCycles - currentCycles
-          : null;
-
-      const isDue =
-        (hoursLeft !== null && hoursLeft <= 0) ||
-        (cyclesLeft !== null && cyclesLeft <= 0);
-
-      return {
-        key: `component-${component.id ?? index}`,
-        category: "Component" as const,
-        itemId: component.id ?? null,
-        name:
-          component.part_number ||
-          component.serial_number ||
-          `Component ${index + 1}`,
-        currentHours,
-        currentCycles,
-        hoursLeft,
-        cyclesLeft,
-        isDue,
-      };
-    }),
-  ];
-
-  const dueTrackingRows: DueTrackingRow[] = allDueTrackingRows.filter(
-    (row) => row.isDue,
+  // Due status for every component/engine/avionic is now computed
+  // server-side (MaintenanceDueCalculator) from each part's compliance
+  // history (or its own baseline+interval when it has none yet) compared
+  // against the asset's live current_total_hours/cycles — which already
+  // folds in manually logged flights. See asset.maintenance_due.
+  const dueTrackingRows = (asset.maintenance_due ?? []).filter(
+    (item) => item.status === "overdue" || item.status === "due_soon",
   );
 
   const handleToggleProgramSelection = (id: number) => {
@@ -2002,6 +1910,10 @@ export const AssetDetailsPage = () => {
   const handleMarkTaskCompleted = async (taskId: number) => {
     try {
       await updateWorkOrderTask({ id: taskId, status: "completed" }).unwrap();
+      // Refresh the asset (maintenance_due/airworthiness) and its
+      // compliance history now that this task's completion has updated them.
+      refetchAsset();
+      refetchComplianceRecords();
       dispatch(
         showToast({
           message: "Work order task marked as completed. Compliance history record created.",
@@ -2018,15 +1930,27 @@ export const AssetDetailsPage = () => {
     }
   };
 
+  const handleDeleteFlightLog = async (flightLogId: number) => {
+    if (!asset?.id) return;
+    if (!window.confirm("Delete this flight log entry?")) return;
+
+    try {
+      await deleteFlightLog({ id: flightLogId, asset_id: asset.id }).unwrap();
+      dispatch(showToast({ message: "Flight log deleted", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to delete flight log", type: "error" }));
+    }
+  };
+
   const handleCreateDueItemWorkOrder = async (
-    row: Pick<DueTrackingRow, "key" | "category" | "itemId" | "name">,
+    row: Pick<MaintenanceDueItem, "part_type" | "part_id" | "part_label">,
   ) => {
-    if (!asset?.id || !row.itemId) {
+    if (!asset?.id || row.part_type === "asset") {
       dispatch(showToast({ message: "Item is missing an id", type: "error" }));
       return;
     }
 
-    const applicability = row.category === "Engine" ? "engine" : "component";
+    const applicability = row.part_type;
     const matchingProgram = maintenancePrograms.find(
       (program) => program.applicability === applicability,
     );
@@ -2041,25 +1965,27 @@ export const AssetDetailsPage = () => {
       return;
     }
 
+    const rowKey = `${row.part_type}-${row.part_id}`;
+
     try {
-      setCreatingDueWorkOrderKey(row.key);
+      setCreatingDueWorkOrderKey(rowKey);
 
       await createWorkOrder({
         asset_id: asset.id,
-        title: `${asset.name || "Asset"} - ${row.category} due: ${row.name}`,
+        title: `${asset.name || "Asset"} - ${applicability} due: ${row.part_label}`,
         program_applicabilities: [
           {
             program_id: matchingProgram.id,
-            component_ids: row.category === "Component" ? [row.itemId] : [],
-            engine_ids: row.category === "Engine" ? [row.itemId] : [],
-            avionics_ids: [],
+            component_ids: row.part_type === "component" ? [row.part_id] : [],
+            engine_ids: row.part_type === "engine" ? [row.part_id] : [],
+            avionics_ids: row.part_type === "avionics" ? [row.part_id] : [],
           },
         ],
       }).unwrap();
 
       dispatch(
         showToast({
-          message: `Work order created for due ${row.category.toLowerCase()}`,
+          message: `Work order created for due ${applicability}`,
           type: "success",
         }),
       );
@@ -4316,6 +4242,116 @@ export const AssetDetailsPage = () => {
 
         {activeTab === "maintenance" && (
           <div className="space-y-4">
+            {asset.airworthiness && asset.airworthiness.status === "grounded" && (
+              <div className="rounded-xl border border-red-500/50 bg-red-950/30 p-5">
+                <div className="flex items-center gap-2 text-red-300 text-sm font-bold uppercase">
+                  <Icon icon="mdi:alert-octagon-outline" className="h-5 w-5" />
+                  Grounded — Not Airworthy
+                </div>
+                <ul className="mt-3 space-y-1.5 text-sm text-red-200 list-disc list-inside">
+                  {asset.airworthiness.reasons.map((reason, index) => (
+                    <li key={index}>{reason.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase">
+                  Flight Hours
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowFlightLogModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded bg-[#0369A1] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0369A1]/90"
+                >
+                  <Icon icon="mdi:airplane-clock" className="h-4 w-4" />
+                  Log Flight
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-5">
+                <StatCard
+                  label="Current Hours"
+                  value={`${asset.current_total_hours.toLocaleString()} hrs`}
+                />
+                <StatCard
+                  label="Current Cycles"
+                  value={asset.current_total_cycles.toLocaleString()}
+                />
+                <StatCard
+                  label="Current Landings"
+                  value={asset.current_total_landings.toLocaleString()}
+                />
+                <StatCard
+                  label="Logged Hours (Manual)"
+                  value={`${asset.flight_logs_total_hours.toLocaleString()} hrs`}
+                />
+              </div>
+
+              {flightLogs.length === 0 ? (
+                <EmptyState message="No flight hours logged yet." />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm text-gray-200">
+                    <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
+                      <tr>
+                        <th className="text-left px-4 py-3 font-medium">Date</th>
+                        <th className="text-left px-4 py-3 font-medium">Hours</th>
+                        <th className="text-left px-4 py-3 font-medium">Landings</th>
+                        <th className="text-left px-4 py-3 font-medium">Cycles</th>
+                        <th className="text-left px-4 py-3 font-medium">Logged By</th>
+                        <th className="text-left px-4 py-3 font-medium">Remarks</th>
+                        <th className="text-left px-4 py-3 font-medium">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {flightLogs.slice(0, 10).map((log, index) => (
+                        <tr
+                          key={log.id}
+                          className={cn(
+                            "border-t border-[#0A4D66]/40",
+                            index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )}
+                        >
+                          <td className="px-4 py-3 text-white">
+                            {new Date(log.flight_date).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-white">{log.hours_flown} hrs</td>
+                          <td className="px-4 py-3">{log.landings}</td>
+                          <td className="px-4 py-3">{log.cycles}</td>
+                          <td className="px-4 py-3">
+                            {log.created_by_user
+                              ? `${log.created_by_user.firstname ?? ""} ${log.created_by_user.lastname ?? ""}`.trim()
+                              : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
+                            {log.remarks ?? "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteFlightLog(log.id)}
+                              disabled={isDeletingFlightLog}
+                              title="Delete flight log"
+                              className="text-red-400 hover:text-red-300 disabled:opacity-50"
+                            >
+                              <Icon icon="mdi:trash-can-outline" className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
               <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-4">
                 Work Order Items Status
@@ -4385,6 +4421,7 @@ export const AssetDetailsPage = () => {
                         <th className="text-left px-4 py-3 font-medium">Completed On</th>
                         <th className="text-left px-4 py-3 font-medium">Next Due Date</th>
                         <th className="text-left px-4 py-3 font-medium">Next Due Hours</th>
+                        <th className="text-left px-4 py-3 font-medium">Next Due Cycles</th>
                         <th className="text-left px-4 py-3 font-medium">Remarks</th>
                       </tr>
                     </thead>
@@ -4403,6 +4440,7 @@ export const AssetDetailsPage = () => {
                           <td className="px-4 py-3">{formatDateTime(record.completion_date)}</td>
                           <td className="px-4 py-3">{formatDate(record.next_due_date)}</td>
                           <td className="px-4 py-3">{formatHours(record.next_due_hours)}</td>
+                          <td className="px-4 py-3">{record.next_due_cycles ?? "-"}</td>
                           <td className="px-4 py-3">{record.remarks || "-"}</td>
                         </tr>
                       ))}
@@ -4477,11 +4515,11 @@ export const AssetDetailsPage = () => {
 
             <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
               <h3 className="text-[#7FD5FF] text-sm font-bold uppercase mb-4">
-                Due Components / Engines
+                Due Components / Engines / Avionics
               </h3>
 
               {dueTrackingRows.length === 0 ? (
-                <EmptyState message="No components or engines are currently due for maintenance." />
+                <EmptyState message="No components, engines, or avionics are currently due for maintenance." />
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full text-sm text-gray-200">
@@ -4489,53 +4527,52 @@ export const AssetDetailsPage = () => {
                       <tr>
                         <th className="text-left px-4 py-3 font-medium">Category</th>
                         <th className="text-left px-4 py-3 font-medium">Item</th>
-                        <th className="text-left px-4 py-3 font-medium">Current Used Hrs</th>
-                        <th className="text-left px-4 py-3 font-medium">Current Used Cycles</th>
                         <th className="text-left px-4 py-3 font-medium">Hours Left</th>
                         <th className="text-left px-4 py-3 font-medium">Cycles Left</th>
+                        <th className="text-left px-4 py-3 font-medium">Projected Due</th>
                         <th className="text-left px-4 py-3 font-medium">Status</th>
                         <th className="text-left px-4 py-3 font-medium">Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {dueTrackingRows.map((row, index) => {
-                        const isOverdue =
-                          (row.hoursLeft !== null && row.hoursLeft <= 0) ||
-                          (row.cyclesLeft !== null && row.cyclesLeft <= 0);
+                        const rowKey = `${row.part_type}-${row.part_id}`;
+                        const isOverdue = row.status === "overdue";
 
                         return (
                           <tr
-                            key={row.key}
+                            key={rowKey}
                             className={cn(
                               "border-t border-[#0A4D66]/40",
                               index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                             )}
                           >
-                            <td className="px-4 py-3">{row.category}</td>
-                            <td className="px-4 py-3 text-white font-medium">{row.name}</td>
-                            <td className="px-4 py-3">
-                              {row.currentHours === null
-                                ? "-"
-                                : `${row.currentHours.toLocaleString()} hrs`}
+                            <td className="px-4 py-3 capitalize">{row.part_type}</td>
+                            <td className="px-4 py-3 text-white font-medium">
+                              {row.part_label}
                             </td>
                             <td className="px-4 py-3">
-                              {row.currentCycles === null
+                              {row.hours_remaining === null
                                 ? "-"
-                                : `${row.currentCycles.toLocaleString()} cyc`}
+                                : `${Math.abs(row.hours_remaining).toLocaleString()} hrs`}
                             </td>
                             <td className="px-4 py-3">
-                              {row.hoursLeft === null
+                              {row.cycles_remaining === null
                                 ? "-"
-                                : `${Math.abs(row.hoursLeft).toLocaleString()} hrs`}
+                                : `${Math.abs(row.cycles_remaining).toLocaleString()} cyc`}
                             </td>
                             <td className="px-4 py-3">
-                              {row.cyclesLeft === null
-                                ? "-"
-                                : `${Math.abs(row.cyclesLeft).toLocaleString()} cyc`}
+                              {row.projected_due_date
+                                ? new Date(row.projected_due_date).toLocaleDateString("en-GB", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })
+                                : "-"}
                             </td>
                             <td className="px-4 py-3">
                               <StatusPill
-                                label={isOverdue ? "Overdue" : "Due"}
+                                label={isOverdue ? "Overdue" : "Due Soon"}
                                 tone={isOverdue ? "danger" : "warning"}
                               />
                             </td>
@@ -4543,10 +4580,10 @@ export const AssetDetailsPage = () => {
                               <button
                                 type="button"
                                 onClick={() => handleCreateDueItemWorkOrder(row)}
-                                disabled={creatingDueWorkOrderKey === row.key}
+                                disabled={creatingDueWorkOrderKey === rowKey}
                                 className="rounded border border-emerald-400 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-60"
                               >
-                                {creatingDueWorkOrderKey === row.key
+                                {creatingDueWorkOrderKey === rowKey
                                   ? "Creating..."
                                   : "Create Work Order"}
                               </button>
@@ -4830,6 +4867,15 @@ export const AssetDetailsPage = () => {
         }
         onClose={() => setIsImportOpen(false)}
       />
+
+      {asset && (
+        <FlightLogModal
+          open={showFlightLogModal}
+          onClose={() => setShowFlightLogModal(false)}
+          assetId={asset.id}
+          assetName={asset.name}
+        />
+      )}
     </div>
   );
 };

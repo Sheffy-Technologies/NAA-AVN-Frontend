@@ -445,6 +445,7 @@ export type Asset = {
     | "grounded"
     | "medical";
   tail_number: string;
+  hours?: number | string | null;
   total_airframe_hours: string;
   service_life_limit: string;
   last_inspection_hours: string;
@@ -466,7 +467,88 @@ export type Asset = {
   operations_count?: number;
   operations_total_hours: number;
   operations_total_hours_label: string;
+  // Manual flight-log tracking (see FlightLog) — live-computed on the backend.
+  flight_logs_total_hours: number;
+  flight_logs_total_cycles: number;
+  flight_logs_total_landings: number;
+  // Authoritative current counters: baseline + operations + manual logs.
+  current_total_hours: number;
+  current_total_cycles: number;
+  current_total_landings: number;
 };
+
+export type AirworthinessReason = {
+  type: string;
+  part_id: number | null;
+  message: string;
+};
+
+export type Airworthiness = {
+  status: "airworthy" | "grounded";
+  reasons: AirworthinessReason[];
+};
+
+export type MaintenanceDuePartType = "component" | "engine" | "avionics" | "asset";
+export type MaintenanceDueStatus = "overdue" | "due_soon" | "ok" | "not_tracked";
+
+export type MaintenanceDueItem = {
+  status: MaintenanceDueStatus;
+  source: "compliance_history" | "baseline" | "asset_inspection" | "none" | "unsupported";
+  next_due_hours: number | null;
+  next_due_cycles: number | null;
+  next_due_date: string | null;
+  hours_remaining: number | null;
+  cycles_remaining: number | null;
+  days_remaining: number | null;
+  service_life_limit_hours: number | null;
+  service_life_remaining_hours: number | null;
+  projected_due_date: string | null;
+  current_hours: number | null;
+  current_cycles: number | null;
+  part_type: MaintenanceDuePartType;
+  part_id: number;
+  part_label: string;
+  part_serial_number?: string | null;
+  asset_id: number;
+  asset_name: string;
+  asset_tail_number: string | null;
+  asset_type: Asset["type"];
+  reasons?: string[];
+};
+
+export type FlightLog = {
+  id: number;
+  asset_id: number;
+  operation_id: number | null;
+  flight_date: string;
+  hours_flown: number | string;
+  landings: number;
+  cycles: number;
+  remarks: string | null;
+  created_by: number | null;
+  created_at: string;
+  updated_at: string;
+  created_by_user?: {
+    id: number;
+    firstname: string | null;
+    lastname: string | null;
+    email: string;
+  } | null;
+};
+
+export type CreateFlightLogRequest = {
+  asset_id: number;
+  operation_id?: number | null;
+  flight_date: string;
+  hours_flown: number;
+  landings?: number;
+  cycles?: number;
+  remarks?: string | null;
+};
+
+export type UpdateFlightLogRequest = Partial<
+  Omit<CreateFlightLogRequest, "asset_id">
+>;
 
 export type AssetDetail = Asset & {
   maintenance_events: MaintenanceEvent[];
@@ -476,6 +558,9 @@ export type AssetDetail = Asset & {
   avionics: Avionics[];
   defects: Defect[];
   operations: Operation[];
+  flight_logs: FlightLog[];
+  airworthiness: Airworthiness;
+  maintenance_due: MaintenanceDueItem[];
 };
 
 export const assetsApi = createApi({
@@ -490,6 +575,7 @@ export const assetsApi = createApi({
     "AvionicCategories",
     "DocumentTypes",
     "Documents",
+    "FlightLogs",
   ],
   endpoints: (builder) => ({
     getAssetTypes: builder.query<AssetType[], void>({
@@ -786,6 +872,69 @@ export const assetsApi = createApi({
         ];
       },
     }),
+    getFlightLogs: builder.query<FlightLog[], { asset_id?: number } | void>({
+      query: (params) => ({
+        url: "/flight-logs",
+        method: "GET",
+        params: params || undefined,
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map(({ id }) => ({ type: "FlightLogs" as const, id })),
+              { type: "FlightLogs", id: "LIST" },
+            ]
+          : [{ type: "FlightLogs", id: "LIST" }],
+    }),
+    createFlightLog: builder.mutation<FlightLog, CreateFlightLogRequest>({
+      query: (body) => ({
+        url: "/flight-logs",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: (result, error, body) => {
+        void result;
+        void error;
+        return [
+          { type: "FlightLogs", id: "LIST" },
+          { type: "Assets", id: body.asset_id },
+        ];
+      },
+    }),
+    updateFlightLog: builder.mutation<
+      FlightLog,
+      { id: number; asset_id: number; data: UpdateFlightLogRequest }
+    >({
+      query: ({ id, data }) => ({
+        url: `/flight-logs/${id}`,
+        method: "PUT",
+        data,
+      }),
+      invalidatesTags: (result, error, { id, asset_id }) => {
+        void result;
+        void error;
+        return [
+          { type: "FlightLogs", id },
+          { type: "FlightLogs", id: "LIST" },
+          { type: "Assets", id: asset_id },
+        ];
+      },
+    }),
+    deleteFlightLog: builder.mutation<void, { id: number; asset_id: number }>({
+      query: ({ id }) => ({
+        url: `/flight-logs/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, { id, asset_id }) => {
+        void result;
+        void error;
+        return [
+          { type: "FlightLogs", id },
+          { type: "FlightLogs", id: "LIST" },
+          { type: "Assets", id: asset_id },
+        ];
+      },
+    }),
   }),
 });
 
@@ -811,4 +960,8 @@ export const {
   useUpdateAssetMutation,
   useDeleteAssetMutation,
   useCreateDefectMutation,
+  useGetFlightLogsQuery,
+  useCreateFlightLogMutation,
+  useUpdateFlightLogMutation,
+  useDeleteFlightLogMutation,
 } = assetsApi;

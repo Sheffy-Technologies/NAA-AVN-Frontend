@@ -6,10 +6,13 @@ import {
   useUpdateOperationMutation,
   type CreateOperationRequest,
 } from "../api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
 
 export const EditOperationPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { data: operation, isLoading } = useGetOperationByIdQuery(id || "", {
     skip: !id,
   });
@@ -24,6 +27,17 @@ export const EditOperationPage = () => {
       navigate(`/dashboard/operations/${id}`);
     } catch (error) {
       console.error("Failed to update operation:", error);
+      const err = error as {
+        data?: { message?: string; errors?: Record<string, string[]> };
+      };
+      const firstFieldError = err?.data?.errors
+        ? Object.values(err.data.errors)[0]?.[0]
+        : undefined;
+      const message =
+        firstFieldError ||
+        err?.data?.message ||
+        "Failed to update operation. Please try again.";
+      dispatch(showToast({ message, type: "error" }));
     }
   };
 
