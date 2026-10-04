@@ -224,6 +224,12 @@ export const AssetsPage = () => {
           updated_at: vehicle.updated_at || "",
           operations_total_hours: 0,
           operations_total_hours_label: "0",
+          flight_logs_total_hours: 0,
+          flight_logs_total_cycles: 0,
+          flight_logs_total_landings: 0,
+          current_total_hours: 0,
+          current_total_cycles: 0,
+          current_total_landings: 0,
         }))
       : activeTab === "facility"
         ? (facilities ?? []).map((facility: Facility) => ({
@@ -260,6 +266,12 @@ export const AssetsPage = () => {
             updated_at: facility.updated_at || "",
             operations_total_hours: 0,
             operations_total_hours_label: "0",
+            flight_logs_total_hours: 0,
+            flight_logs_total_cycles: 0,
+            flight_logs_total_landings: 0,
+            current_total_hours: 0,
+            current_total_cycles: 0,
+            current_total_landings: 0,
           }))
       :
           assets
@@ -399,7 +411,7 @@ export const AssetsPage = () => {
         {/* Controls */}
         <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
           {/* Top Row: View Switcher, Stats, Filters, Add Button */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
             {/* View Icons */}
             <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
               <button

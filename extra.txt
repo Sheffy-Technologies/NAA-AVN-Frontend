@@ -14,3 +14,18 @@ git push origin main
 # 3. Tag it — this triggers the Actions workflow
 git tag v0.2.0
 git push origin v0.2.0
+
+
+
+I have created a dedicated dev environment for the Insucare backend on the Insucare server.
+
+SSH Details:
+Server: 209.97.185.17
+username: insucare-dev
+password: yeHFMs8UL27z
+
+
+dev application directory
+/var/www/insucare-dev/
+
+Once the backend is fully set up and running successfully, please let me know. I will then handle the CI/CD deployment setup for the dev environment.

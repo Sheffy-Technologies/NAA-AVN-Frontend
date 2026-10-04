@@ -733,8 +733,8 @@ export const FinancePage = () => {
       </section>
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-visible min-h-90">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -797,7 +797,7 @@ export const FinancePage = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200"
@@ -808,7 +808,7 @@ export const FinancePage = () => {
             </button>
 
             {activeTab === "expenses" && (
-              <div className="hidden lg:flex items-center gap-2">
+              <div className="hidden lg:flex flex-wrap items-center gap-2">
                 <div className="relative">
                   <select
                     value={
@@ -902,7 +902,7 @@ export const FinancePage = () => {
             )}
 
             {activeTab === "budgets" && (
-              <div className="hidden lg:flex items-center gap-2">
+              <div className="hidden lg:flex flex-wrap items-center gap-2">
                 <div className="relative">
                   <select
                     value={

@@ -1370,17 +1370,13 @@ export const AssetDetailsPage = () => {
       });
 
       const dueTrackingSheetRows = dueTrackingRows.map((row) => ({
-        Category: row.category,
-        Item: row.name,
-        "Current Used Hrs": formatNumber(row.currentHours),
-        "Current Used Cycles": formatNumber(row.currentCycles),
-        "Hours Left": row.hoursLeft !== null ? formatNumber(row.hoursLeft) : "-",
-        "Cycles Left": row.cyclesLeft !== null ? formatNumber(row.cyclesLeft) : "-",
-        Status:
-          (row.hoursLeft !== null && row.hoursLeft <= 0) ||
-          (row.cyclesLeft !== null && row.cyclesLeft <= 0)
-            ? "Overdue"
-            : "Due",
+        Category: row.part_type,
+        Item: row.part_label,
+        "Current Used Hrs": formatNumber(row.current_hours),
+        "Current Used Cycles": formatNumber(row.current_cycles),
+        "Hours Left": row.hours_remaining !== null ? formatNumber(row.hours_remaining) : "-",
+        "Cycles Left": row.cycles_remaining !== null ? formatNumber(row.cycles_remaining) : "-",
+        Status: row.status === "overdue" ? "Overdue" : "Due Soon",
       }));
 
       const componentById = new Map(

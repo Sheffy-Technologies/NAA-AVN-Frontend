@@ -1249,7 +1249,7 @@ export const InventoryPage = () => {
                   Create Purchase Order
                 </button>
               </div>
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   {stockSubTabs.map((subTab) => (
                     <button
@@ -1649,7 +1649,7 @@ export const InventoryPage = () => {
         ) : activeTab === "Requisitions" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
                   <button className="px-3 py-1.5 bg-[#001825] text-white rounded text-xs font-medium shadow-sm">
                     Requisitions
@@ -1977,7 +1977,7 @@ export const InventoryPage = () => {
         ) : activeTab === "Parts Requisitions" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
                   <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
                     Parts Requisitions
@@ -2200,7 +2200,7 @@ export const InventoryPage = () => {
         ) : activeTab === "Purchase Orders" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
                   <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
                     Purchase Orders
@@ -2292,7 +2292,7 @@ export const InventoryPage = () => {
         ) : activeTab === "Suppliers" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
                 <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
                   <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
                     Suppliers

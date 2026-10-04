@@ -445,7 +445,7 @@ export const PersonnelPage = () => {
         {/* Module-level tab bar */}
         <PersonnelModuleTabs />
 
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-4">
             <h2 className="text-sm sm:text-base font-semibold tracking-wide text-white uppercase">
               Personnel
@@ -482,7 +482,7 @@ export const PersonnelPage = () => {
             </div>
           </div>
 
-          <div ref={filterBarRef} className="flex items-center gap-3">
+          <div ref={filterBarRef} className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               className="px-3 py-1.5 rounded-full border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 hidden sm:block"
@@ -523,7 +523,7 @@ export const PersonnelPage = () => {
                 // Base
                 "hidden",
                 // Desktop
-                "xl:flex xl:flex-row xl:items-center xl:gap-2 xl:static xl:w-auto xl:bg-transparent xl:border-none xl:shadow-none xl:p-0 xl:space-y-0 xl:animate-none",
+                "xl:flex xl:flex-row xl:flex-wrap xl:items-center xl:gap-2 xl:static xl:w-auto xl:bg-transparent xl:border-none xl:shadow-none xl:p-0 xl:space-y-0 xl:animate-none",
                 // Mobile
                 showMobileFilters &&
                   "flex flex-col absolute top-14 right-4 bg-[#001219] border border-[#0A4D66]/40 rounded-lg p-3 shadow-xl z-30 w-64 space-y-3 animate-in fade-in slide-in-from-top-2",

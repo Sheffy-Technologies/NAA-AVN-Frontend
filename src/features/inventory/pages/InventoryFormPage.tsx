@@ -242,7 +242,7 @@ const InventoryFormContent = ({
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <h2 className="text-sm sm:text-base font-semibold tracking-wide text-white uppercase">
             {pageTitle}
           </h2>

@@ -85,7 +85,7 @@ export const CoursePage = () => {
         <PersonnelModuleTabs />
 
         {/* Course page header */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40">
           <h2 className="text-sm font-semibold tracking-wide text-white uppercase">
             Course Management
           </h2>

@@ -483,7 +483,7 @@ export const DocumentsPage = () => {
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-90">
         {/* Header bar */}
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40">
           <div className="flex items-center gap-3">
             <h2 className="text-sm font-semibold tracking-wide text-white uppercase">Documents</h2>
             <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 p-1">
