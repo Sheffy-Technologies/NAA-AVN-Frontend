@@ -1,3 +1,4 @@
+import type { NewInventoryPayload } from "./newInventoryItem";
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
 
@@ -265,7 +266,8 @@ export type CreatePurchaseOrderPayload = {
   expected_date_of_delivery?: string | null;
   status?: "draft" | "sent" | "received";
   items: Array<{
-    inventory_id: number;
+    inventory_id?: number;
+    new_inventory?: NewInventoryPayload;
     part_number?: string | null;
     quantity_ordered?: number;
     quantity_received?: number | null;

@@ -9,6 +9,7 @@ import {
   useCreateStockMovementMutation,
   useCreateSupplierQuotationMutation,
   useGetGoodsReceivedNotesQuery,
+  useGetExpenseCategoriesQuery,
   useGetInventoriesQuery,
   useGetPurchaseOrdersQuery,
   useGetRfqsQuery,
@@ -17,6 +18,13 @@ import {
   useGetSuppliersQuery,
   type PurchaseOrder,
 } from "@/features/inventory/api";
+import { NewInventoryItemFields } from "@/features/inventory/components/NewInventoryItemFields";
+import {
+  emptyNewInventoryDraft,
+  toNewInventoryPayload,
+  type NewInventoryDraft,
+  type NewInventoryPayload,
+} from "@/features/inventory/newInventoryItem";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
 
 const cardClass =
@@ -45,6 +53,7 @@ export const ProcurementLifecyclePage = () => {
 
   const { data: workOrders = [] } = useGetWorkOrdersQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
+  const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const { data: stockMovements = [], refetch: refetchStockMovements } =
     useGetStockMovementsQuery();
@@ -103,6 +112,8 @@ export const ProcurementLifecyclePage = () => {
     order_date: "",
     expected_date_of_delivery: "",
   });
+  const [poItemMode, setPoItemMode] = useState<"existing" | "new">("existing");
+  const [poNewInventory, setPoNewInventory] = useState<NewInventoryDraft>(emptyNewInventoryDraft);
 
   const [grnForm, setGrnForm] = useState({
     purchase_order_id: "",
@@ -321,9 +332,28 @@ export const ProcurementLifecyclePage = () => {
     const quantityOrdered = Number(poForm.quantity_ordered);
     const unitPrice = poForm.unit_price ? Number(poForm.unit_price) : undefined;
 
-    if (!rfqId || !supplierId || !inventoryId || !Number.isInteger(quantityOrdered) || quantityOrdered < 1) {
-      setError("Provide RFQ, supplier, inventory, and valid quantity for PO.");
+    if (!rfqId || !supplierId || !Number.isInteger(quantityOrdered) || quantityOrdered < 1) {
+      setError("Provide RFQ, supplier and a valid quantity for PO.");
       return;
+    }
+
+    let poItem: { inventory_id?: number; new_inventory?: NewInventoryPayload; unit_price?: number };
+    if (poItemMode === "new") {
+      const result = toNewInventoryPayload(poNewInventory);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      poItem = { new_inventory: result.payload };
+      if (unitPrice !== undefined) poItem.unit_price = unitPrice;
+      else if (result.payload.unit_cost != null) poItem.unit_price = result.payload.unit_cost;
+    } else {
+      if (!inventoryId) {
+        setError("Select an inventory item, or add a new one.");
+        return;
+      }
+      poItem = { inventory_id: inventoryId };
+      if (unitPrice !== undefined) poItem.unit_price = unitPrice;
     }
 
     try {
@@ -336,10 +366,9 @@ export const ProcurementLifecyclePage = () => {
         status: "sent",
         items: [
           {
-            inventory_id: inventoryId,
+            ...poItem,
             quantity_ordered: quantityOrdered,
             quantity_received: 0,
-            unit_price: unitPrice,
           },
         ],
       }).unwrap();
@@ -354,6 +383,8 @@ export const ProcurementLifecyclePage = () => {
         order_date: "",
         expected_date_of_delivery: "",
       });
+      setPoItemMode("existing");
+      setPoNewInventory(emptyNewInventoryDraft());
       setSuccess("Purchase order created from approved RFQ.");
       refetchPurchaseOrders();
     } catch {
@@ -641,17 +672,37 @@ export const ProcurementLifecyclePage = () => {
               <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
             ))}
           </select>
-          <select
-            className={fieldClass}
-            value={poForm.inventory_id}
-            onChange={(e) => setPoForm((s) => ({ ...s, inventory_id: e.target.value }))}
-            title="Inventory"
-          >
-            <option value="">Inventory item</option>
-            {inventories.map((inv) => (
-              <option key={inv.id} value={inv.id}>{inv.part_number} - {inv.description}</option>
-            ))}
-          </select>
+          <div className="flex gap-2 sm:col-span-2">
+            <select
+              className={`${fieldClass} flex-1`}
+              value={poForm.inventory_id}
+              onChange={(e) => setPoForm((s) => ({ ...s, inventory_id: e.target.value }))}
+              title="Inventory"
+              disabled={poItemMode === "new"}
+            >
+              <option value="">Inventory item</option>
+              {inventories.map((inv) => (
+                <option key={inv.id} value={inv.id}>{inv.part_number} - {inv.description}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setPoItemMode((m) => (m === "new" ? "existing" : "new"))}
+              className="rounded border border-[#0A4D66]/50 px-3 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/30"
+            >
+              {poItemMode === "new" ? "Pick from stock" : "Not in stock?"}
+            </button>
+          </div>
+          {poItemMode === "new" && (
+            <div className="sm:col-span-2">
+              <NewInventoryItemFields
+                draft={poNewInventory}
+                onChange={setPoNewInventory}
+                expenseCategories={expenseCategories}
+                inputClassName={fieldClass}
+              />
+            </div>
+          )}
           <input
             type="number"
             min={1}

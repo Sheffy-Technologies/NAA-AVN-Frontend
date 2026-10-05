@@ -11,8 +11,16 @@ import {
   useGetSupplierQuotationsQuery,
   useCreatePurchaseOrderMutation,
   useGetInventoriesQuery,
+  useGetExpenseCategoriesQuery,
 } from "../api";
 import { Icon } from "@/shared/icons/Icon";
+import { NewInventoryItemFields } from "../components/NewInventoryItemFields";
+import {
+  emptyNewInventoryDraft,
+  toNewInventoryPayload,
+  type NewInventoryDraft,
+  type NewInventoryPayload,
+} from "../newInventoryItem";
 
 type PurchaseOrderStatus = "draft" | "sent" | "received";
 
@@ -37,7 +45,8 @@ type ItemDraft = {
 };
 
 type PurchaseOrderItemPayload = {
-  inventory_id: number;
+  inventory_id?: number;
+  new_inventory?: NewInventoryPayload;
   part_number?: string | null;
   quantity_ordered?: number;
   quantity_received?: number | null;
@@ -52,6 +61,7 @@ export default function PurchaseOrderFormPage() {
 
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
+  const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
   const { data: budgets = [] } = useGetBudgetsQuery();
   const { data: currencies = [] } = useGetCurrenciesQuery();
   const { data: rfqs = [] } = useGetRfqsQuery();
@@ -123,6 +133,8 @@ export default function PurchaseOrderFormPage() {
     quantity_received: "",
     unit_price: "",
   });
+  const [itemMode, setItemMode] = useState<"existing" | "new">("existing");
+  const [newInventory, setNewInventory] = useState<NewInventoryDraft>(emptyNewInventoryDraft);
   const [error, setError] = useState<string | null>(null);
 
   // Preselect items from the parts requisition (stock movement) the RFQ was raised
@@ -161,22 +173,43 @@ export default function PurchaseOrderFormPage() {
   }
 
   const handleAddItem = () => {
-    if (!itemDraft.inventory_id) return;
+    setError(null);
 
     const quantityOrdered = Number(itemDraft.quantity_ordered);
     if (Number.isNaN(quantityOrdered) || quantityOrdered < 1) return;
 
-    const selectedInventory = inventories.find(
-      (inv) => Number(inv.id) === Number(itemDraft.inventory_id),
-    );
+    let payloadItem: PurchaseOrderItemPayload;
 
-    const payloadItem: PurchaseOrderItemPayload = {
-      inventory_id: Number(itemDraft.inventory_id),
-      quantity_ordered: quantityOrdered,
-    };
+    if (itemMode === "new") {
+      const result = toNewInventoryPayload(newInventory);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
 
-    const partNumber = itemDraft.part_number.trim() || selectedInventory?.part_number;
-    if (partNumber) payloadItem.part_number = partNumber;
+      payloadItem = {
+        new_inventory: result.payload,
+        quantity_ordered: quantityOrdered,
+        part_number: result.payload.part_number,
+      };
+      if (result.payload.unit_cost !== null && result.payload.unit_cost !== undefined) {
+        payloadItem.unit_price = result.payload.unit_cost;
+      }
+    } else {
+      if (!itemDraft.inventory_id) return;
+
+      const selectedInventory = inventories.find(
+        (inv) => Number(inv.id) === Number(itemDraft.inventory_id),
+      );
+
+      payloadItem = {
+        inventory_id: Number(itemDraft.inventory_id),
+        quantity_ordered: quantityOrdered,
+      };
+
+      const partNumber = itemDraft.part_number.trim() || selectedInventory?.part_number;
+      if (partNumber) payloadItem.part_number = partNumber;
+    }
 
     if (itemDraft.quantity_received.trim() !== "") {
       const quantityReceived = Number(itemDraft.quantity_received);
@@ -200,6 +233,10 @@ export default function PurchaseOrderFormPage() {
       quantity_received: "",
       unit_price: "",
     });
+    if (itemMode === "new") {
+      setNewInventory(emptyNewInventoryDraft());
+      setItemMode("existing");
+    }
   };
 
   const handleRemoveItem = (idx: number) => {
@@ -455,33 +492,72 @@ export default function PurchaseOrderFormPage() {
               quantities and prices before submitting.
             </p>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-2">
-            <select
-              title="Inventory Item"
-              className="sm:col-span-2 rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={itemDraft.inventory_id}
-              onChange={(e) =>
-                setItemDraft((d) => ({
-                  ...d,
-                  inventory_id: e.target.value,
-                }))
-              }
+          <div className="mb-2 flex flex-wrap gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setItemMode("existing")}
+              aria-pressed={itemMode === "existing"}
+              className={`rounded border px-3 py-1.5 ${
+                itemMode === "existing"
+                  ? "border-[#7FD5FF] bg-[#0369A1]/20 text-white"
+                  : "border-gray-700 text-gray-300 hover:text-white"
+              }`}
             >
-              <option value="">Select inventory item</option>
-              {inventories.map((inv) => (
-                <option key={inv.id} value={inv.id}>
-                  {inv.part_number} - {inv.description}
-                </option>
-              ))}
-            </select>
-            <input
-              className="rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              placeholder="Part No (optional)"
-              value={itemDraft.part_number}
-              onChange={(e) =>
-                setItemDraft((d) => ({ ...d, part_number: e.target.value }))
-              }
-            />
+              In stock
+            </button>
+            <button
+              type="button"
+              onClick={() => setItemMode("new")}
+              aria-pressed={itemMode === "new"}
+              className={`rounded border px-3 py-1.5 ${
+                itemMode === "new"
+                  ? "border-[#7FD5FF] bg-[#0369A1]/20 text-white"
+                  : "border-gray-700 text-gray-300 hover:text-white"
+              }`}
+            >
+              Not in stock — add new item
+            </button>
+          </div>
+          {itemMode === "new" && (
+            <div className="mb-2">
+              <NewInventoryItemFields
+                draft={newInventory}
+                onChange={setNewInventory}
+                expenseCategories={expenseCategories}
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-2">
+            {itemMode === "existing" && (
+              <select
+                title="Inventory Item"
+                className="sm:col-span-2 rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
+                value={itemDraft.inventory_id}
+                onChange={(e) =>
+                  setItemDraft((d) => ({
+                    ...d,
+                    inventory_id: e.target.value,
+                  }))
+                }
+              >
+                <option value="">Select inventory item</option>
+                {inventories.map((inv) => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.part_number} - {inv.description}
+                  </option>
+                ))}
+              </select>
+            )}
+            {itemMode === "existing" && (
+              <input
+                className="rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
+                placeholder="Part No (optional)"
+                value={itemDraft.part_number}
+                onChange={(e) =>
+                  setItemDraft((d) => ({ ...d, part_number: e.target.value }))
+                }
+              />
+            )}
             <input
               type="number"
               min={1}
@@ -527,7 +603,9 @@ export default function PurchaseOrderFormPage() {
             {items.map((item, idx) => (
               <li key={idx} className="flex items-center gap-2 py-2">
                 <span className="flex-1 text-white">
-                  Inv #{item.inventory_id} {item.part_number ? `- ${item.part_number}` : ""}
+                  {item.inventory_id
+                    ? `Inv #${item.inventory_id} ${item.part_number ? `- ${item.part_number}` : ""}`
+                    : `NEW: ${item.new_inventory?.part_number ?? ""} - ${item.new_inventory?.description ?? ""}`}
                 </span>
                 <span className="w-20 text-center text-gray-200">QO: {item.quantity_ordered ?? "-"}</span>
                 <span className="w-20 text-center text-gray-200">QR: {item.quantity_received ?? "-"}</span>
