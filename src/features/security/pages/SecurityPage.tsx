@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   useCreateRoleMutation,
   useGetActivityLogsQuery,
+  useGetActivitySubjectTypesQuery,
   useGetDevicesQuery,
   useGetPermissionsQuery,
   useGetRolesQuery,
@@ -21,6 +22,7 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -84,11 +86,21 @@ export const SecurityPage = () => {
   const [userSearchQuery, setUserSearchQuery] = useState("");
   const [activityPage, setActivityPage] = useState(1);
   const [activityEventFilter, setActivityEventFilter] = useState("");
+  const [activitySubjectFilter, setActivitySubjectFilter] = useState("");
+  const [activityDateFrom, setActivityDateFrom] = useState("");
+  const [activityDateTo, setActivityDateTo] = useState("");
+  const [deviceSearch, setDeviceSearch] = useState("");
+  const [deviceStatusFilter, setDeviceStatusFilter] = useState<"" | "active" | "inactive">("");
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState("");
 
   const { data: activityLogsResponse, isLoading } = useGetActivityLogsQuery({
     page: activityPage,
     event: activityEventFilter || undefined,
+    subject_type: activitySubjectFilter || undefined,
+    date_from: activityDateFrom || undefined,
+    date_to: activityDateTo || undefined,
   });
+  const { data: activitySubjectTypes = [] } = useGetActivitySubjectTypesQuery();
   const { data: devices = [], isLoading: isDevicesLoading } = useGetDevicesQuery();
   const [updateDeviceStatus, { isLoading: isUpdatingDeviceStatus }] = useUpdateDeviceStatusMutation();
   const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery();
@@ -258,13 +270,11 @@ export const SecurityPage = () => {
             })} Z`
           : "-");
       const name =
+        log.causer_name ||
         [log.causer?.firstname, log.causer?.lastname].filter(Boolean).join(" ") ||
         log.name ||
         log.user?.name ||
-        [log.user?.firstname, log.user?.lastname, log.user?.othernames]
-          .filter(Boolean)
-          .join(" ") ||
-        "-";
+        "System";
 
       return {
         id: log.id,
@@ -274,6 +284,7 @@ export const SecurityPage = () => {
         email: log.causer?.email || "-",
         action: log.description || log.action || "-",
         event: log.event || "-",
+        model: log.subject_label || "-",
         userType: log.user_type || "-",
         deviceCode: log.device_code || "-",
         unit: log.unit?.name || "-",
@@ -291,6 +302,7 @@ export const SecurityPage = () => {
         id: device.id,
         name: device.device_name || device.name || "-",
         code: device.device_code || device.code || "-",
+        type: device.device_type || "-",
         status:
           Number(device.is_active) === 1
             ? "active"
@@ -310,6 +322,21 @@ export const SecurityPage = () => {
       };
     });
   }, [devices]);
+
+  const deviceTypeOptions = useMemo(
+    () => Array.from(new Set(deviceRows.map((row) => row.type).filter((type) => type !== "-"))).sort(),
+    [deviceRows],
+  );
+
+  const filteredDeviceRows = useMemo(() => {
+    const query = deviceSearch.trim().toLowerCase();
+    return deviceRows.filter((row) => {
+      if (deviceStatusFilter && row.status !== deviceStatusFilter) return false;
+      if (deviceTypeFilter && row.type !== deviceTypeFilter) return false;
+      if (query && !`${row.name} ${row.code} ${row.type}`.toLowerCase().includes(query)) return false;
+      return true;
+    });
+  }, [deviceRows, deviceSearch, deviceStatusFilter, deviceTypeFilter]);
 
   const roleOptions = useMemo(
     () => roles.map((role) => ({ value: role.name, label: role.name })),
@@ -747,6 +774,68 @@ export const SecurityPage = () => {
 
         {activeTab === "activity" ? (
           <div className="overflow-x-auto">
+            <div className="flex flex-wrap items-end gap-3 border-b border-[#0A4D66]/30 px-6 py-4 text-sm text-gray-300">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Model</span>
+                <select
+                  aria-label="Filter by model"
+                  value={activitySubjectFilter}
+                  onChange={(event) => {
+                    setActivitySubjectFilter(event.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="min-w-48 rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="">All Models</option>
+                  {activitySubjectTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">From</span>
+                <input
+                  type="date"
+                  aria-label="From date"
+                  value={activityDateFrom}
+                  max={activityDateTo || undefined}
+                  onChange={(event) => {
+                    setActivityDateFrom(event.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">To</span>
+                <input
+                  type="date"
+                  aria-label="To date"
+                  value={activityDateTo}
+                  min={activityDateFrom || undefined}
+                  onChange={(event) => {
+                    setActivityDateTo(event.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setActivitySubjectFilter("");
+                  setActivityDateFrom("");
+                  setActivityDateTo("");
+                  setActivityEventFilter("");
+                  setActivityPage(1);
+                }}
+                className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/30"
+              >
+                Reset filters
+              </button>
+            </div>
             <table className="min-w-275 w-full text-left">
               <thead>
                 <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
@@ -754,6 +843,7 @@ export const SecurityPage = () => {
                   <th className="px-6 py-3 font-medium">Time</th>
                   <th className="px-6 py-3 font-medium">Name</th>
                   <th className="px-6 py-3 font-medium">Action</th>
+                  <th className="px-6 py-3 font-medium">Model</th>
                   <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium">User Type</th>
                   <th className="px-6 py-3 font-medium">Device Code</th>
@@ -763,13 +853,13 @@ export const SecurityPage = () => {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
                       Loading activity logs...
                     </td>
                   </tr>
                 ) : displayRows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
                       No activity logs found
                     </td>
                   </tr>
@@ -791,6 +881,7 @@ export const SecurityPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">{row.action}</td>
+                      <td className="px-6 py-4">{row.model}</td>
                       <td className="px-6 py-4 capitalize">{row.event}</td>
                       <td className="px-6 py-4">{row.userType}</td>
                       <td className="px-6 py-4">{row.deviceCode}</td>
@@ -802,45 +893,82 @@ export const SecurityPage = () => {
             </table>
 
             {activityLogsResponse && activityLogsResponse.last_page > 1 && (
-              <div className="flex items-center justify-between border-t border-[#0A4D66]/30 px-6 py-3 text-sm text-gray-300">
-                <span>
-                  Page {activityLogsResponse.current_page} of{" "}
-                  {activityLogsResponse.last_page} · {activityLogsResponse.total} total
+              <div className="flex flex-col items-center gap-1 border-t border-[#0A4D66]/30 px-6 py-2 text-sm text-gray-300">
+                <span className="text-xs text-gray-400">
+                  Page {activityLogsResponse.current_page} of {activityLogsResponse.last_page} ·{" "}
+                  {activityLogsResponse.total} total
                 </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActivityPage((page) => Math.max(1, page - 1))}
-                    disabled={activityLogsResponse.current_page <= 1}
-                    className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActivityPage((page) =>
-                        Math.min(activityLogsResponse.last_page, page + 1),
-                      )
-                    }
-                    disabled={
-                      activityLogsResponse.current_page >= activityLogsResponse.last_page
-                    }
-                    className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
+                <NumberedPagination
+                  currentPage={activityLogsResponse.current_page}
+                  lastPage={activityLogsResponse.last_page}
+                  onPageChange={setActivityPage}
+                />
               </div>
             )}
           </div>
         ) : activeTab === "device" ? (
           <div className="overflow-x-auto">
+            <div className="flex flex-wrap items-end gap-3 border-b border-[#0A4D66]/30 px-6 py-4 text-sm text-gray-300">
+              <label className="flex min-w-56 flex-1 flex-col gap-1">
+                <span className="text-xs text-gray-400">Search</span>
+                <input
+                  type="search"
+                  aria-label="Search devices"
+                  placeholder="Name, code or type"
+                  value={deviceSearch}
+                  onChange={(event) => setDeviceSearch(event.target.value)}
+                  className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Status</span>
+                <select
+                  aria-label="Filter devices by status"
+                  value={deviceStatusFilter}
+                  onChange={(event) =>
+                    setDeviceStatusFilter(event.target.value as "" | "active" | "inactive")
+                  }
+                  className="min-w-40 rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Device type</span>
+                <select
+                  aria-label="Filter devices by type"
+                  value={deviceTypeFilter}
+                  onChange={(event) => setDeviceTypeFilter(event.target.value)}
+                  className="min-w-40 rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="">All Types</option>
+                  {deviceTypeOptions.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeviceSearch("");
+                  setDeviceStatusFilter("");
+                  setDeviceTypeFilter("");
+                }}
+                className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/30"
+              >
+                Reset filters
+              </button>
+            </div>
             <table className="min-w-275 w-full text-left">
               <thead>
                 <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
                   <th className="px-6 py-3 font-medium">Device Name</th>
                   <th className="px-6 py-3 font-medium">Device Code</th>
+                  <th className="px-6 py-3 font-medium">Type</th>
                   <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium">Last Seen</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
@@ -849,18 +977,18 @@ export const SecurityPage = () => {
               <tbody>
                 {isDevicesLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       Loading devices...
                     </td>
                   </tr>
-                ) : deviceRows.length === 0 ? (
+                ) : filteredDeviceRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       No devices found
                     </td>
                   </tr>
                 ) : (
-                  deviceRows.map((row, index) => (
+                  filteredDeviceRows.map((row, index) => (
                     <tr
                       key={row.id}
                       className={cn(
@@ -870,6 +998,7 @@ export const SecurityPage = () => {
                     >
                       <td className="px-6 py-4">{row.name}</td>
                       <td className="px-6 py-4">{row.code}</td>
+                      <td className="px-6 py-4">{row.type}</td>
                       <td className="px-6 py-4 capitalize">{row.status}</td>
                       <td className="px-6 py-4">{row.lastSeen}</td>
                       <td className="relative px-6 py-4 text-right">

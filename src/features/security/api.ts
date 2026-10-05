@@ -37,6 +37,9 @@ export type ActivityLog = {
   created_at?: string | null;
   date?: string | null;
   time?: string | null;
+  causer_name?: string | null;
+  subject_label?: string | null;
+  subject_type?: string | null;
 };
 
 export type Device = {
@@ -147,6 +150,14 @@ export type ActivityLogFilters = {
   per_page?: number;
   event?: string;
   causer_id?: number;
+  subject_type?: string;
+  date_from?: string;
+  date_to?: string;
+};
+
+export type ActivitySubjectType = {
+  value: string;
+  label: string;
 };
 
 export type PaginatedActivityLogs = {
@@ -236,6 +247,12 @@ export const securityApi = createApi({
         const data = fallback.data || fallback.results || fallback.logs || [];
         return { data, current_page: 1, last_page: 1, per_page: data.length, total: data.length };
       },
+    }),
+    getActivitySubjectTypes: builder.query<ActivitySubjectType[], void>({
+      query: () => ({
+        url: "/activity/subject-types",
+        method: "GET",
+      }),
     }),
     getDevices: builder.query<Device[], void>({
       query: () => ({
@@ -363,6 +380,7 @@ export const securityApi = createApi({
 
 export const {
   useGetActivityLogsQuery,
+  useGetActivitySubjectTypesQuery,
   useGetDevicesQuery,
   useUpdateDeviceStatusMutation,
   useGetRolesQuery,
