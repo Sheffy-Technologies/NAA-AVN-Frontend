@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "naavn-ddbmsAVN",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "identifier": "com.naavn.ddbms",
   "build": {
     "frontendDist": "../dist",
@@ -42,7 +42,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY4NjY5NEU2NTdCOTA4MzEKUldReENMbFg1cFJtYVBOVWZ3OUwrRk9IUnF1TnBWN0F4Mk91SFMwZ2lXSnBwUDlZeTRBTDYyenkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQwMzY0RDU4MzE5Njk4NkIKUldScm1KWXhXRTAyUU15OTc5cmJaQ0J0N0FEcW9NVnBNUVlhMGFTTWNmSVZuTjJOeHdXc29qbU4K",
       "endpoints": [
         "https://github.com/Sheffy-Technologies/NAA-AVN-Frontend-releases/releases/latest/download/latest.json"
       ]
