@@ -8,12 +8,14 @@ import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useDeleteOperationMutation,
   useGetOperationByIdQuery,
+  useLogOperationFlightHoursMutation,
   useUpdateOperationMutation,
   useUpdateOperationStatusMutation,
   type Operation,
   type OperationAssignedAsset,
 } from "../api";
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
+import Modal from "@/shared/ui/modal/Modal";
 
 const InfoRow = ({
   label,
@@ -89,11 +91,36 @@ const PersonLink = ({
   );
 };
 
-const renderAssetCard = (
-  entry: OperationAssignedAsset,
-  index: number,
-  navigate: (path: string) => void,
-) => {
+const formatLoggedAt = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value.includes("T") ? value : value.replace(" ", "T"));
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const AssetCard = ({
+  entry,
+  index,
+  navigate,
+  operationId,
+}: {
+  entry: OperationAssignedAsset;
+  index: number;
+  navigate: (path: string) => void;
+  operationId: number | string;
+}) => {
+  const dispatch = useAppDispatch();
+  const [logFlightHours, { isLoading: isLogging }] =
+    useLogOperationFlightHoursMutation();
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [draft, setDraft] = useState({ flight_hours: "", landing: "", cycle: "" });
+
   const baseAsset = (
     entry.asset && typeof entry.asset === "object"
       ? entry.asset
@@ -110,6 +137,12 @@ const renderAssetCard = (
   const tailNumber =
     (typeof baseAsset.tail_number === "string" && baseAsset.tail_number) ||
     "N/A";
+  const flightHoursValue =
+    entry.actual_flight_hours !== null && entry.actual_flight_hours !== undefined
+      ? Number(entry.actual_flight_hours)
+      : entry.flight_hours !== null && entry.flight_hours !== undefined
+        ? Number(entry.flight_hours)
+        : null;
   const totalHours =
     baseAsset.operations_total_hours_label ??
     baseAsset.total_airframe_hours ??
@@ -235,29 +268,172 @@ const renderAssetCard = (
         label="Co-Pilot"
         value={<PersonLink person={coPilotDetails} onNavigate={goToPerson} />}
       />
+      {assetIdValue ? (
+        <div className="pt-3 mt-1 border-t border-[#0A4D66]/40">
+          {entry.logged_to_asset_at ? (
+            <div className="flex items-center gap-2 text-xs text-emerald-400">
+              <Icon icon="mdi:check-decagram-outline" className="w-4 h-4" />
+              Flight hours logged to asset on {formatLoggedAt(entry.logged_to_asset_at)}
+            </div>
+          ) : flightHoursValue !== null ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDraft({
+                  flight_hours: String(flightHoursValue),
+                  landing: String(entry.actual_landing ?? entry.landing ?? ""),
+                  cycle: String(entry.actual_cycle ?? entry.cycle ?? ""),
+                });
+                setShowLogModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded border border-[#7FD5FF]/40 bg-[#0A4D66]/30 px-3 py-1.5 text-xs font-medium text-[#C9F1FF] transition-colors hover:bg-[#0A4D66]/60"
+            >
+              <Icon icon="mdi:clipboard-check-outline" className="w-3.5 h-3.5" />
+              Log Flight Hours to Asset
+            </button>
+          ) : (
+            <span className="text-xs text-gray-500">
+              No flight hours recorded for this aircraft yet.
+            </span>
+          )}
+        </div>
+      ) : null}
     </>
   );
 
-  if (assetIdValue) {
-    return (
-      <button
-        key={cardKey}
-        type="button"
-        onClick={goToAsset}
-        className="text-left w-full rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 cursor-pointer hover:border-[#7FD5FF]/70 transition-colors"
-      >
-        {cardContent}
-      </button>
-    );
-  }
+  const handleConfirmLog = async () => {
+    if (!assetIdValue) return;
+
+    const hours = Number(draft.flight_hours);
+    if (!draft.flight_hours || Number.isNaN(hours) || hours <= 0) {
+      dispatch(
+        showToast({ message: "Enter a valid flight hours value.", type: "error" }),
+      );
+      return;
+    }
+
+    try {
+      await logFlightHours({
+        operation_id: operationId,
+        asset_id: assetIdValue,
+        flight_hours: hours,
+        landing: draft.landing ? Number(draft.landing) : null,
+        cycle: draft.cycle ? Number(draft.cycle) : null,
+      }).unwrap();
+
+      dispatch(
+        showToast({
+          message: `${hours} flight hour(s) logged to ${assetName}.`,
+          type: "success",
+        }),
+      );
+      setShowLogModal(false);
+    } catch (error) {
+      const err = error as { data?: { message?: string } };
+      dispatch(
+        showToast({
+          message: err?.data?.message || "Failed to log flight hours. Please try again.",
+          type: "error",
+        }),
+      );
+    }
+  };
 
   return (
-    <div
-      key={cardKey}
-      className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4"
-    >
-      {cardContent}
-    </div>
+    <>
+      <div
+        key={cardKey}
+        onClick={assetIdValue ? goToAsset : undefined}
+        role={assetIdValue ? "button" : undefined}
+        tabIndex={assetIdValue ? 0 : undefined}
+        onKeyDown={
+          assetIdValue
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") goToAsset();
+              }
+            : undefined
+        }
+        className={cn(
+          "rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4",
+          assetIdValue && "cursor-pointer hover:border-[#7FD5FF]/70 transition-colors",
+        )}
+      >
+        {cardContent}
+      </div>
+
+      <Modal
+        open={showLogModal}
+        onClose={() => setShowLogModal(false)}
+        title={`Log Flight Hours — ${assetName}`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-400">
+            Confirm the values to log to this aircraft's permanent flight record. You
+            can adjust them before submitting — this can only be done once per
+            aircraft per operation.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-xs text-gray-400">
+              Flight Hours
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={draft.flight_hours}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, flight_hours: e.target.value }))
+                }
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-gray-400">
+              Landings
+              <input
+                type="number"
+                min="0"
+                value={draft.landing}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, landing: e.target.value }))
+                }
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-gray-400">
+              Cycles
+              <input
+                type="number"
+                min="0"
+                value={draft.cycle}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, cycle: e.target.value }))
+                }
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+              />
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowLogModal(false)}
+              className="rounded px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmLog}
+              disabled={isLogging}
+              className="rounded bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0369A1]/90 disabled:opacity-50"
+            >
+              {isLogging ? "Logging..." : "Confirm & Log"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 };
 
@@ -560,9 +736,15 @@ const OperationTab = ({
           </h3>
           {operation.assets && operation.assets.length > 0 ? (
             <div className="space-y-4">
-              {operation.assets.map((entry, index) =>
-                renderAssetCard(entry, index, navigate),
-              )}
+              {operation.assets.map((entry, index) => (
+                <AssetCard
+                  key={entry.id ?? `${entry.asset_id ?? "asset"}-${index}`}
+                  entry={entry}
+                  index={index}
+                  navigate={navigate}
+                  operationId={operation.id}
+                />
+              ))}
             </div>
           ) : (
             <div className="text-gray-400 text-sm">

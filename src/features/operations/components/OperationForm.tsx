@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
 import { forward as toMgrs, toPoint as mgrsToPoint } from "mgrs";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import {
@@ -214,10 +216,12 @@ const mapAssignedAssetsToForm = (operation?: Operation | null): OperationAsset[]
       ?.map((asset) => {
         const relationAsset = asset as OperationAsset & {
           id?: number;
+          actual_flight_hours?: number | string | null;
           pivot?: {
             asset_id?: number;
             pilot_id?: number | null;
             co_pilot_id?: number | null;
+            flight_hours?: number | string | null;
           } | null;
         };
 
@@ -226,11 +230,18 @@ const mapAssignedAssetsToForm = (operation?: Operation | null): OperationAsset[]
         const pilotId = relationAsset.pilot_id ?? relationAsset.pivot?.pilot_id ?? null;
         const coPilotId =
           relationAsset.co_pilot_id ?? relationAsset.pivot?.co_pilot_id ?? null;
+        const flightHoursRaw =
+          relationAsset.flight_hours ?? relationAsset.pivot?.flight_hours ?? null;
+        const flightHours =
+          flightHoursRaw === null || flightHoursRaw === undefined
+            ? null
+            : Number(flightHoursRaw);
 
         return {
           asset_id: assetId,
           pilot_id: pilotId,
           co_pilot_id: coPilotId,
+          flight_hours: flightHours !== null && !Number.isNaN(flightHours) ? flightHours : null,
         };
       })
       .filter((asset) => Boolean(asset.asset_id)) ?? [];
@@ -239,7 +250,7 @@ const mapAssignedAssetsToForm = (operation?: Operation | null): OperationAsset[]
     return mappedAssets;
   }
 
-  return [{ asset_id: 0, pilot_id: null, co_pilot_id: null }];
+  return [{ asset_id: 0, pilot_id: null, co_pilot_id: null, flight_hours: null }];
 };
 
 export const OperationForm = ({
@@ -249,6 +260,7 @@ export const OperationForm = ({
   isSubmitting,
 }: OperationFormProps) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { isDark } = useTheme();
   const [coordinateInputMode, setCoordinateInputMode] =
     useState<CoordinateInputMode>("latlon");
@@ -424,7 +436,7 @@ export const OperationForm = ({
   const addAsset = () => {
     setAssets((prev) => [
       ...prev,
-      { asset_id: 0, pilot_id: null, co_pilot_id: null },
+      { asset_id: 0, pilot_id: null, co_pilot_id: null, flight_hours: null },
     ]);
   };
 
@@ -626,13 +638,38 @@ export const OperationForm = ({
 
     payload.waypoints = validWaypoints;
 
-    payload.operation_assets = assets
-      .filter((asset) => asset.asset_id)
-      .map((asset) => ({
-        asset_id: asset.asset_id,
-        pilot_id: asset.pilot_id ?? null,
-        co_pilot_id: asset.co_pilot_id ?? null,
-      }));
+    const attachedAssets = assets.filter((asset) => asset.asset_id);
+
+    if (attachedAssets.length === 0) {
+      dispatch(
+        showToast({
+          message: "Attach at least one aircraft before submitting.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    const hasCrew = attachedAssets.some(
+      (asset) => asset.pilot_id || asset.co_pilot_id,
+    );
+
+    if (!hasCrew) {
+      dispatch(
+        showToast({
+          message: "Attach at least one personnel (pilot or co-pilot) before submitting.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    payload.operation_assets = attachedAssets.map((asset) => ({
+      asset_id: asset.asset_id,
+      pilot_id: asset.pilot_id ?? null,
+      co_pilot_id: asset.co_pilot_id ?? null,
+      flight_hours: asset.flight_hours ?? null,
+    }));
 
     await onSubmit(payload);
   };
@@ -1204,7 +1241,7 @@ export const OperationForm = ({
                       ) : null}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs text-gray-400 font-medium">Aircraft</label>
                         <select
@@ -1284,6 +1321,22 @@ export const OperationForm = ({
                             </option>
                           ))}
                         </select>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Flight Hours</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={asset.flight_hours ?? ""}
+                          onChange={(e) =>
+                            handleAssetChange(index, "flight_hours", e.target.value)
+                          }
+                          placeholder="e.g. 2.5"
+                          title={`Flight hours ${index + 1}`}
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        />
                       </div>
                     </div>
                   </div>

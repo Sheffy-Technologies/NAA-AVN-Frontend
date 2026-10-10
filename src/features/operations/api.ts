@@ -108,6 +108,32 @@ export type OperationAssignedAsset = {
   actual_flight_time_label?: string | null;
   actual_landing?: number | null;
   actual_cycle?: number | null;
+  logged_to_asset_at?: string | null;
+  logged_by_user_id?: number | null;
+};
+
+export type LogOperationFlightHoursRequest = {
+  operation_id: number | string;
+  asset_id: number | string;
+  flight_hours: number;
+  landing?: number | null;
+  cycle?: number | null;
+  remarks?: string | null;
+};
+
+export type LogOperationFlightHoursResponse = {
+  flight_log: {
+    id: number;
+    asset_id: number;
+    operation_id: number | null;
+    flight_date: string;
+    hours_flown: string | number;
+    landings: number;
+    cycles: number;
+  };
+  logged_to_asset_at: string;
+  logged_by_user_id: number | null;
+  asset_current_total_hours: number;
 };
 
 export type CreateOperationRequest = {
@@ -419,6 +445,20 @@ export const operationsApi = createApi({
         "Operations",
       ],
     }),
+    logOperationFlightHours: builder.mutation<
+      LogOperationFlightHoursResponse,
+      LogOperationFlightHoursRequest
+    >({
+      query: ({ operation_id, asset_id, ...body }) => ({
+        url: `/operations/${operation_id}/assets/${asset_id}/log-flight-hours`,
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: (_result, _error, { operation_id }) => [
+        { type: "OperationDetails", id: operation_id },
+        "Operations",
+      ],
+    }),
   }),
 });
 
@@ -434,4 +474,5 @@ export const {
   useUpdateOperationStatusMutation,
   useDeleteOperationMutation,
   useCreateAfterActionReportMutation,
+  useLogOperationFlightHoursMutation,
 } = operationsApi;
