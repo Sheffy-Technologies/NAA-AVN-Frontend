@@ -38,6 +38,11 @@ const DashboardPage = lazy(() =>
     default: module.DashboardPage,
   })),
 );
+const StrategicDashboardPage = lazy(() =>
+  import("@/features/dashboard/pages/StrategicDashboardPage").then((module) => ({
+    default: module.StrategicDashboardPage,
+  })),
+);
 const InventoryPage = lazy(() =>
   import("@/features/inventory/pages/InventoryPage").then((module) => ({
     default: module.InventoryPage,
@@ -319,6 +324,7 @@ const PERSONNEL_ROUTE_PERMISSIONS = ["dashboard.personnel.view", "personnel.view
 const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.viewAny"];
 const MESSAGES_ROUTE_PERMISSIONS: string[] = [];
 const FINANCE_ROUTE_PERMISSIONS = ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"];
+const STRATEGIC_ROUTE_PERMISSIONS = ["dashboard.strategic.view"];
 const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"];
 const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
 // Open to any authenticated user regardless of role, same as messages.
@@ -773,6 +779,14 @@ export const router = createBrowserRouter([
             </Suspense>
           </RequireRole>
         ),
+      },
+      {
+        path: "strategic",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <StrategicDashboardPage />
+          </Suspense>
+        ), STRATEGIC_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance",

@@ -9,6 +9,7 @@ import {
   type AttendanceStatus,
 } from "../attendanceApi";
 import { useGetUnitsQuery } from "@/shared/api/units";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 
@@ -193,16 +194,17 @@ export const AttendancePage = () => {
         {activeTab === "today" && (
           <>
             <div className="flex flex-wrap items-center gap-2 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40">
-              <select
-                value={todayUnit}
-                onChange={(e) => setTodayUnit(e.target.value ? Number(e.target.value) : "")}
-                className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
-              >
-                <option value="">All Units</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                placeholder="All Units"
+                searchPlaceholder="Search unit..."
+                buttonClassName="py-1.5 px-2 text-xs"
+                className="w-36"
+                options={units.map((u) => ({ value: u.id, label: u.name }))}
+                value={todayUnit || null}
+                onChange={(value) =>
+                  setTodayUnit(value === null ? "" : Number(value))
+                }
+              />
               {todayData && (
                 <span className="text-[11px] text-gray-500">
                   {todayData.date}
@@ -341,16 +343,17 @@ export const AttendancePage = () => {
                 />
               </div>
 
-              <select
-                value={historyUnit}
-                onChange={(e) => setHistoryUnit(e.target.value ? Number(e.target.value) : "")}
-                className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
-              >
-                <option value="">All Units</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
+              <SearchableSelect
+                placeholder="All Units"
+                searchPlaceholder="Search unit..."
+                buttonClassName="py-1.5 px-2 text-xs"
+                className="w-36"
+                options={units.map((u) => ({ value: u.id, label: u.name }))}
+                value={historyUnit || null}
+                onChange={(value) =>
+                  setHistoryUnit(value === null ? "" : Number(value))
+                }
+              />
 
               <select
                 value={historyStatus}

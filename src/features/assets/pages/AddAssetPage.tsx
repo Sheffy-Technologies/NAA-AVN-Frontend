@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAppDispatch } from "@/app/store";
 import { useGetUnitsQuery } from "@/shared/api/units";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
@@ -1449,12 +1450,16 @@ export const AddAssetPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Aircraft Type</label>
-              <select
-                title="Aircraft Type"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                value={formData.asset_type_id}
-                onChange={(e) => {
-                  const nextId = e.target.value;
+              <SearchableSelect
+                placeholder="Select Type"
+                searchPlaceholder="Search aircraft type..."
+                options={assetTypes.map((t) => ({
+                  value: String(t.id),
+                  label: t.name,
+                }))}
+                value={formData.asset_type_id || null}
+                onChange={(nextValue) => {
+                  const nextId = nextValue === null ? "" : String(nextValue);
                   const selected = assetTypes.find(
                     (t) => String(t.id) === nextId,
                   );
@@ -1464,14 +1469,7 @@ export const AddAssetPage = () => {
                     model: selected?.name || prev.model,
                   }));
                 }}
-              >
-                <option value="">Select Type</option>
-                {assetTypes.map((t) => (
-                  <option key={t.id} value={String(t.id)}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Aircraft Name</label>
@@ -1655,19 +1653,18 @@ export const AddAssetPage = () => {
 
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Assigned Unit</label>
-              <select
-                title="Assigned Unit"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                value={formData.unit_id}
-                onChange={(e) => handleInputChange("unit_id", e.target.value)}
-              >
-                <option value="">Select Unit</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                placeholder="Select Unit"
+                searchPlaceholder="Search unit..."
+                options={units.map((u) => ({
+                  value: String(u.id),
+                  label: u.name,
+                }))}
+                value={formData.unit_id || null}
+                onChange={(value) =>
+                  handleInputChange("unit_id", value === null ? "" : String(value))
+                }
+              />
             </div>
             <div className="space-y-1">
               <label className="text-xs text-gray-400">Operation Status</label>
@@ -1885,55 +1882,50 @@ export const AddAssetPage = () => {
                           <label className="text-xs text-gray-400">
                             Component Description
                           </label>
-                          <select
-                            title="Component Type"
-                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                            value={comp.component_type}
-                            onChange={(e) =>
+                          <SearchableSelect
+                            placeholder="Select Description"
+                            searchPlaceholder="Search component type..."
+                            options={componentTypes.map((t) => ({
+                              value: String(t.id),
+                              label: t.name,
+                            }))}
+                            value={comp.component_type || null}
+                            onChange={(value) =>
                               updateItem(
                                 setComponents,
                                 components,
                                 idx,
                                 "component_type",
-                                e.target.value,
+                                value === null ? "" : String(value),
                               )
                             }
-                          >
-                            <option value="">Select Description</option>
-                            {componentTypes.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs text-gray-400">
                             ATA Chapter
                           </label>
-                          <select
-                            title="Airframe Component ATA Chapter"
-                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                            value={comp.ata_chapter_id || ""}
-                            onChange={(e) =>
+                          <SearchableSelect
+                            placeholder="Select ATA Chapter"
+                            searchPlaceholder="Search ATA chapter..."
+                            options={componentAtaChapters.map((chapter) => ({
+                              value: String(chapter.id),
+                              label:
+                                chapter.chapter_number ||
+                                chapter.name ||
+                                `ATA ${chapter.id}`,
+                            }))}
+                            value={comp.ata_chapter_id || null}
+                            onChange={(value) =>
                               updateItem(
                                 setComponents,
                                 components,
                                 idx,
                                 "ata_chapter_id",
-                                e.target.value,
+                                value === null ? "" : String(value),
                               )
                             }
-                          >
-                            <option value="">Select ATA Chapter</option>
-                            {componentAtaChapters.map((chapter) => (
-                              <option key={chapter.id} value={String(chapter.id)}>
-                                {chapter.chapter_number ||
-                                  chapter.name ||
-                                  `ATA ${chapter.id}`}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                         <div className="space-y-1">
                           <label className="text-xs text-gray-400">
@@ -2409,39 +2401,42 @@ export const AddAssetPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
               <div className="space-y-1">
                 <label className="text-xs text-gray-400">Engine Category</label>
-                <select
-                  title="Engine Category"
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                  value={formData.default_engine_category_id}
-                  onChange={(e) =>
-                    handleInputChange("default_engine_category_id", e.target.value)
+                <SearchableSelect
+                  placeholder={`Use default (${defaultEngineCategoryId})`}
+                  searchPlaceholder="Search engine category..."
+                  clearable={false}
+                  options={engineCategories.map((category) => ({
+                    value: String(category.id),
+                    label: category.name,
+                  }))}
+                  value={formData.default_engine_category_id || null}
+                  onChange={(value) =>
+                    handleInputChange(
+                      "default_engine_category_id",
+                      value === null ? "" : String(value),
+                    )
                   }
-                >
-                  <option value="">Use default ({defaultEngineCategoryId})</option>
-                  {engineCategories.map((category) => (
-                    <option key={category.id} value={String(category.id)}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-gray-400">ATA Chapter</label>
-                <select
-                  title="ATA Chapter"
-                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                  value={formData.default_ata_chapter_id}
-                  onChange={(e) =>
-                    handleInputChange("default_ata_chapter_id", e.target.value)
+                <SearchableSelect
+                  placeholder={`Use default (${defaultAtaChapterId})`}
+                  searchPlaceholder="Search ATA chapter..."
+                  clearable={false}
+                  options={engineAtaChapters.map((chapter) => ({
+                    value: String(chapter.id),
+                    label:
+                      chapter.chapter_number || chapter.name || `ATA ${chapter.id}`,
+                  }))}
+                  value={formData.default_ata_chapter_id || null}
+                  onChange={(value) =>
+                    handleInputChange(
+                      "default_ata_chapter_id",
+                      value === null ? "" : String(value),
+                    )
                   }
-                >
-                  <option value="">Use default ({defaultAtaChapterId})</option>
-                  {engineAtaChapters.map((chapter) => (
-                    <option key={chapter.id} value={String(chapter.id)}>
-                      {chapter.chapter_number || chapter.name || `ATA ${chapter.id}`}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-xs text-gray-400">Maintenance Strategy</label>
@@ -2537,21 +2532,11 @@ export const AddAssetPage = () => {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">Position</label>
-                      <select
-                        title="Engine Position"
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                        value={engines[activeEngineIndex].position_id}
-                        onChange={(e) =>
-                          updateItem(
-                            setEngines,
-                            engines,
-                            activeEngineIndex,
-                            "position_id",
-                            e.target.value,
-                          )
-                        }
-                      >
-                        {(enginePositions.length
+                      <SearchableSelect
+                        placeholder="Select Position"
+                        searchPlaceholder="Search position..."
+                        clearable={false}
+                        options={(enginePositions.length
                           ? enginePositions.map((pos) => ({
                               id: pos.id,
                               name: pos.name,
@@ -2560,12 +2545,21 @@ export const AddAssetPage = () => {
                               id: index + 1,
                               name,
                             }))
-                        ).map((pos) => (
-                          <option key={pos.id} value={pos.id}>
-                            {pos.name}
-                          </option>
-                        ))}
-                      </select>
+                        ).map((pos) => ({
+                          value: String(pos.id),
+                          label: pos.name,
+                        }))}
+                        value={String(engines[activeEngineIndex].position_id)}
+                        onChange={(value) =>
+                          updateItem(
+                            setEngines,
+                            engines,
+                            activeEngineIndex,
+                            "position_id",
+                            value === null ? "" : String(value),
+                          )
+                        }
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">
@@ -3148,11 +3142,15 @@ export const AddAssetPage = () => {
                                 <label className="text-xs text-gray-400">
                                   Component Type
                                 </label>
-                                <select
-                                  title="Engine Component Type"
-                                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                                  value={comp.component_type}
-                                  onChange={(e) =>
+                                <SearchableSelect
+                                  placeholder="Select Type"
+                                  searchPlaceholder="Search component type..."
+                                  options={engineCategories.map((t) => ({
+                                    value: String(t.id),
+                                    label: t.name,
+                                  }))}
+                                  value={comp.component_type || null}
+                                  onChange={(value) =>
                                     setEngineComponentsByEngine((prev) =>
                                       prev.map((list, i) =>
                                         i === activeEngineIndex
@@ -3161,7 +3159,9 @@ export const AddAssetPage = () => {
                                                 ? {
                                                     ...c,
                                                     component_type:
-                                                      e.target.value,
+                                                      value === null
+                                                        ? ""
+                                                        : String(value),
                                                   }
                                                 : c,
                                             )
@@ -3169,24 +3169,24 @@ export const AddAssetPage = () => {
                                       ),
                                     )
                                   }
-                                >
-                                  <option value="">Select Type</option>
-                                  {engineCategories.map((t) => (
-                                    <option key={t.id} value={t.id}>
-                                      {t.name}
-                                    </option>
-                                  ))}
-                                </select>
+                                />
                               </div>
                               <div className="space-y-1">
                                 <label className="text-xs text-gray-400">
                                   ATA Chapter
                                 </label>
-                                <select
-                                  title="Engine Component ATA Chapter"
-                                  className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                                  value={comp.ata_chapter_id || ""}
-                                  onChange={(e) =>
+                                <SearchableSelect
+                                  placeholder="Select ATA Chapter"
+                                  searchPlaceholder="Search ATA chapter..."
+                                  options={componentAtaChapters.map((chapter) => ({
+                                    value: String(chapter.id),
+                                    label:
+                                      chapter.chapter_number ||
+                                      chapter.name ||
+                                      `ATA ${chapter.id}`,
+                                  }))}
+                                  value={comp.ata_chapter_id || null}
+                                  onChange={(value) =>
                                     setEngineComponentsByEngine((prev) =>
                                       prev.map((list, i) =>
                                         i === activeEngineIndex
@@ -3195,7 +3195,9 @@ export const AddAssetPage = () => {
                                                 ? {
                                                     ...c,
                                                     ata_chapter_id:
-                                                      e.target.value,
+                                                      value === null
+                                                        ? ""
+                                                        : String(value),
                                                   }
                                                 : c,
                                             )
@@ -3203,16 +3205,7 @@ export const AddAssetPage = () => {
                                       ),
                                     )
                                   }
-                                >
-                                  <option value="">Select ATA Chapter</option>
-                                  {componentAtaChapters.map((chapter) => (
-                                    <option key={chapter.id} value={String(chapter.id)}>
-                                      {chapter.chapter_number ||
-                                        chapter.name ||
-                                        `ATA ${chapter.id}`}
-                                    </option>
-                                  ))}
-                                </select>
+                                />
                               </div>
                               <div className="space-y-1">
                                 <label className="text-xs text-gray-400">
@@ -3946,55 +3939,50 @@ export const AddAssetPage = () => {
                       <label className="text-xs text-gray-400">
                         Component Type
                       </label>
-                      <select
-                        title="Avionics Component Type"
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                        value={comp.component_type}
-                        onChange={(e) =>
+                      <SearchableSelect
+                        placeholder="Select Type"
+                        searchPlaceholder="Search component type..."
+                        options={avionicCategories.map((t) => ({
+                          value: String(t.id),
+                          label: t.name,
+                        }))}
+                        value={comp.component_type || null}
+                        onChange={(value) =>
                           updateItem(
                             setAvionicsComponents,
                             avionicsComponents,
                             idx,
                             "component_type",
-                            e.target.value,
+                            value === null ? "" : String(value),
                           )
                         }
-                      >
-                        <option value="">Select Type</option>
-                        {avionicCategories.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">
                         ATA Chapter
                       </label>
-                      <select
-                        title="Avionics ATA Chapter"
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                        value={comp.ata_chapter_id || ""}
-                        onChange={(e) =>
+                      <SearchableSelect
+                        placeholder="Select ATA Chapter"
+                        searchPlaceholder="Search ATA chapter..."
+                        options={avionicAtaChapters.map((chapter) => ({
+                          value: String(chapter.id),
+                          label:
+                            chapter.chapter_number ||
+                            chapter.name ||
+                            `ATA ${chapter.id}`,
+                        }))}
+                        value={comp.ata_chapter_id || null}
+                        onChange={(value) =>
                           updateItem(
                             setAvionicsComponents,
                             avionicsComponents,
                             idx,
                             "ata_chapter_id",
-                            e.target.value,
+                            value === null ? "" : String(value),
                           )
                         }
-                      >
-                        <option value="">Select ATA Chapter</option>
-                        {avionicAtaChapters.map((chapter) => (
-                          <option key={chapter.id} value={String(chapter.id)}>
-                            {chapter.chapter_number ||
-                              chapter.name ||
-                              `ATA ${chapter.id}`}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">
@@ -4565,27 +4553,24 @@ export const AddAssetPage = () => {
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">Operation</label>
-                      <select
-                        title="Operation"
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                        value={defect.operation_id}
-                        onChange={(e) =>
+                      <SearchableSelect
+                        placeholder="Select Operation"
+                        searchPlaceholder="Search operation..."
+                        options={operations.map((op) => ({
+                          value: String(op.id),
+                          label: op.name,
+                        }))}
+                        value={defect.operation_id || null}
+                        onChange={(value) =>
                           updateItem(
                             setDefects,
                             defects,
                             idx,
                             "operation_id",
-                            e.target.value,
+                            value === null ? "" : String(value),
                           )
                         }
-                      >
-                        <option value="">Select Operation</option>
-                        {operations.map((op) => (
-                          <option key={op.id} value={op.id}>
-                            {op.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">Location</label>
@@ -4721,28 +4706,24 @@ export const AddAssetPage = () => {
                           <label className="text-xs text-gray-400">
                             Certifying Engineer
                           </label>
-                          <select
-                            title="Certifying Engineer"
-                            className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                            value={defect.certifying_engineer}
-                            onChange={(e) =>
+                          <SearchableSelect
+                            placeholder="Select Engineers"
+                            searchPlaceholder="Search engineer..."
+                            options={engineers.map((p) => ({
+                              value: String(p.id),
+                              label: `${p.rank?.name ? `${p.rank.name} ` : ""}${p.firstname} ${p.lastname}`,
+                            }))}
+                            value={defect.certifying_engineer || null}
+                            onChange={(value) =>
                               updateItem(
                                 setDefects,
                                 defects,
                                 idx,
                                 "certifying_engineer",
-                                e.target.value,
+                                value === null ? "" : String(value),
                               )
                             }
-                          >
-                            <option value="">Select Engineers</option>
-                            {engineers.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.rank?.name ? `${p.rank.name} ` : ""}
-                                {p.firstname} {p.lastname}
-                              </option>
-                            ))}
-                          </select>
+                          />
                         </div>
                       </div>
                     </div>
@@ -4800,27 +4781,24 @@ export const AddAssetPage = () => {
                       <label className="text-xs text-gray-400">
                         Document Type
                       </label>
-                      <select
-                        title="Document Type"
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-                        value={doc.document_type}
-                        onChange={(e) =>
+                      <SearchableSelect
+                        placeholder="Select Type"
+                        searchPlaceholder="Search document type..."
+                        options={documentTypes.map((t) => ({
+                          value: t.name,
+                          label: t.name,
+                        }))}
+                        value={doc.document_type || null}
+                        onChange={(value) =>
                           updateItem(
                             setDocuments,
                             documents,
                             idx,
                             "document_type",
-                            e.target.value,
+                            value === null ? "" : String(value),
                           )
                         }
-                      >
-                        <option value="">Select Type</option>
-                        {documentTypes.map((t) => (
-                          <option key={t.id} value={t.name}>
-                            {t.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs text-gray-400">Document</label>

@@ -21,6 +21,7 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import {
   ImportCsvModal,
   type ImportCsvField,
@@ -809,76 +810,50 @@ export const FinancePage = () => {
 
             {activeTab === "expenses" && (
               <div className="hidden lg:flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <select
-                    value={
-                      filterCategoryId === "" ? "" : String(filterCategoryId)
-                    }
-                    onChange={(e) =>
-                      setFilterCategoryId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Category</option>
-                    {expenseCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Category"
+                  searchPlaceholder="Search category..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={expenseCategories.map((category) => ({
+                    value: category.id,
+                    label: category.name,
+                  }))}
+                  value={filterCategoryId === "" ? null : filterCategoryId}
+                  onChange={(value) =>
+                    setFilterCategoryId(value === null ? "" : Number(value))
+                  }
+                />
 
-                <div className="relative">
-                  <select
-                    value={filterUnitId === "" ? "" : String(filterUnitId)}
-                    onChange={(e) =>
-                      setFilterUnitId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Units</option>
-                    {unitOptions.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Units"
+                  searchPlaceholder="Search unit..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={unitOptions.map((unit) => ({
+                    value: unit.id,
+                    label: unit.name,
+                  }))}
+                  value={filterUnitId === "" ? null : filterUnitId}
+                  onChange={(value) =>
+                    setFilterUnitId(value === null ? "" : Number(value))
+                  }
+                />
 
-                <div className="relative">
-                  <select
-                    value={filterBudgetId === "" ? "" : String(filterBudgetId)}
-                    onChange={(e) =>
-                      setFilterBudgetId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Budget</option>
-                    {budgets.map((budget) => (
-                      <option key={budget.id} value={budget.id}>
-                        {budget.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Budget"
+                  searchPlaceholder="Search budget..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={budgets.map((budget) => ({
+                    value: budget.id,
+                    label: budget.name,
+                  }))}
+                  value={filterBudgetId === "" ? null : filterBudgetId}
+                  onChange={(value) =>
+                    setFilterBudgetId(value === null ? "" : Number(value))
+                  }
+                />
 
                 <div className="relative">
                   <select
@@ -903,53 +878,35 @@ export const FinancePage = () => {
 
             {activeTab === "budgets" && (
               <div className="hidden lg:flex flex-wrap items-center gap-2">
-                <div className="relative">
-                  <select
-                    value={
-                      filterCategoryId === "" ? "" : String(filterCategoryId)
-                    }
-                    onChange={(e) =>
-                      setFilterCategoryId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Category</option>
-                    {expenseCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Category"
+                  searchPlaceholder="Search category..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={expenseCategories.map((category) => ({
+                    value: category.id,
+                    label: category.name,
+                  }))}
+                  value={filterCategoryId === "" ? null : filterCategoryId}
+                  onChange={(value) =>
+                    setFilterCategoryId(value === null ? "" : Number(value))
+                  }
+                />
 
-                <div className="relative">
-                  <select
-                    value={filterUnitId === "" ? "" : String(filterUnitId)}
-                    onChange={(e) =>
-                      setFilterUnitId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Units</option>
-                    {unitOptions.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Units"
+                  searchPlaceholder="Search unit..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={unitOptions.map((unit) => ({
+                    value: unit.id,
+                    label: unit.name,
+                  }))}
+                  value={filterUnitId === "" ? null : filterUnitId}
+                  onChange={(value) =>
+                    setFilterUnitId(value === null ? "" : Number(value))
+                  }
+                />
 
                 <div className="relative">
                   <select

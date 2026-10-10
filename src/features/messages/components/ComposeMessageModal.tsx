@@ -184,6 +184,11 @@ export const ComposeMessageModal = () => {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      // Message attachments aren't formal correspondence, so mark them
+      // "open" rather than the API's "classified" default — otherwise only
+      // the uploader can open the document and recipients get a 403 when
+      // they click the attachment.
+      formData.append("classification", "open");
       const document = await createDocument(formData).unwrap();
       setAttachableId(String(document.id));
       setUploadedDocumentTitle(document.title || document.name || file.name);

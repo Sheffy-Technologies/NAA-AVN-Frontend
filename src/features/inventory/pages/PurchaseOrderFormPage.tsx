@@ -14,6 +14,7 @@ import {
   useGetExpenseCategoriesQuery,
 } from "../api";
 import { Icon } from "@/shared/icons/Icon";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { NewInventoryItemFields } from "../components/NewInventoryItemFields";
 import {
   emptyNewInventoryDraft,
@@ -529,24 +530,22 @@ export default function PurchaseOrderFormPage() {
           )}
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-2">
             {itemMode === "existing" && (
-              <select
-                title="Inventory Item"
-                className="sm:col-span-2 rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-                value={itemDraft.inventory_id}
-                onChange={(e) =>
+              <SearchableSelect
+                className="sm:col-span-2"
+                placeholder="Select inventory item"
+                searchPlaceholder="Search by part number or description..."
+                options={inventories.map((inv) => ({
+                  value: inv.id,
+                  label: `${inv.part_number} - ${inv.description}`,
+                }))}
+                value={itemDraft.inventory_id || null}
+                onChange={(value) =>
                   setItemDraft((d) => ({
                     ...d,
-                    inventory_id: e.target.value,
+                    inventory_id: value === null ? "" : String(value),
                   }))
                 }
-              >
-                <option value="">Select inventory item</option>
-                {inventories.map((inv) => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.part_number} - {inv.description}
-                  </option>
-                ))}
-              </select>
+              />
             )}
             {itemMode === "existing" && (
               <input

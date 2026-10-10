@@ -1,5 +1,6 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
+import type { MaintenanceDueItem } from "@/features/assets/api";
 
 export type DashboardHomeOperationUnit = {
   id: number;
@@ -104,7 +105,8 @@ export type DashboardHomeResponse = {
   supplier_count: number;
   operation_count: number;
   inventories_count: number;
-  finances: number;
+  /** Only present when the viewer also holds dashboard.finance.view. */
+  finances?: number;
   recent_operations: DashboardHomeOperation[];
   recent_flight_programs: DashboardHomeFlightProgram[];
 };
@@ -136,7 +138,10 @@ export type DashboardOperationsResponse = {
   completed: number;
   ongoing: number;
   aborted: number;
+  /** Still-upcoming (status "planned") operations. */
   recent_operations: DashboardOperationsRecentOperation[];
+  /** Operations actually conducted (completed/ongoing/aborted) in the last 24 hours. */
+  conducted_operations: DashboardOperationsRecentOperation[];
 };
 
 export type DashboardMaintenanceRecentAircraft = {
@@ -177,6 +182,8 @@ export type DashboardMaintenanceResponse = {
   total_airbases: number;
   total_equipments: number;
   recent_aircrafts: DashboardMaintenanceRecentAircraft[];
+  /** Components/engines/avionics across the fleet nearing or past their remaining hours/cycles limit. */
+  coming_due: MaintenanceDueItem[];
   maintenance_events: {
     serviceable: number;
     under_maintenance: number;
@@ -190,6 +197,10 @@ export type DashboardFinanceResponse = {
   current_quarter_expense: number;
   sum_amount: number;
   budget: number;
+  /** Allocated starting amount across every account, before income/expense. */
+  opening_balance: number;
+  /** opening_balance + total income - total expense, across every account. */
+  balance_of_account: number;
 };
 
 export type DashboardInventoryRecentItem = {
@@ -271,6 +282,122 @@ export type DashboardPersonnelResponse = {
   recent_personnel: DashboardPersonnelRecent[];
 };
 
+
+export type StrategicTempoDay = {
+  date: string;
+  label: string;
+  count: number;
+};
+
+export type StrategicTempo = {
+  flights_today: number;
+  flights_this_week: number;
+  operations_this_week: number;
+  flights_by_day: StrategicTempoDay[];
+};
+
+export type StrategicOperationPoint = {
+  lat: number;
+  lng: number;
+};
+
+export type StrategicOperationWaypoint = StrategicOperationPoint & {
+  name: string | null;
+};
+
+export type StrategicOperationStatus = "planned" | "ongoing" | "completed" | "aborted";
+
+export type StrategicOperation = {
+  id: number;
+  name: string;
+  status: StrategicOperationStatus;
+  priority: string | null;
+  is_flight: boolean;
+  type: string | null;
+  unit: string | null;
+  unit_id: number | null;
+  start_date_time: string | null;
+  end_date_time: string | null;
+  departure: StrategicOperationPoint | null;
+  arrival: StrategicOperationPoint | null;
+  waypoints: StrategicOperationWaypoint[];
+  assets: string[];
+};
+
+export type StrategicGroundedAircraft = {
+  id: number;
+  name: string;
+  tail_number: string | null;
+  unit: string | null;
+  reasons: string[];
+};
+
+export type StrategicFleet = {
+  total_aircraft: number;
+  airworthy: number;
+  grounded: number;
+  grounded_aircraft: StrategicGroundedAircraft[];
+  maintenance_due: {
+    overdue: number;
+    due_soon: number;
+  };
+};
+
+export type StrategicPersonnelReadiness = {
+  total_personnel: number;
+  active: number;
+  medical: number;
+  grounded: number;
+  total_pilots: number;
+  flight_currency: {
+    current: number;
+    due_for_flight: number;
+    overdue: number;
+    no_flights: number;
+  };
+  pass_status: {
+    upcoming: number;
+    due_for_pass: number;
+    pending_approval: number;
+    on_pass: number;
+    overdue: number;
+  };
+};
+
+export type StrategicDefects = {
+  open_critical: number;
+  open_high: number;
+  open_total: number;
+};
+
+export type StrategicUnit = {
+  id: number;
+  name: string;
+  lat: number;
+  lng: number;
+  personnel_count: number;
+  asset_count: number;
+  operation_count: number;
+};
+
+export type StrategicFinance = {
+  total_expense: number;
+  current_month_expense: number;
+  total_budget: number;
+};
+
+export type StrategicDashboardResponse = {
+  generated_at: string;
+  tempo: StrategicTempo;
+  operations: StrategicOperation[];
+  fleet: StrategicFleet;
+  personnel_readiness: StrategicPersonnelReadiness;
+  defects: StrategicDefects;
+  units: StrategicUnit[];
+  /** Only present when the viewer also holds dashboard.finance.view. */
+  finance?: StrategicFinance;
+};
+
 export const dashboardApi = createApi({
   reducerPath: "dashboardApi",
   baseQuery: axiosBaseQuery(),
@@ -317,6 +444,12 @@ export const dashboardApi = createApi({
         method: "GET",
       }),
     }),
+    getStrategicDashboard: builder.query<StrategicDashboardResponse, void>({
+      query: () => ({
+        url: "/dashboard/strategic",
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -328,4 +461,5 @@ export const {
   useGetDashboardInventoriesQuery,
   useGetDashboardPersonnelQuery,
   useGetFlightProgramsQuery,
+  useGetStrategicDashboardQuery,
 } = dashboardApi;

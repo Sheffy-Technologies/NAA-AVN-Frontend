@@ -513,6 +513,11 @@ export const MessagesPage = () => {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      // Message attachments aren't formal correspondence, so mark them
+      // "open" rather than the API's "classified" default — otherwise only
+      // the uploader can open the document and recipients get a 403 when
+      // they click the attachment.
+      formData.append("classification", "open");
       const document = await createDocument(formData).unwrap();
       setAttachableId(String(document.id));
       setUploadedDocumentTitle(document.title || document.name || file.name);
@@ -589,6 +594,15 @@ export const MessagesPage = () => {
       void refetchSent();
     } catch {
       dispatch(showToast({ message: "Failed to delete message", type: "error" }));
+    }
+  };
+
+  const handleCopyMessage = async (body: string) => {
+    try {
+      await navigator.clipboard.writeText(body);
+      dispatch(showToast({ message: "Message copied to clipboard", type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to copy message", type: "error" }));
     }
   };
 
@@ -782,6 +796,17 @@ export const MessagesPage = () => {
                       )}
 
                       <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleCopyMessage(message.body)}
+                          title="Copy message"
+                          aria-label="Copy message"
+                          className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-[11px] ${markReadBtn}`}
+                        >
+                          <Icon icon="mdi:content-copy" className="h-3 w-3" />
+                          Copy
+                        </button>
+
                         {isMine && (() => {
                           const otherRecipients = (message.recipients || []).filter(
                             (recipient) => recipient.id !== currentUserId,

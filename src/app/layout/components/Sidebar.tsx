@@ -73,6 +73,12 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   {
+    name: "Strategic Command",
+    path: "/dashboard/strategic",
+    icon: "mdi:map-marker-radius-outline",
+    requiredPermissions: ["dashboard.strategic.view"],
+  },
+  {
     name: "Security",
     path: "/dashboard/security",
     icon: "mdi:shield-outline",

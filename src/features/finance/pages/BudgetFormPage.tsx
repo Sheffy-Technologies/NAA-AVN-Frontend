@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import {
   useCreateBudgetMutation,
   useGetBudgetCategoriesQuery,
@@ -66,6 +67,15 @@ export const BudgetFormPage = () => {
               ? ""
               : Number(value)
             : value,
+      }));
+      setSubmitError(null);
+    };
+
+  const handleSelectChange =
+    (field: keyof BudgetFormValues) => (value: string | number | null) => {
+      setValues((prev) => ({
+        ...prev,
+        [field]: value === null ? "" : Number(value),
       }));
       setSubmitError(null);
     };
@@ -163,42 +173,32 @@ export const BudgetFormPage = () => {
             <label className="text-[11px] uppercase text-gray-400">
               Category
             </label>
-            <select
-              aria-label="Budget category"
-              value={
-                values.budget_category_id === ""
-                  ? ""
-                  : String(values.budget_category_id)
-              }
-              onChange={handleChange("budget_category_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
-            >
-              <option value="">Select Category</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              placeholder="Select Category"
+              searchPlaceholder="Search category..."
+              options={categories.map((category) => ({
+                value: category.id,
+                label: category.name,
+              }))}
+              value={values.budget_category_id === "" ? null : values.budget_category_id}
+              onChange={handleSelectChange("budget_category_id")}
+            />
           </div>
 
           <div className="space-y-1">
             <label className="text-[11px] uppercase text-gray-400">
               Currency
             </label>
-            <select
-              aria-label="Budget currency"
-              value={values.currency_id === "" ? "" : String(values.currency_id)}
-              onChange={handleChange("currency_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
-            >
-              <option value="">Select Currency</option>
-              {currencies.map((currency) => (
-                <option key={currency.id} value={currency.id}>
-                  {currency.code} - {currency.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              placeholder="Select Currency"
+              searchPlaceholder="Search currency..."
+              options={currencies.map((currency) => ({
+                value: currency.id,
+                label: `${currency.code} - ${currency.name}`,
+              }))}
+              value={values.currency_id === "" ? null : values.currency_id}
+              onChange={handleSelectChange("currency_id")}
+            />
           </div>
 
           <div className="space-y-1">
@@ -243,19 +243,16 @@ export const BudgetFormPage = () => {
 
           <div className="space-y-1">
             <label className="text-[11px] uppercase text-gray-400">Unit</label>
-            <select
-              aria-label="Budget unit"
-              value={values.unit_id === "" ? "" : String(values.unit_id)}
-              onChange={handleChange("unit_id")}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none appearance-none"
-            >
-              <option value="">Select Unit</option>
-              {units.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unit.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              placeholder="Select Unit"
+              searchPlaceholder="Search unit..."
+              options={units.map((unit) => ({
+                value: unit.id,
+                label: unit.name,
+              }))}
+              value={values.unit_id === "" ? null : values.unit_id}
+              onChange={handleSelectChange("unit_id")}
+            />
           </div>
         </div>
 

@@ -17,6 +17,7 @@ import {
 } from "../passApi";
 import { useGetPersonnelRanksQuery } from "../api";
 import { useGetUnitsQuery } from "@/shared/api/units";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch, useAppSelector } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
@@ -265,35 +266,29 @@ export const PassPage = () => {
                 />
               </div>
 
-              <select
-                value={unitFilter}
-                onChange={(e) =>
-                  setUnitFilter(e.target.value ? Number(e.target.value) : "")
+              <SearchableSelect
+                placeholder="All Units"
+                searchPlaceholder="Search unit..."
+                buttonClassName="py-1.5 px-2 text-xs"
+                className="w-36"
+                options={units.map((u) => ({ value: u.id, label: u.name }))}
+                value={unitFilter || null}
+                onChange={(value) =>
+                  setUnitFilter(value === null ? "" : Number(value))
                 }
-                className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
-              >
-                <option value="">All Units</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+              />
 
-              <select
-                value={rankFilter}
-                onChange={(e) =>
-                  setRankFilter(e.target.value ? Number(e.target.value) : "")
+              <SearchableSelect
+                placeholder="All Ranks"
+                searchPlaceholder="Search rank..."
+                buttonClassName="py-1.5 px-2 text-xs"
+                className="w-36"
+                options={ranks.map((r) => ({ value: r.id, label: r.name }))}
+                value={rankFilter || null}
+                onChange={(value) =>
+                  setRankFilter(value === null ? "" : Number(value))
                 }
-                className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
-              >
-                <option value="">All Ranks</option>
-                {ranks.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+              />
 
               <select
                 value={statusFilter}
@@ -492,35 +487,29 @@ export const PassPage = () => {
                 />
               </div>
 
-              <select
-                value={historyUnitFilter}
-                onChange={(e) =>
-                  setHistoryUnitFilter(e.target.value ? Number(e.target.value) : "")
+              <SearchableSelect
+                placeholder="All Units"
+                searchPlaceholder="Search unit..."
+                buttonClassName="py-1.5 px-2 text-xs"
+                className="w-36"
+                options={units.map((u) => ({ value: u.id, label: u.name }))}
+                value={historyUnitFilter || null}
+                onChange={(value) =>
+                  setHistoryUnitFilter(value === null ? "" : Number(value))
                 }
-                className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
-              >
-                <option value="">All Units</option>
-                {units.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
+              />
 
-              <select
-                value={historyRankFilter}
-                onChange={(e) =>
-                  setHistoryRankFilter(e.target.value ? Number(e.target.value) : "")
+              <SearchableSelect
+                placeholder="All Ranks"
+                searchPlaceholder="Search rank..."
+                buttonClassName="py-1.5 px-2 text-xs"
+                className="w-36"
+                options={ranks.map((r) => ({ value: r.id, label: r.name }))}
+                value={historyRankFilter || null}
+                onChange={(value) =>
+                  setHistoryRankFilter(value === null ? "" : Number(value))
                 }
-                className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
-              >
-                <option value="">All Ranks</option>
-                {ranks.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </select>
+              />
 
               <select
                 value={historyStatus}

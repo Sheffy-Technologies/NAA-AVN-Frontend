@@ -7,6 +7,7 @@ import {
   MultiSelect,
   type MultiSelectOption,
 } from "@/shared/ui/multi-select/MultiSelect";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import {
   useGetPersonnelByIdQuery,
   useGetPersonnelRanksQuery,
@@ -334,6 +335,19 @@ export const EditPersonnelPage = () => {
     }));
   };
 
+  const handleSelectChange = (
+    name: string,
+    value: string | number | null,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]:
+        name.endsWith("_id") && value !== null && value !== ""
+          ? Number(value)
+          : (value ?? ""),
+    }));
+  };
+
   const handleAircraftChange = (selected: (string | number)[]) => {
     const ids = selected as number[];
     setSelectedAircraftIds(ids);
@@ -484,19 +498,6 @@ export const EditPersonnelPage = () => {
     }
   };
 
-  // Helper for select options
-  const renderOptions = (
-    items: { id: number; [key: string]: unknown }[] | undefined,
-    labelKey: string = "name",
-  ) => {
-    if (!items) return null;
-    return items.map((item) => (
-      <option key={item.id} value={item.id}>
-        {String(item[labelKey])}
-      </option>
-    ));
-  };
-
   const aircraftOptions: MultiSelectOption[] = useMemo(() => {
     if (isLoadingAircraftAssets) return [];
 
@@ -642,15 +643,17 @@ export const EditPersonnelPage = () => {
                 onChange={handleChange}
                 placeholder="Enter Service No."
               />
-              <SelectField
+              <SearchableSelect
                 label="Rank"
-                name="rank_id"
-                value={formData.rank_id ?? ""}
-                onChange={handleChange}
-              >
-                <option value="">Select Rank</option>
-                {renderOptions(ranks)}
-              </SelectField>
+                placeholder="Select Rank"
+                searchPlaceholder="Search rank..."
+                options={(ranks ?? []).map((r) => ({
+                  value: r.id,
+                  label: r.name,
+                }))}
+                value={formData.rank_id || null}
+                onChange={(value) => handleSelectChange("rank_id", value)}
+              />
               <SelectField
                 label="Blood Group"
                 name="blood_group"
@@ -759,25 +762,29 @@ export const EditPersonnelPage = () => {
             Service Details
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SelectField
+            <SearchableSelect
               label="Branch"
-              name="branch_id"
-              value={formData.branch_id ?? 0}
-              onChange={handleChange}
-            >
-              <option value="">Select Branch</option>
-              {renderOptions(branches)}
-            </SelectField>
+              placeholder="Select Branch"
+              searchPlaceholder="Search branch..."
+              options={(branches ?? []).map((b) => ({
+                value: b.id,
+                label: b.name,
+              }))}
+              value={formData.branch_id || null}
+              onChange={(value) => handleSelectChange("branch_id", value)}
+            />
 
-            <SelectField
+            <SearchableSelect
               label="Specialty"
-              name="specialty_id"
-              value={formData.specialty_id ?? 0}
-              onChange={handleChange}
-            >
-              <option value="">Select Specialty</option>
-              {renderOptions(specialties)}
-            </SelectField>
+              placeholder="Select Specialty"
+              searchPlaceholder="Search specialty..."
+              options={(specialties ?? []).map((s) => ({
+                value: s.id,
+                label: s.name,
+              }))}
+              value={formData.specialty_id || null}
+              onChange={(value) => handleSelectChange("specialty_id", value)}
+            />
 
             <SelectField
               label="Status"
@@ -790,25 +797,29 @@ export const EditPersonnelPage = () => {
               <option value="medical">Medical</option>
             </SelectField>
 
-            <SelectField
+            <SearchableSelect
               label="Unit"
-              name="unit_id"
-              value={formData.unit_id ?? ""}
-              onChange={handleChange}
-            >
-              <option value="">Select Unit</option>
-              {renderOptions(units)}
-            </SelectField>
+              placeholder="Select Unit"
+              searchPlaceholder="Search unit..."
+              options={(units ?? []).map((u) => ({
+                value: u.id,
+                label: u.name,
+              }))}
+              value={formData.unit_id || null}
+              onChange={(value) => handleSelectChange("unit_id", value)}
+            />
 
-            <SelectField
+            <SearchableSelect
               label="Corp"
-              name="corp_id"
-              value={formData.corp_id ?? 0}
-              onChange={handleChange}
-            >
-              <option value="">Select Corp</option>
-              {renderOptions(corps)}
-            </SelectField>
+              placeholder="Select Corp"
+              searchPlaceholder="Search corp..."
+              options={(corps ?? []).map((c) => ({
+                value: c.id,
+                label: c.name,
+              }))}
+              value={formData.corp_id || null}
+              onChange={(value) => handleSelectChange("corp_id", value)}
+            />
           </div>
         </div>
 
@@ -847,26 +858,40 @@ export const EditPersonnelPage = () => {
                   </button>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <SelectField
+                  <SearchableSelect
                     label="From Unit"
-                    value={deployment.from_unit_id}
-                    onChange={(e) =>
-                      handleDeploymentChange(index, "from_unit_id", e.target.value)
+                    placeholder="Select Unit"
+                    searchPlaceholder="Search unit..."
+                    options={(units ?? []).map((u) => ({
+                      value: u.id,
+                      label: u.name,
+                    }))}
+                    value={deployment.from_unit_id || null}
+                    onChange={(value) =>
+                      handleDeploymentChange(
+                        index,
+                        "from_unit_id",
+                        value === null ? "" : String(value),
+                      )
                     }
-                  >
-                    <option value="">Select Unit</option>
-                    {renderOptions(units)}
-                  </SelectField>
-                  <SelectField
+                  />
+                  <SearchableSelect
                     label="To Unit"
-                    value={deployment.to_unit_id}
-                    onChange={(e) =>
-                      handleDeploymentChange(index, "to_unit_id", e.target.value)
+                    placeholder="Select Unit"
+                    searchPlaceholder="Search unit..."
+                    options={(units ?? []).map((u) => ({
+                      value: u.id,
+                      label: u.name,
+                    }))}
+                    value={deployment.to_unit_id || null}
+                    onChange={(value) =>
+                      handleDeploymentChange(
+                        index,
+                        "to_unit_id",
+                        value === null ? "" : String(value),
+                      )
                     }
-                  >
-                    <option value="">Select Unit</option>
-                    {renderOptions(units)}
-                  </SelectField>
+                  />
                   <InputField
                     label="Start Date"
                     type="date"
