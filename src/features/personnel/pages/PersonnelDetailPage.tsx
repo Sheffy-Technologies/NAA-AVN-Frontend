@@ -326,7 +326,7 @@ export const PersonnelDetailPage = () => {
       address: apiPerson.address,
       dialogue: "",
       aircraftRatedOn: "",
-      totalFlightTimeHours: 0,
+      totalFlightTimeHours: apiPerson.total_flight_hours ?? 0,
       aircraftHours: [],
       isPilot: apiPerson.is_pilot,
       lastFlightDate: apiPerson.last_flight_date,
