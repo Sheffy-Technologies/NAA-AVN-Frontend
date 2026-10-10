@@ -9,6 +9,8 @@ import {
   useGetVehiclesQuery,
   useUpdateAssetMutation,
   useDeleteAssetMutation,
+  useCreateVehicleMutation,
+  useCreateFacilityMutation,
   type Asset,
   type Facility,
   type Vehicle,
@@ -19,6 +21,25 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { FacilitiesMapView } from "@/features/assets/components/FacilitiesMapView";
+import {
+  ImportCsvModal,
+  type ImportCsvField,
+} from "@/shared/components/ImportCsvModal";
+
+const VEHICLE_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "name", label: "Name", required: true, example: "Land Cruiser 1" },
+  { key: "vehicle_type", label: "Vehicle Type", required: true, example: "Pickup Truck" },
+  { key: "registration_number", label: "Registration Number", required: true, example: "ABJ-123-XY" },
+  { key: "serial_number", label: "Serial Number", required: false, example: "SN-55123" },
+  { key: "unit", label: "Unit", required: true, example: "1 Squadron" },
+];
+
+const FACILITY_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "name", label: "Name", required: true, example: "Main Hangar" },
+  { key: "description", label: "Description", required: true, example: "Primary maintenance hangar" },
+  { key: "latitude", label: "Latitude", required: true, example: "9.0579" },
+  { key: "longitude", label: "Longitude", required: true, example: "7.4951" },
+];
 
 const TABS = [
   { id: "aircraft", label: "Aircrafts", icon: "mdi:airplane" },
@@ -53,6 +74,9 @@ export const AssetsPage = () => {
   const { data: units } = useGetUnitsQuery();
   const [updateAsset] = useUpdateAssetMutation();
   const [deleteAsset] = useDeleteAssetMutation();
+  const [createVehicle] = useCreateVehicleMutation();
+  const [createFacility] = useCreateFacilityMutation();
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const navigate = useNavigate();
   const [openActionId, setOpenActionId] = useState<number | null>(null);
@@ -68,6 +92,38 @@ export const AssetsPage = () => {
   useClickOutside(statusMenuRef, () => {
     setStatusMenuForId(null);
   });
+
+  const handleImportVehicleRow = async (row: Record<string, string>) => {
+    const unitMatch = units?.find(
+      (u) => u.name.trim().toLowerCase() === row.unit.trim().toLowerCase(),
+    );
+    if (!unitMatch) throw new Error(`Unit "${row.unit}" not found`);
+
+    const vehicleTypeMatch = vehicleTypes?.find(
+      (vt) =>
+        vt.name.trim().toLowerCase() === row.vehicle_type.trim().toLowerCase(),
+    );
+    if (!vehicleTypeMatch) {
+      throw new Error(`Vehicle type "${row.vehicle_type}" not found`);
+    }
+
+    await createVehicle({
+      name: row.name,
+      vehicle_type_id: vehicleTypeMatch.id,
+      registration_number: row.registration_number,
+      serial_number: row.serial_number || undefined,
+      unit_id: unitMatch.id,
+    }).unwrap();
+  };
+
+  const handleImportFacilityRow = async (row: Record<string, string>) => {
+    await createFacility({
+      name: row.name,
+      description: row.description,
+      latitude: row.latitude,
+      longitude: row.longitude,
+    }).unwrap();
+  };
 
   const handleDeleteAsset = async (id: number, name: string) => {
     if (!window.confirm(`Delete ${name}? This action cannot be undone.`)) return;
@@ -168,6 +224,12 @@ export const AssetsPage = () => {
           updated_at: vehicle.updated_at || "",
           operations_total_hours: 0,
           operations_total_hours_label: "0",
+          flight_logs_total_hours: 0,
+          flight_logs_total_cycles: 0,
+          flight_logs_total_landings: 0,
+          current_total_hours: 0,
+          current_total_cycles: 0,
+          current_total_landings: 0,
         }))
       : activeTab === "facility"
         ? (facilities ?? []).map((facility: Facility) => ({
@@ -204,6 +266,12 @@ export const AssetsPage = () => {
             updated_at: facility.updated_at || "",
             operations_total_hours: 0,
             operations_total_hours_label: "0",
+            flight_logs_total_hours: 0,
+            flight_logs_total_cycles: 0,
+            flight_logs_total_landings: 0,
+            current_total_hours: 0,
+            current_total_cycles: 0,
+            current_total_landings: 0,
           }))
       :
           assets
@@ -343,7 +411,7 @@ export const AssetsPage = () => {
         {/* Controls */}
         <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
           {/* Top Row: View Switcher, Stats, Filters, Add Button */}
-          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
             {/* View Icons */}
             <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
               <button
@@ -442,6 +510,16 @@ export const AssetsPage = () => {
               >
                 <Icon icon="mdi:download" className="w-4 h-4" />
               </button>
+              {(activeTab === "vehicle" || activeTab === "facility") && (
+                <button
+                  type="button"
+                  onClick={() => setIsImportOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:upload" className="w-4 h-4" />
+                  Import CSV
+                </button>
+              )}
             </div>
 
             {/* Add Button */}
@@ -613,7 +691,7 @@ export const AssetsPage = () => {
                 <thead>
                   <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
                     <th className="px-6 py-4 font-medium"> Name</th>
-                    <th className="px-6 py-4 font-medium">Type</th>
+                    <th className="px-6 py-4 font-medium">Tail Number</th>
                     <th className="px-6 py-4 font-medium">Unit</th>
                     <th className="px-6 py-4 font-medium">Defects</th>
                     <th className="px-6 py-4 font-medium">Status</th>
@@ -671,7 +749,9 @@ export const AssetsPage = () => {
                             {asset.name}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-gray-300">{asset.model}</td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {asset.tail_number || "-"}
+                        </td>
                         <td className="px-6 py-4 text-gray-300">
                           {getUnitName(asset.unit_id)}
                         </td>
@@ -970,6 +1050,27 @@ export const AssetsPage = () => {
           </div>
         ))}
       </div>
+
+      <ImportCsvModal
+        open={isImportOpen}
+        title={
+          activeTab === "vehicle"
+            ? "Import Vehicles from CSV"
+            : "Import Facilities from CSV"
+        }
+        fields={
+          activeTab === "vehicle" ? VEHICLE_IMPORT_FIELDS : FACILITY_IMPORT_FIELDS
+        }
+        sampleFileName={
+          activeTab === "vehicle"
+            ? "vehicles-import-sample.csv"
+            : "facilities-import-sample.csv"
+        }
+        onImportRow={
+          activeTab === "vehicle" ? handleImportVehicleRow : handleImportFacilityRow
+        }
+        onClose={() => setIsImportOpen(false)}
+      />
     </div>
   );
 };

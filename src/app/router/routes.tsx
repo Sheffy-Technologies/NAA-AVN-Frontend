@@ -38,6 +38,11 @@ const DashboardPage = lazy(() =>
     default: module.DashboardPage,
   })),
 );
+const StrategicDashboardPage = lazy(() =>
+  import("@/features/dashboard/pages/StrategicDashboardPage").then((module) => ({
+    default: module.StrategicDashboardPage,
+  })),
+);
 const InventoryPage = lazy(() =>
   import("@/features/inventory/pages/InventoryPage").then((module) => ({
     default: module.InventoryPage,
@@ -129,6 +134,11 @@ const BudgetStatementPage = lazy(() =>
 const DocumentsPage = lazy(() =>
   import("@/features/documents/pages/DocumentsPage").then((module) => ({
     default: module.DocumentsPage,
+  })),
+);
+const DocumentCorrespondencePage = lazy(() =>
+  import("@/features/documents/pages/DocumentCorrespondencePage").then((module) => ({
+    default: module.DocumentCorrespondencePage,
   })),
 );
 const ReportsPage = lazy(() =>
@@ -243,6 +253,21 @@ const EditPersonnelPage = lazy(() =>
     default: module.EditPersonnelPage,
   })),
 );
+const PassPage = lazy(() =>
+  import("@/features/personnel/pages/PassPage").then((module) => ({
+    default: module.PassPage,
+  })),
+);
+const AttendancePage = lazy(() =>
+  import("@/features/personnel/pages/AttendancePage").then((module) => ({
+    default: module.AttendancePage,
+  })),
+);
+const CoursePage = lazy(() =>
+  import("@/features/personnel/pages/CoursePage").then((module) => ({
+    default: module.CoursePage,
+  })),
+);
 const ComingSoonPage = lazy(() =>
   import("@/features/dashboard/pages/ComingSoonPage").then((module) => ({
     default: module.ComingSoonPage,
@@ -299,9 +324,11 @@ const PERSONNEL_ROUTE_PERMISSIONS = ["dashboard.personnel.view", "personnel.view
 const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.viewAny"];
 const MESSAGES_ROUTE_PERMISSIONS: string[] = [];
 const FINANCE_ROUTE_PERMISSIONS = ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"];
+const STRATEGIC_ROUTE_PERMISSIONS = ["dashboard.strategic.view"];
 const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"];
 const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
-const DOCUMENTS_ROUTE_PERMISSIONS = ["documents.viewAny"];
+// Open to any authenticated user regardless of role, same as messages.
+const DOCUMENTS_ROUTE_PERMISSIONS: string[] = [];
 const MAINTENANCE_ROUTE_PERMISSIONS = ["dashboard.maintenance.view", "work-orders.viewAny", "maintenance-programs.viewAny"];
 
 const guardWithPermissions = (
@@ -488,6 +515,30 @@ export const router = createBrowserRouter([
         ), PERSONNEL_ROUTE_PERMISSIONS),
       },
       {
+        path: "personnel/pass",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <PassPage />
+          </Suspense>
+        ), PERSONNEL_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "personnel/attendance",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <AttendancePage />
+          </Suspense>
+        ), PERSONNEL_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "personnel/courses",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <CoursePage />
+          </Suspense>
+        ), PERSONNEL_ROUTE_PERMISSIONS),
+      },
+      {
         path: "personnel/add",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
@@ -656,6 +707,14 @@ export const router = createBrowserRouter([
         ), DOCUMENTS_ROUTE_PERMISSIONS),
       },
       {
+        path: "documents/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <DocumentCorrespondencePage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
         path: "reports",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
@@ -720,6 +779,14 @@ export const router = createBrowserRouter([
             </Suspense>
           </RequireRole>
         ),
+      },
+      {
+        path: "strategic",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <StrategicDashboardPage />
+          </Suspense>
+        ), STRATEGIC_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance",

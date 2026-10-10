@@ -1,5 +1,25 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
+import type { MaintenanceDueItem, MaintenanceDueStatus, MaintenanceDuePartType } from "@/features/assets/api";
+
+export type { MaintenanceDueItem, MaintenanceDueStatus, MaintenanceDuePartType };
+
+export type MaintenanceDueResponse = {
+  count: number;
+  counts_by_status: {
+    overdue: number;
+    due_soon: number;
+    ok: number;
+  };
+  data: MaintenanceDueItem[];
+};
+
+export type MaintenanceDueFilters = {
+  asset_type?: "aircraft" | "vehicle" | "equipment";
+  unit_id?: number;
+  status?: MaintenanceDueStatus;
+  part_type?: MaintenanceDuePartType;
+};
 
 export type MaintenanceMetricsResponse = {
   reference_date: string;
@@ -39,10 +59,17 @@ export type MaintenanceMetricsResponse = {
   };
 };
 
+export type MaintenanceProgramCategory =
+  | "scheduled"
+  | "airworthiness_directive"
+  | "service_bulletin";
+
 export type MaintenanceProgram = {
   id: number;
   ata_chapter_id?: number | null;
   name: string;
+  category?: MaintenanceProgramCategory;
+  reference_number?: string | null;
   description?: string | null;
   asset_id?: number | null;
   interval_hours?: number | null;
@@ -57,6 +84,8 @@ export type MaintenanceProgram = {
 export type CreateMaintenanceProgramRequest = {
   ata_chapter_id: number;
   name: string;
+  category?: MaintenanceProgramCategory;
+  reference_number?: string | null;
   description?: string | null;
   asset_id?: number | null;
   interval_hours?: number | null;
@@ -70,6 +99,8 @@ export type UpdateMaintenanceProgramRequest = {
   id: number;
   ata_chapter_id?: number | null;
   name?: string;
+  category?: MaintenanceProgramCategory;
+  reference_number?: string | null;
   description?: string | null;
   asset_id?: number | null;
   interval_hours?: number | null;
@@ -276,8 +307,10 @@ export type ComplianceRecord = {
   id: number;
   completion_date?: string | null;
   hours_at_completion?: number | string | null;
+  cycles_at_completion?: number | string | null;
   next_due_date?: string | null;
   next_due_hours?: number | string | null;
+  next_due_cycles?: number | string | null;
   remarks?: string | null;
   component_id?: number | null;
   engine_id?: number | null;
@@ -383,11 +416,20 @@ export const maintenanceApi = createApi({
       }),
       providesTags: (_result, _error, id) => [{ type: "WorkOrders", id }],
     }),
-    getComplianceRecords: builder.query<ComplianceRecord[], void>({
-      query: () => ({
+    getComplianceRecords: builder.query<ComplianceRecord[], { asset_id?: number } | void>({
+      query: (params) => ({
         url: "/compliance-history",
         method: "GET",
+        params: params || undefined,
       }),
+    }),
+    getMaintenanceDueItems: builder.query<MaintenanceDueResponse, MaintenanceDueFilters | void>({
+      query: (params) => ({
+        url: "/maintenance/due-items",
+        method: "GET",
+        params: params || undefined,
+      }),
+      providesTags: [{ type: "WorkOrders", id: "DUE_LIST" }],
     }),
     getDefectRecords: builder.query<DefectRecord[], void>({
       query: () => ({
@@ -442,7 +484,10 @@ export const maintenanceApi = createApi({
         method: "PUT",
         data: body,
       }),
-      invalidatesTags: [{ type: "WorkOrders", id: "LIST" }],
+      invalidatesTags: [
+        { type: "WorkOrders", id: "LIST" },
+        { type: "WorkOrders", id: "DUE_LIST" },
+      ],
     }),
   }),
 });
@@ -457,6 +502,7 @@ export const {
   useGetWorkOrdersQuery,
   useGetWorkOrderByIdQuery,
   useGetComplianceRecordsQuery,
+  useGetMaintenanceDueItemsQuery,
   useGetDefectRecordsQuery,
   useGetComponentsQuery,
   useGetEnginesQuery,

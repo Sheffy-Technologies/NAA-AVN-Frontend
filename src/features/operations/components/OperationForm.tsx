@@ -1,24 +1,34 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTheme } from "@/context/ThemeContext";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
 import { forward as toMgrs, toPoint as mgrsToPoint } from "mgrs";
 import { useGetAssetsQuery } from "@/features/assets/api";
-import { useGetPersonnelQuery } from "@/features/personnel/api";
+import {
+  useGetPersonnelQuery,
+  useCreatePersonnelMutation,
+} from "@/features/personnel/api";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import {
   useGetOperationTypesQuery,
+  useGetOperationCategoriesQuery,
+  useCreateOperationCategoryMutation,
+  useCreateOperationTypeMutation,
   type CreateOperationRequest,
   type Operation,
   type OperationAsset,
   type OperationWaypointInput,
 } from "../api";
 import { OperationLocationPicker } from "./OperationLocationPicker";
+import Modal from "@/shared/ui/modal/Modal";
 
 type OperationFormMode = "create" | "edit";
 
 type OperationFormData = {
   name: string;
+  operation_category_id: string;
   operation_type_id: string;
   unit_id: string;
   start_date: string;
@@ -58,6 +68,7 @@ type OperationFormProps = {
 
 const emptyFormData: OperationFormData = {
   name: "",
+  operation_category_id: "",
   operation_type_id: "",
   unit_id: "",
   start_date: "",
@@ -80,11 +91,14 @@ const getPersonnelDisplayName = (person: {
   firstname?: string | null;
   lastname?: string | null;
   rank?: { name?: string | null } | null;
+  call_sign?: string | null;
 }) => {
   const rankName = person.rank?.name?.trim();
   const firstName = person.firstname?.trim() ?? "";
   const lastName = person.lastname?.trim() ?? "";
-  return `${rankName ? `${rankName} ` : ""}${firstName} ${lastName}`.trim();
+  const callSign = person.call_sign?.trim();
+  const base = `${rankName ? `${rankName} ` : ""}${firstName} ${lastName}`.trim();
+  return callSign ? `${base} (${callSign})` : base;
 };
 
 const formatCoordinate = (value?: number | null) =>
@@ -155,12 +169,8 @@ const convertMgrsToLatLon = (value: string) => {
 
 const extractDate = (value?: string | null) => {
   if (!value) return "";
-  const normalized = value.includes("T") ? value : value.replace(" ", "T");
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) {
-    return value.slice(0, 10);
-  }
-  return date.toISOString().slice(0, 10);
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : value.slice(0, 10);
 };
 
 const extractTime = (value?: string | null) => {
@@ -171,6 +181,9 @@ const extractTime = (value?: string | null) => {
 
 const mapOperationToFormData = (operation: Operation): OperationFormData => ({
   name: operation.name ?? "",
+  operation_category_id: operation.operation_category_id
+    ? String(operation.operation_category_id)
+    : "",
   operation_type_id: operation.operation_type_id
     ? String(operation.operation_type_id)
     : "",
@@ -197,6 +210,49 @@ const mapOperationToFormData = (operation: Operation): OperationFormData => ({
   description: operation.description ?? "",
 });
 
+const mapAssignedAssetsToForm = (operation?: Operation | null): OperationAsset[] => {
+  const mappedAssets =
+    operation?.assets
+      ?.map((asset) => {
+        const relationAsset = asset as OperationAsset & {
+          id?: number;
+          actual_flight_hours?: number | string | null;
+          pivot?: {
+            asset_id?: number;
+            pilot_id?: number | null;
+            co_pilot_id?: number | null;
+            flight_hours?: number | string | null;
+          } | null;
+        };
+
+        const assetId =
+          relationAsset.asset_id ?? relationAsset.id ?? relationAsset.pivot?.asset_id ?? 0;
+        const pilotId = relationAsset.pilot_id ?? relationAsset.pivot?.pilot_id ?? null;
+        const coPilotId =
+          relationAsset.co_pilot_id ?? relationAsset.pivot?.co_pilot_id ?? null;
+        const flightHoursRaw =
+          relationAsset.flight_hours ?? relationAsset.pivot?.flight_hours ?? null;
+        const flightHours =
+          flightHoursRaw === null || flightHoursRaw === undefined
+            ? null
+            : Number(flightHoursRaw);
+
+        return {
+          asset_id: assetId,
+          pilot_id: pilotId,
+          co_pilot_id: coPilotId,
+          flight_hours: flightHours !== null && !Number.isNaN(flightHours) ? flightHours : null,
+        };
+      })
+      .filter((asset) => Boolean(asset.asset_id)) ?? [];
+
+  if (mappedAssets.length > 0) {
+    return mappedAssets;
+  }
+
+  return [{ asset_id: 0, pilot_id: null, co_pilot_id: null, flight_hours: null }];
+};
+
 export const OperationForm = ({
   mode,
   initialOperation,
@@ -204,6 +260,7 @@ export const OperationForm = ({
   isSubmitting,
 }: OperationFormProps) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { isDark } = useTheme();
   const [coordinateInputMode, setCoordinateInputMode] =
     useState<CoordinateInputMode>("latlon");
@@ -230,10 +287,30 @@ export const OperationForm = ({
       : [],
   );
   const [assets, setAssets] = useState<OperationAsset[]>([
-    { asset_id: 0, pilot_id: null, co_pilot_id: null },
+    ...mapAssignedAssetsToForm(initialOperation),
   ]);
 
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [createOperationCategory, { isLoading: isCreatingCategory }] =
+    useCreateOperationCategoryMutation();
+
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeDescription, setNewTypeDescription] = useState("");
+  const [createOperationType, { isLoading: isCreatingType }] =
+    useCreateOperationTypeMutation();
+
+  type QuickAddPersonnelTarget = { assetIndex: number; role: "pilot_id" | "co_pilot_id" };
+  const [showAddPersonnelModal, setShowAddPersonnelModal] = useState(false);
+  const [addPersonnelTarget, setAddPersonnelTarget] = useState<QuickAddPersonnelTarget | null>(null);
+  const [quickAddForm, setQuickAddForm] = useState({ call_sign: "" });
+  const [quickAddedPersonnel, setQuickAddedPersonnel] = useState<Array<{ id: number; firstname: string; lastname: string; rank?: { name?: string | null } | null; call_sign?: string | null }>>([]);
+  const [createPersonnel, { isLoading: isCreatingPersonnel }] = useCreatePersonnelMutation();
+
   const { data: units = [] } = useGetUnitsQuery();
+  const { data: operationCategories = [] } = useGetOperationCategoriesQuery();
   const { data: operationTypes = [] } = useGetOperationTypesQuery();
   const { data: aircraftOptions = [] } = useGetAssetsQuery({ type: "aircraft" });
   const { data: personnel = [] } = useGetPersonnelQuery({
@@ -248,7 +325,12 @@ export const OperationForm = ({
   const isCreateMode = mode === "create";
   const pageTitle = isCreateMode ? "ADD OPERATION" : "EDIT OPERATION";
   const submitLabel = isCreateMode ? "Save" : "Save Changes";
-  const pilots = personnel;
+
+  const pilots = useMemo(() => {
+    const existingIds = new Set(personnel.map((p) => p.id));
+    const extras = quickAddedPersonnel.filter((p) => !existingIds.has(p.id));
+    return [...personnel, ...extras] as typeof personnel;
+  }, [personnel, quickAddedPersonnel]);
 
   const updateTargetCoordinates = (
     previous: OperationFormData,
@@ -354,7 +436,7 @@ export const OperationForm = ({
   const addAsset = () => {
     setAssets((prev) => [
       ...prev,
-      { asset_id: 0, pilot_id: null, co_pilot_id: null },
+      { asset_id: 0, pilot_id: null, co_pilot_id: null, flight_hours: null },
     ]);
   };
 
@@ -423,6 +505,80 @@ export const OperationForm = ({
     ]);
   };
 
+  const openAddPersonnelModal = (assetIndex: number, role: "pilot_id" | "co_pilot_id") => {
+    setAddPersonnelTarget({ assetIndex, role });
+    setQuickAddForm({ call_sign: "" });
+    setShowAddPersonnelModal(true);
+  };
+
+  const handleQuickAddPersonnel = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!addPersonnelTarget) return;
+    try {
+      const created = await createPersonnel({
+        firstname: "Nil",
+        lastname: "Nil",
+        call_sign: quickAddForm.call_sign.trim(),
+        is_expatriate: true,
+      }).unwrap();
+      setQuickAddedPersonnel((prev) => [
+        ...prev,
+        { id: created.id, firstname: created.firstname, lastname: created.lastname, rank: created.rank, call_sign: created.call_sign },
+      ]);
+      setAssets((prev) => {
+        const next = [...prev];
+        next[addPersonnelTarget.assetIndex] = {
+          ...next[addPersonnelTarget.assetIndex],
+          [addPersonnelTarget.role]: created.id,
+        };
+        return next;
+      });
+      setShowAddPersonnelModal(false);
+    } catch {
+      // error surfaces via RTK default error handling
+    }
+  };
+
+  const handleAddType = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newTypeName.trim()) return;
+    try {
+      const created = await createOperationType({
+        name: newTypeName.trim(),
+        description: newTypeDescription.trim() || null,
+      }).unwrap();
+      setFormData((prev) => ({
+        ...prev,
+        operation_type_id: String(created.id),
+      }));
+      setNewTypeName("");
+      setNewTypeDescription("");
+      setShowTypeModal(false);
+    } catch {
+      // error handled silently
+    }
+  };
+
+  const handleAddCategory = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newCategoryName.trim()) return;
+    try {
+      const created = await createOperationCategory({
+        name: newCategoryName.trim(),
+        description: newCategoryDescription.trim() || null,
+      }).unwrap();
+      setFormData((prev) => ({
+        ...prev,
+        operation_category_id: String(created.id),
+      }));
+      setNewCategoryName("");
+      setNewCategoryDescription("");
+      setShowCategoryModal(false);
+    } catch {
+      // error handled silently; backend validation will surface via toast elsewhere
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -438,6 +594,9 @@ export const OperationForm = ({
     const payload: CreateOperationRequest = {
       name: formData.name,
       unit_id: Number(formData.unit_id),
+      operation_category_id: formData.operation_category_id
+        ? Number(formData.operation_category_id)
+        : undefined,
       operation_type_id: formData.operation_type_id
         ? Number(formData.operation_type_id)
         : undefined,
@@ -479,15 +638,38 @@ export const OperationForm = ({
 
     payload.waypoints = validWaypoints;
 
-    if (isCreateMode) {
-      payload.operation_assets = assets
-        .filter((asset) => asset.asset_id)
-        .map((asset) => ({
-          asset_id: asset.asset_id,
-          pilot_id: asset.pilot_id ?? null,
-          co_pilot_id: asset.co_pilot_id ?? null,
-        }));
+    const attachedAssets = assets.filter((asset) => asset.asset_id);
+
+    if (attachedAssets.length === 0) {
+      dispatch(
+        showToast({
+          message: "Attach at least one aircraft before submitting.",
+          type: "error",
+        }),
+      );
+      return;
     }
+
+    const hasCrew = attachedAssets.some(
+      (asset) => asset.pilot_id || asset.co_pilot_id,
+    );
+
+    if (!hasCrew) {
+      dispatch(
+        showToast({
+          message: "Attach at least one personnel (pilot or co-pilot) before submitting.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    payload.operation_assets = attachedAssets.map((asset) => ({
+      asset_id: asset.asset_id,
+      pilot_id: asset.pilot_id ?? null,
+      co_pilot_id: asset.co_pilot_id ?? null,
+      flight_hours: asset.flight_hours ?? null,
+    }));
 
     await onSubmit(payload);
   };
@@ -529,23 +711,77 @@ export const OperationForm = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">Purpose</label>
-                <input
-                  type="text"
-                  placeholder="Enter Purpose"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                  required
-                />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-gray-400 font-medium">Operation Name</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryModal(true)}
+                    className="flex items-center gap-1 text-xs text-[#7FD5FF] hover:text-white transition-colors"
+                  >
+                    <Icon icon="mdi:plus-circle-outline" className="w-3.5 h-3.5" />
+                    Add New
+                  </button>
+                </div>
+                <div className="relative">
+                  <select
+                    value={formData.operation_category_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, operation_category_id: e.target.value })
+                    }
+                    title="Operation name"
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
+                  >
+                    <option value="">Select Operation Name</option>
+                    {operationCategories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-gray-400 font-medium">
-                  Operation Type
-                </label>
+                <label className="text-xs text-gray-400 font-medium">Region</label>
+                <div className="relative">
+                  <select
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    title="Region"
+                    className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
+                    required
+                  >
+                    <option value="">Select Region</option>
+                    <option value="North Central">North Central</option>
+                    <option value="North East">North East</option>
+                    <option value="North West">North West</option>
+                    <option value="South East">South East</option>
+                    <option value="South South">South South</option>
+                    <option value="South West">South West</option>
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-gray-400 font-medium">Operation Type</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowTypeModal(true)}
+                    className="flex items-center gap-1 text-xs text-[#7FD5FF] hover:text-white transition-colors"
+                  >
+                    <Icon icon="mdi:plus-circle-outline" className="w-3.5 h-3.5" />
+                    Add New
+                  </button>
+                </div>
                 <div className="relative">
                   <select
                     value={formData.operation_type_id}
@@ -666,18 +902,6 @@ export const OperationForm = ({
                 </label>
               </div>
 
-              <div className="flex flex-col gap-2 lg:col-span-3">
-                <label className="text-xs text-gray-400 font-medium">Activities</label>
-                <input
-                  type="text"
-                  placeholder="Enter description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
-                />
-              </div>
             </div>
           </section>
 
@@ -980,8 +1204,7 @@ export const OperationForm = ({
             )}
           </section>
 
-          {isCreateMode ? (
-            <section>
+          <section>
               <div className="flex items-center gap-4 mb-4 border-b border-[#0A4D66]/40 pb-2">
                 <h2 className="text-[#7FD5FF] text-xs font-bold uppercase tracking-wider">
                   Aircraft
@@ -1018,7 +1241,7 @@ export const OperationForm = ({
                       ) : null}
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                       <div className="flex flex-col gap-2">
                         <label className="text-xs text-gray-400 font-medium">Aircraft</label>
                         <select
@@ -1036,14 +1259,24 @@ export const OperationForm = ({
                               key={aircraft.asset_id ?? aircraft.id}
                               value={aircraft.asset_id ?? aircraft.id}
                             >
-                              {aircraft.name} ({aircraft.type})
+                              {aircraft.name} ({aircraft.tail_number || "-"})
                             </option>
                           ))}
                         </select>
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <label className="text-xs text-gray-400 font-medium">Pilot in Command</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-gray-400 font-medium">Pilot in Command</label>
+                          <button
+                            type="button"
+                            onClick={() => openAddPersonnelModal(index, "pilot_id")}
+                            className="flex items-center gap-1 text-xs text-[#7FD5FF] hover:text-white transition-colors"
+                          >
+                            <Icon icon="mdi:plus-circle-outline" className="w-3.5 h-3.5" />
+                            Add Personnel
+                          </button>
+                        </div>
                         <select
                           value={asset.pilot_id ?? ""}
                           onChange={(e) =>
@@ -1062,7 +1295,17 @@ export const OperationForm = ({
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <label className="text-xs text-gray-400 font-medium">Co-Pilot</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs text-gray-400 font-medium">Co-Pilot</label>
+                          <button
+                            type="button"
+                            onClick={() => openAddPersonnelModal(index, "co_pilot_id")}
+                            className="flex items-center gap-1 text-xs text-[#7FD5FF] hover:text-white transition-colors"
+                          >
+                            <Icon icon="mdi:plus-circle-outline" className="w-3.5 h-3.5" />
+                            Add Personnel
+                          </button>
+                        </div>
                         <select
                           value={asset.co_pilot_id ?? ""}
                           onChange={(e) =>
@@ -1079,12 +1322,27 @@ export const OperationForm = ({
                           ))}
                         </select>
                       </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label className="text-xs text-gray-400 font-medium">Flight Hours</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={asset.flight_hours ?? ""}
+                          onChange={(e) =>
+                            handleAssetChange(index, "flight_hours", e.target.value)
+                          }
+                          placeholder="e.g. 2.5"
+                          title={`Flight hours ${index + 1}`}
+                          className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
             </section>
-          ) : null}
 
           <div className="mt-10 flex justify-end border-t border-[#0A4D66]/30 pt-8">
             <button
@@ -1097,6 +1355,161 @@ export const OperationForm = ({
           </div>
         </form>
       </div>
+
+      <Modal
+        open={showTypeModal}
+        onClose={() => {
+          setShowTypeModal(false);
+          setNewTypeName("");
+          setNewTypeDescription("");
+        }}
+        title="Add Operation Type"
+      >
+        <form onSubmit={handleAddType} className="space-y-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-gray-400 font-medium">Name</label>
+            <input
+              type="text"
+              value={newTypeName}
+              onChange={(e) => setNewTypeName(e.target.value)}
+              placeholder="e.g. Surveillance, Strike, Patrol"
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              required
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-gray-400 font-medium">
+              Description <span className="text-gray-600">(optional)</span>
+            </label>
+            <textarea
+              value={newTypeDescription}
+              onChange={(e) => setNewTypeDescription(e.target.value)}
+              placeholder="Short description"
+              rows={3}
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600 resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setShowTypeModal(false);
+                setNewTypeName("");
+                setNewTypeDescription("");
+              }}
+              className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isCreatingType || !newTypeName.trim()}
+              className="px-5 py-2 bg-[#0369A1] text-white text-sm font-semibold rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+            >
+              {isCreatingType ? "Adding..." : "Add Type"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showCategoryModal}
+        onClose={() => {
+          setShowCategoryModal(false);
+          setNewCategoryName("");
+          setNewCategoryDescription("");
+        }}
+        title="Add Operation Category"
+      >
+        <form onSubmit={handleAddCategory} className="space-y-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-gray-400 font-medium">Name</label>
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="e.g. Combat, Logistics, Recon"
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              required
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-gray-400 font-medium">
+              Description{" "}
+              <span className="text-gray-600">(optional)</span>
+            </label>
+            <textarea
+              value={newCategoryDescription}
+              onChange={(e) => setNewCategoryDescription(e.target.value)}
+              placeholder="Short description"
+              rows={3}
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600 resize-none"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setShowCategoryModal(false);
+                setNewCategoryName("");
+                setNewCategoryDescription("");
+              }}
+              className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isCreatingCategory || !newCategoryName.trim()}
+              className="px-5 py-2 bg-[#0369A1] text-white text-sm font-semibold rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+            >
+              {isCreatingCategory ? "Adding..." : "Add Category"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        open={showAddPersonnelModal}
+        onClose={() => setShowAddPersonnelModal(false)}
+        title="Add Expatriate Personnel"
+      >
+        <form onSubmit={handleQuickAddPersonnel} className="space-y-4">
+          <p className="text-xs text-gray-400">
+            This person will be added as an expatriate and immediately available for selection.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs text-gray-400 font-medium">Call Sign</label>
+            <input
+              type="text"
+              value={quickAddForm.call_sign}
+              onChange={(e) => setQuickAddForm((prev) => ({ ...prev, call_sign: e.target.value }))}
+              placeholder="e.g. JS01"
+              className="bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] placeholder-gray-600"
+              required
+              autoFocus
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={() => setShowAddPersonnelModal(false)}
+              className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isCreatingPersonnel || !quickAddForm.call_sign.trim()}
+              className="px-5 py-2 bg-[#0369A1] text-white text-sm font-semibold rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+            >
+              {isCreatingPersonnel ? "Adding..." : "Add Personnel"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

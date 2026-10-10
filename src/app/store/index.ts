@@ -5,6 +5,9 @@ import authReducer, {
 } from "@/features/auth/authSlice";
 import { dashboardApi } from "@/features/dashboard/api";
 import { personnelApi } from "@/features/personnel/api";
+import { passApi } from "@/features/personnel/passApi";
+import { courseApi } from "@/features/personnel/courseApi";
+import { attendanceApi } from "@/features/personnel/attendanceApi";
 import { inventoryApi } from "@/features/inventory/api";
 import { financeApi } from "@/features/finance/api";
 import { operationsApi } from "@/features/operations/api";
@@ -52,6 +55,9 @@ export const store = configureStore({
     call: callReducer,
     [dashboardApi.reducerPath]: dashboardApi.reducer,
     [personnelApi.reducerPath]: personnelApi.reducer,
+    [passApi.reducerPath]: passApi.reducer,
+    [courseApi.reducerPath]: courseApi.reducer,
+    [attendanceApi.reducerPath]: attendanceApi.reducer,
     [inventoryApi.reducerPath]: inventoryApi.reducer,
     [financeApi.reducerPath]: financeApi.reducer,
     [operationsApi.reducerPath]: operationsApi.reducer,
@@ -71,6 +77,9 @@ export const store = configureStore({
     getDefaultMiddleware().concat(
       dashboardApi.middleware,
       personnelApi.middleware,
+      passApi.middleware,
+      courseApi.middleware,
+      attendanceApi.middleware,
       inventoryApi.middleware,
       financeApi.middleware,
       operationsApi.middleware,

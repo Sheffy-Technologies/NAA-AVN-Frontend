@@ -8,8 +8,11 @@ import {
   useGetExpensesQuery,
   useGetBudgetsQuery,
   useGetExpenseCategoriesQuery,
+  useGetExpenseTypesQuery,
+  useGetAircraftQuery,
   useDeleteExpenseMutation,
   useDeleteBudgetMutation,
+  useCreateExpenseMutation,
   type FinanceExpense,
   type FinanceBudget,
   type FinanceExpenseCategory,
@@ -18,6 +21,11 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
+import {
+  ImportCsvModal,
+  type ImportCsvField,
+} from "@/shared/components/ImportCsvModal";
 
 type FinanceTabKey = "expenses" | "budgets";
 type FinanceViewMode = "table" | "grid";
@@ -58,6 +66,20 @@ type BudgetRow = {
   createdAt: string;
 };
 
+const EXPENSE_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "part_name", label: "Item Description", required: true, example: "Hydraulic Fluid" },
+  { key: "part_number", label: "Part Number", required: true, example: "PN-77213" },
+  { key: "category", label: "Category", required: false, example: "Consumables" },
+  { key: "expense_type", label: "Expense Type", required: true, example: "Maintenance" },
+  { key: "aircraft", label: "Aircraft", required: true, example: "Mi-17" },
+  { key: "unit", label: "Unit", required: true, example: "1 Squadron" },
+  { key: "budget", label: "Budget / Account", required: true, example: "Operations Budget 2026" },
+  { key: "work_order", label: "Work Order", required: false, example: "WO-4021" },
+  { key: "quantity", label: "Quantity", required: true, example: "5" },
+  { key: "unit_cost", label: "Unit Cost", required: true, example: "2500" },
+  { key: "date", label: "Date (YYYY-MM-DD)", required: false, example: "2026-02-10" },
+];
+
 export const FinancePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,7 +103,73 @@ export const FinancePage = () => {
     isError: isBudgetsError,
   } = useGetBudgetsQuery();
   const { data: expenseCategoriesData } = useGetExpenseCategoriesQuery();
+  const { data: expenseTypesData } = useGetExpenseTypesQuery();
+  const { data: aircraftData } = useGetAircraftQuery();
   const { data: unitsData } = useGetUnitsQuery();
+  const [createExpense] = useCreateExpenseMutation();
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  const handleImportExpenseRow = async (row: Record<string, string>) => {
+    const categoryMatch = row.category
+      ? (expenseCategoriesData ?? []).find(
+          (c) =>
+            c.name.trim().toLowerCase() === row.category.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.category && !categoryMatch) {
+      throw new Error(`Category "${row.category}" not found`);
+    }
+
+    const expenseTypeMatch = (expenseTypesData ?? []).find(
+      (t) =>
+        t.name.trim().toLowerCase() === row.expense_type.trim().toLowerCase(),
+    );
+    if (!expenseTypeMatch) {
+      throw new Error(`Expense type "${row.expense_type}" not found`);
+    }
+
+    const aircraftMatch = (aircraftData ?? []).find(
+      (a) => a.name.trim().toLowerCase() === row.aircraft.trim().toLowerCase(),
+    );
+    if (!aircraftMatch) {
+      throw new Error(`Aircraft "${row.aircraft}" not found`);
+    }
+
+    const unitMatch = (unitsData ?? []).find(
+      (u) => u.name.trim().toLowerCase() === row.unit.trim().toLowerCase(),
+    );
+    if (!unitMatch) {
+      throw new Error(`Unit "${row.unit}" not found`);
+    }
+
+    const budgetMatch = (budgetsData ?? []).find(
+      (b) => b.name.trim().toLowerCase() === row.budget.trim().toLowerCase(),
+    );
+    if (!budgetMatch) {
+      throw new Error(`Budget "${row.budget}" not found`);
+    }
+
+    const quantity = Number(row.quantity);
+    const unitCost = Number(row.unit_cost);
+    if (Number.isNaN(quantity) || Number.isNaN(unitCost)) {
+      throw new Error("Quantity and Unit Cost must be numbers");
+    }
+
+    await createExpense({
+      expense_category_id: categoryMatch?.id,
+      expense_type_id: expenseTypeMatch.id,
+      aircraft_id: aircraftMatch.id,
+      unit_id: unitMatch.id,
+      budget_id: budgetMatch.id,
+      part_number: row.part_number,
+      part_name: row.part_name,
+      work_order: row.work_order || "",
+      quantity,
+      unit_cost: unitCost,
+      total_cost: quantity * unitCost,
+      date: row.date || undefined,
+    }).unwrap();
+  };
 
   const [selectedAccountId, setSelectedAccountId] = useState<
     number | null | "default"
@@ -142,13 +230,13 @@ export const FinancePage = () => {
       return [
         {
           id: "allocated",
-          label: "Allocated",
+          label: "Total Amount Received",
           value: fmtCurrency(allocated),
           icon: "mdi:wallet-outline",
         },
         {
           id: "income",
-          label: "Total Income",
+          label: "Allocated amount",
           value: fmtCurrency(totalIncome),
           icon: "mdi:cash-plus",
         },
@@ -584,6 +672,17 @@ export const FinancePage = () => {
             <span>Generate Report</span>
           </button>
 
+          {activeTab === "expenses" && (
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold border border-[#0A4D66]/40 text-gray-200 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+            >
+              <Icon icon="mdi:upload" className="w-4 h-4" />
+              <span>Import CSV</span>
+            </button>
+          )}
+
           <button
             type="button"
             className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
@@ -635,8 +734,8 @@ export const FinancePage = () => {
       </section>
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-visible min-h-90">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
+          <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -699,7 +798,7 @@ export const FinancePage = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200"
@@ -710,77 +809,51 @@ export const FinancePage = () => {
             </button>
 
             {activeTab === "expenses" && (
-              <div className="hidden lg:flex items-center gap-2">
-                <div className="relative">
-                  <select
-                    value={
-                      filterCategoryId === "" ? "" : String(filterCategoryId)
-                    }
-                    onChange={(e) =>
-                      setFilterCategoryId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Category</option>
-                    {expenseCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+              <div className="hidden lg:flex flex-wrap items-center gap-2">
+                <SearchableSelect
+                  placeholder="All Category"
+                  searchPlaceholder="Search category..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={expenseCategories.map((category) => ({
+                    value: category.id,
+                    label: category.name,
+                  }))}
+                  value={filterCategoryId === "" ? null : filterCategoryId}
+                  onChange={(value) =>
+                    setFilterCategoryId(value === null ? "" : Number(value))
+                  }
+                />
 
-                <div className="relative">
-                  <select
-                    value={filterUnitId === "" ? "" : String(filterUnitId)}
-                    onChange={(e) =>
-                      setFilterUnitId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Units</option>
-                    {unitOptions.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Units"
+                  searchPlaceholder="Search unit..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={unitOptions.map((unit) => ({
+                    value: unit.id,
+                    label: unit.name,
+                  }))}
+                  value={filterUnitId === "" ? null : filterUnitId}
+                  onChange={(value) =>
+                    setFilterUnitId(value === null ? "" : Number(value))
+                  }
+                />
 
-                <div className="relative">
-                  <select
-                    value={filterBudgetId === "" ? "" : String(filterBudgetId)}
-                    onChange={(e) =>
-                      setFilterBudgetId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Budget</option>
-                    {budgets.map((budget) => (
-                      <option key={budget.id} value={budget.id}>
-                        {budget.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Budget"
+                  searchPlaceholder="Search budget..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={budgets.map((budget) => ({
+                    value: budget.id,
+                    label: budget.name,
+                  }))}
+                  value={filterBudgetId === "" ? null : filterBudgetId}
+                  onChange={(value) =>
+                    setFilterBudgetId(value === null ? "" : Number(value))
+                  }
+                />
 
                 <div className="relative">
                   <select
@@ -804,54 +877,36 @@ export const FinancePage = () => {
             )}
 
             {activeTab === "budgets" && (
-              <div className="hidden lg:flex items-center gap-2">
-                <div className="relative">
-                  <select
-                    value={
-                      filterCategoryId === "" ? "" : String(filterCategoryId)
-                    }
-                    onChange={(e) =>
-                      setFilterCategoryId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Category</option>
-                    {expenseCategories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+              <div className="hidden lg:flex flex-wrap items-center gap-2">
+                <SearchableSelect
+                  placeholder="All Category"
+                  searchPlaceholder="Search category..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={expenseCategories.map((category) => ({
+                    value: category.id,
+                    label: category.name,
+                  }))}
+                  value={filterCategoryId === "" ? null : filterCategoryId}
+                  onChange={(value) =>
+                    setFilterCategoryId(value === null ? "" : Number(value))
+                  }
+                />
 
-                <div className="relative">
-                  <select
-                    value={filterUnitId === "" ? "" : String(filterUnitId)}
-                    onChange={(e) =>
-                      setFilterUnitId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="h-8 pl-3 pr-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 outline-none appearance-none"
-                  >
-                    <option value="">All Units</option>
-                    {unitOptions.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon
-                    icon="mdi:chevron-down"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-                  />
-                </div>
+                <SearchableSelect
+                  placeholder="All Units"
+                  searchPlaceholder="Search unit..."
+                  buttonClassName="h-8 py-0 text-xs"
+                  className="w-36"
+                  options={unitOptions.map((unit) => ({
+                    value: unit.id,
+                    label: unit.name,
+                  }))}
+                  value={filterUnitId === "" ? null : filterUnitId}
+                  onChange={(value) =>
+                    setFilterUnitId(value === null ? "" : Number(value))
+                  }
+                />
 
                 <div className="relative">
                   <select
@@ -1384,6 +1439,15 @@ export const FinancePage = () => {
           </aside>
         </>
       )}
+
+      <ImportCsvModal
+        open={isImportOpen}
+        title="Import Expenses from CSV"
+        fields={EXPENSE_IMPORT_FIELDS}
+        sampleFileName="expenses-import-sample.csv"
+        onImportRow={handleImportExpenseRow}
+        onClose={() => setIsImportOpen(false)}
+      />
     </div>
   );
 };

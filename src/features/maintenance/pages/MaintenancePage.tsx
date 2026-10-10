@@ -3,14 +3,13 @@ import { Icon } from "@iconify/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
 import {
-  useGetAvionicsQuery,
   useGetComplianceRecordsQuery,
-  useGetComponentsQuery,
   useCreateWorkOrderMutation,
   useGetDefectRecordsQuery,
-  useGetEnginesQuery,
+  useGetMaintenanceDueItemsQuery,
   useGetMaintenanceMetricsQuery,
   useGetWorkOrdersQuery,
+  type MaintenanceDueItem,
 } from "@/features/maintenance/api";
 import PlanningPage from "./PlanningPage";
 
@@ -86,70 +85,24 @@ const formatDate = (value?: string | null) => {
   });
 };
 
-const toNumber = (value: number | string | null | undefined) => {
-  if (value === null || value === undefined || value === "") return null;
-  const parsed = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const isDueByHours = (args: {
-  timeSinceNew?: number | string | null;
-  serviceLifeLimit?: number | string | null;
-  lastInspection?: number | string | null;
-  inspectionInterval?: number | string | null;
-}) => {
-  const tsn = toNumber(args.timeSinceNew);
-  const lifeLimit = toNumber(args.serviceLifeLimit);
-  const lastInspection = toNumber(args.lastInspection);
-  const inspectionInterval = toNumber(args.inspectionInterval);
-
-  const dueByLifeLimit =
-    tsn !== null && lifeLimit !== null && lifeLimit > 0 && tsn >= lifeLimit;
-
-  const dueByInspection =
-    tsn !== null &&
-    lastInspection !== null &&
-    inspectionInterval !== null &&
-    inspectionInterval > 0 &&
-    tsn - lastInspection >= inspectionInterval;
-
-  return dueByLifeLimit || dueByInspection;
-};
-
-type DueTrackingRow = {
-  id: number;
-  type: "Component" | "Engine" | "Avionics";
-  name: string;
-  serial: string;
-  threshold: string;
-  currentHours: number | string | null;
-  lastInspection: number | string | null;
-  inspectionInterval: number | string | null;
-  inspectionIntervalUnit: string | null;
-};
-
-
 export const MaintenancePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const section = getSectionFromPath(location.pathname);
 
   const { data, isLoading, isError } = useGetMaintenanceMetricsQuery();
+  const [dueTypeFilter, setDueTypeFilter] = useState<"aircraft" | "vehicle" | "equipment" | "">(
+    "aircraft",
+  );
   const {
-    data: components = [],
-    isLoading: isComponentsLoading,
-    isError: isComponentsError,
-  } = useGetComponentsQuery(undefined, { skip: section !== "tracking" });
-  const {
-    data: engines = [],
-    isLoading: isEnginesLoading,
-    isError: isEnginesError,
-  } = useGetEnginesQuery(undefined, { skip: section !== "tracking" });
-  const {
-    data: avionics = [],
-    isLoading: isAvionicsLoading,
-    isError: isAvionicsError,
-  } = useGetAvionicsQuery(undefined, { skip: section !== "tracking" });
+    data: dueItemsResponse,
+    isLoading: isDueItemsLoading,
+    isError: isDueItemsError,
+  } = useGetMaintenanceDueItemsQuery(
+    { asset_type: dueTypeFilter || undefined },
+    { skip: section !== "tracking" },
+  );
+  const dueTrackingRows = useMemo(() => dueItemsResponse?.data ?? [], [dueItemsResponse]);
 
   const {
     data: complianceRecords = [],
@@ -181,86 +134,11 @@ export const MaintenancePage = () => {
     { type: "success" | "error"; message: string } | null
   >(null);
 
-  const dueTrackingRows: DueTrackingRow[] = useMemo(() => {
-    const dueComponents = components
-      .filter((item) => !item.removed_at)
-      .filter((item) =>
-        isDueByHours({
-          timeSinceNew: item.time_since_new,
-          serviceLifeLimit: item.service_life_limit_hours,
-          lastInspection: item.last_inspection,
-          inspectionInterval: item.inspection_interval,
-        }),
-      )
-      .map((item) => ({
-        id: item.id,
-        type: "Component" as const,
-        name: item.part_number || "-",
-        serial: item.serial_number || "-",
-        currentHours: item.time_since_new ?? null,
-        lastInspection: item.last_inspection ?? null,
-        inspectionInterval: item.inspection_interval ?? null,
-        inspectionIntervalUnit: item.inspection_interval_unit ?? null,
-        threshold:
-          toNumber(item.service_life_limit_hours) !== null
-            ? `${item.service_life_limit_hours} hrs`
-            : `${item.inspection_interval ?? "-"} ${item.inspection_interval_unit ?? ""}`,
-      }));
-
-    const dueEngines = engines
-      .filter((item) =>
-        isDueByHours({
-          timeSinceNew: item.time_since_new,
-          serviceLifeLimit: item.service_life_limit,
-          lastInspection: item.last_inspection,
-          inspectionInterval: item.inspection_interval,
-        }),
-      )
-      .map((item) => ({
-        id: item.id,
-        type: "Engine" as const,
-        name: item.model || "-",
-        serial: item.serial_number || "-",
-        currentHours: item.time_since_new ?? null,
-        lastInspection: item.last_inspection ?? null,
-        inspectionInterval: item.inspection_interval ?? null,
-        inspectionIntervalUnit: item.inspection_interval_unit ?? null,
-        threshold:
-          toNumber(item.service_life_limit) !== null
-            ? `${item.service_life_limit} hrs`
-            : `${item.inspection_interval ?? "-"} ${item.inspection_interval_unit ?? ""}`,
-      }));
-
-    const dueAvionics = avionics
-      .filter((item) => !item.removed_at)
-      .filter((item) =>
-        isDueByHours({
-          timeSinceNew: item.time_since_new,
-          serviceLifeLimit: item.service_life_limit,
-          lastInspection: item.last_inspection,
-          inspectionInterval: item.inspection_interval,
-        }),
-      )
-      .map((item) => ({
-        id: item.id,
-        type: "Avionics" as const,
-        name: item.model || "-",
-        serial: item.serial_number || "-",
-        currentHours: item.time_since_new ?? null,
-        lastInspection: item.last_inspection ?? null,
-        inspectionInterval: item.inspection_interval ?? null,
-        inspectionIntervalUnit: item.inspection_interval_unit ?? null,
-        threshold:
-          toNumber(item.service_life_limit) !== null
-            ? `${item.service_life_limit} hrs`
-            : `${item.inspection_interval ?? "-"} ${item.inspection_interval_unit ?? ""}`,
-      }));
-
-    return [...dueComponents, ...dueEngines, ...dueAvionics];
-  }, [components, engines, avionics]);
+  const dueRowKey = (row: Pick<MaintenanceDueItem, "part_type" | "part_id">) =>
+    `${row.part_type}-${row.part_id}`;
 
   const selectedDueItem = useMemo(
-    () => dueTrackingRows.find((row) => `${row.type}-${row.id}` === selectedDueKey) ?? null,
+    () => dueTrackingRows.find((row) => dueRowKey(row) === selectedDueKey) ?? null,
     [dueTrackingRows, selectedDueKey],
   );
   const selectedComplianceItem = useMemo(
@@ -528,12 +406,40 @@ export const MaintenancePage = () => {
 
       {section === "tracking" && (
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-4">
-            Due/Overdue: Components, Engines, Avionics
-          </h2>
-          {isComponentsLoading || isEnginesLoading || isAvionicsLoading ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 className="text-sm font-bold text-[#7FD5FF] uppercase">
+              Due/Overdue: Components, Engines, Avionics
+            </h2>
+            <select
+              value={dueTypeFilter}
+              onChange={(e) =>
+                setDueTypeFilter(e.target.value as "aircraft" | "vehicle" | "equipment" | "")
+              }
+              className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
+            >
+              <option value="aircraft">Aircraft Only</option>
+              <option value="vehicle">Vehicles Only</option>
+              <option value="equipment">Equipment Only</option>
+              <option value="">All Asset Types</option>
+            </select>
+          </div>
+
+          {dueItemsResponse && (
+            <div className="flex flex-wrap items-center gap-4 mb-4 text-xs">
+              <span className="inline-flex items-center gap-1.5 text-red-300">
+                <span className="w-2 h-2 rounded-full bg-red-400" />
+                Overdue: {dueItemsResponse.counts_by_status.overdue}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-amber-300">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                Due Soon: {dueItemsResponse.counts_by_status.due_soon}
+              </span>
+            </div>
+          )}
+
+          {isDueItemsLoading ? (
             <div className="text-gray-400">Loading due/overdue items...</div>
-          ) : isComponentsError || isEnginesError || isAvionicsError ? (
+          ) : isDueItemsError ? (
             <div className="text-red-300">Failed to load due/overdue items.</div>
           ) : dueTrackingRows.length === 0 ? (
             <div className="text-gray-400">No due/overdue components, engines, or avionics found.</div>
@@ -543,23 +449,57 @@ export const MaintenancePage = () => {
                 <thead>
                   <tr className="text-left text-gray-400 border-b border-[#0A4D66]/40">
                     <th className="py-2 pr-3">Type</th>
-                    <th className="py-2 pr-3">Name</th>
-                    <th className="py-2 pr-3">Serial</th>
-                    <th className="py-2 pr-3">Threshold</th>
+                    <th className="py-2 pr-3">Item</th>
+                    <th className="py-2 pr-3">Asset</th>
+                    <th className="py-2 pr-3">Hours Left</th>
+                    <th className="py-2 pr-3">Projected Due</th>
+                    <th className="py-2 pr-3">Status</th>
                     <th className="py-2 pr-3">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {dueTrackingRows.map((row) => (
-                    <tr key={`${row.type}-${row.id}`} className="border-b border-[#0A4D66]/20 text-gray-200">
-                      <td className="py-2 pr-3">{row.type}</td>
-                      <td className="py-2 pr-3">{row.name}</td>
-                      <td className="py-2 pr-3">{row.serial}</td>
-                      <td className="py-2 pr-3">{row.threshold}</td>
+                    <tr key={dueRowKey(row)} className="border-b border-[#0A4D66]/20 text-gray-200">
+                      <td className="py-2 pr-3 capitalize">{row.part_type}</td>
+                      <td className="py-2 pr-3">{row.part_label}</td>
                       <td className="py-2 pr-3">
                         <button
                           type="button"
-                          onClick={() => setSelectedDueKey(`${row.type}-${row.id}`)}
+                          onClick={() => navigate(`/dashboard/assets/${row.asset_id}`)}
+                          className="text-[#7FD5FF] hover:underline"
+                        >
+                          {row.asset_name}
+                          {row.asset_tail_number ? ` (${row.asset_tail_number})` : ""}
+                        </button>
+                      </td>
+                      <td className="py-2 pr-3">
+                        {row.hours_remaining === null
+                          ? "-"
+                          : `${Math.abs(row.hours_remaining).toLocaleString()} hrs`}
+                      </td>
+                      <td className="py-2 pr-3">
+                        {row.projected_due_date
+                          ? new Date(row.projected_due_date).toLocaleDateString("en-GB", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })
+                          : "-"}
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span
+                          className={cn(
+                            "text-xs font-medium capitalize",
+                            row.status === "overdue" ? "text-red-300" : "text-amber-300",
+                          )}
+                        >
+                          {row.status === "overdue" ? "Overdue" : "Due Soon"}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDueKey(dueRowKey(row))}
                           className="text-xs text-[#7FD5FF] hover:underline"
                         >
                           View Details
@@ -573,15 +513,21 @@ export const MaintenancePage = () => {
           )}
           {selectedDueItem && (
             <div className="mt-4 rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 text-sm text-gray-200">
-              <div className="text-xs uppercase text-[#7FD5FF] mb-2">{selectedDueItem.type} Details</div>
-              <div>Name: {selectedDueItem.name}</div>
-              <div>Serial: {selectedDueItem.serial}</div>
-              <div>Current Hours: {selectedDueItem.currentHours ?? "-"}</div>
-              <div>Last Inspection: {selectedDueItem.lastInspection ?? "-"}</div>
-              <div>
-                Inspection Interval: {selectedDueItem.inspectionInterval ?? "-"} {selectedDueItem.inspectionIntervalUnit ?? ""}
+              <div className="text-xs uppercase text-[#7FD5FF] mb-2 capitalize">
+                {selectedDueItem.part_type} Details
               </div>
-              <div>Threshold: {selectedDueItem.threshold}</div>
+              <div>Item: {selectedDueItem.part_label}</div>
+              <div>Serial: {selectedDueItem.part_serial_number ?? "-"}</div>
+              <div>
+                Asset: {selectedDueItem.asset_name}
+                {selectedDueItem.asset_tail_number ? ` (${selectedDueItem.asset_tail_number})` : ""}
+              </div>
+              <div>Current Hours: {selectedDueItem.current_hours ?? "-"}</div>
+              <div>Current Cycles: {selectedDueItem.current_cycles ?? "-"}</div>
+              <div>Next Due Hours: {selectedDueItem.next_due_hours ?? "-"}</div>
+              <div>Next Due Cycles: {selectedDueItem.next_due_cycles ?? "-"}</div>
+              <div>Next Due Date: {selectedDueItem.next_due_date ?? "-"}</div>
+              <div>Projected Due Date: {selectedDueItem.projected_due_date ?? "-"}</div>
             </div>
           )}
         </div>

@@ -6,6 +6,9 @@ export type Unit = {
   name: string;
   description: string | null;
   facility_id: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  geofence_radius: number;
   created_at: string;
   updated_at: string;
 };
@@ -27,6 +30,9 @@ export type CreateUnitPayload = {
   description?: string;
   facility_id?: number | null;
   asset_id?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geofence_radius?: number | null;
 };
 
 export type UpdateUnitPayload = {

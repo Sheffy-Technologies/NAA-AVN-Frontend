@@ -1,4 +1,11 @@
-const createAudioContext = (): AudioContext | null => {
+let sharedContext: AudioContext | null = null;
+let unlockListenersAttached = false;
+
+const getAudioContext = (): AudioContext | null => {
+  if (sharedContext) {
+    return sharedContext;
+  }
+
   const AudioContextCtor =
     window.AudioContext ||
     (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -7,7 +14,26 @@ const createAudioContext = (): AudioContext | null => {
     return null;
   }
 
-  return new AudioContextCtor();
+  sharedContext = new AudioContextCtor();
+  attachUnlockListeners(sharedContext);
+  return sharedContext;
+};
+
+const attachUnlockListeners = (context: AudioContext): void => {
+  if (unlockListenersAttached) {
+    return;
+  }
+  unlockListenersAttached = true;
+
+  const unlock = () => {
+    if (context.state === "suspended") {
+      void context.resume();
+    }
+  };
+
+  for (const eventName of ["click", "keydown", "touchstart"]) {
+    document.addEventListener(eventName, unlock, { passive: true });
+  }
 };
 
 const playTone = (
@@ -36,7 +62,7 @@ const playTone = (
 
 const playBeepSequence = async (tones: Array<{ frequency: number; duration: number }>, gain = 0.06): Promise<void> => {
   try {
-    const context = createAudioContext();
+    const context = getAudioContext();
     if (!context) {
       return;
     }
@@ -66,4 +92,14 @@ export const playCallActivatedBeep = async (): Promise<void> => {
     { frequency: 880, duration: 0.08 },
     { frequency: 1200, duration: 0.12 },
   ]);
+};
+
+export const playIncomingCallRing = async (): Promise<void> => {
+  await playBeepSequence(
+    [
+      { frequency: 480, duration: 0.35 },
+      { frequency: 440, duration: 0.35 },
+    ],
+    0.09,
+  );
 };

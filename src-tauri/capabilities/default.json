@@ -9,6 +9,7 @@
     "core:default",
     "updater:default",
     "dialog:default",
-    "process:allow-exit"
+    "process:allow-exit",
+    "process:allow-restart"
   ]
 }

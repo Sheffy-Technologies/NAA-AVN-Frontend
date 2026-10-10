@@ -1,3 +1,4 @@
+import type { NewInventoryPayload } from "./newInventoryItem";
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
 
@@ -84,6 +85,7 @@ export type InventoryFilters = {
   categories?: number[];
   aircraft_types?: number[];
   type?: string;
+  unit_id?: number;
 };
 
 export type CreateInventoryPayload = {
@@ -96,7 +98,7 @@ export type CreateInventoryPayload = {
     | string;
   asset_id: number | null;
   expense_category_id: number | null;
-  unit_id: number;
+  unit_id: number | null;
   serial_number: string;
   part_number: string;
   current_stock: number;
@@ -143,14 +145,25 @@ export type InventoryRequisitionStatus =
   | "received"
   | "pending";
 
+export type InventoryRequisitionRequester = {
+  id: number;
+  firstname?: string | null;
+  lastname?: string | null;
+  username?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+};
+
 export type InventoryRequisition = {
   id: number;
   requesting_unit_id: number | null;
+  user_id?: number | null;
   total_cost: number | string | null;
   status: InventoryRequisitionStatus | string;
   created_at: string;
   updated_at: string;
   requesting_unit?: InventoryUnit;
+  requested_by?: InventoryRequisitionRequester | null;
   last_updated_by?: { id: number; name: string } | string | null;
 };
 
@@ -253,7 +266,8 @@ export type CreatePurchaseOrderPayload = {
   expected_date_of_delivery?: string | null;
   status?: "draft" | "sent" | "received";
   items: Array<{
-    inventory_id: number;
+    inventory_id?: number;
+    new_inventory?: NewInventoryPayload;
     part_number?: string | null;
     quantity_ordered?: number;
     quantity_received?: number | null;
@@ -591,6 +605,12 @@ export const inventoryApi = createApi({
         data: body,
       }),
     }),
+    sendPurchaseOrder: builder.mutation<PurchaseOrder, number | string>({
+      query: (id) => ({
+        url: `/purchase-orders/${id}/send`,
+        method: "POST",
+      }),
+    }),
     getGoodsReceivedNotes: builder.query<GoodsReceivedNote[], void>({
       query: () => ({
         url: "/goods-received-notes",
@@ -640,6 +660,7 @@ export const {
   useGetPurchaseOrderByIdQuery,
   useCreatePurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
+  useSendPurchaseOrderMutation,
   useGetGoodsReceivedNotesQuery,
   useCreateGoodsReceivedNoteMutation,
 } = inventoryApi;

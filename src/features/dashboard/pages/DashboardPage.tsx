@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useGetExpensesQuery } from "@/features/finance/api";
+import { useAppSelector } from "@/shared/hooks/redux";
 import { cn } from "@/shared/utils/cn";
 import {
   useGetDashboardFinanceQuery,
@@ -80,13 +81,40 @@ const formatRemainingMetric = (
   };
 };
 
-const TABS: Array<{ id: DashboardTabId; label: string }> = [
-  { id: "operations", label: "Operations" },
-  { id: "maintenance", label: "Maintenance tracking" },
-  { id: "finances", label: "Finances" },
-  { id: "inventory", label: "Inventory" },
-  { id: "personnel", label: "Personnel" },
+const formatDateTime = (value: string | undefined | null) => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+};
+
+const TABS: Array<{ id: DashboardTabId; label: string; requiredPermissions: string[] }> = [
+  { id: "operations", label: "Operations", requiredPermissions: ["dashboard.operations.view", "operations.viewAny"] },
+  {
+    id: "maintenance",
+    label: "Maintenance tracking",
+    requiredPermissions: ["dashboard.maintenance.view", "work-orders.viewAny", "maintenance-programs.viewAny"],
+  },
+  { id: "finances", label: "Finances", requiredPermissions: ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"] },
+  { id: "inventory", label: "Inventory", requiredPermissions: ["dashboard.inventories.view", "inventories.viewAny"] },
+  { id: "personnel", label: "Personnel", requiredPermissions: ["dashboard.personnel.view", "personnel.viewAny"] },
 ];
+
+/**
+ * Same nav-visibility rule as the Sidebar: a tab only renders for a user
+ * holding at least one of its required permissions. This is what keeps the
+ * Finances tab (and its data) out of view for anyone not authorised for the
+ * Finance module — see CLAUDE.md "Finance Module Restricted Access".
+ */
+const canAccessTab = (tab: { requiredPermissions: string[] }, permissions: string[]) =>
+  tab.requiredPermissions.length === 0 ||
+  tab.requiredPermissions.some((permission) => permissions.includes(permission));
 
 const CardItem = ({
   card,
@@ -255,6 +283,9 @@ const TableToolbar = ({
 
 export const DashboardPage = () => {
   const navigate = useNavigate();
+  const permissions = useAppSelector((state) => state.auth.user?.permissions ?? []);
+  const visibleTabs = useMemo(() => TABS.filter((tab) => canAccessTab(tab, permissions)), [permissions]);
+  const canAccessStrategicDashboard = permissions.includes("dashboard.strategic.view");
   const [activeTab, setActiveTab] = useState<DashboardTabId>("operations");
   const [operationsViewMode, setOperationsViewMode] = useState<"table" | "card">("table");
   const [selectedUnitByTab, setSelectedUnitByTab] = useState<
@@ -299,36 +330,33 @@ export const DashboardPage = () => {
   const financeCards: Card[] = useMemo(() => {
     const total = finance?.total_expense ?? 0;
     const monthly = finance?.current_month_expense ?? 0;
-    const quarterly = finance?.current_quarter_expense ?? 0;
-    const budget = finance?.budget ?? 0;
-    const used = finance?.sum_amount ?? total;
-    const pct =
-      budget > 0 ? Math.round((used / budget) * 1000) / 10 : undefined;
+    const openingBalance = finance?.opening_balance ?? finance?.budget ?? 0;
+    const balanceOfAccount = finance?.balance_of_account ?? 0;
     return [
       {
-        label: "Total Expense",
-        value: `₦${total.toLocaleString()}`,
-        icon: "mdi:cash-fast",
+        label: "Balance of Account",
+        value: `₦${balanceOfAccount.toLocaleString()}`,
+        icon: "mdi:bank",
         bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
-        label: "Monthly",
+        label: "Monthly Expenditure",
         value: `₦${monthly.toLocaleString()}`,
         icon: "mdi:calendar-month",
         bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
-        label: "Quarterly",
-        value: `₦${quarterly.toLocaleString()}`,
-        icon: "mdi:calendar-range",
+        label: "Total Expenditure",
+        value: `₦${total.toLocaleString()}`,
+        icon: "mdi:cash-fast",
         bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
       },
       {
-        label: "Budget",
-        value: `₦${budget.toLocaleString()}${pct !== undefined ? `  ` : ""}`,
+        label: "Opening Balance",
+        value: `₦${openingBalance.toLocaleString()}`,
         icon: "mdi:account-cash",
         bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
         iconClass: "bg-[#0A4D66]/60",
@@ -491,9 +519,17 @@ export const DashboardPage = () => {
     () => operations?.recent_operations ?? [],
     [operations?.recent_operations],
   );
+  const conductedOperationsRows = useMemo(
+    () => operations?.conducted_operations ?? [],
+    [operations?.conducted_operations],
+  );
   const maintenanceRows = useMemo(
     () => maintenance?.recent_aircrafts ?? [],
     [maintenance?.recent_aircrafts],
+  );
+  const comingDueRows = useMemo(
+    () => maintenance?.coming_due ?? [],
+    [maintenance?.coming_due],
   );
   const financeRows = expenses;
   const inventoryRows = useMemo(
@@ -716,25 +752,38 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
-        {TABS.map((tab) => (
+      <div className="flex items-center justify-between gap-4 border-b border-[#0A4D66]/40 w-full">
+        <div className="flex items-center space-x-8 overflow-x-auto">
+          {visibleTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
+                activeTab === tab.id
+                  ? "text-[#7FD5FF]"
+                  : "text-gray-400 hover:text-gray-300",
+              )}
+            >
+              {tab.label}
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {canAccessStrategicDashboard && (
           <button
-            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
-              activeTab === tab.id
-                ? "text-[#7FD5FF]"
-                : "text-gray-400 hover:text-gray-300",
-            )}
+            onClick={() => navigate("/dashboard/strategic")}
+            className="mb-3 inline-flex shrink-0 items-center gap-2 rounded-lg border border-[#7FD5FF]/40 bg-[#0A4D66]/40 px-3 py-1.5 text-xs font-medium text-[#C9F1FF] transition-colors hover:bg-[#0A4D66]/60"
           >
-            {tab.label}
-            {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
-            )}
+            <Icon icon="mdi:map-marker-radius-outline" className="h-4 w-4" />
+            Strategic Command Dashboard
           </button>
-        ))}
+        )}
       </div>
 
       {activeTab === "operations" && (
@@ -1009,6 +1058,94 @@ export const DashboardPage = () => {
             </div>
             )}
           </TableShell>
+
+          <TableShell title="Recent Operations">
+            <div className="md:hidden divide-y divide-[#0A4D66]/20">
+              {isFetchingOps && (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              )}
+              {!isFetchingOps && conductedOperationsRows.length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No operations conducted in the last 24 hours
+                </div>
+              )}
+              {conductedOperationsRows.map((op) => (
+                <div
+                  key={op.id ?? `${op.name ?? "operation"}-${op.created_at ?? ""}`}
+                  className="space-y-3 px-4 py-4"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white">{op.name || "—"}</p>
+                    <p className="text-xs text-gray-400">
+                      {op.operation_type?.name || "—"}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <p className="text-gray-400">Unit</p>
+                    <p className="text-right text-gray-200">{op.unit?.name || "—"}</p>
+                    <p className="text-gray-400">Status</p>
+                    <p className="text-right text-gray-200 capitalize">{op.status || "—"}</p>
+                    <p className="text-gray-400">Conducted</p>
+                    <p className="text-right text-gray-200">
+                      {formatDateTime(op.start_date_time ?? op.created_at)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-400">
+                  <tr className="border-b border-[#0A4D66]/30">
+                    <th className="px-4 py-3 text-left">Operation</th>
+                    <th className="px-4 py-3 text-left">Unit</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Conducted</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {isFetchingOps && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={5}>
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!isFetchingOps && conductedOperationsRows.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={5}>
+                        No operations conducted in the last 24 hours
+                      </td>
+                    </tr>
+                  )}
+                  {conductedOperationsRows.map((op) => (
+                    <tr
+                      key={op.id ?? `${op.name ?? "operation"}-${op.created_at ?? ""}`}
+                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                    >
+                      <td className="px-4 py-3 font-medium text-white">
+                        {op.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {op.unit?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {op.operation_type?.name || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300 capitalize">
+                        {op.status || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-gray-300">
+                        {formatDateTime(op.start_date_time ?? op.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </TableShell>
         </div>
       )}
 
@@ -1207,6 +1344,140 @@ export const DashboardPage = () => {
                         </td>
                         <td className="px-4 py-3 text-gray-300">
                           {formatMetric(a.last_inspection_hours, "hrs")}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </TableShell>
+
+          <TableShell title="Spares Coming Due">
+            <div className="md:hidden divide-y divide-[#0A4D66]/20">
+              {isFetchingMaintenance && (
+                <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
+              )}
+              {!isFetchingMaintenance && comingDueRows.length === 0 && (
+                <div className="px-4 py-6 text-sm text-gray-400">
+                  No spares approaching their remaining hours/cycles limit
+                </div>
+              )}
+              {comingDueRows.map((item) => {
+                const hoursDisplay =
+                  item.hours_remaining !== null
+                    ? formatRemainingMetric(item.hours_remaining, "hrs")
+                    : null;
+                const cyclesDisplay =
+                  item.cycles_remaining !== null
+                    ? formatRemainingMetric(item.cycles_remaining, "cyc")
+                    : null;
+                return (
+                  <div
+                    key={`${item.part_type}-${item.part_id}`}
+                    className="space-y-3 px-4 py-4"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {item.part_label}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {item.asset_name}
+                        {item.asset_tail_number ? ` (${item.asset_tail_number})` : ""}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <p className="text-gray-400">Type</p>
+                      <p className="text-right text-gray-200 capitalize">
+                        {item.part_type}
+                      </p>
+                      <p className="text-gray-400">Remaining Hrs</p>
+                      <p className={cn("text-right", hoursDisplay?.className ?? "text-gray-400")}>
+                        {hoursDisplay?.text ?? "—"}
+                      </p>
+                      <p className="text-gray-400">Remaining Cyc</p>
+                      <p className={cn("text-right", cyclesDisplay?.className ?? "text-gray-400")}>
+                        {cyclesDisplay?.text ?? "—"}
+                      </p>
+                      <p className="text-gray-400">Status</p>
+                      <p
+                        className={cn(
+                          "text-right capitalize",
+                          item.status === "overdue" ? "text-red-400" : "text-amber-400",
+                        )}
+                      >
+                        {item.status.replace("_", " ")}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block w-full overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-gray-400">
+                  <tr className="border-b border-[#0A4D66]/30">
+                    <th className="px-4 py-3 text-left">Part</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Aircraft</th>
+                    <th className="px-4 py-3 text-left">Remaining Hrs</th>
+                    <th className="px-4 py-3 text-left">Remaining Cyc</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-200">
+                  {isFetchingMaintenance && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        Loading…
+                      </td>
+                    </tr>
+                  )}
+                  {!isFetchingMaintenance && comingDueRows.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-6 text-gray-400" colSpan={6}>
+                        No spares approaching their remaining hours/cycles limit
+                      </td>
+                    </tr>
+                  )}
+                  {comingDueRows.map((item) => {
+                    const hoursDisplay =
+                      item.hours_remaining !== null
+                        ? formatRemainingMetric(item.hours_remaining, "hrs")
+                        : null;
+                    const cyclesDisplay =
+                      item.cycles_remaining !== null
+                        ? formatRemainingMetric(item.cycles_remaining, "cyc")
+                        : null;
+                    return (
+                      <tr
+                        key={`${item.part_type}-${item.part_id}`}
+                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                      >
+                        <td className="px-4 py-3 font-medium text-white">
+                          {item.part_label}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300 capitalize">
+                          {item.part_type}
+                        </td>
+                        <td className="px-4 py-3 text-gray-300">
+                          {item.asset_name}
+                          {item.asset_tail_number ? ` (${item.asset_tail_number})` : ""}
+                        </td>
+                        <td className={cn("px-4 py-3", hoursDisplay?.className ?? "text-gray-400")}>
+                          {hoursDisplay?.text ?? "—"}
+                        </td>
+                        <td className={cn("px-4 py-3", cyclesDisplay?.className ?? "text-gray-400")}>
+                          {cyclesDisplay?.text ?? "—"}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-4 py-3 capitalize",
+                            item.status === "overdue" ? "text-red-400" : "text-amber-400",
+                          )}
+                        >
+                          {item.status.replace("_", " ")}
                         </td>
                       </tr>
                     );

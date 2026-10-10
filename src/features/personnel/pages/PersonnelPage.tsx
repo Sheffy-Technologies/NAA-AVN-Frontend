@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
+import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
 import { cn } from "@/shared/utils/cn";
 import {
   useGetPersonnelQuery,
@@ -11,6 +12,7 @@ import {
   useGetPersonnelBranchesQuery,
   useUpdatePersonnelMutation,
   useDeletePersonnelMutation,
+  useCreatePersonnelMutation,
   type PersonnelFilters,
 } from "@/features/personnel/api";
 import { useAppDispatch } from "@/app/store";
@@ -18,8 +20,14 @@ import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import {
+  ImportCsvModal,
+  type ImportCsvField,
+} from "@/shared/components/ImportCsvModal";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
+
+type FlightStatus = "no_flights" | "current" | "due_for_flight" | "overdue" | null;
 
 type Personnel = {
   id: string;
@@ -36,6 +44,30 @@ type Personnel = {
   branch: string;
   specialty: string;
   status: PersonnelStatus;
+  isPilot: boolean;
+  flightStatus: FlightStatus;
+  nextFlightDueDate: string | null;
+};
+
+const FLIGHT_STATUS_LABELS: Record<NonNullable<FlightStatus>, string> = {
+  no_flights: "No Flights Logged",
+  current: "Current",
+  due_for_flight: "Due for Flight",
+  overdue: "Overdue for Flight",
+};
+
+const FLIGHT_STATUS_COLORS: Record<NonNullable<FlightStatus>, string> = {
+  no_flights: "text-gray-400 bg-gray-400/10",
+  current: "text-emerald-400 bg-emerald-400/10",
+  due_for_flight: "text-amber-400 bg-amber-400/10",
+  overdue: "text-red-400 bg-red-400/10",
+};
+
+const FLIGHT_STATUS_DOT: Record<NonNullable<FlightStatus>, string> = {
+  no_flights: "bg-gray-400",
+  current: "bg-emerald-400",
+  due_for_flight: "bg-amber-400",
+  overdue: "bg-red-400",
 };
 
 type MultiFilterState<T> = {
@@ -54,6 +86,23 @@ const statusTextColor: Record<PersonnelStatus, string> = {
   Grounded: "text-red-400",
   Medical: "text-amber-300",
 };
+
+const PERSONNEL_IMPORT_FIELDS: ImportCsvField[] = [
+  { key: "firstname", label: "First Name", required: true, example: "John" },
+  { key: "lastname", label: "Last Name", required: true, example: "Doe" },
+  { key: "service_number", label: "Service Number", required: false, example: "NAF/1234" },
+  { key: "rank", label: "Rank", required: false, example: "Flight Lieutenant" },
+  { key: "unit", label: "Unit", required: false, example: "1 Squadron" },
+  { key: "branch", label: "Branch", required: false, example: "Engineering" },
+  { key: "specialty", label: "Specialty", required: false, example: "Avionics" },
+  { key: "call_sign", label: "Call Sign", required: false, example: "Eagle-1" },
+  { key: "status", label: "Status (Active/Grounded/Medical)", required: false, example: "Active" },
+  { key: "phone_number", label: "Phone Number", required: false, example: "08012345678" },
+  { key: "email", label: "Email", required: false, example: "john.doe@example.com" },
+  { key: "address", label: "Address", required: false, example: "12 Base Road" },
+  { key: "blood_group", label: "Blood Group", required: false, example: "O+" },
+  { key: "is_expatriate", label: "Is Expatriate (true/false)", required: false, example: "false" },
+];
 
 export const PersonnelPage = () => {
   const navigate = useNavigate();
@@ -82,6 +131,9 @@ export const PersonnelPage = () => {
     all: true,
     selected: [],
   });
+  const [expatriateFilter, setExpatriateFilter] = useState<
+    "all" | "true" | "false"
+  >("false");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: units = [] } = useGetUnitsQuery();
@@ -123,6 +175,8 @@ export const PersonnelPage = () => {
       specialties: effectiveSpecialtiesSelected,
       status: statusFilter.selected,
       corps: [],
+      is_expatriate:
+        expatriateFilter === "all" ? undefined : expatriateFilter === "true",
     }),
     [
       unitFilter.selected,
@@ -130,11 +184,85 @@ export const PersonnelPage = () => {
       branchFilter.selected,
       effectiveSpecialtiesSelected,
       statusFilter.selected,
+      expatriateFilter,
     ],
   );
 
   const { data: apiPersonnel, isLoading: isPersonnelLoading } =
     useGetPersonnelQuery(filters);
+
+  const [createPersonnel] = useCreatePersonnelMutation();
+  const [isImportOpen, setIsImportOpen] = useState(false);
+
+  const PERSONNEL_STATUSES = ["active", "grounded", "medical"];
+
+  const handleImportPersonnelRow = async (row: Record<string, string>) => {
+    const rankMatch = row.rank
+      ? ranks.find(
+          (r) => r.name.trim().toLowerCase() === row.rank.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.rank && !rankMatch) {
+      throw new Error(`Rank "${row.rank}" not found`);
+    }
+
+    const unitMatch = row.unit
+      ? units.find(
+          (u) => u.name.trim().toLowerCase() === row.unit.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.unit && !unitMatch) {
+      throw new Error(`Unit "${row.unit}" not found`);
+    }
+
+    const branchMatch = row.branch
+      ? branches.find(
+          (b) =>
+            b.name.trim().toLowerCase() === row.branch.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.branch && !branchMatch) {
+      throw new Error(`Branch "${row.branch}" not found`);
+    }
+
+    const specialtyMatch = row.specialty
+      ? specialties.find(
+          (s) =>
+            s.name.trim().toLowerCase() === row.specialty.trim().toLowerCase(),
+        )
+      : undefined;
+    if (row.specialty && !specialtyMatch) {
+      throw new Error(`Specialty "${row.specialty}" not found`);
+    }
+
+    if (
+      row.status &&
+      !PERSONNEL_STATUSES.includes(row.status.trim().toLowerCase())
+    ) {
+      throw new Error("Status must be one of: Active, Grounded, Medical");
+    }
+
+    const isExpatriate = row.is_expatriate
+      ? row.is_expatriate.trim().toLowerCase() === "true"
+      : undefined;
+
+    await createPersonnel({
+      firstname: row.firstname,
+      lastname: row.lastname,
+      service_number: row.service_number || undefined,
+      rank_id: rankMatch?.id,
+      unit_id: unitMatch?.id,
+      branch_id: branchMatch?.id,
+      specialty_id: specialtyMatch?.id,
+      call_sign: row.call_sign || undefined,
+      status: row.status || undefined,
+      phone_number: row.phone_number || undefined,
+      email: row.email || undefined,
+      address: row.address || undefined,
+      blood_group: row.blood_group || undefined,
+      is_expatriate: isExpatriate,
+    }).unwrap();
+  };
 
   const mappedPersonnel: Personnel[] = useMemo(() => {
     if (!apiPersonnel) {
@@ -157,12 +285,15 @@ export const PersonnelPage = () => {
       serviceNo: p.service_number,
       name: `${p.firstname} ${p.lastname}`,
       image: p.image,
-      rank: p.rank.name,
+      rank: p.rank?.name ?? "",
       callSign: p.call_sign,
-      unit: p.unit.name,
-      branch: p.branch.name,
-      specialty: p.specialty.name,
+      unit: p.unit?.name ?? "",
+      branch: p.branch?.name ?? "",
+      specialty: p.specialty?.name ?? "",
       status: mapStatus(p.status),
+      isPilot: p.is_pilot,
+      flightStatus: p.flight_status,
+      nextFlightDueDate: p.next_flight_due_date,
     }));
   }, [apiPersonnel]);
 
@@ -170,7 +301,7 @@ export const PersonnelPage = () => {
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [statusMenuForId, setStatusMenuForId] = useState<string | null>(null);
   const [openFilterMenu, setOpenFilterMenu] = useState<
-    "units" | "ranks" | "branches" | "specialties" | "status" | null
+    "units" | "ranks" | "branches" | "specialties" | "status" | "expatriate" | null
   >(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const filterBarRef = useRef<HTMLDivElement>(null);
@@ -229,9 +360,12 @@ export const PersonnelPage = () => {
         if (p.status === "Active") acc.active++;
         else if (p.status === "Grounded") acc.grounded++;
         else if (p.status === "Medical") acc.medical++;
+        if (p.flightStatus === "due_for_flight" || p.flightStatus === "overdue") {
+          acc.dueForFlight++;
+        }
         return acc;
       },
-      { total: filteredPersonnel.length, active: 0, grounded: 0, medical: 0 },
+      { total: filteredPersonnel.length, active: 0, grounded: 0, medical: 0, dueForFlight: 0 },
     );
   }, [filteredPersonnel]);
 
@@ -241,6 +375,7 @@ export const PersonnelPage = () => {
     setBranchFilter({ all: true, selected: [] });
     setSpecialtyFilter({ all: true, selected: [] });
     setStatusFilter({ all: true, selected: [] });
+    setExpatriateFilter("false");
     setOpenFilterMenu(null);
   };
   useClickOutside(
@@ -307,7 +442,10 @@ export const PersonnelPage = () => {
   return (
     <div className="px-2 sm:px-0">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219] rounded-t-xl">
+        {/* Module-level tab bar */}
+        <PersonnelModuleTabs />
+
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-4">
             <h2 className="text-sm sm:text-base font-semibold tracking-wide text-white uppercase">
               Personnel
@@ -344,7 +482,7 @@ export const PersonnelPage = () => {
             </div>
           </div>
 
-          <div ref={filterBarRef} className="flex items-center gap-3">
+          <div ref={filterBarRef} className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               className="px-3 py-1.5 rounded-full border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 hidden sm:block"
@@ -367,13 +505,14 @@ export const PersonnelPage = () => {
             >
               <Icon icon="mdi:filter-variant" className="w-4 h-4" />
               <span className="hidden sm:inline">Filters</span>
-              {[
+              {([
                 unitFilter,
                 rankFilter,
                 branchFilter,
                 specialtyFilter,
                 statusFilter,
-              ].some((f) => !f.all) && (
+              ].some((f) => !f.all) ||
+                expatriateFilter !== "false") && (
                 <span className="w-2 h-2 rounded-full bg-[#0369A1]" />
               )}
             </button>
@@ -384,7 +523,7 @@ export const PersonnelPage = () => {
                 // Base
                 "hidden",
                 // Desktop
-                "xl:flex xl:flex-row xl:items-center xl:gap-2 xl:static xl:w-auto xl:bg-transparent xl:border-none xl:shadow-none xl:p-0 xl:space-y-0 xl:animate-none",
+                "xl:flex xl:flex-row xl:flex-wrap xl:items-center xl:gap-2 xl:static xl:w-auto xl:bg-transparent xl:border-none xl:shadow-none xl:p-0 xl:space-y-0 xl:animate-none",
                 // Mobile
                 showMobileFilters &&
                   "flex flex-col absolute top-14 right-4 bg-[#001219] border border-[#0A4D66]/40 rounded-lg p-3 shadow-xl z-30 w-64 space-y-3 animate-in fade-in slide-in-from-top-2",
@@ -650,8 +789,71 @@ export const PersonnelPage = () => {
                   </div>
                 )}
               </div>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenFilterMenu((current) =>
+                      current === "expatriate" ? null : "expatriate",
+                    )
+                  }
+                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-[11px] text-gray-200 inline-flex items-center gap-1"
+                >
+                  <span>
+                    {expatriateFilter === "all"
+                      ? "All Personnel"
+                      : expatriateFilter === "true"
+                        ? "Expatriate"
+                        : "Non-Expatriate"}
+                  </span>
+                  <Icon icon="mdi:chevron-down" className="w-4 h-4" />
+                </button>
+                {openFilterMenu === "expatriate" && (
+                  <div className="absolute right-0 mt-2 z-20 w-48 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
+                    <div className="space-y-1">
+                      {(
+                        [
+                          { value: "all", label: "All Personnel" },
+                          { value: "true", label: "Expatriate" },
+                          { value: "false", label: "Non-Expatriate" },
+                        ] as const
+                      ).map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setExpatriateFilter(option.value);
+                            setOpenFilterMenu(null);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between px-2 py-1.5 rounded text-left hover:bg-[#0A4D66]/40",
+                            expatriateFilter === option.value
+                              ? "text-[#7FD5FF]"
+                              : "text-gray-200",
+                          )}
+                        >
+                          <span>{option.label}</span>
+                          {expatriateFilter === option.value && (
+                            <Icon icon="mdi:check" className="w-4 h-4" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded border border-[#0A4D66]/40 text-gray-200 text-xs sm:text-sm font-medium hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+            >
+              <Icon icon="mdi:upload" className="w-4 h-4" />
+              <span className="hidden sm:inline">Import CSV</span>
+              <span className="sm:hidden">Import</span>
+            </button>
             <button
               type="button"
               onClick={() => navigate("/dashboard/personnel/add")}
@@ -704,6 +906,11 @@ export const PersonnelPage = () => {
             <span className="text-gray-300">Medical:</span>
             <span className="font-bold text-white">{stats.medical}</span>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            <span className="text-gray-300">Due for Flight:</span>
+            <span className="font-bold text-white">{stats.dueForFlight}</span>
+          </div>
         </div>
 
         {viewMode === "table" && (
@@ -718,6 +925,9 @@ export const PersonnelPage = () => {
                   <th className="px-4 py-3 text-left">Rank</th>
                   <th className="px-4 py-3 text-left">
                     Call Sign
+                  </th>
+                  <th className="px-4 py-3 text-left">
+                    Flight Status
                   </th>
                   <th className="px-4 py-3 text-left">
                     Unit
@@ -736,7 +946,7 @@ export const PersonnelPage = () => {
                 {isPersonnelLoading && filteredPersonnel.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-4 sm:px-6 py-6 text-center text-gray-400"
                     >
                       <div className="inline-flex items-center gap-2">
@@ -780,6 +990,31 @@ export const PersonnelPage = () => {
                       </td>
                       <td className="px-4 py-3 align-middle text-white">
                         {p.callSign}
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        {p.isPilot && p.flightStatus ? (
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium",
+                              FLIGHT_STATUS_COLORS[p.flightStatus],
+                            )}
+                            title={
+                              p.nextFlightDueDate
+                                ? `Due ${new Date(p.nextFlightDueDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`
+                                : undefined
+                            }
+                          >
+                            <span
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                FLIGHT_STATUS_DOT[p.flightStatus],
+                              )}
+                            />
+                            {FLIGHT_STATUS_LABELS[p.flightStatus]}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3 align-middle text-white">
                         {p.unit}
@@ -1001,6 +1236,25 @@ export const PersonnelPage = () => {
                           {p.callSign}
                         </span>
                       </div>
+                      {p.isPilot && p.flightStatus && (
+                        <div className="flex flex-col col-span-2">
+                          <span className="text-gray-500 mb-0.5">Flight Status</span>
+                          <span
+                            className={cn(
+                              "inline-flex items-center gap-1.5 w-fit px-2 py-0.5 rounded-full text-[10px] font-medium",
+                              FLIGHT_STATUS_COLORS[p.flightStatus],
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full",
+                                FLIGHT_STATUS_DOT[p.flightStatus],
+                              )}
+                            />
+                            {FLIGHT_STATUS_LABELS[p.flightStatus]}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex flex-col">
                         <span className="text-gray-500 mb-0.5">Unit</span>
                         <span className="text-white truncate">{p.unit}</span>
@@ -1021,6 +1275,15 @@ export const PersonnelPage = () => {
           </div>
         )}
       </section>
+
+      <ImportCsvModal
+        open={isImportOpen}
+        title="Import Personnel from CSV"
+        fields={PERSONNEL_IMPORT_FIELDS}
+        sampleFileName="personnel-import-sample.csv"
+        onImportRow={handleImportPersonnelRow}
+        onClose={() => setIsImportOpen(false)}
+      />
     </div>
   );
 };

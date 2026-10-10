@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import * as XLSX from "xlsx";
 import { cn } from "@/shared/utils/cn";
-import { useGetOperationsQuery } from "../api";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
+import {
+  useGetOperationsQuery,
+  useUpdateOperationStatusMutation,
+} from "../api";
 
 type ViewMode = "table" | "grid";
 
@@ -33,12 +38,17 @@ const priorityTextColor: Record<string, string> = {
 
 export const OperationsPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [searchParams] = useSearchParams();
   const { data: operations = [], isLoading } = useGetOperationsQuery();
+  const [updateOperationStatus] = useUpdateOperationStatusMutation();
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUnitId, setSelectedUnitId] = useState("all");
   const [selectedPriority, setSelectedPriority] = useState("all");
+  const [updatingOperationId, setUpdatingOperationId] = useState<number | null>(
+    null,
+  );
   const [selectedStatus, setSelectedStatus] = useState<string>(() => {
     const status = searchParams.get("status");
     const validStatuses = ["planned", "completed", "ongoing", "aborted"];
@@ -104,19 +114,40 @@ export const OperationsPage = () => {
     });
   }, [operations, searchTerm, selectedPriority, selectedUnitId, selectedStatus]);
 
+  const statusOptions = ["planned", "ongoing", "completed", "aborted"] as const;
+
+  const handleStatusChange = async (
+    operationId: number,
+    currentStatus: string,
+    nextStatus: (typeof statusOptions)[number],
+  ) => {
+    if (!operationId || updatingOperationId === operationId) return;
+    if (currentStatus === nextStatus) return;
+
+    setUpdatingOperationId(operationId);
+    try {
+      await updateOperationStatus({ id: operationId, status: nextStatus }).unwrap();
+      dispatch(showToast({ message: "Operation status updated", type: "success" }));
+    } catch {
+      dispatch(
+        showToast({ message: "Failed to update operation status", type: "error" }),
+      );
+    } finally {
+      setUpdatingOperationId(null);
+    }
+  };
+
   const handleDownloadExcel = () => {
     if (filteredOperations.length === 0) return;
 
     const rows = filteredOperations.map((op) => ({
-      Operation: op.name || "-",
-      Purpose: op.description || "-",
+      Name: op.name || "-",
+      Date: parseApiDateTime(op.start_date_time)?.toLocaleDateString() ?? "-",
       Type: op.operation_type?.name || "-",
+      Category: op.operation_category?.name || "-",
       Unit: op.unit?.name || "-",
       Priority: op.priority || "-",
       Status: op.status || "-",
-      Start: op.start_date_time || "-",
-      End: op.end_date_time || "-",
-      Duration: op.duration_label || "-",
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -134,11 +165,11 @@ export const OperationsPage = () => {
         <table className="min-w-full text-sm text-gray-200">
           <thead className="bg-[#001219] text-gray-400 uppercase text-xs">
             <tr>
-              <th className="text-left px-6 py-3 font-medium">Operation</th>
-              <th className="text-left px-4 py-3 font-medium">Purpose</th>
+              <th className="text-left px-6 py-3 font-medium">Region</th>
+              <th className="text-left px-4 py-3 font-medium">Date</th>
               <th className="text-left px-4 py-3 font-medium">Type</th>
-              <th className="text-left px-4 py-3 font-medium">Departure</th>
-              <th className="text-left px-4 py-3 font-medium">Destination</th>
+              <th className="text-left px-4 py-3 font-medium">Name</th>
+              <th className="text-left px-4 py-3 font-medium">Unit</th>
               <th className="text-left px-4 py-3 font-medium">Status</th>
               <th className="text-right px-6 py-3 font-medium">Action</th>
             </tr>
@@ -154,10 +185,12 @@ export const OperationsPage = () => {
                 )}
               >
                 <td className="px-6 py-3 font-medium text-white">{op.name || "—"}</td>
-                <td className="px-4 py-3 text-gray-200">{op.description || "—"}</td>
+                <td className="px-4 py-3 text-gray-200">
+                  {parseApiDateTime(op.start_date_time)?.toLocaleDateString() ?? "—"}
+                </td>
                 <td className="px-4 py-3 text-gray-200">{op.operation_type?.name || "—"}</td>
-                <td className="px-4 py-3 text-gray-200">{op.unit.name}</td>
-                <td className="px-4 py-3 text-gray-200">{op.unit.name}</td>
+                <td className="px-4 py-3 text-gray-200">{op.operation_category?.name || "—"}</td>
+                <td className="px-4 py-3 text-gray-200">{op.unit?.name || "—"}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2 text-sm">
                     <span
@@ -166,20 +199,52 @@ export const OperationsPage = () => {
                         statusDotColor[op.status] || "bg-gray-400",
                       )}
                     />
-                    <span className="capitalize">{op.status}</span>
+                    <select
+                      value={op.status}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleStatusChange(
+                          op.id,
+                          op.status,
+                          e.target.value as (typeof statusOptions)[number],
+                        );
+                      }}
+                      disabled={updatingOperationId === op.id}
+                      className="appearance-none bg-transparent border border-[#0A4D66]/40 rounded px-2 py-0.5 text-xs capitalize text-gray-200 focus:outline-none disabled:opacity-60"
+                      aria-label="Update operation status"
+                    >
+                      {statusOptions.map((status) => (
+                        <option key={status} value={status} className="bg-[#001825]">
+                          {status}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </td>
                 <td className="px-6 py-3 text-right">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(String(op.id));
-                    }}
-                    className="text-gray-400 hover:text-white"
-                    aria-label="View operation details"
-                  >
-                    <Icon icon="mdi:eye-outline" className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`${op.id}/edit`);
+                      }}
+                      className="text-gray-400 hover:text-[#7FD5FF] transition-colors"
+                      aria-label="Edit operation"
+                    >
+                      <Icon icon="mdi:pencil-outline" className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(String(op.id));
+                      }}
+                      className="text-gray-400 hover:text-white transition-colors"
+                      aria-label="View operation details"
+                    >
+                      <Icon icon="mdi:eye-outline" className="w-5 h-5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -230,11 +295,41 @@ export const OperationsPage = () => {
                   statusDotColor[op.status] || "bg-gray-400",
                 )}
               />
-              <span className="capitalize">{op.status}</span>
+              <select
+                value={op.status}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleStatusChange(
+                    op.id,
+                    op.status,
+                    e.target.value as (typeof statusOptions)[number],
+                  );
+                }}
+                disabled={updatingOperationId === op.id}
+                className="appearance-none bg-transparent border border-[#0A4D66]/40 rounded px-2 py-0.5 text-xs capitalize text-gray-200 focus:outline-none disabled:opacity-60"
+                aria-label="Update operation status"
+              >
+                {statusOptions.map((status) => (
+                  <option key={status} value={status} className="bg-[#001825]">
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
-            <span>
-              {parseApiDateTime(op.start_date_time)?.toLocaleDateString() ?? "—"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span>{parseApiDateTime(op.start_date_time)?.toLocaleDateString() ?? "—"}</span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`${op.id}/edit`);
+                }}
+                className="text-gray-400 hover:text-[#7FD5FF] transition-colors"
+                aria-label="Edit operation"
+              >
+                <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       ))}
@@ -385,7 +480,7 @@ export const OperationsPage = () => {
               className="bg-[#0369A1] text-black text-xs font-bold px-4 py-2 rounded flex items-center gap-2 hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
-              ADD OPERATION
+              ADD MISSION/FLIGHT OPERATION
             </button>
           </div>
         </div>

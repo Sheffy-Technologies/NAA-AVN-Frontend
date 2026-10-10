@@ -65,6 +65,7 @@ export type Personnel = {
   specialty_id: number;
   corp_id: number;
   service_number: string;
+  is_expatriate?: boolean;
   firstname: string;
   lastname: string;
   othernames: string;
@@ -77,6 +78,17 @@ export type Personnel = {
   rating_type: string;
   status: string;
   image: string | null;
+  // Pass fields
+  last_pass_date: string | null;
+  pass_duration: number;
+  next_pass_date: string | null;
+  pass_status: string | null;
+  // Flight currency fields — personnel with a call sign are pilots and are
+  // expected to fly at least once every flight_interval_weeks.
+  is_pilot: boolean;
+  last_flight_date: string | null;
+  next_flight_due_date: string | null;
+  flight_status: "no_flights" | "current" | "due_for_flight" | "overdue" | null;
   created_at: string;
   updated_at: string;
   rank: PersonnelRank;
@@ -105,23 +117,25 @@ export type PersonnelFilters = {
   corps: number[];
   specialties: number[];
   status: string[];
+  is_expatriate?: boolean;
 };
 
 export type CreatePersonnelRequest = {
-  service_number: string;
-  rank_id: string | number;
-  unit_id: string | number;
-  branch_id: string | number;
-  corp_id: string | number;
-  specialty_id: string | number;
+  service_number?: string | null;
+  rank_id?: string | number | null;
+  unit_id?: string | number | null;
+  branch_id?: string | number | null;
+  corp_id?: string | number | null;
+  specialty_id?: string | number | null;
   firstname: string;
   lastname: string;
+  is_expatriate?: boolean;
   othernames?: string;
-  phone_number: string;
-  email: string;
-  address: string;
-  blood_group: string;
-  call_sign: string;
+  phone_number?: string;
+  email?: string;
+  address?: string;
+  blood_group?: string;
+  call_sign?: string;
   status?: string;
   rating_type?: string;
   image?: string;

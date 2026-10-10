@@ -56,6 +56,15 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      # BRIDGE RELEASE MODE: publishing to THIS repo (temporarily public) so
+      # already-installed apps -- which still have the old endpoint pointing
+      # here baked in -- can find this release and self-update. Its
+      # tauri.conf.json already points at the new permanent endpoint
+      # (NAA-AVN-Frontend-releases), so once installed, the app checks that
+      # repo from then on. After this bridge release has had time to reach
+      # existing installs, switch this step back to publishing at
+      # NAA-AVN-Frontend-releases (owner/repo/releaseCommitish inputs +
+      # RELEASES_REPO_TOKEN) and re-privatize this repo.
       - name: Build and publish Tauri app
         uses: tauri-apps/tauri-action@v0.5.20
         env:

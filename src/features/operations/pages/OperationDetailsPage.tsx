@@ -8,11 +8,14 @@ import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useDeleteOperationMutation,
   useGetOperationByIdQuery,
+  useLogOperationFlightHoursMutation,
+  useUpdateOperationMutation,
   useUpdateOperationStatusMutation,
   type Operation,
   type OperationAssignedAsset,
 } from "../api";
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
+import Modal from "@/shared/ui/modal/Modal";
 
 const InfoRow = ({
   label,
@@ -46,9 +49,14 @@ const getPersonName = (person: unknown) => {
   const lastName = typeof record.lastname === "string" ? record.lastname : "";
   const otherNames =
     typeof record.othernames === "string" ? record.othernames : "";
+  const callSign =
+    typeof record.call_sign === "string" && record.call_sign.trim()
+      ? record.call_sign.trim()
+      : null;
   const fullName = `${firstName} ${lastName} ${otherNames}`.trim();
   if (!fullName) return "N/A";
-  return rank ? `${rank} ${fullName}` : fullName;
+  const base = rank ? `${rank} ${fullName}` : fullName;
+  return callSign ? `${base} (${callSign})` : base;
 };
 
 const getPersonId = (person: unknown): number | null => {
@@ -83,11 +91,36 @@ const PersonLink = ({
   );
 };
 
-const renderAssetCard = (
-  entry: OperationAssignedAsset,
-  index: number,
-  navigate: (path: string) => void,
-) => {
+const formatLoggedAt = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value.includes("T") ? value : value.replace(" ", "T"));
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const AssetCard = ({
+  entry,
+  index,
+  navigate,
+  operationId,
+}: {
+  entry: OperationAssignedAsset;
+  index: number;
+  navigate: (path: string) => void;
+  operationId: number | string;
+}) => {
+  const dispatch = useAppDispatch();
+  const [logFlightHours, { isLoading: isLogging }] =
+    useLogOperationFlightHoursMutation();
+  const [showLogModal, setShowLogModal] = useState(false);
+  const [draft, setDraft] = useState({ flight_hours: "", landing: "", cycle: "" });
+
   const baseAsset = (
     entry.asset && typeof entry.asset === "object"
       ? entry.asset
@@ -101,13 +134,15 @@ const renderAssetCard = (
   const assetName =
     (typeof baseAsset.name === "string" && baseAsset.name) ||
     (entry.asset_id ? `Asset #${entry.asset_id}` : `Asset ${index + 1}`);
-  const assetType =
-    (typeof baseAsset.model === "string" && baseAsset.model) ||
-    (typeof baseAsset.type === "string" && baseAsset.type) ||
-    "N/A";
   const tailNumber =
     (typeof baseAsset.tail_number === "string" && baseAsset.tail_number) ||
     "N/A";
+  const flightHoursValue =
+    entry.actual_flight_hours !== null && entry.actual_flight_hours !== undefined
+      ? Number(entry.actual_flight_hours)
+      : entry.flight_hours !== null && entry.flight_hours !== undefined
+        ? Number(entry.flight_hours)
+        : null;
   const totalHours =
     baseAsset.operations_total_hours_label ??
     baseAsset.total_airframe_hours ??
@@ -165,7 +200,6 @@ const renderAssetCard = (
         ) : null}
       </div>
       <InfoRow label="Name" value={assetName} />
-      <InfoRow label="Type" value={String(assetType)} />
       <InfoRow label="Tail Number" value={String(tailNumber)} />
       <InfoRow label="Serviceability" value={String(serviceability)} />
       <InfoRow label="Total Hours" value={String(totalHours)} />
@@ -234,40 +268,237 @@ const renderAssetCard = (
         label="Co-Pilot"
         value={<PersonLink person={coPilotDetails} onNavigate={goToPerson} />}
       />
+      {assetIdValue ? (
+        <div className="pt-3 mt-1 border-t border-[#0A4D66]/40">
+          {entry.logged_to_asset_at ? (
+            <div className="flex items-center gap-2 text-xs text-emerald-400">
+              <Icon icon="mdi:check-decagram-outline" className="w-4 h-4" />
+              Flight hours logged to asset on {formatLoggedAt(entry.logged_to_asset_at)}
+            </div>
+          ) : flightHoursValue !== null ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDraft({
+                  flight_hours: String(flightHoursValue),
+                  landing: String(entry.actual_landing ?? entry.landing ?? ""),
+                  cycle: String(entry.actual_cycle ?? entry.cycle ?? ""),
+                });
+                setShowLogModal(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded border border-[#7FD5FF]/40 bg-[#0A4D66]/30 px-3 py-1.5 text-xs font-medium text-[#C9F1FF] transition-colors hover:bg-[#0A4D66]/60"
+            >
+              <Icon icon="mdi:clipboard-check-outline" className="w-3.5 h-3.5" />
+              Log Flight Hours to Asset
+            </button>
+          ) : (
+            <span className="text-xs text-gray-500">
+              No flight hours recorded for this aircraft yet.
+            </span>
+          )}
+        </div>
+      ) : null}
     </>
   );
 
-  if (assetIdValue) {
-    return (
-      <button
-        key={cardKey}
-        type="button"
-        onClick={goToAsset}
-        className="text-left w-full rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 cursor-pointer hover:border-[#7FD5FF]/70 transition-colors"
-      >
-        {cardContent}
-      </button>
-    );
-  }
+  const handleConfirmLog = async () => {
+    if (!assetIdValue) return;
+
+    const hours = Number(draft.flight_hours);
+    if (!draft.flight_hours || Number.isNaN(hours) || hours <= 0) {
+      dispatch(
+        showToast({ message: "Enter a valid flight hours value.", type: "error" }),
+      );
+      return;
+    }
+
+    try {
+      await logFlightHours({
+        operation_id: operationId,
+        asset_id: assetIdValue,
+        flight_hours: hours,
+        landing: draft.landing ? Number(draft.landing) : null,
+        cycle: draft.cycle ? Number(draft.cycle) : null,
+      }).unwrap();
+
+      dispatch(
+        showToast({
+          message: `${hours} flight hour(s) logged to ${assetName}.`,
+          type: "success",
+        }),
+      );
+      setShowLogModal(false);
+    } catch (error) {
+      const err = error as { data?: { message?: string } };
+      dispatch(
+        showToast({
+          message: err?.data?.message || "Failed to log flight hours. Please try again.",
+          type: "error",
+        }),
+      );
+    }
+  };
 
   return (
-    <div
-      key={cardKey}
-      className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4"
-    >
-      {cardContent}
-    </div>
+    <>
+      <div
+        key={cardKey}
+        onClick={assetIdValue ? goToAsset : undefined}
+        role={assetIdValue ? "button" : undefined}
+        tabIndex={assetIdValue ? 0 : undefined}
+        onKeyDown={
+          assetIdValue
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") goToAsset();
+              }
+            : undefined
+        }
+        className={cn(
+          "rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4",
+          assetIdValue && "cursor-pointer hover:border-[#7FD5FF]/70 transition-colors",
+        )}
+      >
+        {cardContent}
+      </div>
+
+      <Modal
+        open={showLogModal}
+        onClose={() => setShowLogModal(false)}
+        title={`Log Flight Hours — ${assetName}`}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-400">
+            Confirm the values to log to this aircraft's permanent flight record. You
+            can adjust them before submitting — this can only be done once per
+            aircraft per operation.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-xs text-gray-400">
+              Flight Hours
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={draft.flight_hours}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, flight_hours: e.target.value }))
+                }
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-gray-400">
+              Landings
+              <input
+                type="number"
+                min="0"
+                value={draft.landing}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, landing: e.target.value }))
+                }
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-gray-400">
+              Cycles
+              <input
+                type="number"
+                min="0"
+                value={draft.cycle}
+                onChange={(e) =>
+                  setDraft((prev) => ({ ...prev, cycle: e.target.value }))
+                }
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+              />
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowLogModal(false)}
+              className="rounded px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmLog}
+              disabled={isLogging}
+              className="rounded bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0369A1]/90 disabled:opacity-50"
+            >
+              {isLogging ? "Logging..." : "Confirm & Log"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
+};
+
+const extractDatePart = (value?: string | null) => {
+  if (!value) return "";
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : value.slice(0, 10);
+};
+
+const extractTimePart = (value?: string | null) => {
+  if (!value) return "00:00";
+  const match = value.match(/(\d{2}):(\d{2})/);
+  return match ? `${match[1]}:${match[2]}` : "00:00";
+};
+
+type DateTimeDraft = {
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
 };
 
 const OperationTab = ({
   operation,
   navigate,
+  onUpdateDateTime,
+  isSavingDateTime,
 }: {
   operation: Operation;
   navigate: (path: string) => void;
+  onUpdateDateTime: (payload: {
+    start_date_time?: string;
+    end_date_time?: string;
+  }) => Promise<void>;
+  isSavingDateTime: boolean;
 }) => {
+  const [editDates, setEditDates] = useState<DateTimeDraft | null>(null);
+
   if (!operation) return null;
+
+  const startEditingDates = () => {
+    setEditDates({
+      startDate: extractDatePart(operation.start_date_time),
+      startTime: extractTimePart(operation.start_date_time),
+      endDate: extractDatePart(operation.end_date_time),
+      endTime: extractTimePart(operation.end_date_time),
+    });
+  };
+
+  const cancelEditingDates = () => setEditDates(null);
+
+  const saveDates = async () => {
+    if (!editDates) return;
+    const startDateTime = editDates.startDate
+      ? `${editDates.startDate}T${editDates.startTime}:00`
+      : undefined;
+    const endDateTime = editDates.endDate
+      ? `${editDates.endDate}T${editDates.endTime}:00`
+      : undefined;
+    await onUpdateDateTime({
+      start_date_time: startDateTime,
+      end_date_time: endDateTime,
+    });
+    setEditDates(null);
+  };
 
   const departureLabel =
     operation.departure_location ||
@@ -286,11 +517,26 @@ const OperationTab = ({
       ? `${Number(operation.arrival_latitude).toFixed(6)}, ${Number(operation.arrival_longitude).toFixed(6)}`
       : "N/A");
 
+  const formatDate = (value?: string | null) => {
+    if (!value) return "N/A";
+    const normalized = value.includes("T") ? value : value.replace(" ", "T");
+    const d = new Date(normalized);
+    if (Number.isNaN(d.getTime())) return value.slice(0, 10);
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <InfoRow label="Purpose" value={operation.name} />
+          <InfoRow
+            label="Operation Name"
+            value={operation.operation_category?.name || "N/A"}
+          />
+          <InfoRow
+            label="Region"
+            value={operation.name || "N/A"}
+          />
           <InfoRow
             label="Type"
             value={operation.operation_type?.name || "N/A"}
@@ -313,8 +559,153 @@ const OperationTab = ({
               )
             }
           />
-          <InfoRow label="Departure" value={departureLabel} />
-          <InfoRow label="Destination" value={arrivalLabel} />
+          <div className="flex flex-col gap-2 py-3 border-b border-[#0A4D66]/40">
+            <div className="flex items-center justify-between">
+              <span className="text-[#7FD5FF] font-medium text-sm">
+                Date{operation.end_date_time ? " / End Date" : ""}:
+              </span>
+              {!editDates ? (
+                <button
+                  type="button"
+                  onClick={startEditingDates}
+                  title="Edit operation dates"
+                  className="text-gray-400 hover:text-[#7FD5FF] transition-colors"
+                >
+                  <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+                </button>
+              ) : null}
+            </div>
+
+            {editDates ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Start Date</label>
+                    <input
+                      type="date"
+                      value={editDates.startDate}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, startDate: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">Start Time</label>
+                    <input
+                      type="time"
+                      value={editDates.startTime}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, startTime: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">End Date</label>
+                    <input
+                      type="date"
+                      value={editDates.endDate}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, endDate: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-gray-400">End Time</label>
+                    <input
+                      type="time"
+                      value={editDates.endTime}
+                      onChange={(e) =>
+                        setEditDates(
+                          (prev) => prev && { ...prev, endTime: e.target.value },
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={saveDates}
+                    disabled={isSavingDateTime}
+                    className="px-3 py-1.5 rounded bg-[#0369A1] text-white text-xs font-semibold hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+                  >
+                    {isSavingDateTime ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEditingDates}
+                    disabled={isSavingDateTime}
+                    className="px-3 py-1.5 rounded border border-[#0A4D66]/40 text-xs text-gray-300 hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <span className="text-white font-bold text-sm">
+                {formatDate(operation.start_date_time)}
+                {operation.end_date_time
+                  ? ` – ${formatDate(operation.end_date_time)}`
+                  : ""}
+              </span>
+            )}
+          </div>
+          {operation.duration_label ? (
+            <InfoRow label="Duration" value={operation.duration_label} />
+          ) : null}
+          <InfoRow
+            label="Priority"
+            value={
+              <span
+                className={cn(
+                  "capitalize font-semibold",
+                  operation.priority === "high"
+                    ? "text-red-400"
+                    : operation.priority === "medium"
+                      ? "text-amber-300"
+                      : "text-emerald-400",
+                )}
+              >
+                {operation.priority || "N/A"}
+              </span>
+            }
+          />
+          <InfoRow
+            label="Status"
+            value={
+              <div className="flex items-center gap-2">
+                <span className="capitalize">{operation.status}</span>
+                <span
+                  className={cn(
+                    "w-2 h-2 rounded-full",
+                    operation.status === "completed"
+                      ? "bg-emerald-400"
+                      : operation.status === "ongoing"
+                        ? "bg-amber-400"
+                        : operation.status === "aborted"
+                          ? "bg-red-500"
+                          : "bg-blue-400",
+                  )}
+                />
+              </div>
+            }
+          />
+          {departureLabel !== "N/A" ? (
+            <InfoRow label="Departure" value={departureLabel} />
+          ) : null}
+          {arrivalLabel !== "N/A" ? (
+            <InfoRow label="Destination" value={arrivalLabel} />
+          ) : null}
           {operation.waypoints && operation.waypoints.length > 0 ? (
             <InfoRow
               label="Waypoints"
@@ -337,28 +728,6 @@ const OperationTab = ({
               }
             />
           ) : null}
-          <InfoRow
-            label="Status"
-            value={
-              <div className="flex items-center gap-2">
-                <span className="capitalize">{operation.status}</span>
-                <span
-                  className={cn(
-                    "w-2 h-2 rounded-full",
-                    operation.status === "completed"
-                      ? "bg-emerald-400"
-                      : operation.status === "ongoing"
-                        ? "bg-amber-400"
-                        : operation.status === "aborted"
-                          ? "bg-red-500"
-                          : "bg-blue-400",
-                  )}
-                />
-              </div>
-            }
-          />
-
-          
         </div>
 
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
@@ -367,9 +736,15 @@ const OperationTab = ({
           </h3>
           {operation.assets && operation.assets.length > 0 ? (
             <div className="space-y-4">
-              {operation.assets.map((entry, index) =>
-                renderAssetCard(entry, index, navigate),
-              )}
+              {operation.assets.map((entry, index) => (
+                <AssetCard
+                  key={entry.id ?? `${entry.asset_id ?? "asset"}-${index}`}
+                  entry={entry}
+                  index={index}
+                  navigate={navigate}
+                  operationId={operation.id}
+                />
+              ))}
             </div>
           ) : (
             <div className="text-gray-400 text-sm">
@@ -622,6 +997,8 @@ export const OperationDetailsPage = () => {
     useDeleteOperationMutation();
   const [updateOperationStatus, { isLoading: isUpdatingStatus }] =
     useUpdateOperationStatusMutation();
+  const [updateOperation, { isLoading: isSavingDateTime }] =
+    useUpdateOperationMutation();
 
   const statusOptions = ["planned", "completed", "ongoing", "aborted"] as const;
 
@@ -671,6 +1048,27 @@ export const OperationDetailsPage = () => {
     } catch {
       dispatch(
         showToast({ message: "Failed to delete operation", type: "error" }),
+      );
+    }
+  };
+
+  const handleUpdateDateTime = async (payload: {
+    start_date_time?: string;
+    end_date_time?: string;
+  }) => {
+    if (!operation.id) return;
+
+    try {
+      await updateOperation({ id: operation.id, data: payload }).unwrap();
+      dispatch(
+        showToast({ message: "Operation dates updated", type: "success" }),
+      );
+    } catch {
+      dispatch(
+        showToast({
+          message: "Failed to update operation dates",
+          type: "error",
+        }),
       );
     }
   };
@@ -858,7 +1256,12 @@ export const OperationDetailsPage = () => {
       {/* Content */}
       <div ref={contentRef} className="flex-1">
         {activeTab === "operation" ? (
-          <OperationTab operation={operation} navigate={navigate} />
+          <OperationTab
+            operation={operation}
+            navigate={navigate}
+            onUpdateDateTime={handleUpdateDateTime}
+            isSavingDateTime={isSavingDateTime}
+          />
         ) : (
           <AARTab
             operation={operation}

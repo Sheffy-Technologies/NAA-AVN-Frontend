@@ -17,6 +17,14 @@ export type OperationType = {
   updated_at: string;
 };
 
+export type OperationCategory = {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type OperationAsset = {
   asset_id: number;
   pilot_id: number | null;
@@ -100,12 +108,39 @@ export type OperationAssignedAsset = {
   actual_flight_time_label?: string | null;
   actual_landing?: number | null;
   actual_cycle?: number | null;
+  logged_to_asset_at?: string | null;
+  logged_by_user_id?: number | null;
+};
+
+export type LogOperationFlightHoursRequest = {
+  operation_id: number | string;
+  asset_id: number | string;
+  flight_hours: number;
+  landing?: number | null;
+  cycle?: number | null;
+  remarks?: string | null;
+};
+
+export type LogOperationFlightHoursResponse = {
+  flight_log: {
+    id: number;
+    asset_id: number;
+    operation_id: number | null;
+    flight_date: string;
+    hours_flown: string | number;
+    landings: number;
+    cycles: number;
+  };
+  logged_to_asset_at: string;
+  logged_by_user_id: number | null;
+  asset_current_total_hours: number;
 };
 
 export type CreateOperationRequest = {
   name: string;
   unit_id: number;
   operation_type_id?: number | null;
+  operation_category_id?: number | null;
   asset_id?: number | null;
   start_date_time?: string;
   end_date_time?: string;
@@ -207,6 +242,7 @@ export type Operation = {
   id: number;
   unit_id: number;
   operation_type_id: number | null;
+  operation_category_id: number | null;
   name: string;
   start_date_time: string;
   end_date_time: string;
@@ -220,6 +256,7 @@ export type Operation = {
   duration_label: string;
   unit: OperationUnit;
   operation_type: OperationType | null;
+  operation_category: OperationCategory | null;
   assets: OperationAssignedAsset[];
   afterActionReport: AfterActionReport | null;
   after_action_report?: AfterActionReport | null;
@@ -285,7 +322,7 @@ const getOperationLocation = (operation: Operation) => {
 export const operationsApi = createApi({
   reducerPath: "operationsApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Operations", "OperationTypes", "OperationDetails"],
+  tagTypes: ["Operations", "OperationTypes", "OperationCategories", "OperationDetails"],
   endpoints: (builder) => ({
     getOperations: builder.query<Operation[], GetOperationsParams | void>({
       query: (params) => ({
@@ -324,6 +361,35 @@ export const operationsApi = createApi({
         method: "GET",
       }),
       providesTags: ["OperationTypes"],
+    }),
+    getOperationCategories: builder.query<OperationCategory[], void>({
+      query: () => ({
+        url: "/operation-categories",
+        method: "GET",
+      }),
+      providesTags: ["OperationCategories"],
+    }),
+    createOperationCategory: builder.mutation<
+      OperationCategory,
+      { name: string; description?: string | null }
+    >({
+      query: (body) => ({
+        url: "/operation-categories",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: ["OperationCategories"],
+    }),
+    createOperationType: builder.mutation<
+      OperationType,
+      { name: string; description?: string | null }
+    >({
+      query: (body) => ({
+        url: "/operation-types",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: ["OperationTypes"],
     }),
     createOperation: builder.mutation<Operation, CreateOperationRequest>({
       query: (body) => ({
@@ -379,6 +445,20 @@ export const operationsApi = createApi({
         "Operations",
       ],
     }),
+    logOperationFlightHours: builder.mutation<
+      LogOperationFlightHoursResponse,
+      LogOperationFlightHoursRequest
+    >({
+      query: ({ operation_id, asset_id, ...body }) => ({
+        url: `/operations/${operation_id}/assets/${asset_id}/log-flight-hours`,
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: (_result, _error, { operation_id }) => [
+        { type: "OperationDetails", id: operation_id },
+        "Operations",
+      ],
+    }),
   }),
 });
 
@@ -386,9 +466,13 @@ export const {
   useGetOperationsQuery,
   useGetOperationByIdQuery,
   useGetOperationTypesQuery,
+  useGetOperationCategoriesQuery,
+  useCreateOperationCategoryMutation,
+  useCreateOperationTypeMutation,
   useCreateOperationMutation,
   useUpdateOperationMutation,
   useUpdateOperationStatusMutation,
   useDeleteOperationMutation,
   useCreateAfterActionReportMutation,
+  useLogOperationFlightHoursMutation,
 } = operationsApi;

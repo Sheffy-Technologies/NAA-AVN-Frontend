@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   useCreateRoleMutation,
   useGetActivityLogsQuery,
+  useGetActivitySubjectTypesQuery,
   useGetDevicesQuery,
   useGetPermissionsQuery,
   useGetRolesQuery,
@@ -11,14 +12,17 @@ import {
   useGetUserRolesQuery,
   useSyncRolePermissionsMutation,
   useSyncUserRolesMutation,
+  useSyncUserUnitsMutation,
   useUpdateDeviceStatusMutation,
   useUpdateSystemSettingsMutation,
   type RoleRecord,
 } from "@/features/security/api";
-import { useGetUsersQuery } from "@/features/users/api";
+import { useGetUsersQuery, useUpdateUserMutation } from "@/features/users/api";
+import { useGetUnitsQuery } from "@/shared/api/units";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
 
@@ -66,11 +70,41 @@ export const SecurityPage = () => {
   const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
   const [assignRolesUserId, setAssignRolesUserId] = useState<number | null>(null);
   const [assignRolesDraft, setAssignRolesDraft] = useState<string[]>([]);
+  const [assignUnitsUserId, setAssignUnitsUserId] = useState<number | null>(null);
+  const [assignUnitsDraft, setAssignUnitsDraft] = useState<number[]>([]);
+  const [editUserId, setEditUserId] = useState<number | null>(null);
+  const [editUserDraft, setEditUserDraft] = useState({
+    firstname: "",
+    lastname: "",
+    username: "",
+    email: "",
+    phone_number: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [editUserError, setEditUserError] = useState<string | null>(null);
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityEventFilter, setActivityEventFilter] = useState("");
+  const [activitySubjectFilter, setActivitySubjectFilter] = useState("");
+  const [activityDateFrom, setActivityDateFrom] = useState("");
+  const [activityDateTo, setActivityDateTo] = useState("");
+  const [deviceSearch, setDeviceSearch] = useState("");
+  const [deviceStatusFilter, setDeviceStatusFilter] = useState<"" | "active" | "inactive">("");
+  const [deviceTypeFilter, setDeviceTypeFilter] = useState("");
 
-  const { data: logs = [], isLoading } = useGetActivityLogsQuery();
+  const { data: activityLogsResponse, isLoading } = useGetActivityLogsQuery({
+    page: activityPage,
+    event: activityEventFilter || undefined,
+    subject_type: activitySubjectFilter || undefined,
+    date_from: activityDateFrom || undefined,
+    date_to: activityDateTo || undefined,
+  });
+  const { data: activitySubjectTypes = [] } = useGetActivitySubjectTypesQuery();
   const { data: devices = [], isLoading: isDevicesLoading } = useGetDevicesQuery();
   const [updateDeviceStatus, { isLoading: isUpdatingDeviceStatus }] = useUpdateDeviceStatusMutation();
   const { data: users = [], isLoading: isUsersLoading, refetch: refetchUsers } = useGetUsersQuery();
+  const { data: units = [], isLoading: isUnitsLoading } = useGetUnitsQuery();
   const { data: roles = [], isLoading: isRolesLoading, refetch: refetchRoles } = useGetRolesQuery();
   const {
     data: permissionCatalog,
@@ -89,6 +123,9 @@ export const SecurityPage = () => {
     useSyncRolePermissionsMutation();
   const [syncUserRoles, { isLoading: isSavingUserRoles }] =
     useSyncUserRolesMutation();
+  const [syncUserUnits, { isLoading: isSavingUserUnits }] =
+    useSyncUserUnitsMutation();
+  const [updateUser, { isLoading: isSavingUserEdit }] = useUpdateUserMutation();
 
   const authUser = useAppSelector((state) => state.auth.user);
   const isSuperAdmin = useMemo(() => {
@@ -118,6 +155,35 @@ export const SecurityPage = () => {
       void refetchSystemSettings();
     } catch {
       dispatch(showToast({ message: "Failed to update system settings.", type: "error" }));
+    }
+  };
+
+  const [passIntervalDraft, setPassIntervalDraft] = useState("");
+
+  useEffect(() => {
+    if (systemSettings?.pass_interval_months !== undefined) {
+      setPassIntervalDraft(String(systemSettings.pass_interval_months));
+    }
+  }, [systemSettings]);
+
+  const handleSavePassInterval = async () => {
+    const months = Number(passIntervalDraft);
+    if (!Number.isInteger(months) || months < 1 || months > 24) {
+      dispatch(
+        showToast({
+          message: "Enter a valid pass interval between 1 and 24 months.",
+          type: "error",
+        }),
+      );
+      return;
+    }
+
+    try {
+      await updateSystemSettings({ pass_interval_months: months }).unwrap();
+      dispatch(showToast({ message: "Pass interval updated.", type: "success" }));
+      void refetchSystemSettings();
+    } catch {
+      dispatch(showToast({ message: "Failed to update pass interval.", type: "error" }));
     }
   };
 
@@ -154,6 +220,8 @@ export const SecurityPage = () => {
         email: u.email || "-",
         phone: u.phone_number || "-",
         roles: (u.roles || []).map((role) => role.name).filter(Boolean) as string[],
+        unitIds: (u.units || []).map((unit) => unit.id),
+        unitNames: (u.units || []).map((unit) => unit.name),
         created: hasValid
           ? created.toLocaleString("en-GB", {
               day: "2-digit",
@@ -168,8 +236,19 @@ export const SecurityPage = () => {
     });
   }, [users]);
 
+  const filteredUserRows = useMemo(() => {
+    const query = userSearchQuery.trim().toLowerCase();
+    if (!query) return userRows;
+
+    return userRows.filter((row) =>
+      [row.name, row.email, row.phone, ...row.roles].some((field) =>
+        field?.toLowerCase().includes(query),
+      ),
+    );
+  }, [userRows, userSearchQuery]);
+
   const displayRows = useMemo(() => {
-    return logs.map((log) => {
+    return (activityLogsResponse?.data ?? []).map((log) => {
       const createdAt = log.created_at ? new Date(log.created_at) : null;
       const validDate = createdAt && !Number.isNaN(createdAt.getTime());
       const date =
@@ -191,13 +270,11 @@ export const SecurityPage = () => {
             })} Z`
           : "-");
       const name =
+        log.causer_name ||
         [log.causer?.firstname, log.causer?.lastname].filter(Boolean).join(" ") ||
         log.name ||
         log.user?.name ||
-        [log.user?.firstname, log.user?.lastname, log.user?.othernames]
-          .filter(Boolean)
-          .join(" ") ||
-        "-";
+        "System";
 
       return {
         id: log.id,
@@ -206,12 +283,14 @@ export const SecurityPage = () => {
         name,
         email: log.causer?.email || "-",
         action: log.description || log.action || "-",
+        event: log.event || "-",
+        model: log.subject_label || "-",
         userType: log.user_type || "-",
         deviceCode: log.device_code || "-",
         unit: log.unit?.name || "-",
       };
     });
-  }, [logs]);
+  }, [activityLogsResponse]);
 
   const deviceRows = useMemo(() => {
     return devices.map((device) => {
@@ -223,6 +302,7 @@ export const SecurityPage = () => {
         id: device.id,
         name: device.device_name || device.name || "-",
         code: device.device_code || device.code || "-",
+        type: device.device_type || "-",
         status:
           Number(device.is_active) === 1
             ? "active"
@@ -243,9 +323,29 @@ export const SecurityPage = () => {
     });
   }, [devices]);
 
+  const deviceTypeOptions = useMemo(
+    () => Array.from(new Set(deviceRows.map((row) => row.type).filter((type) => type !== "-"))).sort(),
+    [deviceRows],
+  );
+
+  const filteredDeviceRows = useMemo(() => {
+    const query = deviceSearch.trim().toLowerCase();
+    return deviceRows.filter((row) => {
+      if (deviceStatusFilter && row.status !== deviceStatusFilter) return false;
+      if (deviceTypeFilter && row.type !== deviceTypeFilter) return false;
+      if (query && !`${row.name} ${row.code} ${row.type}`.toLowerCase().includes(query)) return false;
+      return true;
+    });
+  }, [deviceRows, deviceSearch, deviceStatusFilter, deviceTypeFilter]);
+
   const roleOptions = useMemo(
     () => roles.map((role) => ({ value: role.name, label: role.name })),
     [roles],
+  );
+
+  const unitOptions = useMemo(
+    () => units.map((unit) => ({ value: unit.id, label: unit.name })),
+    [units],
   );
 
   const permissionOptions = useMemo(() => {
@@ -422,6 +522,102 @@ export const SecurityPage = () => {
     [assignRolesUserId, userRows],
   );
 
+  const openAssignUnitsModal = (userId: number, currentUnitIds: number[]) => {
+    setAssignUnitsUserId(userId);
+    setAssignUnitsDraft(currentUnitIds);
+  };
+
+  const closeAssignUnitsModal = () => {
+    setAssignUnitsUserId(null);
+    setAssignUnitsDraft([]);
+  };
+
+  const handleAssignUnitsSave = async () => {
+    if (assignUnitsUserId === null) return;
+    try {
+      await syncUserUnits({
+        userId: assignUnitsUserId,
+        units: assignUnitsDraft,
+      }).unwrap();
+      await refetchUsers();
+      dispatch(showToast({ message: "User units updated", type: "success" }));
+      closeAssignUnitsModal();
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to update user units", type: "error" }));
+    }
+  };
+
+  const assignUnitsUser = useMemo(
+    () => userRows.find((row) => row.id === assignUnitsUserId) ?? null,
+    [assignUnitsUserId, userRows],
+  );
+
+  const openEditUserModal = (userId: number) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    setEditUserId(userId);
+    setEditUserError(null);
+    setEditUserDraft({
+      firstname: user.firstname || "",
+      lastname: user.lastname || "",
+      username: user.username || "",
+      email: user.email || "",
+      phone_number: user.phone_number || "",
+      password: "",
+      confirmPassword: "",
+    });
+  };
+
+  const closeEditUserModal = () => {
+    setEditUserId(null);
+    setEditUserError(null);
+  };
+
+  const handleSaveUserEdit = async () => {
+    if (editUserId === null) return;
+
+    if (editUserDraft.password || editUserDraft.confirmPassword) {
+      if (editUserDraft.password.length < 6) {
+        setEditUserError("Password must be at least 6 characters.");
+        return;
+      }
+      if (editUserDraft.password !== editUserDraft.confirmPassword) {
+        setEditUserError("Passwords do not match.");
+        return;
+      }
+    }
+
+    setEditUserError(null);
+
+    try {
+      await updateUser({
+        id: editUserId,
+        data: {
+          firstname: editUserDraft.firstname,
+          lastname: editUserDraft.lastname,
+          username: editUserDraft.username,
+          email: editUserDraft.email,
+          phone_number: editUserDraft.phone_number,
+          ...(editUserDraft.password ? { password: editUserDraft.password } : {}),
+        },
+      }).unwrap();
+
+      await refetchUsers();
+      dispatch(showToast({ message: "User details updated", type: "success" }));
+      closeEditUserModal();
+    } catch (error) {
+      console.error(error);
+      dispatch(showToast({ message: "Failed to update user", type: "error" }));
+    }
+  };
+
+  const editUser = useMemo(
+    () => userRows.find((row) => row.id === editUserId) ?? null,
+    [editUserId, userRows],
+  );
+
   const renderTabButton = (tab: SecurityTab, label: string) => (
     <button
       onClick={() => setActiveTab(tab)}
@@ -501,19 +697,23 @@ export const SecurityPage = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm text-gray-300">{currentDateTime} Abuja</span>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Icon
-              icon="mdi:magnify"
-              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              placeholder="Search"
-              className="w-80 rounded border border-[#2B2B2B] bg-[#1A1A1A] px-9 py-2 text-sm text-white placeholder:text-gray-500 focus:border-[#0A4D66] focus:outline-none"
-            />
+        {activeTab === "user" && (
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <Icon
+                icon="mdi:magnify"
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+              />
+              <input
+                type="text"
+                value={userSearchQuery}
+                onChange={(event) => setUserSearchQuery(event.target.value)}
+                placeholder="Search name, email, phone..."
+                className="w-80 rounded border border-[#2B2B2B] bg-[#1A1A1A] px-9 py-2 text-sm text-white placeholder:text-gray-500 focus:border-[#0A4D66] focus:outline-none"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-8 border-b border-[#0A4D66]/40">
@@ -538,6 +738,23 @@ export const SecurityPage = () => {
                     : "Activity Log"}
           </h2>
           <div className="flex items-center gap-3">
+            {activeTab === "activity" ? (
+              <select
+                aria-label="Filter by status"
+                title="Filter by status"
+                value={activityEventFilter}
+                onChange={(event) => {
+                  setActivityEventFilter(event.target.value);
+                  setActivityPage(1);
+                }}
+                className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-sm text-white outline-none focus:border-[#7FD5FF]"
+              >
+                <option value="">All Statuses</option>
+                <option value="created">Created</option>
+                <option value="updated">Updated</option>
+                <option value="deleted">Deleted</option>
+              </select>
+            ) : null}
             {activeTab === "user" ? (
               <button
                 onClick={() => navigate("/dashboard/users/add")}
@@ -557,6 +774,68 @@ export const SecurityPage = () => {
 
         {activeTab === "activity" ? (
           <div className="overflow-x-auto">
+            <div className="flex flex-wrap items-end gap-3 border-b border-[#0A4D66]/30 px-6 py-4 text-sm text-gray-300">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Model</span>
+                <select
+                  aria-label="Filter by model"
+                  value={activitySubjectFilter}
+                  onChange={(event) => {
+                    setActivitySubjectFilter(event.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="min-w-48 rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="">All Models</option>
+                  {activitySubjectTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">From</span>
+                <input
+                  type="date"
+                  aria-label="From date"
+                  value={activityDateFrom}
+                  max={activityDateTo || undefined}
+                  onChange={(event) => {
+                    setActivityDateFrom(event.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">To</span>
+                <input
+                  type="date"
+                  aria-label="To date"
+                  value={activityDateTo}
+                  min={activityDateFrom || undefined}
+                  onChange={(event) => {
+                    setActivityDateTo(event.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setActivitySubjectFilter("");
+                  setActivityDateFrom("");
+                  setActivityDateTo("");
+                  setActivityEventFilter("");
+                  setActivityPage(1);
+                }}
+                className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/30"
+              >
+                Reset filters
+              </button>
+            </div>
             <table className="min-w-275 w-full text-left">
               <thead>
                 <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
@@ -564,6 +843,8 @@ export const SecurityPage = () => {
                   <th className="px-6 py-3 font-medium">Time</th>
                   <th className="px-6 py-3 font-medium">Name</th>
                   <th className="px-6 py-3 font-medium">Action</th>
+                  <th className="px-6 py-3 font-medium">Model</th>
+                  <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium">User Type</th>
                   <th className="px-6 py-3 font-medium">Device Code</th>
                   <th className="px-6 py-3 font-medium">Unit</th>
@@ -572,13 +853,13 @@ export const SecurityPage = () => {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
                       Loading activity logs...
                     </td>
                   </tr>
                 ) : displayRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={9} className="px-6 py-8 text-center text-gray-400">
                       No activity logs found
                     </td>
                   </tr>
@@ -600,6 +881,8 @@ export const SecurityPage = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">{row.action}</td>
+                      <td className="px-6 py-4">{row.model}</td>
+                      <td className="px-6 py-4 capitalize">{row.event}</td>
                       <td className="px-6 py-4">{row.userType}</td>
                       <td className="px-6 py-4">{row.deviceCode}</td>
                       <td className="whitespace-nowrap px-6 py-4">{row.unit}</td>
@@ -608,14 +891,84 @@ export const SecurityPage = () => {
                 )}
               </tbody>
             </table>
+
+            {activityLogsResponse && activityLogsResponse.last_page > 1 && (
+              <div className="flex flex-col items-center gap-1 border-t border-[#0A4D66]/30 px-6 py-2 text-sm text-gray-300">
+                <span className="text-xs text-gray-400">
+                  Page {activityLogsResponse.current_page} of {activityLogsResponse.last_page} ·{" "}
+                  {activityLogsResponse.total} total
+                </span>
+                <NumberedPagination
+                  currentPage={activityLogsResponse.current_page}
+                  lastPage={activityLogsResponse.last_page}
+                  onPageChange={setActivityPage}
+                />
+              </div>
+            )}
           </div>
         ) : activeTab === "device" ? (
           <div className="overflow-x-auto">
+            <div className="flex flex-wrap items-end gap-3 border-b border-[#0A4D66]/30 px-6 py-4 text-sm text-gray-300">
+              <label className="flex min-w-56 flex-1 flex-col gap-1">
+                <span className="text-xs text-gray-400">Search</span>
+                <input
+                  type="search"
+                  aria-label="Search devices"
+                  placeholder="Name, code or type"
+                  value={deviceSearch}
+                  onChange={(event) => setDeviceSearch(event.target.value)}
+                  className="rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Status</span>
+                <select
+                  aria-label="Filter devices by status"
+                  value={deviceStatusFilter}
+                  onChange={(event) =>
+                    setDeviceStatusFilter(event.target.value as "" | "active" | "inactive")
+                  }
+                  className="min-w-40 rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Device type</span>
+                <select
+                  aria-label="Filter devices by type"
+                  value={deviceTypeFilter}
+                  onChange={(event) => setDeviceTypeFilter(event.target.value)}
+                  className="min-w-40 rounded border border-[#0A4D66]/40 bg-[#001219] px-3 py-1.5 text-white outline-none focus:border-[#7FD5FF]"
+                >
+                  <option value="">All Types</option>
+                  {deviceTypeOptions.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeviceSearch("");
+                  setDeviceStatusFilter("");
+                  setDeviceTypeFilter("");
+                }}
+                className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/30"
+              >
+                Reset filters
+              </button>
+            </div>
             <table className="min-w-275 w-full text-left">
               <thead>
                 <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
                   <th className="px-6 py-3 font-medium">Device Name</th>
                   <th className="px-6 py-3 font-medium">Device Code</th>
+                  <th className="px-6 py-3 font-medium">Type</th>
                   <th className="px-6 py-3 font-medium">Status</th>
                   <th className="px-6 py-3 font-medium">Last Seen</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
@@ -624,18 +977,18 @@ export const SecurityPage = () => {
               <tbody>
                 {isDevicesLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       Loading devices...
                     </td>
                   </tr>
-                ) : deviceRows.length === 0 ? (
+                ) : filteredDeviceRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
                       No devices found
                     </td>
                   </tr>
                 ) : (
-                  deviceRows.map((row, index) => (
+                  filteredDeviceRows.map((row, index) => (
                     <tr
                       key={row.id}
                       className={cn(
@@ -645,6 +998,7 @@ export const SecurityPage = () => {
                     >
                       <td className="px-6 py-4">{row.name}</td>
                       <td className="px-6 py-4">{row.code}</td>
+                      <td className="px-6 py-4">{row.type}</td>
                       <td className="px-6 py-4 capitalize">{row.status}</td>
                       <td className="px-6 py-4">{row.lastSeen}</td>
                       <td className="relative px-6 py-4 text-right">
@@ -693,6 +1047,7 @@ export const SecurityPage = () => {
                   <th className="px-6 py-3 font-medium">Email</th>
                   <th className="px-6 py-3 font-medium">Phone</th>
                   <th className="px-6 py-3 font-medium">Roles</th>
+                  <th className="px-6 py-3 font-medium">Units</th>
                   <th className="px-6 py-3 font-medium">Created</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -700,18 +1055,20 @@ export const SecurityPage = () => {
               <tbody>
                 {isUsersLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                       Loading users...
                     </td>
                   </tr>
-                ) : userRows.length === 0 ? (
+                ) : filteredUserRows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                      No users found
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                      {userSearchQuery
+                        ? "No users match your search"
+                        : "No users found"}
                     </td>
                   </tr>
                 ) : (
-                  userRows.map((row, index) => (
+                  filteredUserRows.map((row, index) => (
                     <tr
                       key={row.id}
                       className={cn(
@@ -738,6 +1095,22 @@ export const SecurityPage = () => {
                           )}
                         </div>
                       </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          {row.unitNames.length === 0 ? (
+                            <span className="text-sm text-gray-500">No units</span>
+                          ) : (
+                            row.unitNames.map((unitName, unitIndex) => (
+                              <span
+                                key={`${row.id}-unit-${row.unitIds[unitIndex]}`}
+                                className="rounded-full border border-[#0A4D66]/40 bg-[#001825] px-2.5 py-1 text-xs text-emerald-300"
+                              >
+                                {unitName}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4">{row.created}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -749,6 +1122,26 @@ export const SecurityPage = () => {
                             <Icon icon="mdi:account-key-outline" className="h-3.5 w-3.5" />
                             Assign Roles
                           </button>
+                          {isSuperAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => openAssignUnitsModal(row.id, row.unitIds)}
+                              className="inline-flex items-center gap-1 rounded border border-emerald-400/40 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-500/10"
+                            >
+                              <Icon icon="mdi:office-building-marker-outline" className="h-3.5 w-3.5" />
+                              Assign Units
+                            </button>
+                          )}
+                          {isSuperAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => openEditUserModal(row.id)}
+                              className="inline-flex items-center gap-1 rounded border border-amber-400/40 px-3 py-1.5 text-xs text-amber-300 hover:bg-amber-500/10"
+                            >
+                              <Icon icon="mdi:account-edit-outline" className="h-3.5 w-3.5" />
+                              Edit
+                            </button>
+                          )}
                           <button className="text-gray-300 hover:text-white">View</button>
                         </div>
                       </td>
@@ -1096,6 +1489,51 @@ export const SecurityPage = () => {
                 ) : null}
               </div>
             </div>
+
+            <div className={cn("rounded-xl border p-5", borderSubtleCls, cardBg)}>
+              <h3 className={cn("text-base font-semibold", titleText)}>
+                Pass Interval
+              </h3>
+              <p className={cn("mt-1 text-sm", mutedText)}>
+                How often (in months) personnel become due for their next pass,
+                counted from the start date of their last pass. Used to compute
+                each personnel&apos;s next pass date and status.
+              </p>
+              {isSystemSettingsLoading ? (
+                <p className={cn("mt-2 text-xs", subtleText)}>Loading current setting…</p>
+              ) : null}
+
+              <div className="mt-4 flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={passIntervalDraft}
+                  onChange={(event) => setPassIntervalDraft(event.target.value)}
+                  disabled={isSystemSettingsLoading || isSavingSystemSettings}
+                  aria-label="Pass interval in months"
+                  className={cn("w-24 rounded border px-3 py-2 text-sm focus:outline-none", borderCls, isDark ? "bg-[#001219] text-white" : "bg-white text-gray-900")}
+                />
+                <span className={cn("text-sm", mutedText)}>months</span>
+                <button
+                  type="button"
+                  onClick={() => void handleSavePassInterval()}
+                  disabled={isSystemSettingsLoading || isSavingSystemSettings}
+                  className={cn("inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-semibold disabled:opacity-60", accentChipBorder, accentBtnBg, accentText)}
+                >
+                  <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                  {isSavingSystemSettings ? "Saving..." : "Save"}
+                </button>
+              </div>
+
+              <div className={cn("mt-4 inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-xs", borderCls, chipBg)}>
+                <Icon icon="mdi:calendar-clock" className={cn("h-4 w-4", accentText)} />
+                <span className={chipText}>
+                  Current: every {systemSettings?.pass_interval_months ?? 4} month
+                  {(systemSettings?.pass_interval_months ?? 4) === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
           </div>
         ) : (
           <div className={cn("p-8 text-center text-sm", mutedText)}>
@@ -1166,6 +1604,248 @@ export const SecurityPage = () => {
               >
                 <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
                 {isSavingUserRoles ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {assignUnitsUserId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeAssignUnitsModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl border border-[#0A4D66]/50 bg-[#001825] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Assign Units</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  {assignUnitsUser
+                    ? `Restrict ${assignUnitsUser.name} to specific units. Leave empty for unrestricted access.`
+                    : "Restrict this user to specific units. Leave empty for unrestricted access."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAssignUnitsModal}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                <Icon icon="mdi:close" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5">
+              <MultiSelect
+                label="Units"
+                placeholder={isUnitsLoading ? "Loading units..." : "Select units"}
+                options={unitOptions}
+                selectedValues={assignUnitsDraft}
+                onChange={(selected) => setAssignUnitsDraft(selected as number[])}
+                disabled={isUnitsLoading || units.length === 0}
+              />
+              {units.length === 0 && !isUnitsLoading ? (
+                <p className="mt-2 text-xs text-amber-300">
+                  No units available. Create a unit first.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeAssignUnitsModal}
+                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAssignUnitsSave}
+                disabled={isSavingUserUnits}
+                className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                {isSavingUserUnits ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editUserId !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeEditUserModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl border border-[#0A4D66]/50 bg-[#001825] p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Edit User</h3>
+                <p className="mt-1 text-sm text-gray-400">
+                  {editUser
+                    ? `Update details or set a new password for ${editUser.name}.`
+                    : "Update user details or set a new password."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeEditUserModal}
+                className="text-gray-400 hover:text-white"
+                aria-label="Close"
+              >
+                <Icon icon="mdi:close" className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  First Name
+                </label>
+                <input
+                  value={editUserDraft.firstname}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      firstname: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Last Name
+                </label>
+                <input
+                  value={editUserDraft.lastname}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      lastname: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Username
+                </label>
+                <input
+                  value={editUserDraft.username}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      username: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editUserDraft.email}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      email: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Phone Number
+                </label>
+                <input
+                  value={editUserDraft.phone_number}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      phone_number: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+
+              <div className="sm:col-span-2 mt-2 border-t border-[#0A4D66]/40 pt-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-gray-400">
+                  Reset Password (optional)
+                </p>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={editUserDraft.password}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    }))
+                  }
+                  placeholder="Leave blank to keep current password"
+                  className={searchInputClassName}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-300">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={editUserDraft.confirmPassword}
+                  onChange={(event) =>
+                    setEditUserDraft((current) => ({
+                      ...current,
+                      confirmPassword: event.target.value,
+                    }))
+                  }
+                  className={searchInputClassName}
+                />
+              </div>
+            </div>
+
+            {editUserError && (
+              <p className="mt-3 text-xs text-red-400">{editUserError}</p>
+            )}
+
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeEditUserModal}
+                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveUserEdit()}
+                disabled={isSavingUserEdit}
+                className="inline-flex items-center gap-2 rounded-md bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                <Icon icon="mdi:content-save-outline" className="h-4 w-4" />
+                {isSavingUserEdit ? "Saving..." : "Save"}
               </button>
             </div>
           </div>
