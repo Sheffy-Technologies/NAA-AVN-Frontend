@@ -15,6 +15,8 @@ import {
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect, type MultiSelectOption } from "@/shared/ui/multi-select/MultiSelect";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
+import { toInventoryOptions } from "@/features/inventory/inventoryOptions";
 
 const PERSONNEL_FILTERS = {
   branches: [],
@@ -135,9 +137,8 @@ export const WorkOrderDetailsPage = () => {
 
   const personnelOptions: MultiSelectOption[] = useMemo(
     () =>
-      personnel.map((person) => ({
-        value: String(person.id),
-        label: formatPersonnelName({
+      personnel.map((person) => {
+        const name = formatPersonnelName({
           id: person.id,
           firstname: person.firstname,
           lastname: person.lastname,
@@ -145,10 +146,18 @@ export const WorkOrderDetailsPage = () => {
           service_number: person.service_number,
           call_sign: person.call_sign,
           rank: person.rank,
-        }),
-      })),
+        });
+        // Include the service number so the dropdown search can match on it.
+        const serviceNumber = person.service_number?.trim();
+        return {
+          value: String(person.id),
+          label: serviceNumber && !name.includes(serviceNumber) ? `${name} (${serviceNumber})` : name,
+        };
+      }),
     [personnel],
   );
+
+  const inventoryOptions = useMemo(() => toInventoryOptions(inventories), [inventories]);
 
   const defaultSelectedPersonnelByTask = useMemo<Record<number, string[]>>(() => {
     if (!workOrder?.tasks) return {};
@@ -826,6 +835,8 @@ export const WorkOrderDetailsPage = () => {
                             className="md:col-span-3"
                             label={`Select Personnel for Task #${task.id}`}
                             placeholder="Select personnel"
+                            searchable
+                            searchPlaceholder="Search by name, rank or service number..."
                             options={personnelOptions}
                             selectedValues={
                               selectedPersonnelByTask[task.id] ??
@@ -865,24 +876,25 @@ export const WorkOrderDetailsPage = () => {
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                            <select
-                              title={`Inventory selection for task ${task.id}`}
-                              value={selectedInventoryByTask[task.id] ?? ""}
-                              onChange={(event) =>
+                            <SearchableSelect
+                              className="md:col-span-2"
+                              buttonClassName="py-2"
+                              placeholder={isInventoriesLoading ? "Loading inventory..." : "Select Inventory Item"}
+                              searchPlaceholder="Search by part number or description..."
+                              options={inventoryOptions}
+                              value={
+                                selectedInventoryByTask[task.id]
+                                  ? Number(selectedInventoryByTask[task.id])
+                                  : null
+                              }
+                              onChange={(value) =>
                                 setSelectedInventoryByTask((prev) => ({
                                   ...prev,
-                                  [task.id]: event.target.value,
+                                  [task.id]: value === null ? "" : String(value),
                                 }))
                               }
-                              className="md:col-span-2 rounded border border-[#0A4D66]/50 bg-[#001219] px-3 py-2 text-sm text-white"
-                            >
-                              <option value="">Select Inventory Item</option>
-                              {inventories.map((item) => (
-                                <option key={item.id} value={String(item.id)}>
-                                  {item.description || item.part_number || `Inventory #${item.id}`} (Stock: {item.current_stock})
-                                </option>
-                              ))}
-                            </select>
+                              disabled={isInventoriesLoading}
+                            />
 
                             <input
                               type="number"

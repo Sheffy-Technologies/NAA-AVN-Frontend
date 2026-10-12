@@ -12,6 +12,8 @@ import {
   type MaintenanceDueItem,
 } from "@/features/maintenance/api";
 import PlanningPage from "./PlanningPage";
+import { MaintenanceTrackingRecords } from "../components/MaintenanceTrackingRecords";
+import { CreateDefectModal } from "../components/CreateDefectModal";
 
 type MaintenanceSectionKey =
   | "overview"
@@ -102,7 +104,15 @@ export const MaintenancePage = () => {
     { asset_type: dueTypeFilter || undefined },
     { skip: section !== "tracking" },
   );
-  const dueTrackingRows = useMemo(() => dueItemsResponse?.data ?? [], [dueItemsResponse]);
+  // The endpoint returns every tracked part (including "ok" / "not_tracked");
+  // this section is only for items that actually need attention.
+  const dueTrackingRows = useMemo(
+    () =>
+      (dueItemsResponse?.data ?? []).filter(
+        (row) => row.status === "overdue" || row.status === "due_soon",
+      ),
+    [dueItemsResponse],
+  );
 
   const {
     data: complianceRecords = [],
@@ -129,6 +139,7 @@ export const MaintenancePage = () => {
   const [selectedComplianceId, setSelectedComplianceId] = useState<number | null>(null);
   const [selectedDefectId, setSelectedDefectId] = useState<number | null>(null);
   const [isExportingWorkOrders, setIsExportingWorkOrders] = useState(false);
+  const [isCreateDefectOpen, setIsCreateDefectOpen] = useState(false);
   const [selectedDefectIds, setSelectedDefectIds] = useState<Set<number>>(new Set());
   const [defectWorkOrderFeedback, setDefectWorkOrderFeedback] = useState<
     { type: "success" | "error"; message: string } | null
@@ -402,6 +413,8 @@ export const MaintenancePage = () => {
         </div>
       ) : null}
 
+      {section === "overview" && <MaintenanceTrackingRecords />}
+
       {section === "planning" && <PlanningPage />}
 
       {section === "tracking" && (
@@ -653,9 +666,19 @@ export const MaintenancePage = () => {
 
       {section === "defects" && (
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-4">
-            Defects Logging
-          </h2>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-sm font-bold text-[#7FD5FF] uppercase">
+              Defects Logging
+            </h2>
+            <button
+              type="button"
+              onClick={() => setIsCreateDefectOpen(true)}
+              className="inline-flex items-center gap-2 rounded bg-[#0369A1] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0369A1]/90 transition-colors"
+            >
+              <Icon icon="mdi:plus" className="w-4 h-4" />
+              <span>Log Defect</span>
+            </button>
+          </div>
           {isDefectRecordsLoading ? (
             <div className="text-gray-400">Loading discrepancies/defects...</div>
           ) : isDefectRecordsError ? (
@@ -757,6 +780,10 @@ export const MaintenancePage = () => {
               <div>Remarks: {selectedDefectItem.remarks || "-"}</div>
             </div>
           )}
+          <CreateDefectModal
+            open={isCreateDefectOpen}
+            onClose={() => setIsCreateDefectOpen(false)}
+          />
         </div>
       )}
     </div>

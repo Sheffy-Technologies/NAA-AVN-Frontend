@@ -55,6 +55,12 @@ html.light ::-webkit-scrollbar-thumb:hover {
   background: #9CA3AF;
 }
 
+/* Native <select> popups follow color-scheme; without this they render
+   with the OS default (light) palette while inheriting white text in dark mode. */
+html:not(.light) select {
+  color-scheme: dark;
+}
+
 /* ============================================================
    DATE INPUT STYLING
    ============================================================ */

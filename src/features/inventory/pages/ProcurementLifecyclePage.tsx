@@ -17,6 +17,8 @@ import {
   useGetSupplierQuotationsQuery,
   useGetSuppliersQuery,
   type PurchaseOrder,
+  type Rfq,
+  type StockMovement,
 } from "@/features/inventory/api";
 import { NewInventoryItemFields } from "@/features/inventory/components/NewInventoryItemFields";
 import {
@@ -25,31 +27,85 @@ import {
   type NewInventoryDraft,
   type NewInventoryPayload,
 } from "@/features/inventory/newInventoryItem";
+import {
+  describeRequisitionItems,
+  inventoryLabel,
+  requisitionOrigin,
+  toInventoryOptions,
+} from "@/features/inventory/inventoryOptions";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
+import { SearchableSelect, type SearchableSelectOption } from "@/shared/ui/select/SearchableSelect";
+import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
+import { cn } from "@/shared/utils/cn";
 
 const cardClass =
   "rounded-xl border border-[var(--theme-border-em)] bg-[var(--theme-bg-card)] p-4 sm:p-6";
 
 const fieldClass =
-  "bg-[var(--theme-bg-input)] border border-[var(--theme-border-em)] rounded px-3 py-2 text-sm text-[var(--theme-text-primary)]";
+  "w-full bg-[var(--theme-bg-input)] border border-[var(--theme-border-em)] rounded px-3 py-2 text-sm text-[var(--theme-text-primary)] placeholder:text-[var(--theme-text-muted)]";
 
-const textareaClass =
-  "mt-3 w-full bg-[var(--theme-bg-input)] border border-[var(--theme-border-em)] rounded px-3 py-2 text-sm text-[var(--theme-text-primary)]";
+const textareaClass = `mt-3 ${fieldClass}`;
 
-const sectionTitleClass = "text-lg font-semibold text-[var(--theme-accent)] mb-4";
+const labelClass = "block text-xs mb-1 text-[var(--theme-text-muted)]";
+
+const sectionTitleClass = "text-lg font-semibold text-[var(--theme-accent)]";
+
+const sectionHintClass = "text-sm mt-1 mb-5 text-[var(--theme-text-muted)]";
 
 const ghostButtonClass =
-  "rounded border border-[var(--theme-border-em)] px-3 py-2 text-sm text-white hover:bg-[var(--theme-bg-panel)]";
+  "rounded border border-[var(--theme-border-em)] px-3 py-2 text-sm text-[var(--theme-text-primary)] hover:bg-[var(--theme-bg-panel)] disabled:opacity-50";
 
+// --theme-accent-dark is a deep blue in both themes, so white text stays readable.
 const accentButtonClass =
-  "rounded bg-[var(--theme-accent)] text-white text-sm font-semibold px-3 py-2 hover:opacity-90 disabled:opacity-60";
+  "rounded bg-[var(--theme-accent-dark)] text-white text-sm font-semibold px-3 py-2 hover:opacity-90 disabled:opacity-60";
+
+const tableHeadClass = "bg-[var(--theme-bg-panel)] text-[var(--theme-text-muted)] uppercase text-xs";
+
+const STAGES = [
+  { hash: "requisition-section", label: "Parts Requisition", icon: "mdi:clipboard-list-outline" },
+  { hash: "rfq-section", label: "RFQ", icon: "mdi:email-fast-outline" },
+  { hash: "quotation-section", label: "Quotations", icon: "mdi:file-document-check-outline" },
+  { hash: "po-section", label: "Purchase Order", icon: "mdi:cart-outline" },
+  { hash: "grn-section", label: "Goods Received", icon: "mdi:package-check" },
+  { hash: "snapshot-section", label: "Summary", icon: "mdi:chart-timeline-variant" },
+] as const;
+
+type StageHash = (typeof STAGES)[number]["hash"];
 
 type ToastState = { type: "success" | "error"; message: string } | null;
+
+const toId = (value: string | number | null) => (value === null ? "" : String(value));
+
+const emptyPoForm = () => ({
+  rfq_id: "",
+  supplier_id: "",
+  inventory_id: "",
+  quantity_ordered: "1",
+  unit_price: "",
+  name: "",
+  order_date: "",
+  expected_date_of_delivery: "",
+});
+
+const emptyQuotationForm = () => ({
+  rfq_id: "",
+  supplier_id: "",
+  quotation_number: "",
+  total_amount: "",
+  valid_until: "",
+  notes: "",
+});
 
 export const ProcurementLifecyclePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [toast, setToast] = useState<ToastState>(null);
+
+  const stageIndex = Math.max(
+    0,
+    STAGES.findIndex((stage) => `#${stage.hash}` === location.hash),
+  );
+  const stage = STAGES[stageIndex];
 
   const { data: workOrders = [] } = useGetWorkOrdersQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
@@ -93,25 +149,9 @@ export const ProcurementLifecyclePage = () => {
     notes: "",
   }));
 
-  const [quotationForm, setQuotationForm] = useState({
-    rfq_id: "",
-    supplier_id: "",
-    quotation_number: "",
-    total_amount: "",
-    valid_until: "",
-    notes: "",
-  });
+  const [quotationForm, setQuotationForm] = useState(emptyQuotationForm);
 
-  const [poForm, setPoForm] = useState({
-    rfq_id: "",
-    supplier_id: "",
-    inventory_id: "",
-    quantity_ordered: "1",
-    unit_price: "",
-    name: "",
-    order_date: "",
-    expected_date_of_delivery: "",
-  });
+  const [poForm, setPoForm] = useState(emptyPoForm);
   const [poItemMode, setPoItemMode] = useState<"existing" | "new">("existing");
   const [poNewInventory, setPoNewInventory] = useState<NewInventoryDraft>(emptyNewInventoryDraft);
 
@@ -121,9 +161,33 @@ export const ProcurementLifecyclePage = () => {
     items: [] as Array<{ purchase_order_item_id?: number; inventory_id: number; quantity_received: number }>,
   });
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [stageIndex]);
+
+  const goToStage = (hash: StageHash) => {
+    setToast(null);
+    navigate({ search: location.search, hash }, { replace: true });
+  };
+
   const requisitions = useMemo(
-    () => stockMovements.filter((m) => m.movement_type === "issue"),
+    () => stockMovements.filter((m) => m.movement_type === "issue").sort((a, b) => b.id - a.id),
     [stockMovements],
+  );
+
+  const requisitionById = useMemo(
+    () => new Map(requisitions.map((req) => [Number(req.id), req])),
+    [requisitions],
+  );
+
+  const inventoryById = useMemo(
+    () => new Map(inventories.map((item) => [Number(item.id), item])),
+    [inventories],
+  );
+
+  const rfqRequisitionIds = useMemo(
+    () => new Set(rfqs.map((rfq) => Number(rfq.stock_movement_id))),
+    [rfqs],
   );
 
   const approvedQuotationByRfq = useMemo(() => {
@@ -136,30 +200,117 @@ export const ProcurementLifecyclePage = () => {
     return map;
   }, [quotations]);
 
-  const lifecycleRows = useMemo(() => {
-    return [...requisitions]
-      .sort((a, b) => b.id - a.id)
-      .map((req) => {
-        const rfq = rfqs.find((item) => Number(item.stock_movement_id) === Number(req.id));
-        const approvedQuotation = rfq
-          ? approvedQuotationByRfq.get(Number(rfq.id))
-          : undefined;
-        const po = rfq
-          ? purchaseOrders.find((item) => Number(item.rfq_id) === Number(rfq.id))
-          : undefined;
-        const grn = po
-          ? goodsReceivedNotes.find((item) => Number(item.purchase_order_id) === Number(po.id))
-          : undefined;
+  // The RFQ payload embeds its requisition, but fall back to the requisitions
+  // list in case an older response doesn't include it.
+  const rfqRequisition = (rfq: Rfq): StockMovement | undefined =>
+    rfq.stock_movement ?? requisitionById.get(Number(rfq.stock_movement_id));
 
-        return {
-          req,
-          rfq,
-          approvedQuotation,
-          po,
-          grn,
-        };
-      });
+  const rfqById = useMemo(() => new Map(rfqs.map((rfq) => [Number(rfq.id), rfq])), [rfqs]);
+
+  const lifecycleRows = useMemo(() => {
+    return requisitions.map((req) => {
+      const rfq = rfqs.find((item) => Number(item.stock_movement_id) === Number(req.id));
+      const approvedQuotation = rfq ? approvedQuotationByRfq.get(Number(rfq.id)) : undefined;
+      const po = rfq
+        ? purchaseOrders.find((item) => Number(item.rfq_id) === Number(rfq.id))
+        : undefined;
+      const grn = po
+        ? goodsReceivedNotes.find((item) => Number(item.purchase_order_id) === Number(po.id))
+        : undefined;
+
+      return { req, rfq, approvedQuotation, po, grn };
+    });
   }, [approvedQuotationByRfq, goodsReceivedNotes, purchaseOrders, requisitions, rfqs]);
+
+  // --- Dropdown options -----------------------------------------------------
+
+  const inventoryOptions = useMemo(() => toInventoryOptions(inventories), [inventories]);
+
+  const workOrderOptions: SearchableSelectOption[] = useMemo(
+    () =>
+      workOrders.map((wo) => ({
+        value: wo.id,
+        label: `WO #${wo.id} - ${wo.title || "Work Order"}`,
+        description: wo.asset?.name ?? undefined,
+      })),
+    [workOrders],
+  );
+
+  const supplierOptions: SearchableSelectOption[] = useMemo(
+    () =>
+      suppliers.map((supplier) => ({
+        value: supplier.id,
+        label: supplier.name,
+        description: supplier.email || supplier.contact || undefined,
+      })),
+    [suppliers],
+  );
+
+  const requisitionOptions: SearchableSelectOption[] = useMemo(
+    () =>
+      requisitions.map((req) => ({
+        value: req.id,
+        label: `REQ #${req.id} - ${describeRequisitionItems(req)}`,
+        description: `${requisitionOrigin(req)}${rfqRequisitionIds.has(Number(req.id)) ? " · RFQ already issued" : ""}`,
+      })),
+    [requisitions, rfqRequisitionIds],
+  );
+
+  const toRfqOption = (rfq: Rfq): SearchableSelectOption => {
+    const req = rfqRequisition(rfq);
+    return {
+      value: rfq.id,
+      label: `${rfq.rfq_number || `RFQ #${rfq.id}`} - ${describeRequisitionItems(req)}`,
+      description: [
+        `REQ #${rfq.stock_movement_id}`,
+        req ? requisitionOrigin(req) : null,
+        approvedQuotationByRfq.has(Number(rfq.id)) ? "Quotation approved" : rfq.status,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+    };
+  };
+
+  const rfqOptions = rfqs.map(toRfqOption);
+  const approvedRfqOptions = rfqs
+    .filter((rfq) => approvedQuotationByRfq.has(Number(rfq.id)))
+    .map(toRfqOption);
+
+  // Restrict quotation suppliers to the ones the selected RFQ was sent to.
+  const quotationRfq = rfqById.get(Number(quotationForm.rfq_id));
+  const quotationSupplierOptions = quotationRfq?.suppliers?.length
+    ? supplierOptions.filter((option) =>
+        quotationRfq.suppliers?.some((supplier) => supplier.id === option.value),
+      )
+    : supplierOptions;
+
+  const purchaseOrderOptions: SearchableSelectOption[] = useMemo(
+    () =>
+      [...purchaseOrders]
+        .sort((a, b) => b.id - a.id)
+        .map((po) => ({
+          value: po.id,
+          label: `PO #${po.id} - ${po.name || "Untitled"}`,
+          description: [
+            po.supplier?.name,
+            po.items
+              ?.map((item) => {
+                const inv = item.inventory_id ? inventoryById.get(Number(item.inventory_id)) : undefined;
+                return inv ? inventoryLabel(inv) : null;
+              })
+              .filter(Boolean)
+              .join(", "),
+            po.status,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        })),
+    [inventoryById, purchaseOrders],
+  );
+
+  const visibleQuotations = quotationForm.rfq_id
+    ? quotations.filter((q) => Number(q.rfq_id) === Number(quotationForm.rfq_id))
+    : quotations;
 
   const selectedPo: PurchaseOrder | undefined = purchaseOrders.find(
     (po) => Number(po.id) === Number(grnForm.purchase_order_id),
@@ -168,22 +319,7 @@ export const ProcurementLifecyclePage = () => {
   const setError = (message: string) => setToast({ type: "error", message });
   const setSuccess = (message: string) => setToast({ type: "success", message });
 
-  const scrollToSection = (sectionId: string) => {
-    const section = document.getElementById(sectionId);
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
-
-  useEffect(() => {
-    if (!location.hash) return;
-    const sectionId = location.hash.replace("#", "");
-    const timer = window.setTimeout(() => {
-      scrollToSection(sectionId);
-    }, 120);
-
-    return () => window.clearTimeout(timer);
-  }, [location.hash]);
+  // --- Handlers -------------------------------------------------------------
 
   const handleOpenRfq = (rfqId?: number) => {
     if (!rfqId) {
@@ -191,11 +327,8 @@ export const ProcurementLifecyclePage = () => {
       return;
     }
 
-    setQuotationForm((prev) => ({
-      ...prev,
-      rfq_id: String(rfqId),
-    }));
-    scrollToSection("rfq-section");
+    setQuotationForm((prev) => ({ ...prev, rfq_id: String(rfqId), supplier_id: "" }));
+    goToStage("quotation-section");
   };
 
   const handleOpenPo = (purchaseOrderId?: number) => {
@@ -213,21 +346,17 @@ export const ProcurementLifecyclePage = () => {
       return;
     }
 
-    setGrnForm((prev) => ({
-      ...prev,
-      purchase_order_id: String(purchaseOrderId),
-      items: [],
-    }));
-    scrollToSection("grn-section");
+    setGrnForm((prev) => ({ ...prev, purchase_order_id: String(purchaseOrderId), items: [] }));
+    goToStage("grn-section");
   };
 
   const handleCreateRequisition = async () => {
-    const workOrderId = Number(requisitionForm.work_order_id);
+    const workOrderId = requisitionForm.work_order_id ? Number(requisitionForm.work_order_id) : null;
     const inventoryId = Number(requisitionForm.inventory_id);
     const quantityRequested = Number(requisitionForm.quantity_requested);
 
-    if (!workOrderId || !inventoryId || !Number.isInteger(quantityRequested) || quantityRequested < 1) {
-      setError("Provide work order, inventory item, and a valid quantity.");
+    if (!inventoryId || !Number.isInteger(quantityRequested) || quantityRequested < 1) {
+      setError("Provide an inventory item and a valid quantity.");
       return;
     }
 
@@ -247,7 +376,11 @@ export const ProcurementLifecyclePage = () => {
       }).unwrap();
 
       setRequisitionForm({ work_order_id: "", inventory_id: "", quantity_requested: "1", notes: "" });
-      setSuccess("Parts requisition created from engineering work order.");
+      setSuccess(
+        workOrderId
+          ? `Parts requisition created for work order #${workOrderId}.`
+          : "Direct parts requisition created.",
+      );
       refetchStockMovements();
     } catch {
       setError("Failed to create requisition.");
@@ -299,14 +432,8 @@ export const ProcurementLifecyclePage = () => {
         quoted_at: new Date().toISOString(),
       }).unwrap();
 
-      setQuotationForm({
-        rfq_id: "",
-        supplier_id: "",
-        quotation_number: "",
-        total_amount: "",
-        valid_until: "",
-        notes: "",
-      });
+      // Keep the RFQ selected so further quotations for it can be entered quickly.
+      setQuotationForm((prev) => ({ ...emptyQuotationForm(), rfq_id: prev.rfq_id }));
       setSuccess("Supplier quotation received.");
       refetchQuotations();
     } catch {
@@ -323,6 +450,22 @@ export const ProcurementLifecyclePage = () => {
     } catch {
       setError("Failed to approve quotation.");
     }
+  };
+
+  const handleSelectPoRfq = (value: string | number | null) => {
+    const rfq = value === null ? undefined : rfqById.get(Number(value));
+    const approved = rfq ? approvedQuotationByRfq.get(Number(rfq.id)) : undefined;
+    // Prefill the line from the requisition behind the RFQ.
+    const firstLine = rfq ? rfqRequisition(rfq)?.stocks?.find((line) => line.inventory_id) : undefined;
+
+    setPoForm((s) => ({
+      ...s,
+      rfq_id: toId(value),
+      supplier_id: approved?.supplier_id ? String(approved.supplier_id) : s.supplier_id,
+      inventory_id: firstLine?.inventory_id ? String(firstLine.inventory_id) : s.inventory_id,
+      quantity_ordered: firstLine ? String(firstLine.quantity_requested) : s.quantity_ordered,
+    }));
+    if (firstLine?.inventory_id) setPoItemMode("existing");
   };
 
   const handleCreatePo = async () => {
@@ -373,16 +516,7 @@ export const ProcurementLifecyclePage = () => {
         ],
       }).unwrap();
 
-      setPoForm({
-        rfq_id: "",
-        supplier_id: "",
-        inventory_id: "",
-        quantity_ordered: "1",
-        unit_price: "",
-        name: "",
-        order_date: "",
-        expected_date_of_delivery: "",
-      });
+      setPoForm(emptyPoForm());
       setPoItemMode("existing");
       setPoNewInventory(emptyNewInventoryDraft());
       setSuccess("Purchase order created from approved RFQ.");
@@ -434,56 +568,37 @@ export const ProcurementLifecyclePage = () => {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--theme-text-primary)]">Procurement Inventory Life Cycle</h1>
-        <p className="text-sm mt-1 text-[var(--theme-text-muted)]">
-          Requisition from engineering work orders, RFQ/quotation approval, PO creation, GRN, and batched stock updates.
-        </p>
-      </div>
+  const stageCounts: Record<StageHash, number | null> = {
+    "requisition-section": requisitions.length,
+    "rfq-section": rfqs.length,
+    "quotation-section": quotations.length,
+    "po-section": purchaseOrders.length,
+    "grn-section": goodsReceivedNotes.length,
+    "snapshot-section": null,
+  };
 
-      {toast && (
-        <div
-          className={`rounded-lg border px-4 py-3 text-sm ${
-            toast.type === "success"
-              ? "border-emerald-500/40 bg-emerald-900/20 text-emerald-200"
-              : "border-red-500/40 bg-red-900/20 text-red-200"
-          }`}
-        >
-          {toast.message}
+  // --- Stage content --------------------------------------------------------
+
+  const renderRequisitionStage = () => (
+    <>
+      <h2 className={sectionTitleClass}>1. Parts Requisition</h2>
+      <p className={sectionHintClass}>
+        Request parts directly, or link the requisition to an engineering work order.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+        <div className="md:col-span-3">
+          <span className={labelClass}>Inventory item *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="Select inventory item"
+            searchPlaceholder="Search by part number or description..."
+            options={inventoryOptions}
+            value={requisitionForm.inventory_id ? Number(requisitionForm.inventory_id) : null}
+            onChange={(value) => setRequisitionForm((s) => ({ ...s, inventory_id: toId(value) }))}
+          />
         </div>
-      )}
-
-      <section id="requisition-section" className={cardClass}>
-        <h2 className={sectionTitleClass}>1. Parts Requisition (Stock Movements from Work Orders)</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <select
-            className={fieldClass}
-            value={requisitionForm.work_order_id}
-            onChange={(e) => setRequisitionForm((s) => ({ ...s, work_order_id: e.target.value }))}
-            title="Work Order"
-          >
-            <option value="">Select work order</option>
-            {workOrders.map((wo) => (
-              <option key={wo.id} value={wo.id}>
-                #{wo.id} - {wo.title || "Work Order"}
-              </option>
-            ))}
-          </select>
-          <select
-            className={fieldClass}
-            value={requisitionForm.inventory_id}
-            onChange={(e) => setRequisitionForm((s) => ({ ...s, inventory_id: e.target.value }))}
-            title="Inventory"
-          >
-            <option value="">Select inventory item</option>
-            {inventories.map((inv) => (
-              <option key={inv.id} value={inv.id}>
-                {inv.part_number} - {inv.description}
-              </option>
-            ))}
-          </select>
+        <div>
+          <span className={labelClass}>Quantity *</span>
           <input
             type="number"
             min={1}
@@ -492,217 +607,386 @@ export const ProcurementLifecyclePage = () => {
             onChange={(e) => setRequisitionForm((s) => ({ ...s, quantity_requested: e.target.value }))}
             placeholder="Requested quantity"
           />
-          <button
-            className={accentButtonClass}
-            onClick={handleCreateRequisition}
-            disabled={isCreatingRequisition}
-            type="button"
-          >
-            {isCreatingRequisition ? "Creating..." : "Create Requisition"}
-          </button>
         </div>
-        <textarea
-          className={textareaClass}
-          value={requisitionForm.notes}
-          onChange={(e) => setRequisitionForm((s) => ({ ...s, notes: e.target.value }))}
-          placeholder="Requisition notes"
-          rows={2}
-        />
-        <p className="text-xs mt-3 text-[var(--theme-text-muted)]">Existing requisitions: {requisitions.length}</p>
-      </section>
-
-      <section id="rfq-section" className={cardClass}>
-        <h2 className={sectionTitleClass}>2. RFQ to Multiple Suppliers and Quotation Approval</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <select
-            className={fieldClass}
-            value={rfqForm.stock_movement_id}
-            onChange={(e) => setRfqForm((s) => ({ ...s, stock_movement_id: e.target.value }))}
-            title="Requisition"
-          >
-            <option value="">Select requisition</option>
-            {requisitions.map((req) => (
-              <option key={req.id} value={req.id}>
-                REQ #{req.id} - WO #{req.work_order_id || "-"}
-              </option>
-            ))}
-          </select>
-          <div className="flex flex-wrap gap-2 rounded border border-[var(--theme-border-em)] bg-[var(--theme-bg-input)] p-2">
-            {suppliers.map((supplier) => {
-              const selected = rfqForm.supplier_ids.includes(supplier.id);
-              return (
-                <button
-                  type="button"
-                  key={supplier.id}
-                  className={`rounded px-2 py-1 text-xs ${
-                    selected
-                      ? "bg-[var(--theme-accent)] text-white"
-                      : "bg-[var(--theme-bg-panel)] text-white"
-                  }`}
-                  onClick={() =>
-                    setRfqForm((state) => ({
-                      ...state,
-                      supplier_ids: selected
-                        ? state.supplier_ids.filter((id) => id !== supplier.id)
-                        : [...state.supplier_ids, supplier.id],
-                    }))
-                  }
-                >
-                  {supplier.name}
-                </button>
-              );
-            })}
-          </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>Work order (optional)</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="None (direct requisition)"
+            searchPlaceholder="Search work orders..."
+            options={workOrderOptions}
+            value={requisitionForm.work_order_id ? Number(requisitionForm.work_order_id) : null}
+            onChange={(value) => setRequisitionForm((s) => ({ ...s, work_order_id: toId(value) }))}
+          />
         </div>
-        <textarea
-          className={textareaClass}
-          value={rfqForm.notes}
-          onChange={(e) => setRfqForm((s) => ({ ...s, notes: e.target.value }))}
-          placeholder="RFQ notes"
-          rows={2}
-        />
-        <button
-          type="button"
-          className={`mt-3 ${accentButtonClass}`}
-          onClick={handleCreateRfq}
-          disabled={isCreatingRfq}
-        >
-          {isCreatingRfq ? "Generating RFQ..." : "Generate RFQ"}
-        </button>
+      </div>
+      <textarea
+        className={textareaClass}
+        value={requisitionForm.notes}
+        onChange={(e) => setRequisitionForm((s) => ({ ...s, notes: e.target.value }))}
+        placeholder="Requisition notes / justification"
+        rows={2}
+      />
+      <button
+        className={`mt-3 ${accentButtonClass}`}
+        onClick={handleCreateRequisition}
+        disabled={isCreatingRequisition}
+        type="button"
+      >
+        {isCreatingRequisition ? "Creating..." : "Create Requisition"}
+      </button>
 
-        <div className="mt-5 border-t border-[var(--theme-divider)] pt-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-          <select
-            className={`md:col-span-2 ${fieldClass}`}
-            value={quotationForm.rfq_id}
-            onChange={(e) => setQuotationForm((s) => ({ ...s, rfq_id: e.target.value }))}
-            title="RFQ"
-          >
-            <option value="">RFQ</option>
-            {rfqs.map((rfq) => (
-              <option key={rfq.id} value={rfq.id}>{rfq.rfq_number}</option>
-            ))}
-          </select>
-          <select
-            className={fieldClass}
-            value={quotationForm.supplier_id}
-            onChange={(e) => setQuotationForm((s) => ({ ...s, supplier_id: e.target.value }))}
-            title="Supplier"
-          >
-            <option value="">Supplier</option>
-            {suppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-            ))}
-          </select>
+      <h3 className="mt-8 mb-3 text-sm font-semibold text-[var(--theme-text-primary)]">
+        Recent requisitions ({requisitions.length})
+      </h3>
+      <div className="overflow-x-auto rounded border border-[var(--theme-divider)]">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className={tableHeadClass}>
+            <tr>
+              <th className="px-3 py-2 text-left">Requisition</th>
+              <th className="px-3 py-2 text-left">Origin</th>
+              <th className="px-3 py-2 text-left">Items</th>
+              <th className="px-3 py-2 text-left">RFQ</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--theme-divider)] text-[var(--theme-text-secondary)]">
+            {requisitions.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
+                  No requisitions yet.
+                </td>
+              </tr>
+            ) : (
+              requisitions.slice(0, 10).map((req) => {
+                const hasRfq = rfqRequisitionIds.has(Number(req.id));
+                return (
+                  <tr key={req.id}>
+                    <td className="px-3 py-2 text-[var(--theme-text-primary)]">REQ #{req.id}</td>
+                    <td className="px-3 py-2">{requisitionOrigin(req)}</td>
+                    <td className="px-3 py-2">{describeRequisitionItems(req)}</td>
+                    <td className="px-3 py-2">
+                      {hasRfq ? (
+                        <span className="text-xs text-emerald-400">RFQ issued</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-xs text-[var(--theme-accent)] hover:underline"
+                          onClick={() => {
+                            setRfqForm((s) => ({ ...s, stock_movement_id: String(req.id) }));
+                            goToStage("rfq-section");
+                          }}
+                        >
+                          Start RFQ →
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+
+  const renderRfqStage = () => (
+    <>
+      <h2 className={sectionTitleClass}>2. Request for Quotation (RFQ)</h2>
+      <p className={sectionHintClass}>Send a requisition to one or more suppliers for pricing.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <span className={labelClass}>Requisition *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="Select requisition"
+            searchPlaceholder="Search by REQ #, part number or description..."
+            options={requisitionOptions}
+            value={rfqForm.stock_movement_id ? Number(rfqForm.stock_movement_id) : null}
+            onChange={(value) => setRfqForm((s) => ({ ...s, stock_movement_id: toId(value) }))}
+          />
+        </div>
+        <MultiSelect
+          label="Suppliers *"
+          placeholder="Select suppliers"
+          searchable
+          searchPlaceholder="Search suppliers..."
+          options={supplierOptions}
+          selectedValues={rfqForm.supplier_ids}
+          onChange={(selected) =>
+            setRfqForm((s) => ({ ...s, supplier_ids: selected.map((value) => Number(value)) }))
+          }
+          className="[&_label]:text-xs [&_label]:font-normal [&_label]:text-[var(--theme-text-muted)] [&_button]:py-2"
+        />
+      </div>
+      <textarea
+        className={textareaClass}
+        value={rfqForm.notes}
+        onChange={(e) => setRfqForm((s) => ({ ...s, notes: e.target.value }))}
+        placeholder="RFQ notes"
+        rows={2}
+      />
+      <button
+        type="button"
+        className={`mt-3 ${accentButtonClass}`}
+        onClick={handleCreateRfq}
+        disabled={isCreatingRfq}
+      >
+        {isCreatingRfq ? "Generating RFQ..." : "Generate RFQ"}
+      </button>
+
+      <h3 className="mt-8 mb-3 text-sm font-semibold text-[var(--theme-text-primary)]">
+        Issued RFQs ({rfqs.length})
+      </h3>
+      <div className="overflow-x-auto rounded border border-[var(--theme-divider)]">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className={tableHeadClass}>
+            <tr>
+              <th className="px-3 py-2 text-left">RFQ</th>
+              <th className="px-3 py-2 text-left">Items</th>
+              <th className="px-3 py-2 text-left">Suppliers</th>
+              <th className="px-3 py-2 text-left">Quotations</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--theme-divider)] text-[var(--theme-text-secondary)]">
+            {rfqs.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
+                  No RFQs yet.
+                </td>
+              </tr>
+            ) : (
+              [...rfqs]
+                .sort((a, b) => b.id - a.id)
+                .slice(0, 10)
+                .map((rfq) => (
+                  <tr key={rfq.id}>
+                    <td className="px-3 py-2 text-[var(--theme-text-primary)]">
+                      {rfq.rfq_number || `RFQ #${rfq.id}`}
+                    </td>
+                    <td className="px-3 py-2">{describeRequisitionItems(rfqRequisition(rfq))}</td>
+                    <td className="px-3 py-2">
+                      {rfq.suppliers?.map((supplier) => supplier.name).join(", ") || "-"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        className="text-xs text-[var(--theme-accent)] hover:underline"
+                        onClick={() => handleOpenRfq(rfq.id)}
+                      >
+                        {quotations.filter((q) => Number(q.rfq_id) === Number(rfq.id)).length} received →
+                      </button>
+                    </td>
+                  </tr>
+                ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+
+  const renderQuotationStage = () => (
+    <>
+      <h2 className={sectionTitleClass}>3. Supplier Quotations and Approval</h2>
+      <p className={sectionHintClass}>
+        Record the quotations suppliers send back, then approve one per RFQ.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+        <div className="md:col-span-3">
+          <span className={labelClass}>RFQ *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="Select RFQ"
+            searchPlaceholder="Search by RFQ #, part number or description..."
+            options={rfqOptions}
+            value={quotationForm.rfq_id ? Number(quotationForm.rfq_id) : null}
+            onChange={(value) =>
+              setQuotationForm((s) => ({ ...s, rfq_id: toId(value), supplier_id: "" }))
+            }
+          />
+        </div>
+        <div className="md:col-span-3">
+          <span className={labelClass}>Supplier *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="Select supplier"
+            searchPlaceholder="Search suppliers..."
+            options={quotationSupplierOptions}
+            value={quotationForm.supplier_id ? Number(quotationForm.supplier_id) : null}
+            onChange={(value) => setQuotationForm((s) => ({ ...s, supplier_id: toId(value) }))}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>Quotation #</span>
           <input
             className={fieldClass}
             value={quotationForm.quotation_number}
             onChange={(e) => setQuotationForm((s) => ({ ...s, quotation_number: e.target.value }))}
-            placeholder="Quotation #"
+            placeholder="Supplier's reference"
           />
+        </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>Total amount</span>
           <input
             type="number"
             min={0}
             className={fieldClass}
             value={quotationForm.total_amount}
             onChange={(e) => setQuotationForm((s) => ({ ...s, total_amount: e.target.value }))}
-            placeholder="Total amount"
+            placeholder="0.00"
           />
-          <button
-            type="button"
-            className={accentButtonClass}
-            onClick={handleCreateQuotation}
-            disabled={isCreatingQuotation}
-          >
-            {isCreatingQuotation ? "Saving..." : "Receive Quotation"}
-          </button>
         </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>Valid until</span>
+          <input
+            type="date"
+            className={fieldClass}
+            value={quotationForm.valid_until}
+            onChange={(e) => setQuotationForm((s) => ({ ...s, valid_until: e.target.value }))}
+            aria-label="Valid until"
+          />
+        </div>
+      </div>
+      <textarea
+        className={textareaClass}
+        value={quotationForm.notes}
+        onChange={(e) => setQuotationForm((s) => ({ ...s, notes: e.target.value }))}
+        placeholder="Quotation notes"
+        rows={2}
+      />
+      <button
+        type="button"
+        className={`mt-3 ${accentButtonClass}`}
+        onClick={handleCreateQuotation}
+        disabled={isCreatingQuotation}
+      >
+        {isCreatingQuotation ? "Saving..." : "Receive Quotation"}
+      </button>
 
-        <div className="mt-4 space-y-2">
-          {quotations.map((q) => (
-            <div key={q.id} className="flex items-center justify-between rounded border border-[var(--theme-divider)] px-3 py-2">
-              <div className="text-sm text-[var(--theme-text-secondary)]">
-                RFQ #{q.rfq_id} | {q.supplier?.name || `Supplier #${q.supplier_id}`} | {q.total_amount || "-"} {q.currency || "NGN"}
-                <span className="ml-2 text-xs text-[var(--theme-text-muted)] uppercase">{q.status}</span>
-              </div>
-              <button
-                type="button"
-                className="rounded border border-emerald-500/50 px-2 py-1 text-xs text-white hover:bg-emerald-500/10 disabled:opacity-50"
-                disabled={isApprovingQuotation || q.status === "approved"}
-                onClick={() => handleApproveQuotation(q.id)}
+      <h3 className="mt-8 mb-3 text-sm font-semibold text-[var(--theme-text-primary)]">
+        {quotationRfq
+          ? `Quotations for ${quotationRfq.rfq_number || `RFQ #${quotationRfq.id}`} (${visibleQuotations.length})`
+          : `All quotations (${visibleQuotations.length})`}
+      </h3>
+      <div className="space-y-2">
+        {visibleQuotations.length === 0 ? (
+          <p className="text-sm text-[var(--theme-text-muted)]">No quotations yet.</p>
+        ) : (
+          visibleQuotations.map((q) => {
+            const rfq = rfqById.get(Number(q.rfq_id));
+            const isApproved = q.status === "approved";
+            return (
+              <div
+                key={q.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded border border-[var(--theme-divider)] px-3 py-2"
               >
-                Approve
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
+                <div className="text-sm text-[var(--theme-text-secondary)]">
+                  <span className="text-[var(--theme-text-primary)]">
+                    {rfq?.rfq_number || `RFQ #${q.rfq_id}`}
+                  </span>{" "}
+                  | {q.supplier?.name || `Supplier #${q.supplier_id}`} | {q.total_amount || "-"}{" "}
+                  {q.currency || "NGN"}
+                  {rfq && (
+                    <div className="text-xs text-[var(--theme-text-muted)]">
+                      {describeRequisitionItems(rfqRequisition(rfq))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "text-xs uppercase",
+                      isApproved
+                        ? "text-emerald-400"
+                        : q.status === "rejected"
+                          ? "text-red-400"
+                          : "text-[var(--theme-text-muted)]",
+                    )}
+                  >
+                    {q.status}
+                  </span>
+                  <button
+                    type="button"
+                    className="rounded border border-emerald-500/50 px-2 py-1 text-xs text-emerald-500 hover:bg-emerald-500/10 disabled:opacity-50"
+                    disabled={isApprovingQuotation || isApproved}
+                    onClick={() => handleApproveQuotation(q.id)}
+                  >
+                    {isApproved ? "Approved" : "Approve"}
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </>
+  );
 
-      <section id="po-section" className={cardClass}>
-        <h2 className={sectionTitleClass}>3. Create Purchase Order from Approved RFQ</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <select
-            className={fieldClass}
-            value={poForm.rfq_id}
-            onChange={(e) => {
-              const rfqId = Number(e.target.value);
-              const approved = approvedQuotationByRfq.get(rfqId);
-              setPoForm((s) => ({
-                ...s,
-                rfq_id: e.target.value,
-                supplier_id: approved?.supplier_id ? String(approved.supplier_id) : s.supplier_id,
-              }));
-            }}
-            title="Approved RFQ"
-          >
-            <option value="">Approved RFQ</option>
-            {rfqs
-              .filter((rfq) => approvedQuotationByRfq.has(rfq.id))
-              .map((rfq) => (
-                <option key={rfq.id} value={rfq.id}>{rfq.rfq_number}</option>
-              ))}
-          </select>
-          <select
-            className={fieldClass}
-            value={poForm.supplier_id}
-            onChange={(e) => setPoForm((s) => ({ ...s, supplier_id: e.target.value }))}
-            title="Supplier"
-          >
-            <option value="">Supplier</option>
-            {suppliers.map((supplier) => (
-              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
-            ))}
-          </select>
-          <div className="flex gap-2 sm:col-span-2">
-            <select
-              className={`${fieldClass} flex-1`}
-              value={poForm.inventory_id}
-              onChange={(e) => setPoForm((s) => ({ ...s, inventory_id: e.target.value }))}
-              title="Inventory"
+  const renderPoStage = () => (
+    <>
+      <h2 className={sectionTitleClass}>4. Purchase Order</h2>
+      <p className={sectionHintClass}>
+        Raise a purchase order against an RFQ with an approved quotation. The supplier and item are
+        filled in from the RFQ.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div className="md:col-span-2">
+          <span className={labelClass}>Approved RFQ *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder={approvedRfqOptions.length ? "Select approved RFQ" : "No approved RFQs yet"}
+            searchPlaceholder="Search by RFQ #, part number or description..."
+            options={approvedRfqOptions}
+            value={poForm.rfq_id ? Number(poForm.rfq_id) : null}
+            onChange={handleSelectPoRfq}
+          />
+        </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>Supplier *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="Select supplier"
+            searchPlaceholder="Search suppliers..."
+            options={supplierOptions}
+            value={poForm.supplier_id ? Number(poForm.supplier_id) : null}
+            onChange={(value) => setPoForm((s) => ({ ...s, supplier_id: toId(value) }))}
+          />
+        </div>
+        <div className="md:col-span-4">
+          <span className={labelClass}>Item *</span>
+          <div className="flex gap-2">
+            <SearchableSelect
+              className="flex-1 min-w-0"
+              buttonClassName="py-2"
+              placeholder="Select inventory item"
+              searchPlaceholder="Search by part number or description..."
+              options={inventoryOptions}
+              value={poForm.inventory_id ? Number(poForm.inventory_id) : null}
+              onChange={(value) => setPoForm((s) => ({ ...s, inventory_id: toId(value) }))}
               disabled={poItemMode === "new"}
-            >
-              <option value="">Inventory item</option>
-              {inventories.map((inv) => (
-                <option key={inv.id} value={inv.id}>{inv.part_number} - {inv.description}</option>
-              ))}
-            </select>
+            />
             <button
               type="button"
               onClick={() => setPoItemMode((m) => (m === "new" ? "existing" : "new"))}
-              className="rounded border border-[#0A4D66]/50 px-3 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/30"
+              className="shrink-0 rounded border border-[var(--theme-border-em)] px-3 text-xs text-[var(--theme-accent)] hover:bg-[var(--theme-bg-panel)]"
             >
               {poItemMode === "new" ? "Pick from stock" : "Not in stock?"}
             </button>
           </div>
-          {poItemMode === "new" && (
-            <div className="sm:col-span-2">
-              <NewInventoryItemFields
-                draft={poNewInventory}
-                onChange={setPoNewInventory}
-                expenseCategories={expenseCategories}
-                inputClassName={fieldClass}
-              />
-            </div>
-          )}
+        </div>
+        {poItemMode === "new" && (
+          <div className="md:col-span-4">
+            <NewInventoryItemFields
+              draft={poNewInventory}
+              onChange={setPoNewInventory}
+              expenseCategories={expenseCategories}
+              inputClassName={fieldClass}
+            />
+          </div>
+        )}
+        <div>
+          <span className={labelClass}>Quantity ordered *</span>
           <input
             type="number"
             min={1}
@@ -711,28 +995,9 @@ export const ProcurementLifecyclePage = () => {
             onChange={(e) => setPoForm((s) => ({ ...s, quantity_ordered: e.target.value }))}
             placeholder="Qty ordered"
           />
-          <input
-            className={fieldClass}
-            value={poForm.name}
-            onChange={(e) => setPoForm((s) => ({ ...s, name: e.target.value }))}
-            placeholder="PO Name"
-          />
-          <input
-            type="date"
-            className={fieldClass}
-            value={poForm.order_date}
-            onChange={(e) => setPoForm((s) => ({ ...s, order_date: e.target.value }))}
-            title="Order date"
-            aria-label="Order date"
-          />
-          <input
-            type="date"
-            className={fieldClass}
-            value={poForm.expected_date_of_delivery}
-            onChange={(e) => setPoForm((s) => ({ ...s, expected_date_of_delivery: e.target.value }))}
-            title="Expected delivery date"
-            aria-label="Expected delivery date"
-          />
+        </div>
+        <div>
+          <span className={labelClass}>Unit price</span>
           <input
             type="number"
             min={0}
@@ -740,194 +1005,346 @@ export const ProcurementLifecyclePage = () => {
             className={fieldClass}
             value={poForm.unit_price}
             onChange={(e) => setPoForm((s) => ({ ...s, unit_price: e.target.value }))}
-            placeholder="Unit price"
+            placeholder="0.00"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>PO name</span>
+          <input
+            className={fieldClass}
+            value={poForm.name}
+            onChange={(e) => setPoForm((s) => ({ ...s, name: e.target.value }))}
+            placeholder="PO Name"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>Order date</span>
+          <input
+            type="date"
+            className={fieldClass}
+            value={poForm.order_date}
+            onChange={(e) => setPoForm((s) => ({ ...s, order_date: e.target.value }))}
+            aria-label="Order date"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <span className={labelClass}>Expected delivery</span>
+          <input
+            type="date"
+            className={fieldClass}
+            value={poForm.expected_date_of_delivery}
+            onChange={(e) => setPoForm((s) => ({ ...s, expected_date_of_delivery: e.target.value }))}
+            aria-label="Expected delivery date"
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        className={`mt-4 ${accentButtonClass}`}
+        onClick={handleCreatePo}
+        disabled={isCreatingPo}
+      >
+        {isCreatingPo ? "Creating PO..." : "Create Purchase Order"}
+      </button>
+    </>
+  );
+
+  const renderGrnStage = () => (
+    <>
+      <h2 className={sectionTitleClass}>5. Goods Received Note</h2>
+      <p className={sectionHintClass}>
+        Record goods received against a purchase order. Posting updates inventory stock in daily batches.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+        <div className="md:col-span-2">
+          <span className={labelClass}>Purchase order *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="Select purchase order"
+            searchPlaceholder="Search by PO #, name, supplier or item..."
+            options={purchaseOrderOptions}
+            value={grnForm.purchase_order_id ? Number(grnForm.purchase_order_id) : null}
+            onChange={(value) =>
+              setGrnForm((s) => ({ ...s, purchase_order_id: toId(value), items: [] }))
+            }
           />
         </div>
         <button
           type="button"
-          className={`mt-3 ${accentButtonClass}`}
-          onClick={handleCreatePo}
-          disabled={isCreatingPo}
+          className={ghostButtonClass}
+          onClick={handlePrepareGrnItems}
+          disabled={!grnForm.purchase_order_id}
         >
-          {isCreatingPo ? "Creating PO..." : "Create Purchase Order"}
+          Prepare GRN Lines from PO
         </button>
-      </section>
+        <button
+          type="button"
+          className={accentButtonClass}
+          onClick={handleCreateGrn}
+          disabled={isCreatingGrn}
+        >
+          {isCreatingGrn ? "Posting GRN..." : "Post GRN and Update Stock"}
+        </button>
+      </div>
 
-      <section id="grn-section" className={cardClass}>
-        <h2 className={sectionTitleClass}>4. Goods Received Note and Inventory Batch Posting</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <select
-            className={fieldClass}
-            value={grnForm.purchase_order_id}
-            onChange={(e) => setGrnForm((s) => ({ ...s, purchase_order_id: e.target.value, items: [] }))}
-            title="Purchase Order"
-          >
-            <option value="">Select purchase order</option>
-            {purchaseOrders.map((po) => (
-              <option key={po.id} value={po.id}>
-                PO #{po.id} - {po.name || "Untitled"}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className={ghostButtonClass}
-            onClick={handlePrepareGrnItems}
-          >
-            Prepare GRN Lines from PO
-          </button>
-          <button
-            type="button"
-            className={accentButtonClass}
-            onClick={handleCreateGrn}
-            disabled={isCreatingGrn}
-          >
-            {isCreatingGrn ? "Posting GRN..." : "Post GRN and Update Stock"}
-          </button>
-        </div>
+      <textarea
+        className={textareaClass}
+        value={grnForm.notes}
+        onChange={(e) => setGrnForm((s) => ({ ...s, notes: e.target.value }))}
+        placeholder="GRN notes / acknowledgement"
+        rows={2}
+      />
 
-        <textarea
-          className={textareaClass}
-          value={grnForm.notes}
-          onChange={(e) => setGrnForm((s) => ({ ...s, notes: e.target.value }))}
-          placeholder="GRN notes / acknowledgement"
-          rows={2}
-        />
-
-        {grnForm.items.length > 0 && (
-          <div className="mt-3 rounded border border-[var(--theme-divider)] overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--theme-bg-panel)] text-[var(--theme-text-muted)]">
-                <tr>
-                  <th className="text-left px-3 py-2">Inventory</th>
-                  <th className="text-right px-3 py-2">Qty Received</th>
-                </tr>
-              </thead>
-              <tbody>
-                {grnForm.items.map((item, idx) => (
-                  <tr key={`${item.inventory_id}-${idx}`} className="border-t border-[var(--theme-divider)] text-[var(--theme-text-secondary)]">
-                    <td className="px-3 py-2">#{item.inventory_id}</td>
-                    <td className="px-3 py-2 text-right">{item.quantity_received}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-
-      <section id="snapshot-section" className={cardClass}>
-        <h2 className={sectionTitleClass}>Lifecycle Snapshot</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
-          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
-            <p className="text-xs text-[var(--theme-text-muted)]">Requisitions</p>
-            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{requisitions.length}</p>
-          </div>
-          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
-            <p className="text-xs text-[var(--theme-text-muted)]">RFQs</p>
-            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{rfqs.length}</p>
-          </div>
-          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
-            <p className="text-xs text-[var(--theme-text-muted)]">Quotations</p>
-            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{quotations.length}</p>
-          </div>
-          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
-            <p className="text-xs text-[var(--theme-text-muted)]">Purchase Orders</p>
-            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{purchaseOrders.length}</p>
-          </div>
-          <div className="rounded bg-[var(--theme-bg-panel)] p-3">
-            <p className="text-xs text-[var(--theme-text-muted)]">Approved Quotes</p>
-            <p className="text-2xl font-bold text-emerald-300">{Array.from(approvedQuotationByRfq.keys()).length}</p>
-          </div>
-        </div>
-
-        <div className="mt-5 overflow-x-auto rounded border border-[var(--theme-divider)]">
-          <table className="w-full min-w-[880px] text-sm">
-            <thead className="bg-[var(--theme-bg-panel)] text-[var(--theme-text-muted)] uppercase text-xs">
+      {grnForm.items.length > 0 && (
+        <div className="mt-3 rounded border border-[var(--theme-divider)] overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className={tableHeadClass}>
               <tr>
-                <th className="px-3 py-2 text-left">Requisition</th>
-                <th className="px-3 py-2 text-left">RFQ</th>
-                <th className="px-3 py-2 text-left">Approved Quotation</th>
-                <th className="px-3 py-2 text-left">Purchase Order</th>
-                <th className="px-3 py-2 text-left">GRN</th>
-                <th className="px-3 py-2 text-left">Current Stage</th>
-                <th className="px-3 py-2 text-left">Actions</th>
+                <th className="text-left px-3 py-2">Inventory</th>
+                <th className="text-right px-3 py-2">Qty Received</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--theme-divider)]">
-              {lifecycleRows.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
-                    No lifecycle records yet.
-                  </td>
-                </tr>
-              ) : (
-                lifecycleRows.map((row) => {
-                  const stage = row.grn
-                    ? "Completed (GRN Posted)"
-                    : row.po
-                      ? "Purchase Order Created"
-                      : row.approvedQuotation
-                        ? "Quotation Approved"
-                        : row.rfq
-                          ? "RFQ Issued"
-                          : "Requisition Created";
-
-                  return (
-                    <tr key={row.req.id} className="text-[var(--theme-text-secondary)]">
-                      <td className="px-3 py-2">
-                        REQ #{row.req.id}
-                        <div className="text-xs text-[var(--theme-text-muted)]">WO #{row.req.work_order_id || "-"}</div>
-                      </td>
-                      <td className="px-3 py-2">{row.rfq ? row.rfq.rfq_number : "-"}</td>
-                      <td className="px-3 py-2">
-                        {row.approvedQuotation
-                          ? `${row.approvedQuotation.quotation_number || `QT-${row.approvedQuotation.id}`} (${row.approvedQuotation.supplier?.name || `Supplier #${row.approvedQuotation.supplier_id}`})`
-                          : "-"}
-                      </td>
-                      <td className="px-3 py-2">{row.po ? `PO #${row.po.id}` : "-"}</td>
-                      <td className="px-3 py-2">{row.grn ? row.grn.grn_number : "-"}</td>
-                      <td className="px-3 py-2">
-                        <span className="inline-flex rounded-full border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)] px-2 py-1 text-xs text-[var(--theme-accent)]">
-                          {stage}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 rounded border border-[var(--theme-border-em)] px-2 py-1 text-xs text-black hover:bg-[var(--theme-bg-panel)]"
-                            onClick={() => handleOpenRfq(row.rfq?.id)}
-                          >
-                            <Icon icon="mdi:file-document-edit-outline" className="h-3.5 w-3.5" />
-                            Open RFQ
-                          </button>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-black hover:bg-emerald-500/10"
-                            onClick={() => handleOpenPo(row.po?.id)}
-                          >
-                            <Icon icon="mdi:cart-outline" className="h-3.5 w-3.5" />
-                            Open PO
-                          </button>
-                          <button
-                            type="button"
-                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-2 py-1 text-xs text-black hover:bg-amber-500/10"
-                            onClick={() => handleOpenGrn(row.po?.id)}
-                          >
-                            <Icon icon="mdi:package-check" className="h-3.5 w-3.5" />
-                            Open GRN
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
+            <tbody>
+              {grnForm.items.map((item, idx) => {
+                const inv = inventoryById.get(Number(item.inventory_id));
+                return (
+                  <tr
+                    key={`${item.inventory_id}-${idx}`}
+                    className="border-t border-[var(--theme-divider)] text-[var(--theme-text-secondary)]"
+                  >
+                    <td className="px-3 py-2">{inv ? inventoryLabel(inv) : `#${item.inventory_id}`}</td>
+                    <td className="px-3 py-2 text-right">{item.quantity_received}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      )}
+    </>
+  );
+
+  const renderSummaryStage = () => (
+    <>
+      <h2 className={`${sectionTitleClass} mb-4`}>Lifecycle Summary</h2>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+        {[
+          { label: "Requisitions", value: requisitions.length },
+          { label: "RFQs", value: rfqs.length },
+          { label: "Quotations", value: quotations.length },
+          { label: "Purchase Orders", value: purchaseOrders.length },
+        ].map((stat) => (
+          <div key={stat.label} className="rounded bg-[var(--theme-bg-panel)] p-3">
+            <p className="text-xs text-[var(--theme-text-muted)]">{stat.label}</p>
+            <p className="text-2xl font-bold text-[var(--theme-text-primary)]">{stat.value}</p>
+          </div>
+        ))}
+        <div className="rounded bg-[var(--theme-bg-panel)] p-3">
+          <p className="text-xs text-[var(--theme-text-muted)]">Approved Quotes</p>
+          <p className="text-2xl font-bold text-emerald-500">{approvedQuotationByRfq.size}</p>
+        </div>
+      </div>
+
+      <div className="mt-5 overflow-x-auto rounded border border-[var(--theme-divider)]">
+        <table className="w-full min-w-[960px] text-sm">
+          <thead className={tableHeadClass}>
+            <tr>
+              <th className="px-3 py-2 text-left">Requisition</th>
+              <th className="px-3 py-2 text-left">RFQ</th>
+              <th className="px-3 py-2 text-left">Approved Quotation</th>
+              <th className="px-3 py-2 text-left">Purchase Order</th>
+              <th className="px-3 py-2 text-left">GRN</th>
+              <th className="px-3 py-2 text-left">Current Stage</th>
+              <th className="px-3 py-2 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--theme-divider)]">
+            {lifecycleRows.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
+                  No lifecycle records yet.
+                </td>
+              </tr>
+            ) : (
+              lifecycleRows.map((row) => {
+                const currentStage = row.grn
+                  ? "Completed (GRN Posted)"
+                  : row.po
+                    ? "Purchase Order Created"
+                    : row.approvedQuotation
+                      ? "Quotation Approved"
+                      : row.rfq
+                        ? "RFQ Issued"
+                        : "Requisition Created";
+
+                return (
+                  <tr key={row.req.id} className="text-[var(--theme-text-secondary)]">
+                    <td className="px-3 py-2">
+                      <span className="text-[var(--theme-text-primary)]">REQ #{row.req.id}</span>
+                      <div className="text-xs text-[var(--theme-text-muted)]">
+                        {requisitionOrigin(row.req)} · {describeRequisitionItems(row.req)}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">{row.rfq ? row.rfq.rfq_number : "-"}</td>
+                    <td className="px-3 py-2">
+                      {row.approvedQuotation
+                        ? `${row.approvedQuotation.quotation_number || `QT-${row.approvedQuotation.id}`} (${row.approvedQuotation.supplier?.name || `Supplier #${row.approvedQuotation.supplier_id}`})`
+                        : "-"}
+                    </td>
+                    <td className="px-3 py-2">{row.po ? `PO #${row.po.id}` : "-"}</td>
+                    <td className="px-3 py-2">{row.grn ? row.grn.grn_number : "-"}</td>
+                    <td className="px-3 py-2">
+                      <span className="inline-flex rounded-full border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)] px-2 py-1 text-xs text-[var(--theme-accent)]">
+                        {currentStage}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded border border-[var(--theme-border-em)] px-2 py-1 text-xs text-[var(--theme-text-primary)] hover:bg-[var(--theme-bg-panel)]"
+                          onClick={() => handleOpenRfq(row.rfq?.id)}
+                        >
+                          <Icon icon="mdi:file-document-edit-outline" className="h-3.5 w-3.5" />
+                          Open RFQ
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-[var(--theme-text-primary)] hover:bg-emerald-500/10"
+                          onClick={() => handleOpenPo(row.po?.id)}
+                        >
+                          <Icon icon="mdi:cart-outline" className="h-3.5 w-3.5" />
+                          Open PO
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-2 py-1 text-xs text-[var(--theme-text-primary)] hover:bg-amber-500/10"
+                          onClick={() => handleOpenGrn(row.po?.id)}
+                        >
+                          <Icon icon="mdi:package-check" className="h-3.5 w-3.5" />
+                          Open GRN
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+
+  const stageRenderers: Record<StageHash, () => React.ReactNode> = {
+    "requisition-section": renderRequisitionStage,
+    "rfq-section": renderRfqStage,
+    "quotation-section": renderQuotationStage,
+    "po-section": renderPoStage,
+    "grn-section": renderGrnStage,
+    "snapshot-section": renderSummaryStage,
+  };
+
+  const previousStage = STAGES[stageIndex - 1];
+  const nextStage = STAGES[stageIndex + 1];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--theme-text-primary)]">Procurement Inventory Life Cycle</h1>
+        <p className="text-sm mt-1 text-[var(--theme-text-muted)]">
+          Requisition, RFQ, quotation approval, purchase order and goods received, one stage at a time.
+        </p>
+      </div>
+
+      <nav aria-label="Procurement stages" className="overflow-x-auto">
+        <ol className="flex min-w-max gap-2">
+          {STAGES.map((item, index) => {
+            const isActive = index === stageIndex;
+            const isPast = index < stageIndex;
+            const count = stageCounts[item.hash];
+            return (
+              <li key={item.hash} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => goToStage(item.hash)}
+                  aria-current={isActive ? "step" : undefined}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                    isActive
+                      ? "border-[var(--theme-accent)] bg-[var(--theme-bg-card)] text-[var(--theme-accent)] font-semibold"
+                      : "border-[var(--theme-border-em)] text-[var(--theme-text-secondary)] hover:border-[var(--theme-accent)] hover:text-[var(--theme-text-primary)]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full text-xs",
+                      isActive
+                        ? "bg-[var(--theme-accent-dark)] text-white"
+                        : isPast
+                          ? "bg-emerald-600 text-white"
+                          : "bg-[var(--theme-bg-panel)] text-[var(--theme-text-muted)]",
+                    )}
+                  >
+                    {index < STAGES.length - 1 ? index + 1 : <Icon icon={item.icon} className="h-3.5 w-3.5" />}
+                  </span>
+                  <span>{item.label}</span>
+                  {count !== null && (
+                    <span className="rounded-full bg-[var(--theme-bg-panel)] px-1.5 text-xs text-[var(--theme-text-muted)]">
+                      {count}
+                    </span>
+                  )}
+                </button>
+                {index < STAGES.length - 1 && (
+                  <Icon icon="mdi:chevron-right" className="h-4 w-4 text-[var(--theme-text-muted)]" />
+                )}
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      {toast && (
+        <div
+          className={`rounded-lg border px-4 py-3 text-sm ${
+            toast.type === "success"
+              ? "border-emerald-500/40 bg-emerald-900/20 text-emerald-400"
+              : "border-red-500/40 bg-red-900/20 text-red-400"
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
+
+      <section id={stage.hash} className={cn(cardClass, "min-h-[50vh]")}>
+        {stageRenderers[stage.hash]()}
       </section>
+
+      <div className="flex items-center justify-between gap-3">
+        {previousStage ? (
+          <button type="button" className={ghostButtonClass} onClick={() => goToStage(previousStage.hash)}>
+            <span className="inline-flex items-center gap-1">
+              <Icon icon="mdi:arrow-left" className="h-4 w-4" />
+              {previousStage.label}
+            </span>
+          </button>
+        ) : (
+          <span />
+        )}
+        <span className="text-xs text-[var(--theme-text-muted)]">
+          Step {stageIndex + 1} of {STAGES.length}
+        </span>
+        {nextStage ? (
+          <button type="button" className={accentButtonClass} onClick={() => goToStage(nextStage.hash)}>
+            <span className="inline-flex items-center gap-1">
+              Next: {nextStage.label}
+              <Icon icon="mdi:arrow-right" className="h-4 w-4" />
+            </span>
+          </button>
+        ) : (
+          <span />
+        )}
+      </div>
     </div>
   );
 };

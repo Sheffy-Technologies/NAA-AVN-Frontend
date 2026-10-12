@@ -1,3 +1,4 @@
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import type { InventoryExpenseCategory } from "../api";
 import type { NewInventoryDraft } from "../newInventoryItem";
 
@@ -7,6 +8,14 @@ type Props = {
   expenseCategories: InventoryExpenseCategory[];
   inputClassName?: string;
 };
+
+const STORE_OPTIONS = [
+  { value: "bonded", label: "Bonded" },
+  { value: "quarantine", label: "Quarantine" },
+  { value: "flammable", label: "Flammable" },
+  { value: "rubber", label: "Rubber" },
+  { value: "others", label: "Others" },
+];
 
 const defaultInputClass =
   "rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white";
@@ -21,8 +30,8 @@ export const NewInventoryItemFields = ({
     onChange({ ...draft, [key]: value });
 
   return (
-    <div className="rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-3">
-      <p className="mb-2 text-xs text-[#7FD5FF]">
+    <div className="rounded-lg border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)] p-3">
+      <p className="mb-2 text-xs text-[var(--theme-accent)]">
         This item will be added to inventory with zero stock. Stock is recorded when the goods are received.
       </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -66,31 +75,23 @@ export const NewInventoryItemFields = ({
           value={draft.re_order_level}
           onChange={(e) => set("re_order_level", e.target.value)}
         />
-        <select
-          className={inputClassName}
-          aria-label="New item store"
+        <SearchableSelect
+          buttonClassName="py-2"
+          placeholder="Store"
+          searchPlaceholder="Search stores..."
+          options={STORE_OPTIONS}
           value={draft.store}
-          onChange={(e) => set("store", e.target.value as NewInventoryDraft["store"])}
-        >
-          <option value="bonded">Bonded</option>
-          <option value="quarantine">Quarantine</option>
-          <option value="flammable">Flammable</option>
-          <option value="rubber">Rubber</option>
-          <option value="others">Others</option>
-        </select>
-        <select
-          className={inputClassName}
-          aria-label="New item expense category"
-          value={draft.expense_category_id}
-          onChange={(e) => set("expense_category_id", e.target.value)}
-        >
-          <option value="">Expense category (optional)</option>
-          {expenseCategories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </select>
+          onChange={(value) => value !== null && set("store", value as NewInventoryDraft["store"])}
+          clearable={false}
+        />
+        <SearchableSelect
+          buttonClassName="py-2"
+          placeholder="Expense category (optional)"
+          searchPlaceholder="Search expense categories..."
+          options={expenseCategories.map((category) => ({ value: category.id, label: category.name }))}
+          value={draft.expense_category_id ? Number(draft.expense_category_id) : null}
+          onChange={(value) => set("expense_category_id", value === null ? "" : String(value))}
+        />
         <input
           className={inputClassName}
           placeholder="Serial number (optional)"

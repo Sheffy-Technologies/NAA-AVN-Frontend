@@ -338,6 +338,18 @@ export type DefectRecord = {
   deleted_at?: string | null;
 };
 
+export type CreateDefectRecordRequest = {
+  asset_id: number;
+  title: string;
+  description?: string | null;
+  severity?: "low" | "medium" | "high" | "critical";
+  status?: "open" | "in_progress" | "resolved" | "closed";
+  reported_by?: number | null;
+  reported_at?: string | null;
+  reported_hours?: number | null;
+  remarks?: string | null;
+};
+
 export const maintenanceApi = createApi({
   reducerPath: "maintenanceApi",
   baseQuery: axiosBaseQuery(),
@@ -438,6 +450,14 @@ export const maintenanceApi = createApi({
       }),
       providesTags: [{ type: "Defects", id: "LIST" }],
     }),
+    createDefectRecord: builder.mutation<DefectRecord, CreateDefectRecordRequest>({
+      query: (body) => ({
+        url: "/defects",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: [{ type: "Defects", id: "LIST" }],
+    }),
     getComponents: builder.query<MaintenanceComponent[], void>({
       query: () => ({
         url: "/components",
@@ -504,6 +524,7 @@ export const {
   useGetComplianceRecordsQuery,
   useGetMaintenanceDueItemsQuery,
   useGetDefectRecordsQuery,
+  useCreateDefectRecordMutation,
   useGetComponentsQuery,
   useGetEnginesQuery,
   useGetAvionicsQuery,

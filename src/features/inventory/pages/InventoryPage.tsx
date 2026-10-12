@@ -19,6 +19,8 @@ import {
   useGetPurchaseOrdersQuery,
 } from "@/features/inventory/api";
 import { useAppDispatch } from "@/app/store";
+import { CreatePartsRequisitionModal } from "@/features/inventory/components/CreatePartsRequisitionModal";
+import { describeRequisitionItems, requisitionOrigin } from "@/features/inventory/inventoryOptions";
 import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
@@ -493,6 +495,7 @@ export const InventoryPage = () => {
     number[]
   >([]);
   const [selectedRfqSupplierIds, setSelectedRfqSupplierIds] = useState<number[]>([]);
+  const [isCreateRequisitionOpen, setIsCreateRequisitionOpen] = useState(false);
 
   const navigate = useNavigate();
   const [deleteInventory] = useDeleteInventoryMutation();
@@ -893,7 +896,7 @@ export const InventoryPage = () => {
     () => [
       {
         title: "1. Parts Requisition",
-        description: "Create or review parts requisitions from work orders",
+        description: "Raise parts requisitions directly or from work orders",
         count: partRequisitions.length,
         color: "text-[#7FD5FF]",
         hash: "#requisition-section",
@@ -910,7 +913,7 @@ export const InventoryPage = () => {
         description: "Capture and approve quotations",
         count: quotationsData.length,
         color: "text-amber-300",
-        hash: "#rfq-section",
+        hash: "#quotation-section",
       },
       {
         title: "4. Purchase Order",
@@ -1062,10 +1065,11 @@ export const InventoryPage = () => {
   };
 
   const handleExportPartsRequisitions = () => {
-    const headers = ["Requisition ID", "Work Order", "Requested Qty", "Created", "RFQ Status"];
+    const headers = ["Requisition ID", "Origin", "Items", "Requested Qty", "Created", "RFQ Status"];
     const rows = partRequisitions.map((r) => [
       `REQ #${r.id}`,
-      r.work_order_id ? `WO #${r.work_order_id}` : "-",
+      requisitionOrigin(r),
+      describeRequisitionItems(r),
       String(r.quantity),
       `${formatDateShort(r.created_at)} ${formatTimeShort(r.created_at)}`,
       existingRfqStockMovementIds.has(r.id) ? "RFQ Requested" : "Pending RFQ",
@@ -1988,6 +1992,14 @@ export const InventoryPage = () => {
 
                 <button
                   type="button"
+                  onClick={() => setIsCreateRequisitionOpen(true)}
+                  className="flex items-center gap-1.5 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  New Requisition
+                </button>
+                <button
+                  type="button"
                   onClick={handleExportPartsRequisitions}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
                 >
@@ -2048,7 +2060,8 @@ export const InventoryPage = () => {
                   <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
                     <th className="px-6 py-4 font-medium">Select</th>
                     <th className="px-6 py-4 font-medium">Requisition ID</th>
-                    <th className="px-6 py-4 font-medium">Work Order</th>
+                    <th className="px-6 py-4 font-medium">Origin</th>
+                    <th className="px-6 py-4 font-medium">Items</th>
                     <th className="px-6 py-4 font-medium">Requested Qty</th>
                     <th className="px-6 py-4 font-medium">Created</th>
                     <th className="px-6 py-4 font-medium">RFQ Status</th>
@@ -2057,13 +2070,13 @@ export const InventoryPage = () => {
                 <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
                   {isPartsRequisitionsLoading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                         Loading parts requisitions...
                       </td>
                     </tr>
                   ) : partRequisitions.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                         No parts requisitions found.
                       </td>
                     </tr>
@@ -2092,8 +2105,9 @@ export const InventoryPage = () => {
                             />
                           </td>
                           <td className="px-6 py-4 text-white font-medium">REQ #{req.id}</td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {req.work_order_id ? `WO #${req.work_order_id}` : "-"}
+                          <td className="px-6 py-4 text-gray-300">{requisitionOrigin(req)}</td>
+                          <td className="px-6 py-4 text-gray-300 max-w-xs truncate" title={describeRequisitionItems(req)}>
+                            {describeRequisitionItems(req)}
                           </td>
                           <td className="px-6 py-4 text-gray-300">{req.quantity}</td>
                           <td className="px-6 py-4 text-gray-300">
@@ -2196,6 +2210,15 @@ export const InventoryPage = () => {
                 </tbody>
               </table>
             </div>
+
+            <CreatePartsRequisitionModal
+              open={isCreateRequisitionOpen}
+              onClose={() => setIsCreateRequisitionOpen(false)}
+              onCreated={() => {
+                dispatch(showToast({ message: "Parts requisition created.", type: "success" }));
+                refetchStockMovements();
+              }}
+            />
           </>
         ) : activeTab === "Purchase Orders" ? (
           <>
