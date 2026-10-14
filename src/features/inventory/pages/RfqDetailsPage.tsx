@@ -4,6 +4,9 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
+import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
+import { exportNaavnPdf } from "@/shared/documents/naavnPdf";
+import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
 import {
   useGetRfqsQuery,
   useGetSupplierQuotationsQuery,
@@ -11,6 +14,9 @@ import {
   useCreateSupplierQuotationMutation,
   useApproveSupplierQuotationMutation,
 } from "@/features/inventory/api";
+import { buildRfqDocument } from "@/features/inventory/procurementDocuments";
+
+const ALL_SUPPLIERS = "all";
 
 const formatDateShort = (isoString: string | null | undefined) => {
   if (!isoString) return "-";
@@ -73,6 +79,10 @@ export function RfqDetailsPage() {
   const [quotationValidUntil, setQuotationValidUntil] = useState("");
   const [quotationNotes, setQuotationNotes] = useState("");
   const [quotationFormError, setQuotationFormError] = useState<string | null>(null);
+
+  // Which invited supplier the exported RFQ form is addressed to ("" = first supplier).
+  const [exportSupplierId, setExportSupplierId] = useState<string>("");
+  const [exportingFormat, setExportingFormat] = useState<"excel" | "pdf" | null>(null);
 
   const sortedQuotations = useMemo(
     () =>
@@ -146,6 +156,43 @@ export function RfqDetailsPage() {
       refetchQuotations();
     } catch {
       dispatch(showToast({ message: "Failed to approve quotation.", type: "error" }));
+    }
+  };
+
+  const handleExport = async (format: "excel" | "pdf") => {
+    if (!rfq || exportingFormat) return;
+
+    const invited = rfq.suppliers ?? [];
+    const selected =
+      invited.find((supplier) => String(supplier.id) === exportSupplierId) ?? invited[0] ?? null;
+    const addressees = exportSupplierId === ALL_SUPPLIERS && invited.length > 0 ? invited : [selected];
+    const documents = addressees.map((supplier) => buildRfqDocument(rfq, supplier));
+    const fileName = sanitizeDocumentFileName(
+      `RFQ ${rfq.rfq_number || rfq.id}${addressees.length === 1 && addressees[0] ? ` ${addressees[0].name}` : ""}`,
+    );
+
+    setExportingFormat(format);
+    try {
+      if (format === "excel") {
+        await exportNaavnExcel(documents, fileName);
+      } else {
+        await exportNaavnPdf(documents, fileName);
+      }
+      dispatch(
+        showToast({
+          message: format === "excel" ? "Excel downloaded" : "PDF downloaded",
+          type: "success",
+        }),
+      );
+    } catch {
+      dispatch(
+        showToast({
+          message: format === "excel" ? "Failed to download Excel" : "Failed to download PDF",
+          type: "error",
+        }),
+      );
+    } finally {
+      setExportingFormat(null);
     }
   };
 
@@ -234,14 +281,55 @@ export function RfqDetailsPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={handleCreatePO}
-          className="inline-flex items-center gap-2 rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-black shadow hover:bg-emerald-600 transition-colors whitespace-nowrap"
-        >
-          <Icon icon="mdi:cart-plus" className="w-4 h-4" />
-          Create Purchase Order
-        </button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {(rfq.suppliers?.length ?? 0) > 1 && (
+            <select
+              value={exportSupplierId}
+              onChange={(e) => setExportSupplierId(e.target.value)}
+              title="Supplier the exported RFQ is addressed to"
+              className="rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+            >
+              {rfq.suppliers?.map((supplier, index) => (
+                <option key={supplier.id} value={index === 0 ? "" : String(supplier.id)}>
+                  Attn: {supplier.name}
+                </option>
+              ))}
+              <option value={ALL_SUPPLIERS}>All suppliers (one form each)</option>
+            </select>
+          )}
+          <button
+            type="button"
+            onClick={() => handleExport("excel")}
+            disabled={exportingFormat !== null}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-sm text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            <Icon
+              icon={exportingFormat === "excel" ? "mdi:loading" : "mdi:file-excel-outline"}
+              className={cn("w-4 h-4", exportingFormat === "excel" && "animate-spin")}
+            />
+            {exportingFormat === "excel" ? "Exporting..." : "Export Excel"}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport("pdf")}
+            disabled={exportingFormat !== null}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-sm text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+          >
+            <Icon
+              icon={exportingFormat === "pdf" ? "mdi:loading" : "mdi:file-pdf-box"}
+              className={cn("w-4 h-4", exportingFormat === "pdf" && "animate-spin")}
+            />
+            {exportingFormat === "pdf" ? "Downloading..." : "Export PDF"}
+          </button>
+          <button
+            type="button"
+            onClick={handleCreatePO}
+            className="inline-flex items-center gap-2 rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-black shadow hover:bg-emerald-600 transition-colors whitespace-nowrap"
+          >
+            <Icon icon="mdi:cart-plus" className="w-4 h-4" />
+            Create Purchase Order
+          </button>
+        </div>
       </div>
 
       {/* Suppliers */}

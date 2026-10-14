@@ -20,7 +20,11 @@ import {
 } from "@/features/inventory/api";
 import { useAppDispatch } from "@/app/store";
 import { CreatePartsRequisitionModal } from "@/features/inventory/components/CreatePartsRequisitionModal";
-import { describeRequisitionItems, requisitionOrigin } from "@/features/inventory/inventoryOptions";
+import {
+  describeRequisitionItems,
+  issueStatus,
+  requisitionOrigin,
+} from "@/features/inventory/inventoryOptions";
 import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
@@ -923,16 +927,23 @@ export const InventoryPage = () => {
         hash: "#po-section",
       },
       {
-        title: "5. GRN",
-        description: "Post goods received notes and update stock",
+        title: "5. Stock Received",
+        description: "Receive stock against purchase orders into the store",
         count: goodsReceivedNotesData.length,
         color: "text-fuchsia-300",
         hash: "#grn-section",
       },
+      {
+        title: "6. Stock Issue",
+        description: "Issue stock out to requesting units",
+        count: partRequisitions.filter((req) => issueStatus(req) !== "none").length,
+        color: "text-teal-300",
+        hash: "#issue-section",
+      },
     ],
     [
       goodsReceivedNotesData.length,
-      partRequisitions.length,
+      partRequisitions,
       purchaseOrdersData.length,
       quotationsData.length,
       rfqsData.length,
@@ -1102,7 +1113,7 @@ export const InventoryPage = () => {
   };
 
   const renderLifecycleCards = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 border-t border-[#0A4D66]/40 pt-4">
+    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3 border-t border-[#0A4D66]/40 pt-4">
       {lifecycleCardData.map((item) => (
         <button
           key={item.title}

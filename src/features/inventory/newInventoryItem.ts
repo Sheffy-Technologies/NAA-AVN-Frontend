@@ -1,3 +1,5 @@
+import type { CreateInventoryPayload } from "./api";
+
 export type InventoryStore = "bonded" | "quarantine" | "flammable" | "rubber" | "others";
 
 export type NewInventoryDraft = {
@@ -72,3 +74,24 @@ export const toNewInventoryPayload = (
     },
   };
 };
+
+// Requisitions draw on the central store's stock (unit_id 1).
+const CENTRAL_STORE_UNIT_ID = 1;
+
+/** Body for creating a new zero-stock item in the central store, e.g. from a requisition. */
+export const toCreateInventoryPayload = (payload: NewInventoryPayload): CreateInventoryPayload => ({
+  store: payload.store ?? "others",
+  asset_id: null,
+  expense_category_id: payload.expense_category_id ?? null,
+  unit_id: CENTRAL_STORE_UNIT_ID,
+  serial_number: payload.serial_number ?? "",
+  part_number: payload.part_number,
+  current_stock: 0,
+  re_order_level: payload.re_order_level ?? 0,
+  unit_cost: payload.unit_cost ?? 0,
+  measurement_unit: payload.measurement_unit ?? "",
+  expiry_date: null,
+  date_received: null,
+  remark: payload.remark ?? "",
+  description: payload.description,
+});

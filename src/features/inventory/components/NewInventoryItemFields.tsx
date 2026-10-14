@@ -32,7 +32,7 @@ export const NewInventoryItemFields = ({
   return (
     <div className="rounded-lg border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)] p-3">
       <p className="mb-2 text-xs text-[var(--theme-accent)]">
-        This item will be added to inventory with zero stock. Stock is recorded when the goods are received.
+        This item will be added to inventory with zero stock. Stock is recorded when it is received.
       </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <input

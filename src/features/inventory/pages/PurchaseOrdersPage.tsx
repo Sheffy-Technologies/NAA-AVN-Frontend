@@ -39,7 +39,7 @@ export default function PurchaseOrdersPage() {
       await createGoodsReceivedNote({
         purchase_order_id: order.id,
         received_at: new Date().toISOString(),
-        notes: `GRN posted from Purchase Orders page for PO #${order.id}`,
+        notes: `Stock received from Purchase Orders page for PO #${order.id}`,
         items,
       }).unwrap();
 
@@ -48,9 +48,9 @@ export default function PurchaseOrdersPage() {
         body: { status: "received" },
       }).unwrap();
 
-      setMessage(`PO #${order.id}: GRN posted and status updated to received.`);
+      setMessage(`PO #${order.id}: stock received and status updated to received.`);
     } catch {
-      setMessage(`PO #${order.id}: failed to post GRN.`);
+      setMessage(`PO #${order.id}: failed to post stock received.`);
     } finally {
       setActiveOrderId(null);
     }
@@ -117,7 +117,7 @@ export default function PurchaseOrdersPage() {
                       ? "Received"
                       : activeOrderId === order.id && (isPostingGrn || isUpdatingStatus)
                         ? "Posting..."
-                        : "Post GRN"}
+                        : "Receive Stock"}
                   </button>
                 </div>
               </li>

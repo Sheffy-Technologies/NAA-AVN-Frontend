@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import {
   useApproveSupplierQuotationMutation,
   useCreateGoodsReceivedNoteMutation,
+  useCreateInventoryMutation,
   useCreatePurchaseOrderMutation,
   useCreateRfqMutation,
   useCreateStockMovementMutation,
@@ -16,6 +17,7 @@ import {
   useGetStockMovementsQuery,
   useGetSupplierQuotationsQuery,
   useGetSuppliersQuery,
+  useIssueStockMovementMutation,
   type PurchaseOrder,
   type Rfq,
   type StockMovement,
@@ -23,6 +25,7 @@ import {
 import { NewInventoryItemFields } from "@/features/inventory/components/NewInventoryItemFields";
 import {
   emptyNewInventoryDraft,
+  toCreateInventoryPayload,
   toNewInventoryPayload,
   type NewInventoryDraft,
   type NewInventoryPayload,
@@ -30,10 +33,15 @@ import {
 import {
   describeRequisitionItems,
   inventoryLabel,
+  issueStatus,
+  lineIssued,
+  lineOutstanding,
   requisitionOrigin,
+  requisitionUnit,
   toInventoryOptions,
 } from "@/features/inventory/inventoryOptions";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
+import { useGetUnitsQuery } from "@/shared/api/units";
 import { SearchableSelect, type SearchableSelectOption } from "@/shared/ui/select/SearchableSelect";
 import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
 import { cn } from "@/shared/utils/cn";
@@ -66,7 +74,8 @@ const STAGES = [
   { hash: "rfq-section", label: "RFQ", icon: "mdi:email-fast-outline" },
   { hash: "quotation-section", label: "Quotations", icon: "mdi:file-document-check-outline" },
   { hash: "po-section", label: "Purchase Order", icon: "mdi:cart-outline" },
-  { hash: "grn-section", label: "Goods Received", icon: "mdi:package-check" },
+  { hash: "grn-section", label: "Stock Received", icon: "mdi:package-check" },
+  { hash: "issue-section", label: "Stock Issue", icon: "mdi:truck-delivery-outline" },
   { hash: "snapshot-section", label: "Summary", icon: "mdi:chart-timeline-variant" },
 ] as const;
 
@@ -85,6 +94,14 @@ const emptyPoForm = () => ({
   name: "",
   order_date: "",
   expected_date_of_delivery: "",
+});
+
+const emptyRequisitionForm = () => ({
+  work_order_id: "",
+  requesting_unit_id: "",
+  inventory_id: "",
+  quantity_requested: "1",
+  notes: "",
 });
 
 const emptyQuotationForm = () => ({
@@ -108,7 +125,8 @@ export const ProcurementLifecyclePage = () => {
   const stage = STAGES[stageIndex];
 
   const { data: workOrders = [] } = useGetWorkOrdersQuery();
-  const { data: inventories = [] } = useGetInventoriesQuery();
+  const { data: inventories = [], refetch: refetchInventories } = useGetInventoriesQuery();
+  const { data: units = [] } = useGetUnitsQuery();
   const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const { data: stockMovements = [], refetch: refetchStockMovements } =
@@ -132,13 +150,13 @@ export const ProcurementLifecyclePage = () => {
     useCreatePurchaseOrderMutation();
   const [createGoodsReceivedNote, { isLoading: isCreatingGrn }] =
     useCreateGoodsReceivedNoteMutation();
+  const [createInventory, { isLoading: isCreatingInventory }] = useCreateInventoryMutation();
+  const [issueStockMovement, { isLoading: isIssuing }] = useIssueStockMovementMutation();
 
-  const [requisitionForm, setRequisitionForm] = useState({
-    work_order_id: "",
-    inventory_id: "",
-    quantity_requested: "1",
-    notes: "",
-  });
+  const [requisitionForm, setRequisitionForm] = useState(emptyRequisitionForm);
+  const [reqItemMode, setReqItemMode] = useState<"existing" | "new">("existing");
+  const [reqNewInventory, setReqNewInventory] =
+    useState<NewInventoryDraft>(emptyNewInventoryDraft);
 
   // Preselect the requisition when arriving from a "Start RFQ" shortcut
   // (e.g. an out-of-stock item on an Inventory Requisition's details page).
@@ -159,6 +177,12 @@ export const ProcurementLifecyclePage = () => {
     purchase_order_id: "",
     notes: "",
     items: [] as Array<{ purchase_order_item_id?: number; inventory_id: number; quantity_received: number }>,
+  });
+
+  // Quantities to issue now, keyed by the requisition line's index.
+  const [issueForm, setIssueForm] = useState({
+    stock_movement_id: "",
+    quantities: {} as Record<number, string>,
   });
 
   useEffect(() => {
@@ -236,6 +260,11 @@ export const ProcurementLifecyclePage = () => {
     [workOrders],
   );
 
+  const unitOptions: SearchableSelectOption[] = useMemo(
+    () => units.map((unit) => ({ value: unit.id, label: unit.name })),
+    [units],
+  );
+
   const supplierOptions: SearchableSelectOption[] = useMemo(
     () =>
       suppliers.map((supplier) => ({
@@ -255,6 +284,29 @@ export const ProcurementLifecyclePage = () => {
       })),
     [requisitions, rfqRequisitionIds],
   );
+
+  // Requisitions that still have stock waiting to be issued out to their unit.
+  const issueRequisitionOptions: SearchableSelectOption[] = useMemo(
+    () =>
+      requisitions
+        .filter((req) => issueStatus(req) !== "full")
+        .map((req) => ({
+          value: req.id,
+          label: `REQ #${req.id} - ${describeRequisitionItems(req)}`,
+          description: [
+            `To ${requisitionUnit(req)}`,
+            requisitionOrigin(req),
+            issueStatus(req) === "partial" ? "Partially issued" : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        })),
+    [requisitions],
+  );
+
+  const issueRequisition = issueForm.stock_movement_id
+    ? requisitionById.get(Number(issueForm.stock_movement_id))
+    : undefined;
 
   const toRfqOption = (rfq: Rfq): SearchableSelectOption => {
     const req = rfqRequisition(rfq);
@@ -342,7 +394,7 @@ export const ProcurementLifecyclePage = () => {
 
   const handleOpenGrn = (purchaseOrderId?: number) => {
     if (!purchaseOrderId) {
-      setError("No purchase order available to post GRN.");
+      setError("No purchase order available to receive stock against.");
       return;
     }
 
@@ -350,14 +402,46 @@ export const ProcurementLifecyclePage = () => {
     goToStage("grn-section");
   };
 
+  const handleOpenIssue = (requisitionId: number) => {
+    setIssueForm({ stock_movement_id: String(requisitionId), quantities: {} });
+    goToStage("issue-section");
+  };
+
   const handleCreateRequisition = async () => {
     const workOrderId = requisitionForm.work_order_id ? Number(requisitionForm.work_order_id) : null;
-    const inventoryId = Number(requisitionForm.inventory_id);
+    const unitId = requisitionForm.requesting_unit_id
+      ? Number(requisitionForm.requesting_unit_id)
+      : null;
+    let inventoryId = Number(requisitionForm.inventory_id);
     const quantityRequested = Number(requisitionForm.quantity_requested);
 
-    if (!inventoryId || !Number.isInteger(quantityRequested) || quantityRequested < 1) {
-      setError("Provide an inventory item and a valid quantity.");
+    if (!Number.isInteger(quantityRequested) || quantityRequested < 1) {
+      setError("Provide a valid quantity.");
       return;
+    }
+
+    let newItem: NewInventoryPayload | null = null;
+    if (reqItemMode === "new") {
+      const result = toNewInventoryPayload(reqNewInventory);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      newItem = result.payload;
+    } else if (!inventoryId) {
+      setError("Select an inventory item, or add a new one.");
+      return;
+    }
+
+    if (newItem) {
+      try {
+        inventoryId = (await createInventory(toCreateInventoryPayload(newItem)).unwrap()).id;
+        refetchInventories();
+      } catch (err: unknown) {
+        const responseError = err as { data?: { message?: string } };
+        setError(responseError?.data?.message || "Failed to add the new inventory item.");
+        return;
+      }
     }
 
     try {
@@ -365,6 +449,7 @@ export const ProcurementLifecyclePage = () => {
         movement_type: "issue",
         quantity: quantityRequested,
         work_order_id: workOrderId,
+        requesting_unit_id: unitId,
         notes: requisitionForm.notes || null,
         stocks: [
           {
@@ -375,7 +460,9 @@ export const ProcurementLifecyclePage = () => {
         ],
       }).unwrap();
 
-      setRequisitionForm({ work_order_id: "", inventory_id: "", quantity_requested: "1", notes: "" });
+      setRequisitionForm(emptyRequisitionForm());
+      setReqItemMode("existing");
+      setReqNewInventory(emptyNewInventoryDraft());
       setSuccess(
         workOrderId
           ? `Parts requisition created for work order #${workOrderId}.`
@@ -383,7 +470,15 @@ export const ProcurementLifecyclePage = () => {
       );
       refetchStockMovements();
     } catch {
-      setError("Failed to create requisition.");
+      setError(
+        newItem
+          ? `${newItem.part_number} was added to inventory, but the requisition failed. Select it from the list and retry.`
+          : "Failed to create requisition.",
+      );
+      if (newItem) {
+        setReqItemMode("existing");
+        setRequisitionForm((s) => ({ ...s, inventory_id: String(inventoryId) }));
+      }
     }
   };
 
@@ -547,7 +642,7 @@ export const ProcurementLifecyclePage = () => {
   const handleCreateGrn = async () => {
     const purchaseOrderId = Number(grnForm.purchase_order_id);
     if (!purchaseOrderId || grnForm.items.length === 0) {
-      setError("Select a PO and prepare at least one GRN line.");
+      setError("Select a PO and prepare at least one line of stock received.");
       return;
     }
 
@@ -560,12 +655,67 @@ export const ProcurementLifecyclePage = () => {
       }).unwrap();
 
       setGrnForm({ purchase_order_id: "", notes: "", items: [] });
-      setSuccess("GRN posted. Inventory stocks updated with daily batches.");
+      setSuccess(
+        "Stock received posted to the store in daily batches. Issue it out to the requesting unit next.",
+      );
       refetchPurchaseOrders();
       refetchGoodsReceivedNotes();
+      refetchInventories();
     } catch {
-      setError("Failed to post GRN.");
+      setError("Failed to post stock received.");
     }
+  };
+
+  const handleIssueStock = async () => {
+    const req = issueRequisition;
+    if (!req?.stocks?.length) {
+      setError("Select a requisition to issue stock against.");
+      return;
+    }
+
+    const toIssue: Array<{ lineId: number; quantity: number }> = [];
+    for (const [index, line] of req.stocks.entries()) {
+      const raw = issueForm.quantities[index];
+      if (!raw || !line.inventory_id || !line.id) continue;
+      const quantity = Number(raw);
+      const label = line.inventory ? inventoryLabel(line.inventory) : `line ${index + 1}`;
+      const inStore = Number(inventoryById.get(Number(line.inventory_id))?.current_stock ?? 0);
+      if (!Number.isInteger(quantity) || quantity < 0) {
+        setError(`Enter a valid quantity for ${label}.`);
+        return;
+      }
+      if (quantity > lineOutstanding(line)) {
+        setError(`Cannot issue more than the ${lineOutstanding(line)} outstanding for ${label}.`);
+        return;
+      }
+      if (quantity > inStore) {
+        setError(`Only ${inStore} of ${label} in store.`);
+        return;
+      }
+      if (quantity > 0) toIssue.push({ lineId: line.id, quantity });
+    }
+
+    if (toIssue.length === 0) {
+      setError("Enter a quantity to issue on at least one line.");
+      return;
+    }
+
+    try {
+      await issueStockMovement({
+        id: req.id,
+        items: toIssue.map((item) => ({
+          stock_movement_stock_id: item.lineId,
+          quantity: item.quantity,
+        })),
+      }).unwrap();
+      setIssueForm({ stock_movement_id: "", quantities: {} });
+      setSuccess(`Stock issued out to ${requisitionUnit(req)} for REQ #${req.id}.`);
+    } catch (err: unknown) {
+      const responseError = err as { data?: { message?: string } };
+      setError(responseError?.data?.message || "Failed to issue stock.");
+    }
+    refetchInventories();
+    refetchStockMovements();
   };
 
   const stageCounts: Record<StageHash, number | null> = {
@@ -574,6 +724,7 @@ export const ProcurementLifecyclePage = () => {
     "quotation-section": quotations.length,
     "po-section": purchaseOrders.length,
     "grn-section": goodsReceivedNotes.length,
+    "issue-section": requisitions.filter((req) => issueStatus(req) !== "none").length,
     "snapshot-section": null,
   };
 
@@ -583,19 +734,31 @@ export const ProcurementLifecyclePage = () => {
     <>
       <h2 className={sectionTitleClass}>1. Parts Requisition</h2>
       <p className={sectionHintClass}>
-        Request parts directly, or link the requisition to an engineering work order.
+        Request parts directly, or link the requisition to an engineering work order. Parts not yet in
+        inventory can be added here.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
         <div className="md:col-span-3">
           <span className={labelClass}>Inventory item *</span>
-          <SearchableSelect
-            buttonClassName="py-2"
-            placeholder="Select inventory item"
-            searchPlaceholder="Search by part number or description..."
-            options={inventoryOptions}
-            value={requisitionForm.inventory_id ? Number(requisitionForm.inventory_id) : null}
-            onChange={(value) => setRequisitionForm((s) => ({ ...s, inventory_id: toId(value) }))}
-          />
+          <div className="flex gap-2">
+            <SearchableSelect
+              className="flex-1 min-w-0"
+              buttonClassName="py-2"
+              placeholder="Select inventory item"
+              searchPlaceholder="Search by part number or description..."
+              options={inventoryOptions}
+              value={requisitionForm.inventory_id ? Number(requisitionForm.inventory_id) : null}
+              onChange={(value) => setRequisitionForm((s) => ({ ...s, inventory_id: toId(value) }))}
+              disabled={reqItemMode === "new"}
+            />
+            <button
+              type="button"
+              onClick={() => setReqItemMode((m) => (m === "new" ? "existing" : "new"))}
+              className="shrink-0 rounded border border-[var(--theme-border-em)] px-3 text-xs text-[var(--theme-accent)] hover:bg-[var(--theme-bg-panel)]"
+            >
+              {reqItemMode === "new" ? "Pick from list" : "Not in list?"}
+            </button>
+          </div>
         </div>
         <div>
           <span className={labelClass}>Quantity *</span>
@@ -619,6 +782,27 @@ export const ProcurementLifecyclePage = () => {
             onChange={(value) => setRequisitionForm((s) => ({ ...s, work_order_id: toId(value) }))}
           />
         </div>
+        {reqItemMode === "new" && (
+          <div className="md:col-span-6">
+            <NewInventoryItemFields
+              draft={reqNewInventory}
+              onChange={setReqNewInventory}
+              expenseCategories={expenseCategories}
+              inputClassName={fieldClass}
+            />
+          </div>
+        )}
+        <div className="md:col-span-3">
+          <span className={labelClass}>Requesting unit (stock is issued out to)</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder="Select unit"
+            searchPlaceholder="Search units..."
+            options={unitOptions}
+            value={requisitionForm.requesting_unit_id ? Number(requisitionForm.requesting_unit_id) : null}
+            onChange={(value) => setRequisitionForm((s) => ({ ...s, requesting_unit_id: toId(value) }))}
+          />
+        </div>
       </div>
       <textarea
         className={textareaClass}
@@ -630,10 +814,14 @@ export const ProcurementLifecyclePage = () => {
       <button
         className={`mt-3 ${accentButtonClass}`}
         onClick={handleCreateRequisition}
-        disabled={isCreatingRequisition}
+        disabled={isCreatingRequisition || isCreatingInventory}
         type="button"
       >
-        {isCreatingRequisition ? "Creating..." : "Create Requisition"}
+        {isCreatingInventory
+          ? "Adding item..."
+          : isCreatingRequisition
+            ? "Creating..."
+            : "Create Requisition"}
       </button>
 
       <h3 className="mt-8 mb-3 text-sm font-semibold text-[var(--theme-text-primary)]">
@@ -645,6 +833,7 @@ export const ProcurementLifecyclePage = () => {
             <tr>
               <th className="px-3 py-2 text-left">Requisition</th>
               <th className="px-3 py-2 text-left">Origin</th>
+              <th className="px-3 py-2 text-left">Unit</th>
               <th className="px-3 py-2 text-left">Items</th>
               <th className="px-3 py-2 text-left">RFQ</th>
             </tr>
@@ -652,7 +841,7 @@ export const ProcurementLifecyclePage = () => {
           <tbody className="divide-y divide-[var(--theme-divider)] text-[var(--theme-text-secondary)]">
             {requisitions.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
+                <td colSpan={5} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
                   No requisitions yet.
                 </td>
               </tr>
@@ -663,6 +852,7 @@ export const ProcurementLifecyclePage = () => {
                   <tr key={req.id}>
                     <td className="px-3 py-2 text-[var(--theme-text-primary)]">REQ #{req.id}</td>
                     <td className="px-3 py-2">{requisitionOrigin(req)}</td>
+                    <td className="px-3 py-2">{requisitionUnit(req)}</td>
                     <td className="px-3 py-2">{describeRequisitionItems(req)}</td>
                     <td className="px-3 py-2">
                       {hasRfq ? (
@@ -1051,9 +1241,10 @@ export const ProcurementLifecyclePage = () => {
 
   const renderGrnStage = () => (
     <>
-      <h2 className={sectionTitleClass}>5. Goods Received Note</h2>
+      <h2 className={sectionTitleClass}>5. Stock Received</h2>
       <p className={sectionHintClass}>
-        Record goods received against a purchase order. Posting updates inventory stock in daily batches.
+        Record stock received against a purchase order. Posting adds it to store stock in daily batches,
+        where it stays until it is issued out to the requesting unit in the next step.
       </p>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
         <div className="md:col-span-2">
@@ -1075,7 +1266,7 @@ export const ProcurementLifecyclePage = () => {
           onClick={handlePrepareGrnItems}
           disabled={!grnForm.purchase_order_id}
         >
-          Prepare GRN Lines from PO
+          Prepare Lines from PO
         </button>
         <button
           type="button"
@@ -1083,7 +1274,7 @@ export const ProcurementLifecyclePage = () => {
           onClick={handleCreateGrn}
           disabled={isCreatingGrn}
         >
-          {isCreatingGrn ? "Posting GRN..." : "Post GRN and Update Stock"}
+          {isCreatingGrn ? "Posting..." : "Post Stock Received"}
         </button>
       </div>
 
@@ -1091,7 +1282,7 @@ export const ProcurementLifecyclePage = () => {
         className={textareaClass}
         value={grnForm.notes}
         onChange={(e) => setGrnForm((s) => ({ ...s, notes: e.target.value }))}
-        placeholder="GRN notes / acknowledgement"
+        placeholder="Stock received notes / acknowledgement"
         rows={2}
       />
 
@@ -1124,10 +1315,192 @@ export const ProcurementLifecyclePage = () => {
     </>
   );
 
+  const renderIssueStage = () => (
+    <>
+      <h2 className={sectionTitleClass}>6. Stock Issue</h2>
+      <p className={sectionHintClass}>
+        Issue stock out of the store to the unit that requested it. Issuing deducts it from store stock
+        and records it against the requisition. Partial issues are allowed.
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <span className={labelClass}>Requisition *</span>
+          <SearchableSelect
+            buttonClassName="py-2"
+            placeholder={issueRequisitionOptions.length ? "Select requisition" : "Nothing left to issue"}
+            searchPlaceholder="Search by REQ #, unit, part number or description..."
+            options={issueRequisitionOptions}
+            value={issueForm.stock_movement_id ? Number(issueForm.stock_movement_id) : null}
+            onChange={(value) => setIssueForm({ stock_movement_id: toId(value), quantities: {} })}
+          />
+        </div>
+        {issueRequisition && (
+          <div className="text-sm text-[var(--theme-text-secondary)] md:pt-5">
+            Issuing to{" "}
+            <span className="font-semibold text-[var(--theme-text-primary)]">
+              {requisitionUnit(issueRequisition)}
+            </span>{" "}
+            · {requisitionOrigin(issueRequisition)}
+          </div>
+        )}
+      </div>
+
+      {issueRequisition && (
+        <>
+          <div className="mt-4 overflow-x-auto rounded border border-[var(--theme-divider)]">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className={tableHeadClass}>
+                <tr>
+                  <th className="px-3 py-2 text-left">Item</th>
+                  <th className="px-3 py-2 text-right">Requested</th>
+                  <th className="px-3 py-2 text-right">Issued</th>
+                  <th className="px-3 py-2 text-right">Outstanding</th>
+                  <th className="px-3 py-2 text-right">In store</th>
+                  <th className="px-3 py-2 text-right">Issue now</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--theme-divider)] text-[var(--theme-text-secondary)]">
+                {(issueRequisition.stocks ?? []).map((line, index) => {
+                  const inv = line.inventory_id ? inventoryById.get(Number(line.inventory_id)) : undefined;
+                  const inStore = Number(inv?.current_stock ?? 0);
+                  const outstanding = lineOutstanding(line);
+                  const canIssue = !!line.inventory_id && outstanding > 0 && inStore > 0;
+                  return (
+                    <tr key={`${line.inventory_id ?? line.spare_id}-${index}`}>
+                      <td className="px-3 py-2 text-[var(--theme-text-primary)]">
+                        {line.inventory
+                          ? inventoryLabel(line.inventory)
+                          : inv
+                            ? inventoryLabel(inv)
+                            : `Spare #${line.spare_id}`}
+                      </td>
+                      <td className="px-3 py-2 text-right">{line.quantity_requested}</td>
+                      <td className="px-3 py-2 text-right">{lineIssued(line)}</td>
+                      <td className="px-3 py-2 text-right">{outstanding}</td>
+                      <td className={cn("px-3 py-2 text-right", inStore < outstanding && "text-amber-400")}>
+                        {inStore}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <input
+                          type="number"
+                          min={0}
+                          max={Math.min(outstanding, inStore)}
+                          aria-label="Quantity to issue"
+                          className={`${fieldClass} w-24 text-right`}
+                          placeholder={canIssue ? String(Math.min(outstanding, inStore)) : "-"}
+                          disabled={!canIssue}
+                          value={issueForm.quantities[index] ?? ""}
+                          onChange={(e) =>
+                            setIssueForm((s) => ({
+                              ...s,
+                              quantities: { ...s.quantities, [index]: e.target.value },
+                            }))
+                          }
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={ghostButtonClass}
+              onClick={() =>
+                setIssueForm((s) => ({
+                  ...s,
+                  quantities: Object.fromEntries(
+                    (issueRequisition.stocks ?? []).map((line, index) => {
+                      const inStore = Number(
+                        inventoryById.get(Number(line.inventory_id))?.current_stock ?? 0,
+                      );
+                      const qty = line.inventory_id ? Math.min(lineOutstanding(line), inStore) : 0;
+                      return [index, qty > 0 ? String(qty) : ""];
+                    }),
+                  ),
+                }))
+              }
+            >
+              Fill available
+            </button>
+            <button
+              type="button"
+              className={accentButtonClass}
+              onClick={handleIssueStock}
+              disabled={isIssuing}
+            >
+              {isIssuing ? "Issuing..." : `Issue to ${requisitionUnit(issueRequisition)}`}
+            </button>
+          </div>
+        </>
+      )}
+
+      <h3 className="mt-8 mb-3 text-sm font-semibold text-[var(--theme-text-primary)]">
+        Issue status
+      </h3>
+      <div className="overflow-x-auto rounded border border-[var(--theme-divider)]">
+        <table className="w-full min-w-[640px] text-sm">
+          <thead className={tableHeadClass}>
+            <tr>
+              <th className="px-3 py-2 text-left">Requisition</th>
+              <th className="px-3 py-2 text-left">Unit</th>
+              <th className="px-3 py-2 text-left">Issued</th>
+              <th className="px-3 py-2 text-left">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--theme-divider)] text-[var(--theme-text-secondary)]">
+            {requisitions.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
+                  No requisitions yet.
+                </td>
+              </tr>
+            ) : (
+              requisitions.slice(0, 10).map((req) => {
+                const status = issueStatus(req);
+                const lines = req.stocks ?? [];
+                return (
+                  <tr key={req.id}>
+                    <td className="px-3 py-2">
+                      <span className="text-[var(--theme-text-primary)]">REQ #{req.id}</span>
+                      <div className="text-xs text-[var(--theme-text-muted)]">
+                        {describeRequisitionItems(req)}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">{requisitionUnit(req)}</td>
+                    <td className="px-3 py-2">
+                      {lines.reduce((sum, line) => sum + lineIssued(line), 0)} /{" "}
+                      {lines.reduce((sum, line) => sum + Number(line.quantity_requested), 0)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {status === "full" ? (
+                        <span className="text-xs text-emerald-400">Fully issued</span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="text-xs text-[var(--theme-accent)] hover:underline"
+                          onClick={() => handleOpenIssue(req.id)}
+                        >
+                          {status === "partial" ? "Partially issued · Issue rest →" : "Issue →"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+
   const renderSummaryStage = () => (
     <>
       <h2 className={`${sectionTitleClass} mb-4`}>Lifecycle Summary</h2>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-center">
         {[
           { label: "Requisitions", value: requisitions.length },
           { label: "RFQs", value: rfqs.length },
@@ -1143,17 +1516,24 @@ export const ProcurementLifecyclePage = () => {
           <p className="text-xs text-[var(--theme-text-muted)]">Approved Quotes</p>
           <p className="text-2xl font-bold text-emerald-500">{approvedQuotationByRfq.size}</p>
         </div>
+        <div className="rounded bg-[var(--theme-bg-panel)] p-3">
+          <p className="text-xs text-[var(--theme-text-muted)]">Fully Issued</p>
+          <p className="text-2xl font-bold text-emerald-500">
+            {requisitions.filter((req) => issueStatus(req) === "full").length}
+          </p>
+        </div>
       </div>
 
       <div className="mt-5 overflow-x-auto rounded border border-[var(--theme-divider)]">
-        <table className="w-full min-w-[960px] text-sm">
+        <table className="w-full min-w-[1040px] text-sm">
           <thead className={tableHeadClass}>
             <tr>
               <th className="px-3 py-2 text-left">Requisition</th>
               <th className="px-3 py-2 text-left">RFQ</th>
               <th className="px-3 py-2 text-left">Approved Quotation</th>
               <th className="px-3 py-2 text-left">Purchase Order</th>
-              <th className="px-3 py-2 text-left">GRN</th>
+              <th className="px-3 py-2 text-left">Stock Received</th>
+              <th className="px-3 py-2 text-left">Issued To</th>
               <th className="px-3 py-2 text-left">Current Stage</th>
               <th className="px-3 py-2 text-left">Actions</th>
             </tr>
@@ -1161,21 +1541,29 @@ export const ProcurementLifecyclePage = () => {
           <tbody className="divide-y divide-[var(--theme-divider)]">
             {lifecycleRows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
+                <td colSpan={8} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
                   No lifecycle records yet.
                 </td>
               </tr>
             ) : (
               lifecycleRows.map((row) => {
-                const currentStage = row.grn
-                  ? "Completed (GRN Posted)"
-                  : row.po
-                    ? "Purchase Order Created"
-                    : row.approvedQuotation
-                      ? "Quotation Approved"
-                      : row.rfq
-                        ? "RFQ Issued"
-                        : "Requisition Created";
+                const issued = issueStatus(row.req);
+                // Requisitions for parts already in store can be issued without
+                // going through procurement, so issue status takes precedence.
+                const currentStage =
+                  issued === "full"
+                    ? "Completed (Issued)"
+                    : issued === "partial"
+                      ? "Partially Issued"
+                      : row.grn
+                        ? "Stock Received"
+                        : row.po
+                          ? "Purchase Order Created"
+                          : row.approvedQuotation
+                            ? "Quotation Approved"
+                            : row.rfq
+                              ? "RFQ Issued"
+                              : "Requisition Created";
 
                 return (
                   <tr key={row.req.id} className="text-[var(--theme-text-secondary)]">
@@ -1193,6 +1581,9 @@ export const ProcurementLifecyclePage = () => {
                     </td>
                     <td className="px-3 py-2">{row.po ? `PO #${row.po.id}` : "-"}</td>
                     <td className="px-3 py-2">{row.grn ? row.grn.grn_number : "-"}</td>
+                    <td className="px-3 py-2">
+                      {issued === "none" ? "-" : requisitionUnit(row.req)}
+                    </td>
                     <td className="px-3 py-2">
                       <span className="inline-flex rounded-full border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)] px-2 py-1 text-xs text-[var(--theme-accent)]">
                         {currentStage}
@@ -1222,8 +1613,18 @@ export const ProcurementLifecyclePage = () => {
                           onClick={() => handleOpenGrn(row.po?.id)}
                         >
                           <Icon icon="mdi:package-check" className="h-3.5 w-3.5" />
-                          Open GRN
+                          Receive Stock
                         </button>
+                        {issued !== "full" && (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded border border-sky-500/40 px-2 py-1 text-xs text-[var(--theme-text-primary)] hover:bg-sky-500/10"
+                            onClick={() => handleOpenIssue(row.req.id)}
+                          >
+                            <Icon icon="mdi:truck-delivery-outline" className="h-3.5 w-3.5" />
+                            Issue Stock
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1242,6 +1643,7 @@ export const ProcurementLifecyclePage = () => {
     "quotation-section": renderQuotationStage,
     "po-section": renderPoStage,
     "grn-section": renderGrnStage,
+    "issue-section": renderIssueStage,
     "snapshot-section": renderSummaryStage,
   };
 
@@ -1253,7 +1655,8 @@ export const ProcurementLifecyclePage = () => {
       <div>
         <h1 className="text-2xl font-bold text-[var(--theme-text-primary)]">Procurement Inventory Life Cycle</h1>
         <p className="text-sm mt-1 text-[var(--theme-text-muted)]">
-          Requisition, RFQ, quotation approval, purchase order and goods received, one stage at a time.
+          Requisition, RFQ, quotation approval, purchase order, stock received and issue to units, one
+          stage at a time.
         </p>
       </div>
 

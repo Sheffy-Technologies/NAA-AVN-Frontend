@@ -290,6 +290,7 @@ export type StockMovement = {
   movement_type: "issue" | "receipt";
   work_order_id?: number | null;
   requesting_unit_id?: number | null;
+  requesting_unit?: Pick<InventoryUnit, "id" | "name"> | null;
   performed_by?: number | null;
   notes?: string | null;
   created_at?: string;
@@ -331,6 +332,13 @@ export type Rfq = {
   stock_movement_id: number;
   rfq_number: string;
   requested_by?: number | null;
+  requester?: {
+    id: number;
+    firstname?: string | null;
+    lastname?: string | null;
+    username?: string | null;
+    email?: string | null;
+  } | null;
   status?: "draft" | "sent" | "closed" | "cancelled" | string;
   notes?: string | null;
   issued_at?: string | null;
@@ -536,6 +544,18 @@ export const inventoryApi = createApi({
         data: body,
       }),
     }),
+    // Issues stock out of the store to the requisition's unit. The backend
+    // deducts store stock and records the issued quantity in one transaction.
+    issueStockMovement: builder.mutation<
+      StockMovement,
+      { id: number; items: Array<{ stock_movement_stock_id: number; quantity: number }> }
+    >({
+      query: ({ id, items }) => ({
+        url: `/stock-movements/${id}/issue`,
+        method: "POST",
+        data: { items },
+      }),
+    }),
     getRfqs: builder.query<Rfq[], void>({
       query: () => ({
         url: "/rfqs",
@@ -650,6 +670,7 @@ export const {
   useGetCurrenciesQuery,
   useGetStockMovementsQuery,
   useCreateStockMovementMutation,
+  useIssueStockMovementMutation,
   useGetRfqsQuery,
   useGetRfqByIdQuery,
   useCreateRfqMutation,

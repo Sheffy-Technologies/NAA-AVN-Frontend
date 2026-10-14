@@ -9,14 +9,33 @@ import {
 } from "@/features/maintenance/api";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import {
+  useCreateInventoryMutation,
   useCreateStockMovementMutation,
+  useGetExpenseCategoriesQuery,
   useGetInventoriesQuery,
 } from "@/features/inventory/api";
+import { NewInventoryItemFields } from "@/features/inventory/components/NewInventoryItemFields";
+import {
+  emptyNewInventoryDraft,
+  toCreateInventoryPayload,
+  toNewInventoryPayload,
+  type NewInventoryDraft,
+} from "@/features/inventory/newInventoryItem";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect, type MultiSelectOption } from "@/shared/ui/multi-select/MultiSelect";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { toInventoryOptions } from "@/features/inventory/inventoryOptions";
+import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
+import { exportNaavnPdf } from "@/shared/documents/naavnPdf";
+import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
+import {
+  buildWorkOrderDocument,
+  formatPersonnelName,
+  formatReporter,
+  getTaskAssignedPersonnel,
+  getTaskMaintenanceInventories,
+} from "@/features/maintenance/workOrderDocument";
 
 const PERSONNEL_FILTERS = {
   branches: [],
@@ -38,69 +57,6 @@ const formatDate = (value?: string | null) => {
   });
 };
 
-const formatReporter = (
-  reporter:
-    | number
-    | {
-        id?: number;
-        firstname?: string | null;
-        lastname?: string | null;
-        full_name?: string | null;
-        service_number?: string | null;
-        email?: string | null;
-      }
-    | null
-    | undefined,
-) => {
-  if (reporter == null) return "-";
-  if (typeof reporter === "number") return String(reporter);
-
-  const fullName = reporter.full_name?.trim();
-  if (fullName) return fullName;
-
-  const name = [reporter.firstname, reporter.lastname]
-    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    .join(" ")
-    .trim();
-  if (name) return name;
-
-  if (reporter.service_number?.trim()) return reporter.service_number;
-  if (reporter.email?.trim()) return reporter.email;
-  if (reporter.id) return `Personnel #${reporter.id}`;
-
-  return "-";
-};
-
-const formatPersonnelName = (person: {
-  id?: number;
-  firstname?: string | null;
-  lastname?: string | null;
-  othernames?: string | null;
-  full_name?: string | null;
-  service_number?: string | null;
-  call_sign?: string | null;
-  rank?: { abbreviation?: string | null; name?: string | null } | null;
-}) => {
-  const fullName = person.full_name?.trim();
-  const baseName =
-    fullName ||
-    [person.firstname, person.othernames, person.lastname]
-      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-      .join(" ")
-      .trim();
-
-  const rankLabel = person.rank?.abbreviation?.trim() || person.rank?.name?.trim() || "";
-  const label = [rankLabel, baseName || person.service_number || person.call_sign || ""]
-    .filter((value) => value.length > 0)
-    .join(" ")
-    .trim();
-
-  if (label) return label;
-  if (person.id) return `Personnel #${person.id}`;
-
-  return "Unassigned";
-};
-
 export const WorkOrderDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -113,10 +69,12 @@ export const WorkOrderDetailsPage = () => {
     {}
   );
   const [quantityByTask, setQuantityByTask] = useState<Record<number, string>>({});
+  // Tasks requisitioning a part that isn't in inventory yet.
+  const [newItemByTask, setNewItemByTask] = useState<Record<number, NewInventoryDraft | null>>({});
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
     null
   );
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<"excel" | "pdf" | null>(null);
 
   const { data: workOrder, isLoading, isError, refetch } = useGetWorkOrderByIdQuery(
     workOrderId as number,
@@ -125,7 +83,13 @@ export const WorkOrderDetailsPage = () => {
   const { data: personnel = [], isLoading: isPersonnelLoading } = useGetPersonnelQuery(
     PERSONNEL_FILTERS
   );
-  const { data: inventories = [], isLoading: isInventoriesLoading } = useGetInventoriesQuery();
+  const {
+    data: inventories = [],
+    isLoading: isInventoriesLoading,
+    refetch: refetchInventories,
+  } = useGetInventoriesQuery();
+  const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
+  const [createInventory, { isLoading: isCreatingInventory }] = useCreateInventoryMutation();
   const [createMaintenanceInventory, { isLoading: isRequestingInventory }] =
     useCreateMaintenanceInventoryMutation();
   const [updateMaintenanceInventory, { isLoading: isInstallingInventory }] =
@@ -167,48 +131,6 @@ export const WorkOrderDetailsPage = () => {
       return acc;
     }, {});
   }, [workOrder]);
-
-  function getTaskAssignedPersonnel(task: {
-    assignedPersonnel?: Array<{
-      id: number;
-      firstname?: string | null;
-      lastname?: string | null;
-      othernames?: string | null;
-      full_name?: string | null;
-      service_number?: string | null;
-      call_sign?: string | null;
-      rank?: { abbreviation?: string | null; name?: string | null } | null;
-    }>;
-    assigned_personnel?: Array<{
-      id: number;
-      firstname?: string | null;
-      lastname?: string | null;
-      othernames?: string | null;
-      full_name?: string | null;
-      service_number?: string | null;
-      call_sign?: string | null;
-      rank?: { abbreviation?: string | null; name?: string | null } | null;
-    }>;
-  }) {
-    return task.assignedPersonnel ?? task.assigned_personnel ?? [];
-  }
-
-  const getTaskMaintenanceInventories = (task: {
-    maintenanceInventories?: Array<{
-      id: number;
-      quantity: number;
-      disposition: string;
-      inventory_id: number;
-      inventory?: { part_number?: string | null; current_stock?: number } | null;
-    }>;
-    maintenance_inventories?: Array<{
-      id: number;
-      quantity: number;
-      disposition: string;
-      inventory_id: number;
-      inventory?: { part_number?: string | null; current_stock?: number } | null;
-    }>;
-  }) => task.maintenanceInventories ?? task.maintenance_inventories ?? [];
 
   const handleRequestInventory = async (taskId: number) => {
     setFeedback(null);
@@ -291,10 +213,11 @@ export const WorkOrderDetailsPage = () => {
     setFeedback(null);
     const selectedInventoryIdRaw = selectedInventoryByTask[taskId];
     const quantityRaw = quantityByTask[taskId] ?? "1";
-    const selectedInventoryId = Number(selectedInventoryIdRaw);
+    let selectedInventoryId = Number(selectedInventoryIdRaw);
     const quantity = Number(quantityRaw);
+    const newItemDraft = newItemByTask[taskId];
 
-    if (!selectedInventoryId || Number.isNaN(selectedInventoryId)) {
+    if (!newItemDraft && (!selectedInventoryId || Number.isNaN(selectedInventoryId))) {
       setFeedback({
         type: "error",
         message: `Select an inventory item to create a parts requisition for task #${taskId}.`,
@@ -308,6 +231,29 @@ export const WorkOrderDetailsPage = () => {
         message: `Enter a valid quantity to create a parts requisition for task #${taskId}.`,
       });
       return;
+    }
+
+    if (newItemDraft) {
+      const result = toNewInventoryPayload(newItemDraft);
+      if ("error" in result) {
+        setFeedback({ type: "error", message: result.error });
+        return;
+      }
+      try {
+        selectedInventoryId = (await createInventory(toCreateInventoryPayload(result.payload)).unwrap())
+          .id;
+      } catch (error: unknown) {
+        const responseError = error as { data?: { message?: string } };
+        setFeedback({
+          type: "error",
+          message: responseError?.data?.message || "Failed to add the new inventory item.",
+        });
+        return;
+      }
+      // Point the task at the item just created, so a retry doesn't add it twice.
+      setSelectedInventoryByTask((prev) => ({ ...prev, [taskId]: String(selectedInventoryId) }));
+      setNewItemByTask((prev) => ({ ...prev, [taskId]: null }));
+      refetchInventories();
     }
 
     try {
@@ -384,103 +330,35 @@ export const WorkOrderDetailsPage = () => {
     }
   };
 
-  const handleExportExcel = async () => {
-    if (!workOrder || isExportingExcel) return;
+  const handleExport = async (format: "excel" | "pdf") => {
+    if (!workOrder || exportingFormat) return;
 
-    setIsExportingExcel(true);
+    const documents = [buildWorkOrderDocument(workOrder)];
+    const fileName = sanitizeDocumentFileName(`NAAVN Work Order ${workOrder.id}`);
+
+    setExportingFormat(format);
     try {
-      const XLSX = await import("xlsx");
-      const workbook = XLSX.utils.book_new();
-
-      const summaryRows = [
-        {
-          "Work Order ID": workOrder.id,
-          Title: workOrder.title || `Work Order #${workOrder.id}`,
-          "Asset ID": workOrder.asset_id ?? "-",
-          "Asset Name": workOrder.asset?.name || "-",
-          "Asset Type": workOrder.asset?.type || "-",
-          "Reported By": formatReporter(workOrder.reported_by),
-          "Created At": formatDate(workOrder.created_at),
-          "Updated At": formatDate(workOrder.updated_at),
-        },
-      ];
-
-      const taskRows = (workOrder.tasks || []).map((task) => ({
-        "Task ID": task.id,
-        "Task Type": task.task_type || "routine",
-        Status: task.status || "pending",
-        Description: task.description || "-",
-        "Program Name": task.program?.name || "-",
-        "Defect Title": task.defect?.title || "-",
-        "Labour Hours": task.actual_labour_hours ?? "-",
-        "Labour Rate": task.labour_rate ?? "-",
-      }));
-
-      const assignedPersonnelRows: Array<Record<string, string | number>> =
-        (workOrder.tasks || []).flatMap((task): Array<Record<string, string | number>> => {
-        const assignedPersonnel = getTaskAssignedPersonnel(task);
-        if (assignedPersonnel.length === 0) {
-          return [
-            {
-              "Task ID": task.id,
-              "Personnel ID": "-",
-              Name: "Unassigned",
-              "Service Number": "-",
-              "Call Sign": "-",
-            },
-          ];
-        }
-
-        return assignedPersonnel.map((person) => ({
-          "Task ID": task.id,
-          "Personnel ID": person.id,
-          Name: formatPersonnelName(person),
-          "Service Number": person.service_number || "-",
-          "Call Sign": person.call_sign || "-",
-        }));
-      });
-
-      const inventoryRows: Array<Record<string, string | number>> =
-        (workOrder.tasks || []).flatMap((task): Array<Record<string, string | number>> => {
-        const inventoriesForTask = getTaskMaintenanceInventories(task);
-        if (inventoriesForTask.length === 0) {
-          return [
-            {
-              "Task ID": task.id,
-              "Inventory ID": "-",
-              Item: "No inventory record",
-              Quantity: "-",
-              Status: "-",
-            },
-          ];
-        }
-
-        return inventoriesForTask.map((item) => ({
-          "Task ID": task.id,
-          "Inventory ID": item.inventory_id,
-          Item: item.inventory?.part_number || `Inventory #${item.inventory_id}`,
-          Quantity: item.quantity,
-          Status: item.disposition,
-        }));
-      });
-
-      const addSheet = (name: string, rows: Array<Record<string, string | number>>) => {
-        const data = rows.length > 0 ? rows : [{ Info: "No records" }];
-        const sheet = XLSX.utils.json_to_sheet(data);
-        XLSX.utils.book_append_sheet(workbook, sheet, name);
-      };
-
-      addSheet("Summary", summaryRows);
-      addSheet("Tasks", taskRows);
-      addSheet("Assigned Personnel", assignedPersonnelRows);
-      addSheet("Inventory", inventoryRows);
-
-      XLSX.writeFile(workbook, `work-order-${workOrder.id}.xlsx`);
-      dispatch(showToast({ message: "Work order Excel downloaded", type: "success" }));
+      if (format === "excel") {
+        await exportNaavnExcel(documents, fileName);
+      } else {
+        await exportNaavnPdf(documents, fileName);
+      }
+      dispatch(
+        showToast({
+          message: format === "excel" ? "Work order Excel downloaded" : "Work order PDF downloaded",
+          type: "success",
+        }),
+      );
     } catch {
-      dispatch(showToast({ message: "Failed to export work order Excel", type: "error" }));
+      dispatch(
+        showToast({
+          message:
+            format === "excel" ? "Failed to export work order Excel" : "Failed to export work order PDF",
+          type: "error",
+        }),
+      );
     } finally {
-      setIsExportingExcel(false);
+      setExportingFormat(null);
     }
   };
 
@@ -876,25 +754,45 @@ export const WorkOrderDetailsPage = () => {
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                            <SearchableSelect
-                              className="md:col-span-2"
-                              buttonClassName="py-2"
-                              placeholder={isInventoriesLoading ? "Loading inventory..." : "Select Inventory Item"}
-                              searchPlaceholder="Search by part number or description..."
-                              options={inventoryOptions}
-                              value={
-                                selectedInventoryByTask[task.id]
-                                  ? Number(selectedInventoryByTask[task.id])
-                                  : null
-                              }
-                              onChange={(value) =>
-                                setSelectedInventoryByTask((prev) => ({
-                                  ...prev,
-                                  [task.id]: value === null ? "" : String(value),
-                                }))
-                              }
-                              disabled={isInventoriesLoading}
-                            />
+                            <div className="md:col-span-2 flex gap-2">
+                              <SearchableSelect
+                                className="flex-1 min-w-0"
+                                buttonClassName="py-2"
+                                placeholder={
+                                  newItemByTask[task.id]
+                                    ? "New item (details below)"
+                                    : isInventoriesLoading
+                                      ? "Loading inventory..."
+                                      : "Select Inventory Item"
+                                }
+                                searchPlaceholder="Search by part number or description..."
+                                options={inventoryOptions}
+                                value={
+                                  !newItemByTask[task.id] && selectedInventoryByTask[task.id]
+                                    ? Number(selectedInventoryByTask[task.id])
+                                    : null
+                                }
+                                onChange={(value) =>
+                                  setSelectedInventoryByTask((prev) => ({
+                                    ...prev,
+                                    [task.id]: value === null ? "" : String(value),
+                                  }))
+                                }
+                                disabled={isInventoriesLoading || !!newItemByTask[task.id]}
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setNewItemByTask((prev) => ({
+                                    ...prev,
+                                    [task.id]: prev[task.id] ? null : emptyNewInventoryDraft(),
+                                  }))
+                                }
+                                className="shrink-0 rounded border border-[#0A4D66]/50 px-3 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20"
+                              >
+                                {newItemByTask[task.id] ? "Pick from list" : "Not in list?"}
+                              </button>
+                            </div>
 
                             <input
                               type="number"
@@ -911,31 +809,48 @@ export const WorkOrderDetailsPage = () => {
                             />
 
                             <div className="space-y-2">
-                              <button
-                                type="button"
-                                onClick={() => handleRequestInventory(task.id)}
-                                disabled={isRequestingInventory || isInventoriesLoading}
-                                className="w-full rounded border border-[#7FD5FF]/50 px-3 py-2 text-sm text-[#7FD5FF] hover:bg-[#0A4D66]/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {isRequestingInventory ? "Requesting..." : "Request Inventory"}
-                              </button>
+                              {/* A new item has no stock yet, so it can only be requisitioned. */}
+                              {!newItemByTask[task.id] && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRequestInventory(task.id)}
+                                  disabled={isRequestingInventory || isInventoriesLoading}
+                                  className="w-full rounded border border-[#7FD5FF]/50 px-3 py-2 text-sm text-[#7FD5FF] hover:bg-[#0A4D66]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {isRequestingInventory ? "Requesting..." : "Request Inventory"}
+                                </button>
+                              )}
 
-                              {isInventoryInsufficientForTask(task.id) && (
+                              {(newItemByTask[task.id] || isInventoryInsufficientForTask(task.id)) && (
                                 <button
                                   type="button"
                                   onClick={() => handleRequestProcurement(task.id)}
-                                  disabled={isRequestingProcurement}
+                                  disabled={isRequestingProcurement || isCreatingInventory}
                                   className="w-full rounded border border-amber-400/50 px-3 py-2 text-sm text-amber-300 hover:bg-amber-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                  {isRequestingProcurement
-                                    ? "Creating Parts Requisition..."
-                                    : "Parts Requisition"}
+                                  {isCreatingInventory
+                                    ? "Adding Item..."
+                                    : isRequestingProcurement
+                                      ? "Creating Parts Requisition..."
+                                      : "Parts Requisition"}
                                 </button>
                               )}
                             </div>
                           </div>
 
-                          {isInventoryInsufficientForTask(task.id) && (
+                          {newItemByTask[task.id] && (
+                            <div className="mb-4">
+                              <NewInventoryItemFields
+                                draft={newItemByTask[task.id] as NewInventoryDraft}
+                                onChange={(next) =>
+                                  setNewItemByTask((prev) => ({ ...prev, [task.id]: next }))
+                                }
+                                expenseCategories={expenseCategories}
+                              />
+                            </div>
+                          )}
+
+                          {!newItemByTask[task.id] && isInventoryInsufficientForTask(task.id) && (
                             <p className="text-[11px] text-amber-300 mb-4">
                               Selected inventory stock is lower than requested quantity. You can create a parts requisition directly.
                             </p>
@@ -987,11 +902,19 @@ export const WorkOrderDetailsPage = () => {
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={handleExportExcel}
-                  disabled={isExportingExcel}
+                  onClick={() => handleExport("excel")}
+                  disabled={exportingFormat !== null}
                   className="rounded border border-emerald-400/50 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isExportingExcel ? "Exporting..." : "Export Excel"}
+                  {exportingFormat === "excel" ? "Exporting..." : "Export Excel"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExport("pdf")}
+                  disabled={exportingFormat !== null}
+                  className="rounded border border-emerald-400/50 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {exportingFormat === "pdf" ? "Exporting..." : "Export PDF"}
                 </button>
                 <button
                   type="button"

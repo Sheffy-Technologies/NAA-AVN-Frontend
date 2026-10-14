@@ -36,3 +36,24 @@ export const describeRequisitionItems = (movement?: StockMovement | null) => {
 /** Short origin label for a requisition: its work order, or "Direct" when raised without one. */
 export const requisitionOrigin = (movement: Pick<StockMovement, "work_order_id">) =>
   movement.work_order_id ? `WO #${movement.work_order_id}` : "Direct";
+
+/** Requesting unit of a requisition, i.e. who the stock is issued out to. */
+export const requisitionUnit = (movement: Pick<StockMovement, "requesting_unit" | "requesting_unit_id">) =>
+  movement.requesting_unit?.name ??
+  (movement.requesting_unit_id ? `Unit #${movement.requesting_unit_id}` : "No unit");
+
+type RequisitionLine = NonNullable<StockMovement["stocks"]>[number];
+
+/** Quantity already issued out on a requisition line (tracked as `quantity_approved`). */
+export const lineIssued = (line: RequisitionLine) => Number(line.quantity_approved ?? 0);
+
+export const lineOutstanding = (line: RequisitionLine) =>
+  Math.max(0, Number(line.quantity_requested) - lineIssued(line));
+
+/** How much of a requisition has been issued out to its requesting unit. */
+export const issueStatus = (movement?: StockMovement | null): "none" | "partial" | "full" => {
+  const lines = movement?.stocks ?? [];
+  const issued = lines.reduce((sum, line) => sum + lineIssued(line), 0);
+  if (lines.length === 0 || issued === 0) return "none";
+  return lines.every((line) => lineOutstanding(line) === 0) ? "full" : "partial";
+};
