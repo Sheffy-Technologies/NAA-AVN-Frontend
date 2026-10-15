@@ -616,8 +616,9 @@ export const ProcurementLifecyclePage = () => {
       setPoNewInventory(emptyNewInventoryDraft());
       setSuccess("Purchase order created from approved RFQ.");
       refetchPurchaseOrders();
-    } catch {
-      setError("Failed to create purchase order.");
+    } catch (err: unknown) {
+      const responseError = err as { data?: { message?: string } };
+      setError(responseError?.data?.message || "Failed to create purchase order.");
     }
   };
 
