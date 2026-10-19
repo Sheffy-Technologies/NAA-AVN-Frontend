@@ -220,7 +220,6 @@ export const MaintenancePage = () => {
   const [selectedComplianceId, setSelectedComplianceId] = useState<number | null>(null);
   const [selectedDefectId, setSelectedDefectId] = useState<number | null>(null);
   const [isExportingWorkOrders, setIsExportingWorkOrders] = useState(false);
-  const [isCreateDefectOpen, setIsCreateDefectOpen] = useState(false);
   const [selectedDefectIds, setSelectedDefectIds] = useState<Set<number>>(new Set());
   const [defectWorkOrderFeedback, setDefectWorkOrderFeedback] = useState<
     { type: "success" | "error"; message: string } | null
@@ -1184,10 +1183,6 @@ export const MaintenancePage = () => {
               )}
             </div>
           )}
-          <CreateDefectModal
-            open={isCreateDefectOpen}
-            onClose={() => setIsCreateDefectOpen(false)}
-          />
         </div>
       )}
 

@@ -82,14 +82,10 @@ export const NewInventoryItemFields = ({
           searchPlaceholder="Search stores..."
           options={STORE_OPTIONS}
           value={draft.store}
-          onChange={(e) => set("store", e.target.value as NewInventoryDraft["store"])}
-        >
-          <option value="bonded">Bonded</option>
-          <option value="quarantine">Quarantine</option>
-          <option value="flammable">Flammable</option>
-          <option value="rubber">Rubber</option>
-          <option value="others">Others</option>
-        </select>
+          onChange={(value) =>
+            set("store", (value ?? "others") as NewInventoryDraft["store"])
+          }
+        />
         <select
           className={inputClassName}
           aria-label="New item expense category"

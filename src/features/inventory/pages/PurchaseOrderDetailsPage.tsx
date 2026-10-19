@@ -5,7 +5,7 @@ import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
-import { exportNaavnPdf } from "@/shared/documents/naavnPdf";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
 import {
   useCreateGoodsReceivedNoteMutation,
@@ -16,6 +16,7 @@ import {
 } from "../api";
 import { BackButton } from "@/shared/ui/button";
 import { PurchaseOrderPrintDocument } from "../components/PurchaseOrderPrintDocument";
+import { buildPurchaseOrderDocument, personName } from "../procurementDocuments";
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -33,7 +34,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 export default function PurchaseOrderDetailsPage() {
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  const currentUser = useAppSelector((state) => state.auth.user);
   const printDocumentRef = useRef<HTMLDivElement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [grnFormOpen, setGrnFormOpen] = useState(false);

@@ -17,12 +17,6 @@ import {
   useGetSuppliersQuery,
 } from "@/features/inventory/api";
 import { useAppDispatch } from "@/app/store";
-import { CreatePartsRequisitionModal } from "@/features/inventory/components/CreatePartsRequisitionModal";
-import {
-  describeRequisitionItems,
-  issueStatus,
-  requisitionOrigin,
-} from "@/features/inventory/inventoryOptions";
 import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";

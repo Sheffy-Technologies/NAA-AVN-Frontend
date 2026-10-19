@@ -6,8 +6,8 @@ import { showToast } from "@/shared/store/toastSlice";
 import { assetsApi, useGetAssetsQuery } from "@/features/assets/api";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import {
-  useCreateDefectRecordMutation,
-  type CreateDefectRecordRequest,
+  useCreateDefectMutation,
+  type CreateMaintenanceDefectRequest,
 } from "@/features/maintenance/api";
 
 const PERSONNEL_FILTERS = {
@@ -19,7 +19,7 @@ const PERSONNEL_FILTERS = {
   status: [],
 };
 
-const SEVERITIES: Array<NonNullable<CreateDefectRecordRequest["severity"]>> = [
+const SEVERITIES: Array<NonNullable<CreateMaintenanceDefectRequest["severity"]>> = [
   "low",
   "medium",
   "high",
@@ -32,7 +32,7 @@ const emptyForm = () => ({
   asset_id: null as number | null,
   title: "",
   description: "",
-  severity: "medium" as NonNullable<CreateDefectRecordRequest["severity"]>,
+  severity: "medium" as NonNullable<CreateMaintenanceDefectRequest["severity"]>,
   reported_by: null as number | null,
   reported_at: today(),
   reported_hours: "",
@@ -59,7 +59,7 @@ export const CreateDefectModal = ({ open, onClose }: CreateDefectModalProps) => 
     PERSONNEL_FILTERS,
     { skip: !open },
   );
-  const [createDefectRecord, { isLoading: isSaving }] = useCreateDefectRecordMutation();
+  const [createDefectRecord, { isLoading: isSaving }] = useCreateDefectMutation();
 
   const assetOptions: SearchableSelectOption[] = useMemo(
     () =>

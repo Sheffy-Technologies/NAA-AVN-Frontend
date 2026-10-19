@@ -28,6 +28,16 @@ import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect, type MultiSelectOption } from "@/shared/ui/multi-select/MultiSelect";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { BackButton } from "@/shared/ui/button";
+import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
+import { exportNaavnPdf } from "@/shared/documents/naavnPdf";
+import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
+import {
+  buildWorkOrderDocument,
+  formatPersonnelName,
+  formatReporter,
+  getTaskAssignedPersonnel,
+  getTaskMaintenanceInventories,
+} from "@/features/maintenance/workOrderDocument";
 
 const PERSONNEL_FILTERS = {
   branches: [],
@@ -74,7 +84,13 @@ export const WorkOrderDetailsPage = () => {
   const { data: personnel = [], isLoading: isPersonnelLoading } = useGetPersonnelQuery(
     PERSONNEL_FILTERS
   );
-  const { data: inventories = [], isLoading: isInventoriesLoading } = useGetInventoriesQuery();
+  const {
+    data: inventories = [],
+    isLoading: isInventoriesLoading,
+    refetch: refetchInventories,
+  } = useGetInventoriesQuery();
+  const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
+  const [createInventory, { isLoading: isCreatingInventory }] = useCreateInventoryMutation();
   const [completeWorkOrder, { isLoading: isCompletingWorkOrder }] =
     useCompleteWorkOrderMutation();
   const [createMaintenanceInventory, { isLoading: isRequestingInventory }] =
@@ -355,8 +371,8 @@ export const WorkOrderDetailsPage = () => {
     }
   };
 
-  const handleExportExcel = async () => {
-    if (!workOrder || isExportingExcel) return;
+  const handleExport = async (format: "excel" | "pdf") => {
+    if (!workOrder || exportingFormat) return;
 
     const documents = [buildWorkOrderDocument(workOrder)];
     const fileName = sanitizeDocumentFileName(`NAAVN Work Order ${workOrder.id}`);
@@ -470,8 +486,8 @@ export const WorkOrderDetailsPage = () => {
                   )}
                   <button
                     type="button"
-                    onClick={handleExportExcel}
-                    disabled={isExportingExcel}
+                    onClick={() => handleExport("excel")}
+                    disabled={exportingFormat !== null}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-[#001825] border border-[#0A4D66]/60 text-gray-200 hover:text-white hover:border-[#7FD5FF] transition-colors"
                   >
                     <Icon icon="mdi:file-excel" className="w-4 h-4 text-emerald-400" />
@@ -817,12 +833,15 @@ export const WorkOrderDetailsPage = () => {
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-2 flex gap-2">
                               <SearchableSelect
+                                className="flex-1 min-w-0"
                                 size="sm"
                                 placeholder="Search & select spare part..."
                                 searchPlaceholder="Type part description or part number..."
-                                value={selectedInventoryByTask[task.id] ?? ""}
+                                value={
+                                  newItemByTask[task.id] ? "" : selectedInventoryByTask[task.id] ?? ""
+                                }
                                 onChange={(val) =>
                                   setSelectedInventoryByTask((prev) => ({
                                     ...prev,
@@ -831,7 +850,20 @@ export const WorkOrderDetailsPage = () => {
                                 }
                                 options={inventoryOptions}
                                 clearable={true}
+                                disabled={isInventoriesLoading || !!newItemByTask[task.id]}
                               />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setNewItemByTask((prev) => ({
+                                    ...prev,
+                                    [task.id]: prev[task.id] ? null : emptyNewInventoryDraft(),
+                                  }))
+                                }
+                                className="shrink-0 rounded border border-[#0A4D66]/50 px-3 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20"
+                              >
+                                {newItemByTask[task.id] ? "Pick from list" : "Not in list?"}
+                              </button>
                             </div>
 
                             <input
@@ -942,12 +974,21 @@ export const WorkOrderDetailsPage = () => {
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={handleExportExcel}
-                  disabled={isExportingExcel}
+                  onClick={() => handleExport("excel")}
+                  disabled={exportingFormat !== null}
                   className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
                   <Icon icon="mdi:file-excel-outline" className="w-4 h-4 text-emerald-400" />
-                  <span>{isExportingExcel ? "Exporting..." : "Export Excel"}</span>
+                  <span>{exportingFormat === "excel" ? "Exporting..." : "Export Excel"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExport("pdf")}
+                  disabled={exportingFormat !== null}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-emerald-400" />
+                  <span>{exportingFormat === "pdf" ? "Exporting..." : "Export PDF"}</span>
                 </button>
               </div>
             </div>

@@ -13,6 +13,11 @@ import {
   useApproveSupplierQuotationMutation,
 } from "@/features/inventory/api";
 import { RfqPrintDocument } from "../components/RfqPrintDocument";
+import { buildRfqDocument } from "../procurementDocuments";
+import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
+import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
+
+const ALL_SUPPLIERS = "all";
 
 const formatDateShort = (isoString: string | null | undefined) => {
   if (!isoString) return "-";
@@ -78,7 +83,7 @@ export function RfqDetailsPage() {
 
   // Which invited supplier the exported RFQ form is addressed to ("" = first supplier).
   const [exportSupplierId, setExportSupplierId] = useState<string>("");
-  const [exportingFormat, setExportingFormat] = useState<"excel" | "pdf" | null>(null);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const sortedQuotations = useMemo(
     () =>
@@ -155,8 +160,8 @@ export function RfqDetailsPage() {
     }
   };
 
-  const handleExport = async (format: "excel" | "pdf") => {
-    if (!rfq || exportingFormat) return;
+  const handleExportExcel = async () => {
+    if (!rfq || isExportingExcel) return;
 
     const invited = rfq.suppliers ?? [];
     const selected =
@@ -167,28 +172,14 @@ export function RfqDetailsPage() {
       `RFQ ${rfq.rfq_number || rfq.id}${addressees.length === 1 && addressees[0] ? ` ${addressees[0].name}` : ""}`,
     );
 
-    setExportingFormat(format);
+    setIsExportingExcel(true);
     try {
-      if (format === "excel") {
-        await exportNaavnExcel(documents, fileName);
-      } else {
-        await exportNaavnPdf(documents, fileName);
-      }
-      dispatch(
-        showToast({
-          message: format === "excel" ? "Excel downloaded" : "PDF downloaded",
-          type: "success",
-        }),
-      );
+      await exportNaavnExcel(documents, fileName);
+      dispatch(showToast({ message: "Excel downloaded", type: "success" }));
     } catch {
-      dispatch(
-        showToast({
-          message: format === "excel" ? "Failed to download Excel" : "Failed to download PDF",
-          type: "error",
-        }),
-      );
+      dispatch(showToast({ message: "Failed to download Excel", type: "error" }));
     } finally {
-      setExportingFormat(null);
+      setIsExportingExcel(false);
     }
   };
 
@@ -314,6 +305,33 @@ export function RfqDetailsPage() {
           >
             <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-sky-500" />
             Preview Document
+          </button>
+          {(rfq.suppliers?.length ?? 0) > 1 && (
+            <select
+              value={exportSupplierId}
+              onChange={(e) => setExportSupplierId(e.target.value)}
+              title="Supplier the exported RFQ spreadsheet is addressed to"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs shadow-sm"
+            >
+              {rfq.suppliers?.map((supplier, index) => (
+                <option key={supplier.id} value={index === 0 ? "" : String(supplier.id)}>
+                  Attn: {supplier.name}
+                </option>
+              ))}
+              <option value={ALL_SUPPLIERS}>All suppliers (one sheet each)</option>
+            </select>
+          )}
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={isExportingExcel}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <Icon
+              icon={isExportingExcel ? "mdi:loading" : "mdi:file-excel-outline"}
+              className={cn("w-4 h-4 text-emerald-600 dark:text-emerald-400", isExportingExcel && "animate-spin")}
+            />
+            {isExportingExcel ? "Exporting..." : "Export Excel"}
           </button>
           <button
             type="button"

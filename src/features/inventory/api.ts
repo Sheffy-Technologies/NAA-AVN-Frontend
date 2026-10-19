@@ -294,7 +294,6 @@ export type StockMovement = {
   movement_type: "issue" | "receipt";
   work_order_id?: number | null;
   requesting_unit_id?: number | null;
-  requesting_unit?: Pick<InventoryUnit, "id" | "name"> | null;
   performed_by?: number | null;
   notes?: string | null;
   created_at?: string;
