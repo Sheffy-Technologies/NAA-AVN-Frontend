@@ -21,6 +21,8 @@ import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch, useAppSelector } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { AppTabs } from "@/shared/ui/tabs/AppTabs";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 
 type PassTab = "personnel" | "history";
 
@@ -229,22 +231,16 @@ export const PassPage = () => {
         </div>
 
         {/* Inner tabs: Personnel | Pass History */}
-        <div className="flex items-center gap-1 border-b border-[#0A4D66]/40 px-4 sm:px-6">
-          {(["personnel", "history"] as PassTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors capitalize",
-                activeTab === tab
-                  ? "border-[#7FD5FF] text-white"
-                  : "border-transparent text-gray-400 hover:text-gray-200",
-              )}
-            >
-              {tab === "personnel" ? "Personnel" : "Pass History"}
-            </button>
-          ))}
+        <div className="px-4 sm:px-6">
+          <AppTabs<PassTab>
+            tabs={[
+              { id: "personnel", label: "Personnel Pass Status", icon: "mdi:account-badge-outline" },
+              { id: "history", label: "Pass History Records", icon: "mdi:history" },
+            ]}
+            activeTab={activeTab}
+            onChange={(tab) => setActiveTab(tab)}
+            size="sm"
+          />
         </div>
 
         {/* ── Personnel Tab ─────────────────────────────────── */}
@@ -344,8 +340,21 @@ export const PassPage = () => {
                     filteredPersonnel.map((p, i) => (
                       <tr
                         key={p.id}
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view personnel details"
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () =>
+                            navigate(`/dashboard/personnel/${p.id}`),
+                          )
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () =>
+                            navigate(`/dashboard/personnel/${p.id}`),
+                          )
+                        }
                         className={cn(
-                          "border-t border-[#0A4D66]/40",
+                          "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                           i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                         )}
                       >
@@ -585,8 +594,21 @@ export const PassPage = () => {
                     filteredHistory.map((pass, i) => (
                       <tr
                         key={pass.id}
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view personnel details"
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () =>
+                            navigate(`/dashboard/personnel/${pass.personnel_id}`),
+                          )
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () =>
+                            navigate(`/dashboard/personnel/${pass.personnel_id}`),
+                          )
+                        }
                         className={cn(
-                          "border-t border-[#0A4D66]/40",
+                          "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                           i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                         )}
                       >

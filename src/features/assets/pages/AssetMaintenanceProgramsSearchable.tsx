@@ -72,9 +72,10 @@ export default function AssetMaintenanceProgramsSearchable({
           <button
             type="button"
             onClick={() => navigate("/dashboard/maintenance/planning")}
-            className="text-xs text-emerald-400 border border-emerald-400 rounded px-2 py-1 ml-2 hover:bg-emerald-900/20"
+            className="inline-flex items-center gap-1 text-xs text-white bg-[#0A4D66] hover:bg-[#083c50] border border-[#7FD5FF]/40 rounded-lg px-2.5 py-1 ml-2 font-medium shadow-sm transition-colors"
           >
-            + Add Task
+            <Icon icon="mdi:plus" className="w-3.5 h-3.5 text-[#7FD5FF]" />
+            <span>Add Task</span>
           </button>
         </div>
         <button

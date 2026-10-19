@@ -128,8 +128,8 @@ export const UnitFormPage = () => {
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
             isSubmitting
-              ? "bg-[#0369A1]/50 text-black cursor-not-allowed"
-              : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
+              ? "bg-[#0369A1]/50 text-white/70 cursor-not-allowed"
+              : "bg-[#0369A1] text-white hover:bg-[#0369A1]/90",
           )}
         >
           <span>{isSubmitting ? "Saving..." : "Save & Exit"}</span>

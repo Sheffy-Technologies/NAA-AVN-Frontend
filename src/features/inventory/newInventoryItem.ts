@@ -3,6 +3,8 @@ export type InventoryStore = "bonded" | "quarantine" | "flammable" | "rubber" | 
 export type NewInventoryDraft = {
   part_number: string;
   description: string;
+  nsn: string;
+  ata_chapter: string;
   measurement_unit: string;
   unit_cost: string;
   re_order_level: string;
@@ -15,6 +17,8 @@ export type NewInventoryDraft = {
 export type NewInventoryPayload = {
   part_number: string;
   description: string;
+  nsn?: string | null;
+  ata_chapter?: string | null;
   measurement_unit?: string | null;
   unit_cost?: number | null;
   re_order_level?: number | null;
@@ -27,6 +31,8 @@ export type NewInventoryPayload = {
 export const emptyNewInventoryDraft = (): NewInventoryDraft => ({
   part_number: "",
   description: "",
+  nsn: "",
+  ata_chapter: "",
   measurement_unit: "",
   unit_cost: "",
   re_order_level: "",
@@ -62,6 +68,8 @@ export const toNewInventoryPayload = (
     payload: {
       part_number: draft.part_number.trim(),
       description: draft.description.trim(),
+      nsn: optionalText(draft.nsn),
+      ata_chapter: optionalText(draft.ata_chapter),
       measurement_unit: optionalText(draft.measurement_unit),
       unit_cost: unitCost,
       re_order_level: reOrder,

@@ -38,16 +38,16 @@ export const NumberedPagination = ({ currentPage, lastPage, onPageChange }: Prop
             onClick={() => onPageChange(item)}
             aria-current={item === currentPage ? "page" : undefined}
             className={cn(
-              "min-w-8 rounded border px-2.5 py-1 text-xs transition-colors",
+              "min-w-8 rounded border px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:ring-offset-1",
               item === currentPage
-                ? "border-[#0369A1] bg-[#0369A1] text-white"
-                : "border-[#0A4D66]/40 text-gray-300 hover:bg-[#0A4D66]/30 hover:text-white",
+                ? "border-[#0284C7] bg-[#0284C7] text-white font-semibold shadow-sm"
+                : "border-slate-300 text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:text-gray-300 dark:hover:bg-slate-800 dark:hover:text-white",
             )}
           >
             {item}
           </button>
         ) : (
-          <span key={item} className="px-1.5 text-xs text-gray-500">
+          <span key={item} className="px-1.5 text-xs text-slate-500 dark:text-gray-400">
             …
           </span>
         ),

@@ -1,35 +1,40 @@
-import { useMemo, useState, type ChangeEvent, useRef } from "react";
+import { useMemo, useState, useEffect, type ChangeEvent, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import {
+  ProcurementSection,
+  type ProcurementSubTabKey,
+} from "@/features/inventory/components/ProcurementSection";
 import {
   useGetInventoriesQuery,
   useUpdateInventoryStockMutation,
   useDeleteInventoryMutation,
   useGetInventoryRequisitionsQuery,
-  useGetStockMovementsQuery,
-  useGetRfqsQuery,
-  useCreateRfqMutation,
   useCreateInventoryMutation,
   useCreateSupplierMutation,
   useGetExpenseCategoriesQuery,
-  useGetSupplierQuotationsQuery,
-  useGetGoodsReceivedNotesQuery,
   useGetSuppliersQuery,
-  useGetPurchaseOrdersQuery,
 } from "@/features/inventory/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { useTheme } from "@/context/ThemeContext";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import { DataTable } from "@/shared/ui/table/DataTable";
+import { MetricCard } from "@/shared/ui/metric/MetricCard";
 import {
   ImportCsvModal,
   type ImportCsvField,
 } from "@/shared/components/ImportCsvModal";
+import {
+  onInteractiveRowClick,
+  formatCategoryName,
+  isCategoryMatch,
+} from "../inventoryUtils";
 
 type InventoryStatusLevel = "High" | "Low" | "Critical" | "Medium" | "Unknown";
 
@@ -56,13 +61,6 @@ type InventoryRow = {
   measurementUnit: string;
 };
 
-type PurchaseOrderListRow = {
-  id: number;
-  name?: string | null;
-  status?: string | null;
-  order_date?: string | null;
-  expected_date_of_delivery?: string | null;
-};
 
 type MultiFilterState<T> = {
   all: boolean;
@@ -70,20 +68,15 @@ type MultiFilterState<T> = {
 };
 
 const INVENTORY_TABS = [
-  { id: "Stocks", label: "All", icon: "mdi:cube-outline" },
+  { id: "Stock", label: "Stock", icon: "mdi:cube-outline" },
   {
     id: "Requisitions",
     label: "Requisitions",
     icon: "mdi:file-document-outline",
   },
   {
-    id: "Parts Requisitions",
-    label: "Parts Requisitions",
-    icon: "mdi:wrench-clock",
-  },
-  {
-    id: "Purchase Orders",
-    label: "Purchase Orders",
+    id: "Procurement",
+    label: "Procurement",
     icon: "mdi:cart-outline",
   },
   {
@@ -225,7 +218,7 @@ const INVENTORY_IMPORT_FIELDS: ImportCsvField[] = [
 
 const SUPPLIER_IMPORT_FIELDS: ImportCsvField[] = [
   { key: "name", label: "Supplier Name", required: true, example: "Sky Parts Ltd" },
-  { key: "contact", label: "Contact", required: false, example: "+234 801 234 5678" },
+  { key: "contact", label: "Phone Number", required: false, example: "+234 801 234 5678" },
   { key: "email", label: "Email", required: false, example: "sales@skyparts.com" },
   { key: "address", label: "Address", required: false, example: "12 Airport Road, Lagos" },
 ];
@@ -443,7 +436,7 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
             type="button"
             onClick={handleSubmit}
             className={cn(
-              "w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
+              "w-full mt-2 inline-flex items-center justify-center px-4 py-2 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
               (isLoading || isQuantityInvalid) &&
                 "opacity-70 cursor-not-allowed",
             )}
@@ -458,22 +451,110 @@ const UpdateStockModal = ({ row, onClose }: UpdateStockModalProps) => {
 };
 
 export const InventoryPage = () => {
+  const { isDark } = useTheme();
   const dispatch = useAppDispatch();
   const location = useLocation();
+  const navigate = useNavigate();
+
   const initialTab = useMemo(() => {
     const nextTab = (location.state as { inventoryTab?: unknown } | null)
       ?.inventoryTab;
-    if (
-      typeof nextTab === "string" &&
-      INVENTORY_TABS.some((tab) => tab.id === nextTab)
-    ) {
-      return nextTab;
+    if (typeof nextTab === "string") {
+      if (nextTab === "Stocks" || nextTab === "Stock" || nextTab === "All") return "Stock";
+      if (nextTab === "Requisitions") return "Requisitions";
+      if (
+        nextTab === "Parts Requisitions" ||
+        nextTab === "Purchase Orders" ||
+        nextTab === "Procurement"
+      )
+        return "Procurement";
+      if (nextTab === "Suppliers") return "Suppliers";
     }
-    return "Stocks";
-  }, [location.state]);
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get("tab")?.toLowerCase();
+    if (tabParam === "stock" || tabParam === "stocks") return "Stock";
+    if (tabParam === "requisitions" || tabParam === "requisition") return "Requisitions";
+    if (
+      tabParam === "procurement" ||
+      tabParam === "parts" ||
+      tabParam === "purchase-orders"
+    )
+      return "Procurement";
+    if (tabParam === "suppliers" || tabParam === "supplier") return "Suppliers";
+    return "Stock";
+  }, [location.state, location.search]);
+
+  const initialProcurementSubTab = useMemo<ProcurementSubTabKey>(() => {
+    const nextTab = (location.state as { inventoryTab?: unknown } | null)
+      ?.inventoryTab;
+    if (nextTab === "Parts Requisitions") return "part-requisitions";
+    if (nextTab === "Purchase Orders") return "purchase-orders";
+    const params = new URLSearchParams(location.search);
+    const subtabParam = params.get("subtab")?.toLowerCase() as ProcurementSubTabKey | null;
+    const validSubTabs: ProcurementSubTabKey[] = [
+      "overview",
+      "pipeline",
+      "part-requisitions",
+      "quotations",
+      "purchase-orders",
+      "stock-received",
+      "stock-issued",
+    ];
+    if (subtabParam && validSubTabs.includes(subtabParam)) {
+      return subtabParam;
+    }
+    return "overview";
+  }, [location.state, location.search]);
 
   // State for Tabs and Filters
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState<"Stock" | "Requisitions" | "Procurement" | "Suppliers">(initialTab);
+  const [activeProcurementSubTab, setActiveProcurementSubTab] =
+    useState<ProcurementSubTabKey>(initialProcurementSubTab);
+
+  useEffect(() => {
+    const nextTab = (location.state as { inventoryTab?: unknown } | null)
+      ?.inventoryTab;
+    if (typeof nextTab === "string") {
+      if (nextTab === "Stocks" || nextTab === "Stock" || nextTab === "All") {
+        setActiveTab("Stock");
+      } else if (nextTab === "Requisitions") {
+        setActiveTab("Requisitions");
+      } else if (nextTab === "Parts Requisitions") {
+        setActiveTab("Procurement");
+        setActiveProcurementSubTab("part-requisitions");
+      } else if (nextTab === "Purchase Orders") {
+        setActiveTab("Procurement");
+        setActiveProcurementSubTab("purchase-orders");
+      } else if (nextTab === "Procurement") {
+        setActiveTab("Procurement");
+      } else if (nextTab === "Suppliers") {
+        setActiveTab("Suppliers");
+      }
+    }
+  }, [location.state]);
+
+  const handleTabChange = (tabId: (typeof INVENTORY_TABS)[number]["id"]) => {
+    setActiveTab(tabId);
+    setOpenActionId(null);
+    setOpenFilterMenu(null);
+    const params = new URLSearchParams(location.search);
+    params.set("tab", tabId.toLowerCase());
+    if (tabId === "Procurement") {
+      params.set("subtab", activeProcurementSubTab);
+    } else {
+      params.delete("subtab");
+    }
+    navigate({ search: params.toString() }, { replace: true });
+  };
+
+  const handleProcurementSubTabChange = (subTab: ProcurementSubTabKey) => {
+    setActiveProcurementSubTab(subTab);
+    const params = new URLSearchParams(location.search);
+    params.set("tab", "procurement");
+    params.set("subtab", subTab);
+    navigate({ search: params.toString() }, { replace: true });
+  };
+
   const [activeSubTab, setActiveSubTab] = useState("all");
   const [stockSearchQuery, setStockSearchQuery] = useState("");
   const [stockStatFilter, setStockStatFilter] = useState<
@@ -489,14 +570,7 @@ export const InventoryPage = () => {
     "all" | "month" | "quarter" | "year"
   >("all");
   const [requisitionUnitId, setRequisitionUnitId] = useState<number | "">("");
-  const [selectedPartRequisitionIds, setSelectedPartRequisitionIds] = useState<
-    number[]
-  >([]);
-  const [selectedRfqSupplierIds, setSelectedRfqSupplierIds] = useState<number[]>([]);
-
-  const navigate = useNavigate();
   const [deleteInventory] = useDeleteInventoryMutation();
-  const [createRfq, { isLoading: isCreatingPartsRfq }] = useCreateRfqMutation();
   const [createInventory] = useCreateInventoryMutation();
   const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
   const [isImportOpen, setIsImportOpen] = useState(false);
@@ -533,7 +607,7 @@ export const InventoryPage = () => {
     data: inventoriesData,
     isLoading: isInventoriesLoading,
     refetch: refetchInventories,
-  } = useGetInventoriesQuery(apiFilters, { skip: activeTab !== "Stocks" });
+  } = useGetInventoriesQuery(apiFilters, { skip: activeTab !== "Stock" });
 
   const handleImportInventoryRow = async (row: Record<string, string>) => {
     const unitMatch = units.find(
@@ -544,7 +618,10 @@ export const InventoryPage = () => {
     const categoryMatch = row.category
       ? expenseCategories.find(
           (c) =>
-            c.name.trim().toLowerCase() === row.category.trim().toLowerCase(),
+            c.name.trim().toLowerCase() === row.category.trim().toLowerCase() ||
+            formatCategoryName(c.name).toLowerCase() ===
+              row.category.trim().toLowerCase() ||
+            isCategoryMatch(row.category, c.name),
         )
       : undefined;
     if (row.category && !categoryMatch) {
@@ -615,7 +692,7 @@ export const InventoryPage = () => {
     isLoading: isSuppliersLoading,
     refetch: refetchSuppliers,
   } = useGetSuppliersQuery(undefined, {
-    skip: activeTab !== "Suppliers" && activeTab !== "Parts Requisitions",
+    skip: activeTab !== "Suppliers",
   });
 
   const [createSupplier] = useCreateSupplierMutation();
@@ -628,41 +705,6 @@ export const InventoryPage = () => {
       address: row.address || undefined,
     }).unwrap();
   };
-
-  const {
-    data: stockMovementsData = [],
-    isLoading: isPartsRequisitionsLoading,
-    refetch: refetchStockMovements,
-  } = useGetStockMovementsQuery(undefined, {
-    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-  });
-
-  const { data: rfqsData = [], refetch: refetchRfqs } = useGetRfqsQuery(
-    undefined,
-    {
-      skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-    },
-  );
-
-  const { data: quotationsData = [] } =
-    useGetSupplierQuotationsQuery(undefined, {
-      skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-    });
-
-  const { data: goodsReceivedNotesData = [] } = useGetGoodsReceivedNotesQuery(undefined, {
-    skip: activeTab !== "Parts Requisitions" && activeTab !== "Requisitions",
-  });
-
-  const {
-    data: purchaseOrdersData = [],
-    isLoading: isPurchaseOrdersLoading,
-    isError: isPurchaseOrdersError,
-  } = useGetPurchaseOrdersQuery(undefined, {
-    skip:
-      activeTab !== "Purchase Orders" &&
-      activeTab !== "Parts Requisitions" &&
-      activeTab !== "Requisitions",
-  });
 
   // Handlers
   const handleToggleAll =
@@ -704,8 +746,8 @@ export const InventoryPage = () => {
         inventoryId: `INV-${item.id.toString().padStart(4, "0")}`,
         partNumber: item.part_number,
         partName: item.description || item.part_name || "N/A",
-        category: item.expense_category?.name || "Uncategorized",
-        nsn: item.nsn_number || "-",
+        category: formatCategoryName(item.expense_category?.name),
+        nsn: item.nsn || item.nsn_number || "-",
         ataChapter: item.ata_chapter || "-",
         unit: item.unit?.name || "N/A",
         stockLevel: mapStockLevel(item.stock_level),
@@ -726,16 +768,37 @@ export const InventoryPage = () => {
   }, [inventoriesData, aircraftAssets]);
 
   const stockSubTabs = useMemo(() => {
-    const seen = new Set<string>();
-    const dynamic: { id: string; label: string }[] = [];
-    for (const row of inventoryRows) {
-      if (row.category && !seen.has(row.category)) {
-        seen.add(row.category);
-        dynamic.push({ id: row.category, label: row.category });
+    const standardCategories = [
+      { id: "all", label: "All" },
+      { id: "Aircraft spares", label: "Aircraft spares" },
+      { id: "Consumables", label: "Consumables" },
+      { id: "Ground support", label: "Ground support" },
+      { id: "General (QM Stores)", label: "General (QM Stores)" },
+    ];
+    const seen = new Set(standardCategories.map((c) => c.id.toLowerCase()));
+    seen.add("uncategorized");
+    seen.add("others");
+    seen.add("other");
+    seen.add("general(qm stores)");
+    seen.add("qm stores");
+
+    const extras: { id: string; label: string }[] = [];
+    if (expenseCategories && expenseCategories.length > 0) {
+      for (const cat of expenseCategories) {
+        const formatted = formatCategoryName(cat.name);
+        if (!seen.has(formatted.toLowerCase())) {
+          seen.add(formatted.toLowerCase());
+          extras.push({ id: formatted, label: formatted });
+        }
       }
     }
-    return [{ id: "all", label: "All" }, ...dynamic];
-  }, [inventoryRows]);
+
+    return [
+      ...standardCategories,
+      ...extras,
+      { id: "Uncategorized", label: "Uncategorized" },
+    ];
+  }, [expenseCategories]);
 
   const isExpiredRow = (row: InventoryRow) => {
     if (!row.expiryDate) return false;
@@ -747,7 +810,9 @@ export const InventoryPage = () => {
     const byCategory =
       activeSubTab === "all"
         ? inventoryRows
-        : inventoryRows.filter((row) => row.category === activeSubTab);
+        : inventoryRows.filter((row) =>
+            isCategoryMatch(row.category, activeSubTab),
+          );
 
     const query = stockSearchQuery.trim().toLowerCase();
     if (!query) return byCategory;
@@ -760,6 +825,8 @@ export const InventoryPage = () => {
         row.serialNumber,
         row.nsn,
         row.inventoryId,
+        row.aircraftType,
+        row.category,
       ].some((field) => field?.toLowerCase().includes(query)),
     );
   }, [inventoryRows, activeSubTab, stockSearchQuery]);
@@ -786,6 +853,9 @@ export const InventoryPage = () => {
     label: string;
     value: number;
     color: string;
+    badgeColor: "sky" | "emerald" | "amber" | "red";
+    icon: string;
+    badge: string;
     clickable: boolean;
   }> = [
     {
@@ -793,6 +863,9 @@ export const InventoryPage = () => {
       label: "Total Items",
       value: categorySearchFilteredRows.length,
       color: "bg-[#0369A1]",
+      badgeColor: "sky",
+      icon: "mdi:package-variant-closed",
+      badge: "Catalog",
       clickable: true,
     },
     {
@@ -803,6 +876,9 @@ export const InventoryPage = () => {
         0,
       ),
       color: "bg-emerald-400",
+      badgeColor: "emerald",
+      icon: "mdi:check-circle-outline",
+      badge: "Healthy",
       clickable: false,
     },
     {
@@ -811,6 +887,9 @@ export const InventoryPage = () => {
       value: categorySearchFilteredRows.filter((row) => row.stockLevel === "Low")
         .length,
       color: "bg-amber-400",
+      badgeColor: "amber",
+      icon: "mdi:alert-outline",
+      badge: "Reorder",
       clickable: true,
     },
     {
@@ -818,6 +897,9 @@ export const InventoryPage = () => {
       label: "Expired",
       value: categorySearchFilteredRows.filter(isExpiredRow).length,
       color: "bg-red-400",
+      badgeColor: "red",
+      icon: "mdi:clock-alert-outline",
+      badge: "Shelf-Life",
       clickable: true,
     },
     {
@@ -827,6 +909,9 @@ export const InventoryPage = () => {
         (row) => row.stockLevel === "Critical",
       ).length,
       color: "bg-red-600",
+      badgeColor: "red",
+      icon: "mdi:alert-octagon-outline",
+      badge: "Shortage",
       clickable: true,
     },
   ];
@@ -874,157 +959,6 @@ export const InventoryPage = () => {
     };
   }, [suppliersData]);
 
-  const partRequisitions = useMemo(() => {
-    return [...stockMovementsData]
-      .filter((movement) => movement.movement_type === "issue")
-      .sort((a, b) => b.id - a.id);
-  }, [stockMovementsData]);
-
-  const existingRfqStockMovementIds = useMemo(
-    () => new Set(rfqsData.map((rfq) => Number(rfq.stock_movement_id))),
-    [rfqsData],
-  );
-
-  const rfqRows = useMemo(() => {
-    return [...rfqsData].sort((a, b) => b.id - a.id);
-  }, [rfqsData]);
-
-  const lifecycleCardData = useMemo(
-    () => [
-      {
-        title: "1. Parts Requisition",
-        description: "Create or review parts requisitions from work orders",
-        count: partRequisitions.length,
-        color: "text-[#7FD5FF]",
-        hash: "#requisition-section",
-      },
-      {
-        title: "2. RFQ",
-        description: "Issue RFQs to multiple suppliers",
-        count: rfqsData.length,
-        color: "text-emerald-300",
-        hash: "#rfq-section",
-      },
-      {
-        title: "3. Supplier Quotation",
-        description: "Capture and approve quotations",
-        count: quotationsData.length,
-        color: "text-amber-300",
-        hash: "#rfq-section",
-      },
-      {
-        title: "4. Purchase Order",
-        description: "Create PO from approved quotation",
-        count: purchaseOrdersData.length,
-        color: "text-sky-300",
-        hash: "#po-section",
-      },
-      {
-        title: "5. GRN",
-        description: "Post goods received notes and update stock",
-        count: goodsReceivedNotesData.length,
-        color: "text-fuchsia-300",
-        hash: "#grn-section",
-      },
-    ],
-    [
-      goodsReceivedNotesData.length,
-      partRequisitions.length,
-      purchaseOrdersData.length,
-      quotationsData.length,
-      rfqsData.length,
-    ],
-  );
-
-  const handleTogglePartRequisition = (id: number, checked: boolean) => {
-    setSelectedPartRequisitionIds((current) => {
-      if (checked) {
-        if (current.includes(id)) return current;
-        return [...current, id];
-      }
-      return current.filter((itemId) => itemId !== id);
-    });
-  };
-
-  const handleToggleSupplierForRfq = (supplierId: number) => {
-    setSelectedRfqSupplierIds((current) =>
-      current.includes(supplierId)
-        ? current.filter((id) => id !== supplierId)
-        : [...current, supplierId],
-    );
-  };
-
-  const handleRequestRfqFromPartsRequisitions = async () => {
-    if (selectedPartRequisitionIds.length === 0) {
-      dispatch(
-        showToast({
-          message: "Select at least one parts requisition.",
-          type: "error",
-        }),
-      );
-      return;
-    }
-
-    if (selectedRfqSupplierIds.length === 0) {
-      dispatch(
-        showToast({
-          message: "Select at least one supplier for RFQ.",
-          type: "error",
-        }),
-      );
-      return;
-    }
-
-    const pendingIds = selectedPartRequisitionIds.filter(
-      (id) => !existingRfqStockMovementIds.has(id),
-    );
-
-    if (pendingIds.length === 0) {
-      dispatch(
-        showToast({
-          message: "All selected requisitions already have RFQs.",
-          type: "error",
-        }),
-      );
-      return;
-    }
-
-    let successCount = 0;
-    for (const stockMovementId of pendingIds) {
-      try {
-        await createRfq({
-          stock_movement_id: stockMovementId,
-          supplier_ids: selectedRfqSupplierIds,
-          status: "sent",
-          issued_at: new Date().toISOString(),
-          notes: `Bulk RFQ request from parts requisitions on ${new Date().toLocaleString()}`,
-        }).unwrap();
-        successCount += 1;
-      } catch {
-        // Continue and report aggregated result.
-      }
-    }
-
-    if (successCount > 0) {
-      dispatch(
-        showToast({
-          message: `RFQ requested for ${successCount} requisition${successCount > 1 ? "s" : ""}.`,
-          type: "success",
-        }),
-      );
-      setSelectedPartRequisitionIds([]);
-      refetchStockMovements();
-      refetchRfqs();
-    } else {
-      dispatch(
-        showToast({
-          message: "Failed to request RFQ for selected requisitions.",
-          type: "error",
-        }),
-      );
-    }
-  };
-
   const handleOpenRfqDetails = (rfqId: number) => {
     navigate(`/dashboard/inventory/rfq/${rfqId}`);
   };
@@ -1061,32 +995,9 @@ export const InventoryPage = () => {
     downloadCsv("requisitions.csv", [headers, ...rows]);
   };
 
-  const handleExportPartsRequisitions = () => {
-    const headers = ["Requisition ID", "Work Order", "Requested Qty", "Created", "RFQ Status"];
-    const rows = partRequisitions.map((r) => [
-      `REQ #${r.id}`,
-      r.work_order_id ? `WO #${r.work_order_id}` : "-",
-      String(r.quantity),
-      `${formatDateShort(r.created_at)} ${formatTimeShort(r.created_at)}`,
-      existingRfqStockMovementIds.has(r.id) ? "RFQ Requested" : "Pending RFQ",
-    ]);
-    downloadCsv("parts-requisitions.csv", [headers, ...rows]);
-  };
-
-  const handleExportPurchaseOrders = () => {
-    const headers = ["PO ID", "Name", "Status", "Order Date", "Expected Delivery"];
-    const rows = (purchaseOrdersData as PurchaseOrderListRow[]).map((o) => [
-      `#${o.id}`,
-      o.name || `PO #${o.id}`,
-      o.status || "-",
-      formatDateShort(o.order_date),
-      formatDateShort(o.expected_date_of_delivery),
-    ]);
-    downloadCsv("purchase-orders.csv", [headers, ...rows]);
-  };
 
   const handleExportSuppliers = () => {
-    const headers = ["Supplier", "Contact", "Email", "Address", "Created"];
+    const headers = ["Supplier", "Phone Number", "Email", "Address", "Created"];
     const rows = suppliersData.map((s) => [
       s.name,
       s.contact || "-",
@@ -1097,32 +1008,6 @@ export const InventoryPage = () => {
     downloadCsv("suppliers.csv", [headers, ...rows]);
   };
 
-  const renderLifecycleCards = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3 border-t border-[#0A4D66]/40 pt-4">
-      {lifecycleCardData.map((item) => (
-        <button
-          key={item.title}
-          type="button"
-          onClick={() =>
-            navigate(`/dashboard/inventory/procurement-lifecycle${item.hash}`)
-          }
-          className="text-left rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-3 hover:border-[#7FD5FF]/50 transition-colors"
-        >
-          <div className="text-xs text-gray-400">{item.title}</div>
-          <div className={cn("text-2xl font-bold mt-1", item.color)}>
-            {item.count}
-          </div>
-          <div className="text-[11px] text-gray-500 mt-1 line-clamp-2">
-            {item.description}
-          </div>
-          <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-[#7FD5FF]">
-            <span>Open Stage</span>
-            <Icon icon="mdi:arrow-right" className="w-3.5 h-3.5" />
-          </div>
-        </button>
-      ))}
-    </div>
-  );
 
   const resetFilters = () => {
     setUnitFilter({ all: true, selected: [] });
@@ -1150,26 +1035,36 @@ export const InventoryPage = () => {
   };
 
   const openActionRow =
-    activeTab === "Stocks"
+    activeTab === "Stock"
       ? (filteredInventoryRows.find((row) => row.id === openActionId) ?? null)
       : null;
 
   const renderInventoryActionMenu = (row: InventoryRow) => (
-    <>
+    <div className="py-1">
       <button
         type="button"
         onClick={() => handleOpenDetail(row.id)}
-        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+        className={cn(
+          "w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors",
+          isDark
+            ? "text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white"
+            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+        )}
       >
-        <Icon icon="mdi:eye" className="w-3.5 h-3.5 text-blue-400" />
-        View
+        <Icon icon="mdi:eye" className="w-3.5 h-3.5 text-sky-500" />
+        View Details
       </button>
       <button
         type="button"
         onClick={() => handleOpenEdit(row.id)}
-        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+        className={cn(
+          "w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors",
+          isDark
+            ? "text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white"
+            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+        )}
       >
-        <Icon icon="mdi:pencil" className="w-3.5 h-3.5 text-amber-400" />
+        <Icon icon="mdi:pencil" className="w-3.5 h-3.5 text-amber-500" />
         Edit
       </button>
       <button
@@ -1178,153 +1073,200 @@ export const InventoryPage = () => {
           setUpdateStockRow(row);
           setOpenActionId(null);
         }}
-        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+        className={cn(
+          "w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors",
+          isDark
+            ? "text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white"
+            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+        )}
       >
         <Icon
           icon="mdi:database-edit"
-          className="w-3.5 h-3.5 text-emerald-400"
+          className="w-3.5 h-3.5 text-emerald-500"
         />
         Update Stock
       </button>
       <button
         type="button"
-        className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white flex items-center gap-2"
+        className={cn(
+          "w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors",
+          isDark
+            ? "text-gray-200 hover:bg-[#0A4D66]/40 hover:text-white"
+            : "text-slate-700 hover:bg-slate-100 hover:text-slate-900",
+        )}
       >
-        <Icon icon="mdi:download" className="w-3.5 h-3.5 text-gray-400" />
+        <Icon icon="mdi:download" className="w-3.5 h-3.5 text-slate-400" />
         Download
       </button>
-      <div className="h-px bg-[#0A4D66]/40 my-1" />
+      <div className={cn("h-px my-1", isDark ? "bg-[#0A4D66]/40" : "bg-slate-200")} />
       <button
         type="button"
         onClick={() => handleDeleteInventory(row.id, row.partName)}
-        className="w-full text-left px-3 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 hover:text-red-300 flex items-center gap-2"
+        className={cn(
+          "w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors",
+          isDark
+            ? "text-red-400 hover:bg-[#0A4D66]/40 hover:text-red-300"
+            : "text-red-600 hover:bg-red-50 hover:text-red-700",
+        )}
       >
         <Icon icon="mdi:delete" className="w-3.5 h-3.5" />
         Delete
       </button>
-    </>
+    </div>
   );
 
   return (
     <div className="space-y-6">
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
-          {INVENTORY_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                setOpenActionId(null);
-                setOpenFilterMenu(null);
-              }}
-              className={cn(
-                "flex items-center space-x-2 pb-4 text-sm font-medium transition-colors relative",
-                activeTab === tab.id
-                  ? "text-[#7FD5FF]"
-                  : "text-gray-400 hover:text-gray-300",
-              )}
-            >
-              <Icon icon={tab.icon} className="w-5 h-5" />
-              <span>{tab.label}</span>
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
-              )}
-            </button>
-          ))}
+        <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full overflow-x-auto scrollbar-thin">
+          {INVENTORY_TABS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={cn(
+                  "flex items-center space-x-2 pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
+                  isActive
+                    ? isDark
+                      ? "text-[#7FD5FF] font-bold"
+                      : "text-[#0369A1] font-bold"
+                    : isDark
+                      ? "text-gray-400 hover:text-gray-300"
+                      : "text-slate-500 hover:text-slate-800",
+                )}
+              >
+                <Icon icon={tab.icon} className="w-5 h-5" />
+                <span>{tab.label}</span>
+                {isActive && (
+                  <div
+                    className={cn(
+                      "absolute bottom-0 left-0 right-0 h-0.5",
+                      isDark
+                        ? "bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]"
+                        : "bg-[#0369A1]",
+                    )}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       <div className="space-y-4">
-        {activeTab === "Stocks" ? (
+        {activeTab === "Stock" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-              <div className="flex justify-end mb-2">
+              {/* Dedicated Top Row: Full Category Navigation Tabs (Where red line indicated) + Create Purchase Order */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-[#0A4D66]/30">
+                <div className="overflow-x-auto pb-1 lg:pb-0 scrollbar-thin">
+                  <div className={cn("inline-flex items-center space-x-1 p-1 rounded-lg border", isDark ? "bg-[#001825] border-[#0A4D66]/50" : "bg-slate-100 border-slate-200")}>
+                    {stockSubTabs.map((subTab) => (
+                      <button
+                        key={subTab.id}
+                        type="button"
+                        onClick={() => setActiveSubTab(subTab.id)}
+                        className={cn(
+                          "px-3 py-1.5 rounded text-xs font-medium transition-all whitespace-nowrap",
+                          activeSubTab === subTab.id
+                            ? isDark
+                              ? "bg-[#0A4D66] text-white font-semibold shadow-sm border border-[#7FD5FF]/40"
+                              : "bg-[#0A4D66] text-white font-semibold shadow-sm"
+                            : isDark
+                              ? "text-gray-300 hover:text-white hover:bg-slate-800/40"
+                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60",
+                        )}
+                      >
+                        {subTab.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-500 text-black text-xs font-semibold shadow hover:bg-emerald-600 transition-colors"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors shrink-0 self-end lg:self-auto"
                   onClick={() => navigate("/dashboard/inventory/purchase-orders/new")}
                 >
-                  <Icon icon="mdi:cart-plus" className="w-4 h-4" />
-                  Create Purchase Order
+                  <Icon icon="mdi:cart-plus" className="w-4 h-4 text-white" />
+                  <span>Create Purchase Order</span>
                 </button>
               </div>
+
+              {/* Second Row: Search, View Mode Toggles & Filter Actions */}
               <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
-                  {stockSubTabs.map((subTab) => (
-                    <button
-                      key={subTab.id}
-                      type="button"
-                      onClick={() => setActiveSubTab(subTab.id)}
+                <div className="flex items-center gap-3 w-full lg:w-auto flex-1 max-w-xl">
+                  <div className="relative flex-1">
+                    <Icon
+                      icon="mdi:magnify"
+                      className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      value={stockSearchQuery}
+                      onChange={(e) => setStockSearchQuery(e.target.value)}
+                      placeholder="Search description, part number..."
                       className={cn(
-                        "px-3 py-1.5 rounded text-xs font-medium transition-colors",
-                        activeSubTab === subTab.id
-                          ? "bg-[#001825] text-white shadow-sm"
-                          : "text-gray-300 hover:text-white",
+                        "w-full rounded pl-9 pr-8 py-1.5 text-xs outline-none transition-colors border",
+                        isDark
+                          ? "bg-[#001825] border-[#0A4D66]/40 text-white placeholder:text-gray-500 focus:border-[#7FD5FF]"
+                          : "bg-white border-slate-300 text-slate-800 placeholder:text-gray-400 focus:border-[#0369A1] shadow-sm",
+                      )}
+                    />
+                    {stockSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setStockSearchQuery("")}
+                        title="Clear search"
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      >
+                        <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className={cn("flex items-center space-x-1 p-1 rounded-lg border shrink-0", isDark ? "bg-[#001825] border-[#0A4D66]/40" : "bg-slate-100 border-slate-200")}>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("table")}
+                      title="Table view"
+                      aria-label="Table view"
+                      className={cn(
+                        "p-1.5 rounded transition-all",
+                        viewMode === "table"
+                          ? isDark
+                            ? "bg-[#0A4D66] text-white shadow-sm border border-[#7FD5FF]/40"
+                            : "bg-white text-[#0A4D66] shadow-sm border border-slate-200 font-bold"
+                          : isDark
+                            ? "text-gray-300 hover:text-white"
+                            : "text-slate-500 hover:text-slate-900",
                       )}
                     >
-                      {subTab.label}
+                      <Icon icon="mdi:table" className="w-4 h-4" />
                     </button>
-                  ))}
-                </div>
-
-                <div className="relative w-full lg:w-64">
-                  <Icon
-                    icon="mdi:magnify"
-                    className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                  />
-                  <input
-                    type="text"
-                    value={stockSearchQuery}
-                    onChange={(e) => setStockSearchQuery(e.target.value)}
-                    placeholder="Search description, part number..."
-                    className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded pl-9 pr-8 py-1.5 text-xs text-white placeholder:text-gray-500 outline-none focus:border-[#7FD5FF]"
-                  />
-                  {stockSearchQuery && (
                     <button
                       type="button"
-                      onClick={() => setStockSearchQuery("")}
-                      title="Clear search"
-                      aria-label="Clear search"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      onClick={() => setViewMode("grid")}
+                      title="Grid view"
+                      aria-label="Grid view"
+                      className={cn(
+                        "p-1.5 rounded transition-all",
+                        viewMode === "grid"
+                          ? isDark
+                            ? "bg-[#0A4D66] text-white shadow-sm border border-[#7FD5FF]/40"
+                            : "bg-white text-[#0A4D66] shadow-sm border border-slate-200 font-bold"
+                          : isDark
+                            ? "text-gray-300 hover:text-white"
+                            : "text-slate-500 hover:text-slate-900",
+                      )}
                     >
-                      <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                      <Icon icon="mdi:view-grid" className="w-4 h-4" />
                     </button>
-                  )}
+                  </div>
                 </div>
-
-                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("table")}
-                    title="Table view"
-                    aria-label="Table view"
-                    className={cn(
-                      "p-1.5 rounded transition-colors",
-                      viewMode === "table"
-                        ? "bg-[#001825] text-white shadow-sm"
-                        : "text-gray-300 hover:text-white",
-                    )}
-                  >
-                    <Icon icon="mdi:table" className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("grid")}
-                    title="Grid view"
-                    aria-label="Grid view"
-                    className={cn(
-                      "p-1.5 rounded transition-colors",
-                      viewMode === "grid"
-                        ? "bg-[#001825] text-white shadow-sm"
-                        : "text-gray-300 hover:text-white",
-                    )}
-                  >
-                    <Icon icon="mdi:view-grid" className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="flex-1" />
 
                 <div
                   className="flex flex-wrap items-center gap-2 max-w-full"
@@ -1335,10 +1277,14 @@ export const InventoryPage = () => {
                     onClick={resetFilters}
                     disabled={selectedFilterCount === 0}
                     className={cn(
-                      "text-xs whitespace-nowrap bg-[#001825] px-2 py-1 rounded-full border border-[#0A4D66]/40 transition-colors",
+                      "text-xs whitespace-nowrap px-2.5 py-1 rounded-full border transition-colors",
                       selectedFilterCount === 0
-                        ? "text-gray-500 cursor-not-allowed"
-                        : "text-[#7FD5FF] hover:underline",
+                        ? isDark
+                          ? "bg-[#001825]/50 border-[#0A4D66]/30 text-gray-500 cursor-not-allowed"
+                          : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"
+                        : isDark
+                          ? "bg-[#001825] border-[#0A4D66]/60 text-[#7FD5FF] hover:underline cursor-pointer"
+                          : "bg-white border-blue-200 text-blue-600 hover:underline cursor-pointer shadow-sm",
                     )}
                   >
                     {selectedFilterCount} Reset Filter
@@ -1353,16 +1299,40 @@ export const InventoryPage = () => {
                         )
                       }
                       className={cn(
-                        "bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF] inline-flex items-center gap-1 whitespace-nowrap",
-                        !unitFilter.all && "border-[#7FD5FF] text-[#7FD5FF]",
+                        "rounded px-3 py-1.5 text-xs inline-flex items-center gap-1.5 whitespace-nowrap transition-colors border",
+                        isDark
+                          ? cn(
+                              "bg-[#001825] border-[#0A4D66]/40 text-white focus:outline-none focus:border-[#7FD5FF]",
+                              !unitFilter.all && "border-[#7FD5FF] text-[#7FD5FF]",
+                            )
+                          : cn(
+                              "bg-white border-slate-300 text-slate-800 shadow-sm focus:outline-none focus:border-[#0369A1]",
+                              !unitFilter.all && "border-blue-500 text-blue-600",
+                            ),
                       )}
                     >
-                      <span>
+                      <span
+                        className={cn(
+                          isDark
+                            ? unitFilter.all
+                              ? "text-gray-200"
+                              : "text-[#7FD5FF] font-medium"
+                            : unitFilter.all
+                              ? "text-slate-700 font-medium"
+                              : "text-blue-600 font-medium",
+                        )}
+                      >
                         {unitFilter.all
                           ? "All Units"
                           : `${unitFilter.selected.length} Units`}
                       </span>
-                      <Icon icon="mdi:chevron-down" className="w-3 h-3" />
+                      <Icon
+                        icon="mdi:chevron-down"
+                        className={cn(
+                          "w-3.5 h-3.5",
+                          isDark ? "text-gray-400" : "text-slate-500",
+                        )}
+                      />
                     </button>
                     {openFilterMenu === "units" && (
                       <div className="absolute top-full mt-1 left-0 z-40 w-56 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-3 text-xs text-gray-200">
@@ -1398,18 +1368,18 @@ export const InventoryPage = () => {
                 <button
                   type="button"
                   onClick={handleExportStocks}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
-                  <Icon icon="mdi:download" className="w-4 h-4" />
-                  Export CSV
+                  <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsImportOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
-                  <Icon icon="mdi:upload" className="w-4 h-4" />
-                  Import CSV
+                  <Icon icon="mdi:upload" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Import CSV</span>
                 </button>
                 <button
                   type="button"
@@ -1421,39 +1391,26 @@ export const InventoryPage = () => {
                 </button>
               </div>
 
-              <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
-                {stats.map((stat) =>
-                  stat.clickable ? (
-                    <button
-                      key={stat.id}
-                      type="button"
-                      onClick={() =>
-                        setStockStatFilter((current) =>
-                          current === stat.id ? "all" : stat.id,
-                        )
-                      }
-                      className={cn(
-                        "flex items-center space-x-2 whitespace-nowrap rounded-full px-2 py-1 transition-colors",
-                        stockStatFilter === stat.id
-                          ? "bg-[#0A4D66]/50 ring-1 ring-[#7FD5FF]/60"
-                          : "hover:bg-[#0A4D66]/25",
-                      )}
-                    >
-                      <div className={cn("w-2 h-2 rounded-full", stat.color)} />
-                      <span className="text-gray-400">{stat.label}:</span>
-                      <span className="text-white font-bold">{stat.value}</span>
-                    </button>
-                  ) : (
-                    <div
-                      key={stat.id}
-                      className="flex items-center space-x-2 whitespace-nowrap px-2 py-1"
-                    >
-                      <div className={cn("w-2 h-2 rounded-full", stat.color)} />
-                      <span className="text-gray-400">{stat.label}:</span>
-                      <span className="text-white font-bold">{stat.value}</span>
-                    </div>
-                  ),
-                )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 border-t border-[#0A4D66]/40 pt-4">
+                {stats.map((stat) => (
+                  <MetricCard
+                    key={stat.id}
+                    label={stat.label}
+                    value={stat.value}
+                    icon={stat.icon}
+                    badge={stat.badge}
+                    badgeColor={stat.badgeColor}
+                    isActive={stat.clickable && stockStatFilter === stat.id}
+                    onClick={
+                      stat.clickable
+                        ? () =>
+                            setStockStatFilter((current) =>
+                              current === stat.id ? "all" : stat.id,
+                            )
+                        : undefined
+                    }
+                  />
+                ))}
               </div>
             </div>
 
@@ -1468,26 +1425,43 @@ export const InventoryPage = () => {
                 {filteredInventoryRows.map((row, idx) => (
                   <tr
                     key={row.id}
+                    title="Click to view stock item details"
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("button, a, input, select, textarea, [role='button']")) {
+                        return;
+                      }
+                      navigate(`/dashboard/inventory/${row.id}`);
+                    }}
                     className={cn(
-                      "hover:bg-[#0A4D66]/20 transition-colors",
-                      idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                      "transition-colors cursor-pointer",
+                      isDark
+                        ? cn(
+                            "hover:bg-[#0A4D66]/20",
+                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          )
+                        : cn(
+                            "hover:bg-sky-50/80",
+                            idx % 2 === 0 ? "bg-white" : "bg-slate-50/60",
+                          ),
                     )}
                   >
                     <td className="px-6 py-4">
-                      <div className="font-medium text-white">
+                      <div className={cn("font-medium", isDark ? "text-white" : "text-slate-900")}>
                         {row.description || row.partName}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className={cn("text-xs", isDark ? "text-gray-500" : "text-slate-500")}>
                         {row.partNumber}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-400">
+                    <td className={cn("px-6 py-4", isDark ? "text-gray-400" : "text-slate-600")}>
                       {row.unit}
                     </td>
-                    <td className="px-6 py-4 text-gray-400">
+                    <td className={cn("px-6 py-4", isDark ? "text-gray-400" : "text-slate-600")}>
                       {row.aircraftType}
                     </td>
-                    <td className="px-6 py-4 text-gray-400">{row.category}</td>
+                    <td className={cn("px-6 py-4", isDark ? "text-gray-400" : "text-slate-600")}>
+                      {row.category}
+                    </td>
                     <td className="px-6 py-4">
                       <span
                         className={cn(
@@ -1498,12 +1472,12 @@ export const InventoryPage = () => {
                         {row.stockLevel}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right font-mono text-white">
+                    <td className={cn("px-6 py-4 text-right font-mono font-bold", isDark ? "text-white" : "text-slate-900")}>
                       {row.currentStock}
                     </td>
-                    <td className="px-6 py-4 text-gray-300">
+                    <td className={cn("px-6 py-4", isDark ? "text-gray-300" : "text-slate-600")}>
                       <div>{formatDateShort(row.lastUpdated)}</div>
-                      <div className="text-xs text-gray-500">
+                      <div className={cn("text-xs", isDark ? "text-gray-500" : "text-slate-500")}>
                         {formatTimeShort(row.lastUpdated)}
                       </div>
                     </td>
@@ -1513,8 +1487,18 @@ export const InventoryPage = () => {
                           actionButtonRefs.current[row.id] = node;
                         }}
                         type="button"
-                        onClick={() => handleToggleActions(row.id)}
-                        className="p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleActions(row.id);
+                        }}
+                        title="Open inventory actions"
+                        aria-label="Open inventory actions"
+                        className={cn(
+                          "p-1.5 rounded transition-colors",
+                          isDark
+                            ? "text-gray-400 hover:text-white hover:bg-[#0A4D66]/40"
+                            : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/80",
+                        )}
                       >
                         <Icon icon="mdi:dots-vertical" className="w-4 h-4" />
                       </button>
@@ -1650,23 +1634,34 @@ export const InventoryPage = () => {
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
               <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
-                  <button className="px-3 py-1.5 bg-[#001825] text-white rounded text-xs font-medium shadow-sm">
+                <div className={cn("flex items-center space-x-1 p-1 rounded-lg border", isDark ? "bg-[#0A4D66] border-[#0A4D66]" : "bg-slate-100 border-slate-200")}>
+                  <button
+                    className={cn(
+                      "px-3 py-1.5 rounded text-xs font-semibold shadow-sm border",
+                      isDark
+                        ? "bg-[#001825] text-white border-[#7FD5FF]/40"
+                        : "bg-white text-[#0A4D66] border-slate-200",
+                    )}
+                  >
                     Requisitions
                   </button>
                 </div>
 
-                <div className="flex items-center space-x-1 bg-[#0A4D66] p-1 rounded-lg border border-[#0A4D66]">
+                <div className={cn("flex items-center space-x-1 p-1 rounded-lg border", isDark ? "bg-[#0A4D66] border-[#0A4D66]" : "bg-slate-100 border-slate-200")}>
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
                     title="Table view"
                     aria-label="Table view"
                     className={cn(
-                      "p-1.5 rounded transition-colors",
+                      "p-1.5 rounded transition-all",
                       viewMode === "table"
-                        ? "bg-[#001825] text-white shadow-sm"
-                        : "text-gray-300 hover:text-white",
+                        ? isDark
+                          ? "bg-[#001825] text-white shadow-sm border border-[#7FD5FF]/40"
+                          : "bg-white text-[#0A4D66] shadow-sm border border-slate-200"
+                        : isDark
+                          ? "text-gray-300 hover:text-white"
+                          : "text-slate-500 hover:text-slate-900",
                     )}
                   >
                     <Icon icon="mdi:table" className="w-4 h-4" />
@@ -1677,10 +1672,14 @@ export const InventoryPage = () => {
                     title="Grid view"
                     aria-label="Grid view"
                     className={cn(
-                      "p-1.5 rounded transition-colors",
+                      "p-1.5 rounded transition-all",
                       viewMode === "grid"
-                        ? "bg-[#001825] text-white shadow-sm"
-                        : "text-gray-300 hover:text-white",
+                        ? isDark
+                          ? "bg-[#001825] text-white shadow-sm border border-[#7FD5FF]/40"
+                          : "bg-white text-[#0A4D66] shadow-sm border border-slate-200"
+                        : isDark
+                          ? "text-gray-300 hover:text-white"
+                          : "text-slate-500 hover:text-slate-900",
                     )}
                   >
                     <Icon icon="mdi:view-grid" className="w-4 h-4" />
@@ -1730,10 +1729,10 @@ export const InventoryPage = () => {
                 <button
                   type="button"
                   onClick={handleExportRequisitions}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
-                  <Icon icon="mdi:download" className="w-4 h-4" />
-                  Export CSV
+                  <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
                 </button>
                 <Link
                   to="/dashboard/inventory/requisitions/add"
@@ -1783,24 +1782,28 @@ export const InventoryPage = () => {
                     </div>
                   ))}
                 </div>
-
-                <Link
-                  to="/dashboard/inventory/procurement-lifecycle"
-                  className="inline-flex items-center gap-2 rounded-md border border-[#7FD5FF]/30 bg-[#0369A1]/10 px-3 py-2 text-xs font-medium text-[#7FD5FF] transition-colors hover:bg-[#0369A1]/20"
-                >
-                  <Icon icon="mdi:source-merge" className="h-4 w-4" />
-                  Procurement Lifecycle
-                </Link>
               </div>
-
-              {renderLifecycleCards()}
             </div>
 
             {viewMode === "table" ? (
-              <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+              <div
+                className={cn(
+                  "rounded-xl border overflow-x-auto",
+                  isDark
+                    ? "bg-[#001219] border-[#0A4D66]/40"
+                    : "bg-white border-slate-200 shadow-sm",
+                )}
+              >
                 <table className="w-full text-left border-collapse min-w-250">
                   <thead>
-                    <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <tr
+                      className={cn(
+                        "text-xs uppercase border-b",
+                        isDark
+                          ? "bg-[#001825] text-gray-400 border-[#0A4D66]/40"
+                          : "bg-slate-50 text-slate-500 border-slate-200",
+                      )}
+                    >
                       <th className="px-6 py-4 font-medium">Date</th>
                       <th className="px-6 py-4 font-medium">Time</th>
                       <th className="px-6 py-4 font-medium">
@@ -1813,7 +1816,12 @@ export const InventoryPage = () => {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  <tbody
+                    className={cn(
+                      "divide-y text-sm",
+                      isDark ? "divide-[#0A4D66]/20" : "divide-slate-100",
+                    )}
+                  >
                     {isRequisitionsLoading ? (
                       <tr>
                         <td
@@ -1850,18 +1858,53 @@ export const InventoryPage = () => {
                         return (
                           <tr
                             key={requisition.id}
+                            title="Click to view requisition details"
+                            onClick={(e) =>
+                              onInteractiveRowClick(e, () =>
+                                navigate(
+                                  `/dashboard/inventory/requisitions/${requisition.id}`,
+                                ),
+                              )
+                            }
                             className={cn(
-                              "hover:bg-[#0A4D66]/20 transition-colors",
-                              idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                              "transition-colors cursor-pointer",
+                              isDark
+                                ? cn(
+                                    "hover:bg-[#0A4D66]/20",
+                                    idx % 2 === 0
+                                      ? "bg-[#001219]"
+                                      : "bg-[#001825]",
+                                  )
+                                : cn(
+                                    "hover:bg-sky-50/80",
+                                    idx % 2 === 0
+                                      ? "bg-white"
+                                      : "bg-slate-50/60",
+                                  ),
                             )}
                           >
-                            <td className="px-6 py-4 text-gray-300">
+                            <td
+                              className={cn(
+                                "px-6 py-4",
+                                isDark ? "text-gray-300" : "text-slate-600",
+                              )}
+                            >
                               {formatDateShort(requisition.created_at)}
                             </td>
-                            <td className="px-6 py-4 text-gray-300">
+                            <td
+                              className={cn(
+                                "px-6 py-4",
+                                isDark ? "text-gray-300" : "text-slate-600",
+                              )}
+                            >
                               {formatTimeShort(requisition.created_at)}
                             </td>
-                            <td className="px-6 py-4 text-gray-200">
+                            <td
+                              className={cn(
+                                "px-6 py-4 font-medium",
+                                isDark ? "text-gray-200" : "text-slate-800",
+                              )}
+                            >
                               {requestingLocation}
                             </td>
                             <td className="px-6 py-4">
@@ -1874,20 +1917,31 @@ export const InventoryPage = () => {
                                 {statusLabel}
                               </span>
                             </td>
-                            <td className="px-6 py-4 text-gray-300">
+                            <td
+                              className={cn(
+                                "px-6 py-4",
+                                isDark ? "text-gray-300" : "text-slate-600",
+                              )}
+                            >
                               {lastUpdatedBy}
                             </td>
                             <td className="px-6 py-4 text-right">
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   navigate(
                                     `/dashboard/inventory/requisitions/${requisition.id}`,
-                                  )
-                                }
+                                  );
+                                }}
                                 title="View requisition"
                                 aria-label="View requisition"
-                                className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
+                                className={cn(
+                                  "inline-flex items-center justify-center p-1.5 rounded transition-colors",
+                                  isDark
+                                    ? "text-gray-400 hover:text-white hover:bg-[#0A4D66]/40"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/80",
+                                )}
                               >
                                 <Icon icon="mdi:eye" className="w-4 h-4" />
                               </button>
@@ -1974,340 +2028,42 @@ export const InventoryPage = () => {
               </div>
             )}
           </>
-        ) : activeTab === "Parts Requisitions" ? (
-          <>
-            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
-                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
-                    Parts Requisitions
-                  </button>
-                </div>
-
-                <div className="flex-1" />
-
-                <button
-                  type="button"
-                  onClick={handleExportPartsRequisitions}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
-                >
-                  <Icon icon="mdi:download" className="w-4 h-4" />
-                  Export CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRequestRfqFromPartsRequisitions}
-                  disabled={
-                    isCreatingPartsRfq ||
-                    selectedPartRequisitionIds.length === 0 ||
-                    selectedRfqSupplierIds.length === 0
-                  }
-                  className="flex items-center space-x-2 bg-emerald-400 hover:bg-emerald-500 text-black px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Icon icon="mdi:send" className="w-4 h-4" />
-                  <span>
-                    {isCreatingPartsRfq
-                      ? "Requesting RFQ..."
-                      : `Request RFQ (${selectedPartRequisitionIds.length})`}
-                  </span>
-                </button>
-              </div>
-
-              {renderLifecycleCards()}
-
-              <div className="border-t border-[#0A4D66]/40 pt-4">
-                <div className="text-xs uppercase tracking-wide text-gray-400 mb-2">
-                  Select Suppliers for RFQ
-                </div>
-                <div className="flex flex-wrap gap-2 rounded border border-[#0A4D66]/40 bg-[#001825] p-2">
-                  {suppliersData.map((supplier) => {
-                    const selected = selectedRfqSupplierIds.includes(supplier.id);
-                    return (
-                      <button
-                        type="button"
-                        key={supplier.id}
-                        className={cn(
-                          "rounded px-2 py-1 text-xs transition-colors",
-                          selected
-                            ? "bg-[#0369A1] text-black"
-                            : "bg-[#0A4D66]/30 text-gray-200 hover:bg-[#0A4D66]/50",
-                        )}
-                        onClick={() => handleToggleSupplierForRfq(supplier.id)}
-                      >
-                        {supplier.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-250">
-                <thead>
-                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                    <th className="px-6 py-4 font-medium">Select</th>
-                    <th className="px-6 py-4 font-medium">Requisition ID</th>
-                    <th className="px-6 py-4 font-medium">Work Order</th>
-                    <th className="px-6 py-4 font-medium">Requested Qty</th>
-                    <th className="px-6 py-4 font-medium">Created</th>
-                    <th className="px-6 py-4 font-medium">RFQ Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                  {isPartsRequisitionsLoading ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        Loading parts requisitions...
-                      </td>
-                    </tr>
-                  ) : partRequisitions.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        No parts requisitions found.
-                      </td>
-                    </tr>
-                  ) : (
-                    partRequisitions.map((req, idx) => {
-                      const hasRfq = existingRfqStockMovementIds.has(req.id);
-                      const selected = selectedPartRequisitionIds.includes(req.id);
-                      return (
-                        <tr
-                          key={req.id}
-                          className={cn(
-                            "hover:bg-[#0A4D66]/20 transition-colors",
-                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
-                          )}
-                        >
-                          <td className="px-6 py-4">
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              disabled={hasRfq}
-                              onChange={(e) =>
-                                handleTogglePartRequisition(req.id, e.target.checked)
-                              }
-                              className="h-4 w-4 rounded border-[#0A4D66]/60 bg-[#001825] text-[#7FD5FF]"
-                              title={`Select requisition ${req.id}`}
-                            />
-                          </td>
-                          <td className="px-6 py-4 text-white font-medium">REQ #{req.id}</td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {req.work_order_id ? `WO #${req.work_order_id}` : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">{req.quantity}</td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {formatDateShort(req.created_at)} {formatTimeShort(req.created_at)}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={cn(
-                                "inline-flex rounded-full border px-2 py-1 text-xs",
-                                hasRfq
-                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                                  : "border-amber-500/40 bg-amber-500/10 text-amber-300",
-                              )}
-                            >
-                              {hasRfq ? "RFQ Requested" : "Pending RFQ"}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
-              <div className="flex items-center justify-between border-b border-[#0A4D66]/40 px-6 py-4">
-                <div className="text-sm font-semibold text-white">RFQs</div>
-                <div className="text-xs text-gray-400">Click an RFQ to view details and quotations</div>
-              </div>
-              <table className="w-full text-left border-collapse min-w-250">
-                <thead>
-                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                    <th className="px-6 py-4 font-medium">RFQ No</th>
-                    <th className="px-6 py-4 font-medium">Requisition</th>
-                    <th className="px-6 py-4 font-medium">Issued</th>
-                    <th className="px-6 py-4 font-medium">Suppliers</th>
-                    <th className="px-6 py-4 font-medium">Quotations</th>
-                    <th className="px-6 py-4 font-medium">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                  {rfqRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                        No RFQs found.
-                      </td>
-                    </tr>
-                  ) : (
-                    rfqRows.map((rfq, idx) => {
-                      const rfqQuotationCount = quotationsData.filter(
-                        (quotation) => quotation.rfq_id === rfq.id,
-                      ).length;
-                      const hasApproved = quotationsData.some(
-                        (quotation) =>
-                          quotation.rfq_id === rfq.id &&
-                          (quotation.status ?? "").toLowerCase() === "approved",
-                      );
-
-                      return (
-                        <tr
-                          key={rfq.id}
-                          className={cn(
-                            "cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
-                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
-                          )}
-                          onClick={() => handleOpenRfqDetails(rfq.id)}
-                        >
-                          <td className="px-6 py-4 text-white font-medium">
-                            {rfq.rfq_number || `RFQ #${rfq.id}`}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {rfq.stock_movement_id
-                              ? `REQ #${rfq.stock_movement_id}`
-                              : "-"}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {formatDateShort(rfq.issued_at)} {formatTimeShort(rfq.issued_at)}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {rfq.suppliers?.length ?? 0}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">{rfqQuotationCount}</td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={cn(
-                                "inline-flex rounded-full border px-2 py-1 text-xs",
-                                hasApproved
-                                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                                  : "border-amber-500/40 bg-amber-500/10 text-amber-300",
-                              )}
-                            >
-                              {hasApproved ? "Quotation Approved" : "Awaiting Approval"}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : activeTab === "Purchase Orders" ? (
-          <>
-            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
-              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
-                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
-                    Purchase Orders
-                  </button>
-                </div>
-
-                <div className="flex-1" />
-
-                <button
-                  type="button"
-                  onClick={handleExportPurchaseOrders}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
-                >
-                  <Icon icon="mdi:download" className="w-4 h-4" />
-                  Export CSV
-                </button>
-                <Link
-                  to="/dashboard/inventory/purchase-orders/new"
-                  className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
-                >
-                  <Icon icon="mdi:plus" className="w-4 h-4" />
-                  <span>Create Purchase Order</span>
-                </Link>
-              </div>
-
-              <div className="flex items-center gap-6 text-sm border-t border-[#0A4D66]/40 pt-4 overflow-x-auto">
-                <div className="flex items-center space-x-2 whitespace-nowrap">
-                  <div className="w-2 h-2 rounded-full bg-[#0369A1]" />
-                  <span className="text-gray-400">Total Purchase Orders:</span>
-                  <span className="text-white font-bold">{purchaseOrdersData.length}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-250">
-                <thead>
-                  <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                    <th className="px-6 py-4 font-medium">PO ID</th>
-                    <th className="px-6 py-4 font-medium">Name</th>
-                    <th className="px-6 py-4 font-medium">Status</th>
-                    <th className="px-6 py-4 font-medium">Order Date</th>
-                    <th className="px-6 py-4 font-medium">Expected Delivery</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                  {isPurchaseOrdersLoading ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                        Loading purchase orders...
-                      </td>
-                    </tr>
-                  ) : isPurchaseOrdersError ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-red-400">
-                        Failed to load purchase orders.
-                      </td>
-                    </tr>
-                  ) : purchaseOrdersData.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
-                        No purchase orders found.
-                      </td>
-                    </tr>
-                  ) : (
-                    (purchaseOrdersData as PurchaseOrderListRow[]).map((order, idx) => (
-                      <tr
-                        key={order.id}
-                        className={cn(
-                          "hover:bg-[#0A4D66]/20 transition-colors cursor-pointer",
-                          idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
-                        )}
-                        onClick={() => navigate(`/dashboard/inventory/purchase-orders/${order.id}`)}
-                      >
-                        <td className="px-6 py-4 text-gray-200">#{order.id}</td>
-                        <td className="px-6 py-4 text-white">{order.name || `PO #${order.id}`}</td>
-                        <td className="px-6 py-4 text-gray-300">{order.status || "-"}</td>
-                        <td className="px-6 py-4 text-gray-300">{formatDateShort(order.order_date)}</td>
-                        <td className="px-6 py-4 text-gray-300">
-                          {formatDateShort(order.expected_date_of_delivery)}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
+        ) : activeTab === "Procurement" ? (
+          <ProcurementSection
+            activeSubTab={activeProcurementSubTab}
+            onSelectSubTab={handleProcurementSubTabChange}
+            onNavigateToRfq={handleOpenRfqDetails}
+          />
         ) : activeTab === "Suppliers" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
               <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
-                  <button className="px-3 py-1.5 bg-[#0A4D66] text-white rounded text-xs font-medium">
+                <div className={cn("flex items-center space-x-1 p-1 rounded-lg border", isDark ? "bg-[#0A4D66] border-[#0A4D66]" : "bg-slate-100 border-slate-200")}>
+                  <button
+                    className={cn(
+                      "px-3 py-1.5 rounded text-xs font-semibold shadow-sm border",
+                      isDark
+                        ? "bg-[#001825] text-white border-[#7FD5FF]/40"
+                        : "bg-white text-[#0A4D66] border-slate-200",
+                    )}
+                  >
                     Suppliers
                   </button>
                 </div>
 
-                <div className="flex items-center space-x-1 bg-[#001825] p-1 rounded-lg border border-[#0A4D66]/40">
+                <div className={cn("flex items-center space-x-1 p-1 rounded-lg border", isDark ? "bg-[#0A4D66] border-[#0A4D66]" : "bg-slate-100 border-slate-200")}>
                   <button
                     type="button"
                     onClick={() => setViewMode("table")}
                     className={cn(
-                      "p-1.5 rounded transition-colors",
+                      "p-1.5 rounded transition-all",
                       viewMode === "table"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? isDark
+                          ? "bg-[#001825] text-white shadow-sm border border-[#7FD5FF]/40"
+                          : "bg-white text-[#0A4D66] shadow-sm border border-slate-200"
+                        : isDark
+                          ? "text-gray-300 hover:text-white"
+                          : "text-slate-500 hover:text-slate-900",
                     )}
                   >
                     <Icon icon="mdi:table" className="w-4 h-4" />
@@ -2316,10 +2072,14 @@ export const InventoryPage = () => {
                     type="button"
                     onClick={() => setViewMode("grid")}
                     className={cn(
-                      "p-1.5 rounded transition-colors",
+                      "p-1.5 rounded transition-all",
                       viewMode === "grid"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400 hover:text-white",
+                        ? isDark
+                          ? "bg-[#001825] text-white shadow-sm border border-[#7FD5FF]/40"
+                          : "bg-white text-[#0A4D66] shadow-sm border border-slate-200"
+                        : isDark
+                          ? "text-gray-300 hover:text-white"
+                          : "text-slate-500 hover:text-slate-900",
                     )}
                   >
                     <Icon icon="mdi:view-grid" className="w-4 h-4" />
@@ -2331,18 +2091,18 @@ export const InventoryPage = () => {
                 <button
                   type="button"
                   onClick={handleExportSuppliers}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
-                  <Icon icon="mdi:download" className="w-4 h-4" />
-                  Export CSV
+                  <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsImportOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
-                  <Icon icon="mdi:upload" className="w-4 h-4" />
-                  Import CSV
+                  <Icon icon="mdi:upload" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Import CSV</span>
                 </button>
                 <Link
                   to="/dashboard/inventory/suppliers/add"
@@ -2361,7 +2121,7 @@ export const InventoryPage = () => {
                     color: "bg-[#0369A1]",
                   },
                   {
-                    label: "With Contact",
+                    label: "With Phone Number",
                     value: supplierStats.withContact,
                     color: "bg-emerald-400",
                   },
@@ -2389,18 +2149,37 @@ export const InventoryPage = () => {
             </div>
 
             {viewMode === "table" ? (
-              <div className="bg-[#001219] rounded-xl border border-[#0A4D66]/40 overflow-x-auto">
+              <div
+                className={cn(
+                  "rounded-xl border overflow-x-auto",
+                  isDark
+                    ? "bg-[#001219] border-[#0A4D66]/40"
+                    : "bg-white border-slate-200 shadow-sm",
+                )}
+              >
                 <table className="w-full text-left border-collapse min-w-250">
                   <thead>
-                    <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
+                    <tr
+                      className={cn(
+                        "text-xs uppercase border-b",
+                        isDark
+                          ? "bg-[#001825] text-gray-400 border-[#0A4D66]/40"
+                          : "bg-slate-50 text-slate-500 border-slate-200",
+                      )}
+                    >
                       <th className="px-6 py-4 font-medium">Supplier</th>
-                      <th className="px-6 py-4 font-medium">Contact</th>
+                      <th className="px-6 py-4 font-medium">Phone Number</th>
                       <th className="px-6 py-4 font-medium">Email</th>
                       <th className="px-6 py-4 font-medium">Address</th>
                       <th className="px-6 py-4 font-medium">Created</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
+                  <tbody
+                    className={cn(
+                      "divide-y text-sm",
+                      isDark ? "divide-[#0A4D66]/20" : "divide-slate-100",
+                    )}
+                  >
                     {isSuppliersLoading ? (
                       <tr>
                         <td
@@ -2423,26 +2202,64 @@ export const InventoryPage = () => {
                       suppliersData.map((supplier, idx) => (
                         <tr
                           key={supplier.id}
+                          title={`Supplier: ${supplier.name}`}
                           className={cn(
-                            "hover:bg-[#0A4D66]/20 transition-colors",
-                            idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                            "transition-colors",
+                            isDark
+                              ? cn(
+                                  "hover:bg-[#0A4D66]/20",
+                                  idx % 2 === 0
+                                    ? "bg-[#001219]"
+                                    : "bg-[#001825]",
+                                )
+                              : cn(
+                                  "hover:bg-sky-50/80",
+                                  idx % 2 === 0
+                                    ? "bg-white"
+                                    : "bg-slate-50/60",
+                                ),
                           )}
                         >
-                          <td className="px-6 py-4 text-gray-200 font-medium">
+                          <td
+                            className={cn(
+                              "px-6 py-4 font-medium",
+                              isDark ? "text-gray-200" : "text-slate-800",
+                            )}
+                          >
                             {supplier.name}
                           </td>
-                          <td className="px-6 py-4 text-gray-300">
+                          <td
+                            className={cn(
+                              "px-6 py-4",
+                              isDark ? "text-gray-300" : "text-slate-600",
+                            )}
+                          >
                             {supplier.contact || "-"}
                           </td>
-                          <td className="px-6 py-4 text-gray-300">
+                          <td
+                            className={cn(
+                              "px-6 py-4",
+                              isDark ? "text-gray-300" : "text-slate-600",
+                            )}
+                          >
                             {supplier.email || "-"}
                           </td>
-                          <td className="px-6 py-4 text-gray-300 max-w-90">
+                          <td
+                            className={cn(
+                              "px-6 py-4 max-w-90",
+                              isDark ? "text-gray-300" : "text-slate-600",
+                            )}
+                          >
                             <span className="line-clamp-2">
                               {supplier.address || "-"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-gray-300">
+                          <td
+                            className={cn(
+                              "px-6 py-4",
+                              isDark ? "text-gray-300" : "text-slate-600",
+                            )}
+                          >
                             {formatDateShort(supplier.created_at)}
                           </td>
                         </tr>
@@ -2487,7 +2304,7 @@ export const InventoryPage = () => {
                       <div className="grid grid-cols-1 gap-2 text-xs bg-[#001825] p-3 rounded-lg border border-[#0A4D66]/20">
                         <div>
                           <span className="text-gray-500 block mb-0.5">
-                            Contact
+                            Phone Number
                           </span>
                           <span className="text-white font-medium">
                             {supplier.contact || "-"}

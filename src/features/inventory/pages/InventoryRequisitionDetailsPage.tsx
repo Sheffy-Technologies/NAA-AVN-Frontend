@@ -7,9 +7,12 @@ import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useCreateStockMovementMutation,
+  useCreateRfqMutation,
+  useGetSuppliersQuery,
   useGetInventoryRequisitionByIdQuery,
   useUpdateInventoryRequisitionMutation,
 } from "@/features/inventory/api";
+import { BackButton, Button } from "@/shared/ui/button";
 
 type StatusLabel =
   | "Approved"
@@ -43,6 +46,18 @@ const statusDotColor: Record<StatusLabel, string> = {
   Unknown: "bg-gray-500",
 };
 
+export type RequisitionItemRow = {
+  id: number;
+  inventoryId: number;
+  partNumber: string;
+  description: string;
+  itemDescription: string;
+  requested: { qty: number; unit: string | null };
+  available: { qty: number; unit: string | null };
+  approved: { qty: string; unit: string | null };
+  newStockLevel: { qty: number; unit: string | null };
+};
+
 export const InventoryRequisitionDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -56,22 +71,35 @@ export const InventoryRequisitionDetailsPage = () => {
     isError,
   } = useGetInventoryRequisitionByIdQuery(id ?? "", { skip: !id });
 
+  const { data: suppliers = [] } = useGetSuppliersQuery();
   const [updateRequisition, { isLoading: isSaving }] =
     useUpdateInventoryRequisitionMutation();
   const [createStockMovement] = useCreateStockMovementMutation();
+  const [createRfq] = useCreateRfqMutation();
 
   const [remark, setRemark] = useState("");
   const [hasEditedRemark, setHasEditedRemark] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [startingRfqForLineId, setStartingRfqForLineId] = useState<
-    number | null
-  >(null);
+  const [statusSelection, setStatusSelection] = useState<StatusLabel | null>(null);
+
+  // RFQ Modal State
+  const [isRfqModalOpen, setIsRfqModalOpen] = useState(false);
+  const [rfqTargetLine, setRfqTargetLine] = useState<{
+    id: number;
+    inventoryId: number;
+    partNumber: string;
+    description: string;
+    shortfall: number;
+  } | null>(null);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<number[]>([]);
+  const [rfqNotes, setRfqNotes] = useState("");
+  const [isSubmittingRfq, setIsSubmittingRfq] = useState(false);
 
   const [approvedEdits, setApprovedEdits] = useState<Record<number, string>>(
     {},
   );
 
-  const requisitionItems = useMemo(() => {
+  const requisitionItems: RequisitionItemRow[] = useMemo(() => {
     return (detail?.items ?? []).map((line) => {
       const fallbackApproved =
         line.approved_quantity !== null && line.approved_quantity !== undefined
@@ -99,6 +127,8 @@ export const InventoryRequisitionDetailsPage = () => {
       return {
         id: line.id,
         inventoryId: line.inventory_id,
+        partNumber: line.inventory?.part_number || String(line.inventory_id),
+        description: itemDescription,
         itemDescription,
         requested: { qty: requestedQty, unit },
         available: { qty: availableQty, unit },
@@ -137,6 +167,8 @@ export const InventoryRequisitionDetailsPage = () => {
     };
   }, [detail]);
 
+  const effectiveStatus = statusSelection ?? header.status;
+
   const handleExit = () => {
     navigate("/dashboard/inventory", {
       state: { inventoryTab: "Requisitions" },
@@ -172,7 +204,7 @@ export const InventoryRequisitionDetailsPage = () => {
     return true;
   };
 
-  const handleSaveAndExit = async () => {
+  const handleSaveAndExit = async (overrideStatus?: StatusLabel) => {
     if (!detail || !id) return;
     setSubmitError(null);
     if (!validate()) return;
@@ -181,9 +213,39 @@ export const InventoryRequisitionDetailsPage = () => {
       const effectiveRemark = hasEditedRemark
         ? remark.trim()
         : (detail.remark ?? "").trim();
+
+      const chosenStatus: StatusLabel =
+        overrideStatus ?? statusSelection ?? header.status;
+
+      let backendStatus: string = chosenStatus.toLowerCase().replace(/\s+/g, "_");
+      if (backendStatus === "unknown") {
+        backendStatus = "pending";
+      }
+
+      // If user clicks "Save Changes" without explicitly picking a status,
+      // and it was "Pending", but all items have approved quantities > 0,
+      // auto-advance to "approved".
+      if (!overrideStatus && !statusSelection && header.status === "Pending") {
+        const allApproved = (detail.items ?? []).every((line) => {
+          const fallbackApproved =
+            line.approved_quantity !== null && line.approved_quantity !== undefined
+              ? String(line.approved_quantity)
+              : line.requested_quantity !== null &&
+                  line.requested_quantity !== undefined
+                ? String(line.requested_quantity)
+                : "0";
+          const raw = (approvedEdits[line.id] ?? fallbackApproved).trim();
+          return Number(raw) > 0;
+        });
+        if (allApproved) {
+          backendStatus = "approved";
+        }
+      }
+
       await updateRequisition({
         id,
         body: {
+          status: backendStatus,
           remark: effectiveRemark || null,
           items: (detail.items ?? []).map((line) => {
             const fallbackApproved =
@@ -204,9 +266,16 @@ export const InventoryRequisitionDetailsPage = () => {
         },
       }).unwrap();
 
+      dispatch(
+        showToast({
+          message: `Requisition saved successfully (${backendStatus.replace("_", " ").toUpperCase()})`,
+          type: "success",
+        }),
+      );
       handleExit();
-    } catch {
-      setSubmitError("Failed to save request. Please try again.");
+    } catch (err: unknown) {
+      const apiErr = err as { data?: { message?: string } };
+      setSubmitError(apiErr?.data?.message || "Failed to save request. Please try again.");
     }
   };
 
@@ -228,35 +297,64 @@ export const InventoryRequisitionDetailsPage = () => {
     }
   };
 
-  const handleStartRfq = async (row: (typeof requisitionItems)[number]) => {
-    if (!detail || startingRfqForLineId !== null) return;
+  const handleOpenRfqModal = (row: RequisitionItemRow) => {
+    const shortfall = Math.max(1, row.requested.qty - row.available.qty);
+    setRfqTargetLine({
+      id: row.id,
+      inventoryId: row.inventoryId,
+      partNumber: row.partNumber,
+      description: row.description,
+      shortfall,
+    });
+    setSelectedSupplierIds(suppliers.slice(0, 3).map((s) => s.id));
+    setRfqNotes(`Solicitation for Part #${row.partNumber} - Shortfall quantity: ${shortfall}`);
+    setIsRfqModalOpen(true);
+  };
 
-    setStartingRfqForLineId(row.id);
+  const handleConfirmCreateRfq = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detail || !rfqTargetLine || selectedSupplierIds.length === 0) return;
+    setIsSubmittingRfq(true);
+
     try {
-      const shortfall = Math.max(1, row.requested.qty - row.available.qty);
       const movement = await createStockMovement({
         movement_type: "issue",
-        quantity: shortfall,
+        quantity: rfqTargetLine.shortfall,
         requesting_unit_id: detail.requesting_unit_id ?? null,
         notes: `Shortfall from Inventory Requisition #${detail.id}`,
         stocks: [
           {
-            inventory_id: row.inventoryId,
-            quantity_requested: shortfall,
+            inventory_id: rfqTargetLine.inventoryId,
+            quantity_requested: rfqTargetLine.shortfall,
             quantity_approved: 0,
           },
         ],
       }).unwrap();
 
-      navigate(
-        `/dashboard/inventory/procurement-lifecycle?stock_movement_id=${movement.id}#rfq-section`,
+      await createRfq({
+        stock_movement_id: movement.id,
+        supplier_ids: selectedSupplierIds,
+        notes: rfqNotes.trim() || `RFQ for Requisition #${detail.id}`,
+        status: "sent",
+      }).unwrap();
+
+      dispatch(
+        showToast({
+          message: "Request for Quotation (RFQ) created and sent to suppliers successfully!",
+          type: "success",
+        }),
       );
+      setIsRfqModalOpen(false);
+      setRfqTargetLine(null);
     } catch {
       dispatch(
-        showToast({ message: "Failed to start RFQ for this item", type: "error" }),
+        showToast({
+          message: "Failed to create RFQ. Please check suppliers and try again.",
+          type: "error",
+        }),
       );
     } finally {
-      setStartingRfqForLineId(null);
+      setIsSubmittingRfq(false);
     }
   };
 
@@ -280,16 +378,19 @@ export const InventoryRequisitionDetailsPage = () => {
 
   return (
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          REQUEST DETAILS
-        </h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+        <div className="flex items-center gap-3">
+          <BackButton fallbackUrl="/dashboard/inventory" />
+          <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
+            REQUEST DETAILS
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleDownloadPdf}
             disabled={isDownloadingPdf}
-            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white disabled:opacity-70"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm disabled:opacity-70"
           >
             <Icon
               icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
@@ -297,18 +398,41 @@ export const InventoryRequisitionDetailsPage = () => {
             />
             <span>{isDownloadingPdf ? "Downloading..." : "Download"}</span>
           </button>
-          <button
+          {effectiveStatus !== "Approved" && effectiveStatus !== "Received" && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => handleSaveAndExit("Approved")}
+              isLoading={isSaving}
+              className="border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 font-semibold text-xs shadow-sm"
+            >
+              <Icon icon="mdi:check-circle-outline" className="w-4 h-4 mr-1 text-emerald-400" />
+              <span>Approve Request</span>
+            </Button>
+          )}
+          {effectiveStatus !== "Received" && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => handleSaveAndExit("Received")}
+              isLoading={isSaving}
+              className="border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300 font-semibold text-xs shadow-sm"
+            >
+              <Icon icon="mdi:package-variant-closed-check" className="w-4 h-4 mr-1 text-sky-400" />
+              <span>Mark Received</span>
+            </Button>
+          )}
+          <Button
             type="button"
-            onClick={handleSaveAndExit}
-            className={cn(
-              "inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white",
-              isSaving && "opacity-70 cursor-not-allowed",
-            )}
-            disabled={isSaving}
+            variant="primary"
+            size="sm"
+            onClick={() => handleSaveAndExit()}
+            isLoading={isSaving}
           >
-            <Icon icon="mdi:close-circle-outline" className="w-4 h-4" />
-            <span>Save &amp; Exit</span>
-          </button>
+            Save Changes
+          </Button>
         </div>
       </div>
 
@@ -343,16 +467,26 @@ export const InventoryRequisitionDetailsPage = () => {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[#7FD5FF]">Status:</span>
-              <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-2 bg-[#001825] border border-[#0A4D66]/60 rounded-md px-2.5 py-1">
                 <span
                   className={cn(
-                    "w-2 h-2 rounded-full",
-                    statusDotColor[header.status],
+                    "w-2 h-2 rounded-full shrink-0",
+                    statusDotColor[effectiveStatus],
                   )}
                 />
-                <span className="text-white font-semibold uppercase">
-                  {header.status}
-                </span>
+                <select
+                  title="Requisition Status"
+                  aria-label="Requisition Status"
+                  value={effectiveStatus}
+                  onChange={(e) => setStatusSelection(e.target.value as StatusLabel)}
+                  className="bg-transparent text-white font-semibold uppercase text-xs focus:outline-none cursor-pointer pr-1"
+                >
+                  <option value="Pending" className="bg-[#001825] text-white">Pending</option>
+                  <option value="Under Review" className="bg-[#001825] text-white">Under Review</option>
+                  <option value="Approved" className="bg-[#001825] text-white">Approved</option>
+                  <option value="Received" className="bg-[#001825] text-white">Received</option>
+                  <option value="Rejected" className="bg-[#001825] text-white">Rejected</option>
+                </select>
               </div>
             </div>
           </div>
@@ -420,27 +554,17 @@ export const InventoryRequisitionDetailsPage = () => {
                       {row.requested.qty > row.available.qty && (
                         <button
                           type="button"
-                          onClick={() => handleStartRfq(row)}
-                          disabled={startingRfqForLineId !== null}
+                          onClick={() => handleOpenRfqModal(row)}
                           title="Requested quantity exceeds available stock"
                           className={cn(
-                            "inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-300 hover:bg-amber-500/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
+                            "inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer",
                           )}
                         >
                           <Icon
-                            icon={
-                              startingRfqForLineId === row.id
-                                ? "mdi:loading"
-                                : "mdi:cart-arrow-down"
-                            }
-                            className={cn(
-                              "w-3.5 h-3.5",
-                              startingRfqForLineId === row.id && "animate-spin",
-                            )}
+                            icon="mdi:email-fast-outline"
+                            className="w-3.5 h-3.5"
                           />
-                          {startingRfqForLineId === row.id
-                            ? "Starting..."
-                            : "Start RFQ"}
+                          <span>Request for Quotation</span>
                         </button>
                       )}
                     </td>
@@ -469,6 +593,116 @@ export const InventoryRequisitionDetailsPage = () => {
           )}
         </div>
       </section>
+
+      {/* Quick RFQ Solicitation Modal */}
+      {isRfqModalOpen && rfqTargetLine && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg bg-[#001219] border border-[#0A4D66] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-white">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001825]">
+              <div className="flex items-center gap-2">
+                <Icon icon="mdi:email-fast-outline" className="w-5 h-5 text-sky-400" />
+                <h3 className="font-bold text-sm text-white">
+                  Request for Quotation (RFQ)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRfqModalOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <Icon icon="mdi:close" className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmCreateRfq} className="p-6 space-y-4 text-xs">
+              <div className="bg-[#001825] border border-[#0A4D66]/30 rounded-lg p-3 space-y-1">
+                <div className="text-[11px] uppercase text-gray-400 font-semibold">
+                  Part Details
+                </div>
+                <div className="text-sm font-semibold text-white">
+                  Part #{rfqTargetLine.partNumber} &mdash; {rfqTargetLine.description}
+                </div>
+                <div className="text-xs text-amber-300">
+                  Shortfall to Solicit: <span className="font-bold">{rfqTargetLine.shortfall} units</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1.5 text-gray-300">
+                  Select Suppliers to Solicit * ({selectedSupplierIds.length} selected)
+                </label>
+                <div className="max-h-40 overflow-y-auto rounded-lg border border-[#0A4D66]/40 p-2 space-y-1 bg-[#001825]">
+                  {suppliers.length === 0 ? (
+                    <div className="py-3 text-center text-gray-500">No suppliers available</div>
+                  ) : (
+                    suppliers.map((s) => {
+                      const isChecked = selectedSupplierIds.includes(s.id);
+                      return (
+                        <label
+                          key={s.id}
+                          className="flex items-center gap-2.5 p-2 rounded hover:bg-[#0A4D66]/20 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              setSelectedSupplierIds((prev) =>
+                                e.target.checked
+                                  ? [...prev, s.id]
+                                  : prev.filter((id) => id !== s.id),
+                              );
+                            }}
+                            className="rounded border-[#0A4D66] bg-[#001825] text-sky-400 focus:ring-0"
+                          />
+                          <span className="font-medium text-white">{s.name}</span>
+                          {s.contact && (
+                            <span className="text-[10px] text-gray-400">({s.contact})</span>
+                          )}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+                {selectedSupplierIds.length === 0 && (
+                  <p className="text-[10px] text-red-400 mt-1">Please select at least one supplier.</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1 text-gray-300">
+                  RFQ Notes &amp; Specifications
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Provide delivery requirements, quotation deadline, or terms..."
+                  value={rfqNotes}
+                  onChange={(e) => setRfqNotes(e.target.value)}
+                  className="w-full rounded-lg px-3 py-2 border border-[#0A4D66]/60 bg-[#001825] text-white focus:outline-none focus:border-sky-400 transition-colors"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3 border-t border-[#0A4D66]/30">
+                <button
+                  type="button"
+                  disabled={isSubmittingRfq}
+                  onClick={() => setIsRfqModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-700 text-gray-300 hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRfq || selectedSupplierIds.length === 0}
+                  className="px-4 py-2 rounded-lg bg-[#0369A1] hover:bg-[#0369A1]/90 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isSubmittingRfq && <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />}
+                  <span>{isSubmittingRfq ? "Sending RFQ..." : "Send RFQ"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

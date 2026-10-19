@@ -30,6 +30,7 @@ import {
   type MaintenanceDueItem,
 } from "../api";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import AssetMaintenanceProgramsSearchable from "./AssetMaintenanceProgramsSearchable";
 import { FlightLogModal } from "../components/FlightLogModal";
 import { getEchoClient } from "@/shared/realtime/echo";
@@ -165,6 +166,7 @@ const getInstallationStatus = (timeSinceNew: number | string | null | undefined)
   if (!hours) return "Added New";
   return `Added with ${hours} hrs`;
 };
+
 
 const formatInspectionInterval = (
   value: number | string | null | undefined,
@@ -706,7 +708,7 @@ export const AssetDetailsPage = () => {
   );
   const { data: flightLogs = [] } = useGetFlightLogsQuery(
     asset?.id ? { asset_id: asset.id } : undefined,
-    { skip: activeTab !== "maintenance" || !asset?.id },
+    { skip: !asset?.id },
   );
   const [deleteFlightLog, { isLoading: isDeletingFlightLog }] = useDeleteFlightLogMutation();
   const [deleteAsset, { isLoading: isDeleting }] = useDeleteAssetMutation();
@@ -716,6 +718,12 @@ export const AssetDetailsPage = () => {
   const [isCreatingWorkOrder, setIsCreatingWorkOrder] = useState(false);
   const [creatingDueWorkOrderKey, setCreatingDueWorkOrderKey] = useState<string | null>(null);
   const [showFlightLogModal, setShowFlightLogModal] = useState(false);
+  const [flightLogInitialValues, setFlightLogInitialValues] = useState<{
+    operation_id?: number | null;
+    flight_date?: string;
+    hours_flown?: number | string;
+    remarks?: string;
+  } | undefined>(undefined);
   // (removed duplicate ad-hoc modal state)
   const [isDownloadingAssetExport, setIsDownloadingAssetExport] = useState(false);
   const [isDownloadingMaintenanceHistoryExport, setIsDownloadingMaintenanceHistoryExport] =
@@ -1938,6 +1946,16 @@ export const AssetDetailsPage = () => {
     }
   };
 
+  const handleOpenFlightLog = (initialValues?: {
+    operation_id?: number | null;
+    flight_date?: string;
+    hours_flown?: number | string;
+    remarks?: string;
+  }) => {
+    setFlightLogInitialValues(initialValues);
+    setShowFlightLogModal(true);
+  };
+
   const handleCreateDueItemWorkOrder = async (
     row: Pick<MaintenanceDueItem, "part_type" | "part_id" | "part_label">,
   ) => {
@@ -2083,13 +2101,13 @@ export const AssetDetailsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 mb-6">
+      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 mb-6 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "pb-4 text-sm font-medium transition-colors relative",
+              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
               activeTab === tab.id
                 ? "text-[#7FD5FF]"
                 : "text-gray-400 hover:text-gray-300",
@@ -2289,7 +2307,7 @@ export const AssetDetailsPage = () => {
                       <button
                         type="button"
                         onClick={cancelComponentsEdit}
-                        className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0A4D66]/20 transition-colors"
+                        className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                       >
                         Cancel
                       </button>
@@ -2315,9 +2333,9 @@ export const AssetDetailsPage = () => {
                       <button
                         type="button"
                         onClick={() => setIsImportOpen(true)}
-                        className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                       >
-                        <Icon icon="mdi:upload" className="h-3.5 w-3.5" />
+                        <Icon icon="mdi:upload" className="h-3.5 w-3.5 text-slate-600 dark:text-gray-300" />
                         Import CSV
                       </button>
                       <button
@@ -2872,7 +2890,7 @@ export const AssetDetailsPage = () => {
                   <button
                     type="button"
                     onClick={cancelEnginesEdit}
-                    className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0A4D66]/20 transition-colors"
+                    className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                   >
                     Cancel
                   </button>
@@ -2898,9 +2916,9 @@ export const AssetDetailsPage = () => {
                   <button
                     type="button"
                     onClick={() => setIsImportOpen(true)}
-                    className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                   >
-                    <Icon icon="mdi:upload" className="h-3.5 w-3.5" />
+                    <Icon icon="mdi:upload" className="h-3.5 w-3.5 text-slate-600 dark:text-gray-300" />
                     Import CSV
                   </button>
                   <button
@@ -3686,7 +3704,7 @@ export const AssetDetailsPage = () => {
                   <button
                     type="button"
                     onClick={cancelAvionicsEdit}
-                    className="rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0A4D66]/20 transition-colors"
+                    className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                   >
                     Cancel
                   </button>
@@ -3712,9 +3730,9 @@ export const AssetDetailsPage = () => {
                   <button
                     type="button"
                     onClick={() => setIsImportOpen(true)}
-                    className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                   >
-                    <Icon icon="mdi:upload" className="h-3.5 w-3.5" />
+                    <Icon icon="mdi:upload" className="h-3.5 w-3.5 text-slate-600 dark:text-gray-300" />
                     Import CSV
                   </button>
                   <button
@@ -4174,9 +4192,7 @@ export const AssetDetailsPage = () => {
                     <th className="text-left px-4 py-3 font-medium">Start</th>
                     <th className="text-left px-4 py-3 font-medium">End</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
-                    <th className="text-left px-4 py-3 font-medium">
-                      Duration
-                    </th>
+                    <th className="text-left px-4 py-3 font-medium">Duration</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -4193,11 +4209,20 @@ export const AssetDetailsPage = () => {
                     asset.operations.map((op, index) => (
                       <tr
                         key={index}
-                        onClick={() =>
-                          navigate(`/dashboard/operations/${op.id}`)
+                        tabIndex={0}
+                        role="button"
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () =>
+                            navigate(`/dashboard/operations/${op.id}`),
+                          )
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () =>
+                            navigate(`/dashboard/operations/${op.id}`),
+                          )
                         }
                         className={cn(
-                          "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
+                          "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                           index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                         )}
                       >
@@ -4259,7 +4284,7 @@ export const AssetDetailsPage = () => {
                 </h3>
                 <button
                   type="button"
-                  onClick={() => setShowFlightLogModal(true)}
+                  onClick={() => handleOpenFlightLog()}
                   className="inline-flex items-center gap-1.5 rounded bg-[#0369A1] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0369A1]/90"
                 >
                   <Icon icon="mdi:airplane-clock" className="h-4 w-4" />
@@ -4867,9 +4892,13 @@ export const AssetDetailsPage = () => {
       {asset && (
         <FlightLogModal
           open={showFlightLogModal}
-          onClose={() => setShowFlightLogModal(false)}
+          onClose={() => {
+            setShowFlightLogModal(false);
+            setFlightLogInitialValues(undefined);
+          }}
           assetId={asset.id}
           assetName={asset.name}
+          initialValues={flightLogInitialValues}
         />
       )}
     </div>

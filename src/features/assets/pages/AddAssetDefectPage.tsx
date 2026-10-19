@@ -14,6 +14,7 @@ import {
   useCreateDefectMutation,
   useGetAssetByIdQuery,
 } from "../api";
+import { BackButton, CancelButton } from "@/shared/ui/button";
 
 export const AddAssetDefectPage = () => {
   const navigate = useNavigate();
@@ -136,14 +137,7 @@ export const AddAssetDefectPage = () => {
             </h1>
             <p className="text-xs text-gray-400 mt-1">{asset.name}</p>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 border border-[#0A4D66]/40 px-3 py-2 rounded text-sm text-gray-300 hover:text-white hover:bg-[#0A4D66]/20"
-          >
-            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-            Back
-          </button>
+          <BackButton fallbackUrl={`/dashboard/assets/${assetId}`} />
         </div>
 
         <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40 space-y-5">
@@ -309,12 +303,13 @@ export const AddAssetDefectPage = () => {
             </div>
           )}
 
-          <div className="pt-2 flex justify-end">
+          <div className="pt-2 flex justify-end items-center gap-3">
+            <CancelButton fallbackUrl={`/dashboard/assets/${assetId}`} />
             <button
               type="button"
               onClick={handleSubmit}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-[#0369A1] hover:bg-[#0369A1]/90 disabled:opacity-60 text-white px-6 py-2 rounded text-sm font-bold transition-colors"
+              className="flex items-center gap-2 bg-[#0369A1] hover:bg-[#0369A1]/90 disabled:opacity-60 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-sm transition-colors"
             >
               <Icon icon="mdi:check" className="w-4 h-4" />
               <span>{isSaving ? "Saving..." : "Save Defect"}</span>

@@ -81,7 +81,7 @@ export const BudgetStatementPage = () => {
         <button
           type="button"
           onClick={handlePrint}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-emerald-500 text-black text-xs sm:text-sm font-semibold hover:bg-emerald-600"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-emerald-600 text-white text-xs sm:text-sm font-semibold hover:bg-emerald-700 transition-colors"
         >
           <Icon icon="mdi:printer-outline" className="w-4 h-4" />
           <span>Print / Save PDF</span>

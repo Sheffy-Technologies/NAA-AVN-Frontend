@@ -22,6 +22,37 @@
   --theme-divider:        rgba(10, 77, 102, 0.2);
   --theme-accent:         #7FD5FF;
   --theme-accent-dark:    #0369A1;
+
+  /* Button semantic tokens — Dark Mode */
+  --btn-primary-bg:           #0A4D66;
+  --btn-primary-text:         #ffffff;
+  --btn-primary-hover:        #083c50;
+  --btn-secondary-bg:         transparent;
+  --btn-secondary-border:     rgba(10, 77, 102, 0.6);
+  --btn-secondary-text:       #e2e8f0;
+  --btn-secondary-hover-bg:   rgba(10, 77, 102, 0.25);
+  --btn-secondary-hover-text: #ffffff;
+  --btn-ghost-text:           #7FD5FF;
+  --btn-ghost-hover-bg:       rgba(127, 213, 255, 0.12);
+  --btn-ghost-hover-text:     #ffffff;
+  --btn-danger-bg:            #dc2626;
+  --btn-danger-text:          #ffffff;
+  --btn-danger-hover:         #b91c1c;
+
+  /* Tab semantic tokens — Dark Mode */
+  --tab-active-text:          #7FD5FF;
+  --tab-active-indicator:     #00A3E0;
+  --tab-active-bg:            rgba(127, 213, 255, 0.1);
+  --tab-inactive-text:        #9ca3af;
+  --tab-inactive-hover-text:  #ffffff;
+
+  /* Action Icon tokens — Dark Mode */
+  --action-icon-text:         #9ca3af;
+  --action-icon-hover-text:   #ffffff;
+  --action-icon-hover-bg:     rgba(10, 77, 102, 0.35);
+
+  /* Focus ring */
+  --focus-ring-color:         rgba(127, 213, 255, 0.6);
 }
 
 /* Light mode token overrides */
@@ -40,6 +71,37 @@ html.light {
   --theme-divider:        #E5E7EB;
   --theme-accent:         #0369A1;
   --theme-accent-dark:    #1D4ED8;
+
+  /* Button semantic tokens — Light Mode */
+  --btn-primary-bg:           #0369A1;
+  --btn-primary-text:         #ffffff;
+  --btn-primary-hover:        #025381;
+  --btn-secondary-bg:         #ffffff;
+  --btn-secondary-border:     #cbd5e1;
+  --btn-secondary-text:       #334155;
+  --btn-secondary-hover-bg:   #f1f5f9;
+  --btn-secondary-hover-text: #0f172a;
+  --btn-ghost-text:           #0369A1;
+  --btn-ghost-hover-bg:       #f0f9ff;
+  --btn-ghost-hover-text:     #0c4a6e;
+  --btn-danger-bg:            #dc2626;
+  --btn-danger-text:          #ffffff;
+  --btn-danger-hover:         #b91c1c;
+
+  /* Tab semantic tokens — Light Mode */
+  --tab-active-text:          #0369A1;
+  --tab-active-indicator:     #0369A1;
+  --tab-active-bg:            #f0f9ff;
+  --tab-inactive-text:        #64748b;
+  --tab-inactive-hover-text:  #0f172a;
+
+  /* Action Icon tokens — Light Mode */
+  --action-icon-text:         #475569;
+  --action-icon-hover-text:   #0f172a;
+  --action-icon-hover-bg:     #e2e8f0;
+
+  /* Focus ring */
+  --focus-ring-color:         rgba(3, 105, 161, 0.4);
 }
 
 .dark {

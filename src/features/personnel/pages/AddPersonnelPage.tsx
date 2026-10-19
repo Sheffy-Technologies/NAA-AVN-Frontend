@@ -21,6 +21,7 @@ import {
   type MultiSelectOption,
 } from "@/shared/ui/multi-select/MultiSelect";
 import { useGetAssetsQuery } from "@/features/assets/api";
+import { BackButton, CancelButton } from "@/shared/ui/button";
 
 interface ApiError {
   data?: {
@@ -324,16 +325,18 @@ export const AddPersonnelPage = () => {
     [ratingOptions],
   );
 
+  const isFormDirty = Boolean(
+    formData.firstname.trim() ||
+    formData.lastname.trim() ||
+    formData.service_number.trim() ||
+    formData.email.trim(),
+  );
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 hover:bg-[#001825]/5 rounded-full transition-colors text-gray-400 hover:text-white"
-        >
-          <Icon icon="mdi:arrow-left" className="w-6 h-6" />
-        </button>
-        <h1 className="text-2xl font-semibold text-white">Add New Personnel</h1>
+        <BackButton fallbackUrl="/dashboard/personnel" isDirty={isFormDirty} />
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Add New Personnel</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8 max-w-6xl">
@@ -739,13 +742,20 @@ export const AddPersonnelPage = () => {
           </div>
         </div>
 
-        <div className="flex justify-end pt-6">
+        <div className="flex items-center justify-end gap-4 pt-6">
+          <CancelButton
+            fallbackUrl="/dashboard/personnel"
+            isDirty={isFormDirty}
+            label="Cancel"
+            size="md"
+            className="h-12 px-6"
+          />
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full sm:w-auto px-12 py-3 bg-[#0369A1] text-black font-semibold rounded-md hover:bg-[#0369A1]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7FD5FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-lg"
+            className="w-full sm:w-auto px-12 py-3 bg-[#0369A1] text-white font-semibold rounded-md hover:bg-[#0369A1]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7FD5FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-base shadow-sm"
           >
-            {isSubmitting ? "Creating..." : "Save"}
+            {isSubmitting ? "Creating..." : "Save Personnel"}
           </button>
         </div>
       </form>

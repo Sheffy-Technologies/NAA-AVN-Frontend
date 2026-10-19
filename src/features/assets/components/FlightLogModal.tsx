@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useCreateFlightLogMutation } from "../api";
@@ -10,13 +10,19 @@ type Props = {
   onClose: () => void;
   assetId: number;
   assetName?: string;
+  initialValues?: {
+    operation_id?: number | null;
+    flight_date?: string;
+    hours_flown?: number | string;
+    remarks?: string;
+  };
 };
 
 const inputClass =
   "w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]";
 const labelClass = "text-[#7FD5FF] text-xs font-semibold uppercase mb-1 block";
 
-export const FlightLogModal = ({ open, onClose, assetId, assetName }: Props) => {
+export const FlightLogModal = ({ open, onClose, assetId, assetName, initialValues }: Props) => {
   const dispatch = useAppDispatch();
   const [createFlightLog, { isLoading }] = useCreateFlightLogMutation();
 
@@ -27,6 +33,18 @@ export const FlightLogModal = ({ open, onClose, assetId, assetName }: Props) => 
     cycles: "",
     remarks: "",
   });
+
+  useEffect(() => {
+    if (open) {
+      setForm({
+        flight_date: initialValues?.flight_date || new Date().toISOString().slice(0, 10),
+        hours_flown: initialValues?.hours_flown ? String(initialValues.hours_flown) : "",
+        landings: "",
+        cycles: "",
+        remarks: initialValues?.remarks || "",
+      });
+    }
+  }, [open, initialValues]);
 
   if (!open) return null;
 
@@ -48,6 +66,7 @@ export const FlightLogModal = ({ open, onClose, assetId, assetName }: Props) => 
     try {
       await createFlightLog({
         asset_id: assetId,
+        operation_id: initialValues?.operation_id ?? undefined,
         flight_date: form.flight_date,
         hours_flown: hours,
         landings: form.landings ? Number(form.landings) : undefined,
@@ -95,6 +114,18 @@ export const FlightLogModal = ({ open, onClose, assetId, assetName }: Props) => 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {initialValues?.operation_id && (
+            <div className="rounded-lg bg-sky-950/50 border border-sky-500/40 p-3 text-xs text-sky-200 flex items-start gap-2">
+              <Icon icon="mdi:link-variant" className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-white">Logging from Operation #{initialValues.operation_id}</span>
+                <p className="text-[11px] text-sky-300/80 mt-0.5">
+                  Flight date and flown hours have been prefilled from this operation. Enter landings and cycles to record in maintenance flight logs.
+                </p>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className={labelClass}>Flight Date</label>
             <input
@@ -162,7 +193,7 @@ export const FlightLogModal = ({ open, onClose, assetId, assetName }: Props) => 
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded border border-[#0A4D66]/40 text-xs text-gray-300 hover:bg-[#0A4D66]/20"
+              className="px-4 py-2 rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
               Cancel
             </button>

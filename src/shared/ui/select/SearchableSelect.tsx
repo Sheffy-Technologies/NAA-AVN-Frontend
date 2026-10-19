@@ -22,6 +22,7 @@ interface SearchableSelectProps {
   disabled?: boolean;
   searchPlaceholder?: string;
   clearable?: boolean;
+  size?: "sm" | "md" | "lg";
 }
 
 export const SearchableSelect = ({
@@ -35,43 +36,50 @@ export const SearchableSelect = ({
   disabled,
   searchPlaceholder = "Search...",
   clearable = true,
+  size = "md",
 }: SearchableSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const { isDark } = useTheme();
 
+  const sizeClasses = {
+    sm: "py-1.5 px-3 text-xs rounded-lg",
+    md: "py-2.5 px-3 text-sm rounded-lg",
+    lg: "py-3 px-3.5 text-base rounded-xl",
+  }[size];
+
   const triggerCls = isDark
-    ? "bg-[#001825] border-[#0A4D66]/40 text-white focus:ring-[#7FD5FF]/40"
-    : "bg-white border-gray-300 text-gray-900 focus:ring-blue-200";
+    ? "bg-[#001825] border-[#0A4D66]/60 text-white focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/40"
+    : "bg-white border-slate-300 text-slate-900 shadow-sm focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30";
   const triggerOpenCls = isDark
-    ? "border-[#7FD5FF]/40 ring-2 ring-[#7FD5FF]/20"
-    : "border-blue-400 ring-2 ring-blue-100";
-  const placeholderTextCls = isDark ? "text-gray-400" : "text-gray-500";
-  const valueTextCls = isDark ? "text-white" : "text-gray-900";
-  const chevronCls = isDark ? "text-gray-400" : "text-gray-500";
-  const labelCls = isDark ? "text-gray-300" : "text-gray-700";
+    ? "border-[#7FD5FF] ring-2 ring-[#7FD5FF]/30"
+    : "border-sky-500 ring-2 ring-sky-500/20";
+  const placeholderTextCls = isDark ? "text-gray-400" : "text-slate-400";
+  const valueTextCls = isDark ? "text-white font-medium" : "text-slate-900 font-medium";
+  const chevronCls = isDark ? "text-gray-400" : "text-slate-500";
+  const labelCls = isDark ? "text-gray-200" : "text-slate-700";
   const dropdownCls = isDark
     ? "bg-[#001219] border-[#0A4D66]"
-    : "bg-white border-gray-200";
+    : "bg-white border-slate-200 shadow-xl";
   const searchWrapCls = isDark
     ? "border-[#0A4D66]/40 bg-[#001219]"
-    : "border-gray-200 bg-white";
+    : "border-slate-200 bg-slate-50";
   const searchInputCls = isDark
-    ? "bg-[#001825] border-[#0A4D66]/40 text-white placeholder-gray-500 focus:border-[#7FD5FF]/60"
-    : "bg-white border-gray-300 text-gray-900 placeholder-gray-400 focus:border-blue-400";
-  const emptyTextCls = isDark ? "text-gray-500" : "text-gray-400";
-  const optionRowHoverCls = isDark ? "hover:bg-[#0A4D66]/20" : "hover:bg-blue-50";
+    ? "bg-[#001825] border-[#0A4D66]/60 text-white placeholder-gray-500 focus:border-[#7FD5FF]"
+    : "bg-white border-slate-300 text-slate-900 placeholder-slate-400 focus:border-sky-500";
+  const emptyTextCls = isDark ? "text-gray-400" : "text-slate-500";
+  const optionRowHoverCls = isDark ? "hover:bg-[#0A4D66]/30" : "hover:bg-slate-100";
   const optionTextSelectedCls = isDark
-    ? "text-white font-medium"
-    : "text-gray-900 font-medium";
+    ? "text-[#7FD5FF] font-bold"
+    : "text-sky-700 font-bold";
   const optionTextIdleCls = isDark
-    ? "text-gray-300 group-hover:text-white"
-    : "text-gray-700 group-hover:text-gray-900";
-  const descriptionCls = isDark ? "text-gray-500" : "text-gray-400";
+    ? "text-gray-200 group-hover:text-white"
+    : "text-slate-800 group-hover:text-slate-900";
+  const descriptionCls = isDark ? "text-gray-400" : "text-slate-500";
   const clearRowCls = isDark
     ? "text-gray-400 hover:bg-[#0A4D66]/20 hover:text-white"
-    : "text-gray-500 hover:bg-blue-50 hover:text-gray-900";
+    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900";
 
   useClickOutside(containerRef, () => {
     setIsOpen(false);
@@ -111,7 +119,8 @@ export const SearchableSelect = ({
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           className={cn(
-            "w-full border rounded-md py-3 px-3 text-left text-sm focus:outline-none focus:ring-2 flex items-center justify-between gap-2 transition-colors",
+            "w-full border text-left focus:outline-none flex items-center justify-between gap-2 transition-colors",
+            sizeClasses,
             triggerCls,
             disabled && "opacity-50 cursor-not-allowed",
             isOpen && triggerOpenCls,
@@ -143,7 +152,7 @@ export const SearchableSelect = ({
             <Icon
               icon="mdi:chevron-down"
               className={cn(
-                "w-5 h-5 transition-transform duration-200",
+                "w-4 h-4 transition-transform duration-200",
                 chevronCls,
                 isOpen && "rotate-180",
               )}
@@ -154,34 +163,43 @@ export const SearchableSelect = ({
         {isOpen && !disabled && (
           <div
             className={cn(
-              "absolute z-20 mt-1 w-full border rounded-md shadow-xl max-h-72 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col",
+              "absolute z-30 mt-1 w-full border rounded-xl shadow-2xl max-h-72 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col",
               dropdownCls,
             )}
           >
             <div className={cn("p-2 border-b sticky top-0", searchWrapCls)}>
-              <input
-                type="text"
-                autoFocus
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder={searchPlaceholder}
-                className={cn(
-                  "w-full border rounded px-2 py-1.5 text-sm focus:outline-none",
-                  searchInputCls,
-                )}
-              />
+              <div className="relative">
+                <Icon
+                  icon="mdi:magnify"
+                  className={cn(
+                    "w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2",
+                    isDark ? "text-gray-400" : "text-slate-400",
+                  )}
+                />
+                <input
+                  type="text"
+                  autoFocus
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  className={cn(
+                    "w-full border rounded-lg pl-8 pr-2 py-1.5 text-xs outline-none transition-colors",
+                    searchInputCls,
+                  )}
+                />
+              </div>
             </div>
             <div className="overflow-y-auto">
               {filteredOptions.length === 0 ? (
-                <div className={cn("px-3 py-2 text-sm text-center", emptyTextCls)}>
-                  {searchTerm ? "No matches" : "No options available"}
+                <div className={cn("px-3 py-4 text-xs text-center", emptyTextCls)}>
+                  {searchTerm ? "No matching options found" : "No options available"}
                 </div>
               ) : (
                 <>
                   {clearable && selectedOption && (
                     <div
                       className={cn(
-                        "flex items-center gap-2 px-3 py-2 cursor-pointer border-b text-sm transition-colors",
+                        "flex items-center gap-2 px-3 py-2 cursor-pointer border-b text-xs transition-colors",
                         clearRowCls,
                       )}
                       onClick={handleClear}
@@ -196,23 +214,38 @@ export const SearchableSelect = ({
                       <div
                         key={option.value}
                         className={cn(
-                          "flex flex-col px-3 py-2 cursor-pointer group transition-colors",
-                          optionRowHoverCls,
+                          "flex items-center justify-between px-3 py-2 cursor-pointer group transition-colors",
+                          isSelected
+                            ? isDark
+                              ? "bg-[#0A4D66]/40"
+                              : "bg-sky-50"
+                            : optionRowHoverCls,
                         )}
                         onClick={() => handleSelect(option.value)}
                       >
-                        <span
-                          className={cn(
-                            "text-sm transition-colors",
-                            isSelected ? optionTextSelectedCls : optionTextIdleCls,
-                          )}
-                        >
-                          {option.label}
-                        </span>
-                        {option.description && (
-                          <span className={cn("text-xs", descriptionCls)}>
-                            {option.description}
+                        <div className="flex flex-col min-w-0 pr-2">
+                          <span
+                            className={cn(
+                              "text-xs transition-colors truncate",
+                              isSelected ? optionTextSelectedCls : optionTextIdleCls,
+                            )}
+                          >
+                            {option.label}
                           </span>
+                          {option.description && (
+                            <span className={cn("text-[11px]", descriptionCls)}>
+                              {option.description}
+                            </span>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <Icon
+                            icon="mdi:check"
+                            className={cn(
+                              "w-4 h-4 shrink-0",
+                              isDark ? "text-[#7FD5FF]" : "text-sky-600",
+                            )}
+                          />
                         )}
                       </div>
                     );

@@ -295,6 +295,11 @@ const WorkOrderDetailsPage = lazy(() =>
     default: module.WorkOrderDetailsPage,
   })),
 );
+const MaintenanceAircraftDetailsPage = lazy(() =>
+  import("@/features/maintenance/pages/MaintenanceAircraftDetailsPage").then((module) => ({
+    default: module.MaintenanceAircraftDetailsPage,
+  })),
+);
 const UserDetailsPage = lazy(() =>
   import("@/features/users/pages/UserDetailsPage").then((module) => ({
     default: module.UserDetailsPage,
@@ -571,6 +576,14 @@ export const router = createBrowserRouter([
         ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
+        path: "inventory/create",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <InventoryFormPage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
         path: "inventory/add",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
@@ -579,7 +592,23 @@ export const router = createBrowserRouter([
         ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
+        path: "inventory/new",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <InventoryFormPage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
         path: "inventory/requisitions/add",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <InventoryRequisitionFormPage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "inventory/requisitions/new",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <InventoryRequisitionFormPage />
@@ -636,6 +665,14 @@ export const router = createBrowserRouter([
       },
       {
         path: "inventory/suppliers/add",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <AddSupplierPage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "inventory/suppliers/new",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddSupplierPage />
@@ -846,6 +883,30 @@ export const router = createBrowserRouter([
       },
       {
         path: "maintenance/tracking",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
+          </Suspense>
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "maintenance/aircraft",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MaintenancePage />
+          </Suspense>
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "maintenance/aircraft/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MaintenanceAircraftDetailsPage />
+          </Suspense>
+        ), MAINTENANCE_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "maintenance/inventory",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <MaintenancePage />

@@ -896,7 +896,7 @@ export const ProcurementLifecyclePage = () => {
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-[var(--theme-border-em)] px-2 py-1 text-xs text-black hover:bg-[var(--theme-bg-panel)]"
+                            className="inline-flex items-center gap-1 rounded border border-[var(--theme-border-em)] px-2 py-1 text-xs text-slate-700 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white hover:bg-[var(--theme-bg-panel)] transition-colors"
                             onClick={() => handleOpenRfq(row.rfq?.id)}
                           >
                             <Icon icon="mdi:file-document-edit-outline" className="h-3.5 w-3.5" />
@@ -904,7 +904,7 @@ export const ProcurementLifecyclePage = () => {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-black hover:bg-emerald-500/10"
+                            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
                             onClick={() => handleOpenPo(row.po?.id)}
                           >
                             <Icon icon="mdi:cart-outline" className="h-3.5 w-3.5" />
@@ -912,7 +912,7 @@ export const ProcurementLifecyclePage = () => {
                           </button>
                           <button
                             type="button"
-                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-2 py-1 text-xs text-black hover:bg-amber-500/10"
+                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-2 py-1 text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-500/10 transition-colors"
                             onClick={() => handleOpenGrn(row.po?.id)}
                           >
                             <Icon icon="mdi:package-check" className="h-3.5 w-3.5" />

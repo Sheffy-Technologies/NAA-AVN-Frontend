@@ -1,78 +1,49 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { useTheme } from "@/context/ThemeContext";
 import {
+  useCompleteWorkOrderMutation,
   useGetComplianceRecordsQuery,
-  useCreateWorkOrderMutation,
   useGetDefectRecordsQuery,
   useGetMaintenanceDueItemsQuery,
-  useGetMaintenanceMetricsQuery,
   useGetWorkOrdersQuery,
-  type MaintenanceDueItem,
 } from "@/features/maintenance/api";
+import { useGetAssetsQuery } from "@/features/assets/api";
+import { useAppDispatch } from "@/app/store";
+import { showToast } from "@/shared/store/toastSlice";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
+import { useGetUnitsQuery } from "@/shared/api/units";
 import PlanningPage from "./PlanningPage";
+import { MaintenanceOverviewTab } from "../components/MaintenanceOverviewTab";
+import { MaintenanceInventorySection, type MaintenanceInventorySubTab } from "../components/MaintenanceInventorySection";
+import { CreateWorkOrderModal } from "../components/CreateWorkOrderModal";
+import { LogDefectModal } from "../components/LogDefectModal";
 
-type MaintenanceSectionKey =
-  | "overview"
-  | "planning"
-  | "compliance"
-  | "work-orders"
-  | "defects"
-  | "tracking";
+type MainTabKey = "overview" | "maintenance" | "work-orders" | "inventory";
+type MaintenanceSubTabKey = "tracking" | "programs" | "compliance" | "aircraft";
+type WorkOrdersSubTabKey = "work-orders" | "defects";
 
-const SECTIONS: Array<{
-  key: MaintenanceSectionKey;
-  label: string;
-  path: string;
-  icon: string;
-}> = [
-  {
-    key: "overview",
-    label: "Maintenance Hub",
-    path: "/dashboard/maintenance",
-    icon: "mdi:wrench-cog-outline",
-  },
-  {
-    key: "planning",
-    label: "Maintenance Programs (Planning)",
-    path: "/dashboard/maintenance/planning",
-    icon: "mdi:calendar-check-outline",
-  },
-  {
-    key: "compliance",
-    label: "Compliance Records",
-    path: "/dashboard/maintenance/compliance",
-    icon: "mdi:clipboard-text-clock-outline",
-  },
-  {
-    key: "work-orders",
-    label: "Work Order Management",
-    path: "/dashboard/maintenance/work-orders",
-    icon: "mdi:file-document-edit-outline",
-  },
-  {
-    key: "defects",
-    label: "Defects Logging",
-    path: "/dashboard/maintenance/defects",
-    icon: "mdi:alert-octagon-outline",
-  },
-  {
-    key: "tracking",
-    label: "Due/Overdue Tracking",
-    path: "/dashboard/maintenance/tracking",
-    icon: "mdi:timeline-clock-outline",
-  },
+const MAIN_TABS: Array<{ id: MainTabKey; label: string; icon: string }> = [
+  { id: "overview", label: "Overview", icon: "mdi:view-dashboard-outline" },
+  { id: "maintenance", label: "Maintenance", icon: "mdi:wrench-outline" },
+  { id: "work-orders", label: "Work Orders", icon: "mdi:file-document-edit-outline" },
+  { id: "inventory", label: "Inventory", icon: "mdi:package-variant-closed" },
 ];
 
-const getSectionFromPath = (pathname: string): MaintenanceSectionKey => {
-  if (pathname.endsWith("/maintenance/planning")) return "planning";
-  if (pathname.endsWith("/maintenance/compliance")) return "compliance";
-  if (pathname.endsWith("/maintenance/work-orders")) return "work-orders";
-  if (pathname.endsWith("/maintenance/defects")) return "defects";
-  if (pathname.endsWith("/maintenance/tracking")) return "tracking";
-  return "overview";
-};
+const MAINTENANCE_SUB_TABS: Array<{ id: MaintenanceSubTabKey; label: string; icon: string }> = [
+  { id: "tracking", label: "Maintenance Tracking", icon: "mdi:timeline-clock-outline" },
+  { id: "programs", label: "Maintenance Program", icon: "mdi:calendar-check-outline" },
+  { id: "compliance", label: "Compliance Record", icon: "mdi:clipboard-text-clock-outline" },
+  { id: "aircraft", label: "Aircraft", icon: "mdi:airplane" },
+];
+
+const WORK_ORDERS_SUB_TABS: Array<{ id: WorkOrdersSubTabKey; label: string; icon: string }> = [
+  { id: "work-orders", label: "Work Orders", icon: "mdi:file-document-edit-outline" },
+  { id: "defects", label: "Defect Logging", icon: "mdi:alert-octagon-outline" },
+];
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -88,44 +59,164 @@ const formatDate = (value?: string | null) => {
 export const MaintenancePage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const section = getSectionFromPath(location.pathname);
+  const { isDark } = useTheme();
 
-  const { data, isLoading, isError } = useGetMaintenanceMetricsQuery();
-  const [dueTypeFilter, setDueTypeFilter] = useState<"aircraft" | "vehicle" | "equipment" | "">(
-    "aircraft",
-  );
+  // Determine active main tab and subtab from current URL path
+  const [activeMainTab, setActiveMainTab] = useState<MainTabKey>(() => {
+    const p = location.pathname;
+    if (
+      p.includes("/maintenance/planning") ||
+      p.includes("/maintenance/compliance") ||
+      p.includes("/maintenance/tracking") ||
+      p.includes("/maintenance/aircraft")
+    ) {
+      return "maintenance";
+    }
+    if (p.includes("/maintenance/work-orders") || p.includes("/maintenance/defects")) {
+      return "work-orders";
+    }
+    if (p.includes("/maintenance/inventory")) {
+      return "inventory";
+    }
+    return "overview";
+  });
+
+  const [activeMaintenanceSubTab, setActiveMaintenanceSubTab] = useState<MaintenanceSubTabKey>(() => {
+    if (location.pathname.includes("/maintenance/aircraft")) return "aircraft";
+    if (location.pathname.includes("/maintenance/compliance")) return "compliance";
+    if (location.pathname.includes("/maintenance/planning")) return "programs";
+    return "tracking";
+  });
+
+  const [activeWorkOrdersSubTab, setActiveWorkOrdersSubTab] = useState<WorkOrdersSubTabKey>(() => {
+    if (location.pathname.includes("/maintenance/defects")) return "defects";
+    return "work-orders";
+  });
+
+  const [activeInventorySubTab, setActiveInventorySubTab] = useState<MaintenanceInventorySubTab>("stocks");
+
+  // Keep state in sync if user navigates via browser back/forward or direct link
+  useEffect(() => {
+    const cleanPath = location.pathname.replace(/\/+$/, "");
+    if (cleanPath.includes("/maintenance/planning")) {
+      setActiveMainTab("maintenance");
+      setActiveMaintenanceSubTab("programs");
+    } else if (cleanPath.includes("/maintenance/compliance")) {
+      setActiveMainTab("maintenance");
+      setActiveMaintenanceSubTab("compliance");
+    } else if (cleanPath.includes("/maintenance/tracking")) {
+      setActiveMainTab("maintenance");
+      setActiveMaintenanceSubTab("tracking");
+    } else if (cleanPath.includes("/maintenance/aircraft")) {
+      setActiveMainTab("maintenance");
+      setActiveMaintenanceSubTab("aircraft");
+    } else if (cleanPath.includes("/maintenance/work-orders")) {
+      setActiveMainTab("work-orders");
+      setActiveWorkOrdersSubTab("work-orders");
+    } else if (cleanPath.includes("/maintenance/defects")) {
+      setActiveMainTab("work-orders");
+      setActiveWorkOrdersSubTab("defects");
+    } else if (cleanPath.includes("/maintenance/inventory")) {
+      setActiveMainTab("inventory");
+    } else if (cleanPath.endsWith("/maintenance") || cleanPath === "") {
+      setActiveMainTab("overview");
+    }
+  }, [location.pathname]);
+
+  // Maintenance Due Tracking Queries
   const {
     data: dueItemsResponse,
     isLoading: isDueItemsLoading,
     isError: isDueItemsError,
   } = useGetMaintenanceDueItemsQuery(
-    { asset_type: dueTypeFilter || undefined },
-    { skip: section !== "tracking" },
+    { asset_type: "aircraft" },
+    { skip: activeMainTab !== "maintenance" || activeMaintenanceSubTab !== "tracking" },
   );
-  const dueTrackingRows = useMemo(() => dueItemsResponse?.data ?? [], [dueItemsResponse]);
 
+  // Units query
+  const { data: units = [] } = useGetUnitsQuery();
+
+  // Aircraft Assets Query
+  const { data: aircraftAssets = [], isLoading: isAircraftLoading } = useGetAssetsQuery({ type: "aircraft" });
+
+  // Aircraft filters & search
+  const [aircraftSearch, setAircraftSearch] = useState("");
+  const [aircraftUnitFilter, setAircraftUnitFilter] = useState<string>("");
+  const [aircraftStatusFilter, setAircraftStatusFilter] = useState<string>("all");
+
+  const filteredAircraftList = useMemo(() => {
+    return aircraftAssets.filter((asset) => {
+      if (aircraftUnitFilter && String(asset.unit_id) !== aircraftUnitFilter) return false;
+      if (aircraftStatusFilter !== "all") {
+        const status = asset.serviceability_status || "serviceable";
+        if (status !== aircraftStatusFilter) return false;
+      }
+      if (aircraftSearch.trim()) {
+        const q = aircraftSearch.toLowerCase();
+        const tail = (asset.tail_number || "").toLowerCase();
+        const name = (asset.name || "").toLowerCase();
+        const model = (asset.model || "").toLowerCase();
+        const serial = (asset.serial_number || "").toLowerCase();
+        if (!tail.includes(q) && !name.includes(q) && !model.includes(q) && !serial.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [aircraftAssets, aircraftUnitFilter, aircraftStatusFilter, aircraftSearch]);
+
+  // Compliance Records Query
   const {
     data: complianceRecords = [],
     isLoading: isComplianceLoading,
     isError: isComplianceError,
-  } = useGetComplianceRecordsQuery(undefined, { skip: section !== "compliance" });
+  } = useGetComplianceRecordsQuery(undefined, {
+    skip: activeMainTab !== "maintenance" || activeMaintenanceSubTab !== "compliance",
+  });
 
+  // Work Orders Query
   const {
     data: workOrders = [],
     isLoading: isWorkOrdersLoading,
     isError: isWorkOrdersError,
-  } = useGetWorkOrdersQuery(undefined, { skip: section !== "work-orders" });
+  } = useGetWorkOrdersQuery(undefined, {
+    skip: activeMainTab !== "work-orders" || activeWorkOrdersSubTab !== "work-orders",
+  });
 
+  // Defects Records Query
   const {
     data: defectRecords = [],
     isLoading: isDefectRecordsLoading,
     isError: isDefectRecordsError,
-  } = useGetDefectRecordsQuery(undefined, { skip: section !== "defects" });
-  const [createWorkOrder, { isLoading: isCreatingWorkOrder }] =
-    useCreateWorkOrderMutation();
+  } = useGetDefectRecordsQuery(undefined, {
+    skip: activeMainTab !== "work-orders" || activeWorkOrdersSubTab !== "defects",
+  });
 
-  const summary = data?.summary;
-  const [selectedDueKey, setSelectedDueKey] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const [completeWorkOrder, { isLoading: isCompletingWorkOrder }] = useCompleteWorkOrderMutation();
+
+  const handleQuickCompleteWorkOrder = async (e: React.MouseEvent, workOrderId: number) => {
+    e.stopPropagation();
+    try {
+      await completeWorkOrder(workOrderId).unwrap();
+      dispatch(
+        showToast({
+          message: "Work order marked as completed. Automatic compliance record generated.",
+          type: "success",
+        })
+      );
+    } catch (error: unknown) {
+      const responseError = error as { data?: { message?: string } };
+      dispatch(
+        showToast({
+          message: responseError?.data?.message || "Failed to complete work order.",
+          type: "error",
+        })
+      );
+    }
+  };
+
+  // Local selection & feedback states
   const [selectedComplianceId, setSelectedComplianceId] = useState<number | null>(null);
   const [selectedDefectId, setSelectedDefectId] = useState<number | null>(null);
   const [isExportingWorkOrders, setIsExportingWorkOrders] = useState(false);
@@ -134,13 +225,54 @@ export const MaintenancePage = () => {
     { type: "success" | "error"; message: string } | null
   >(null);
 
-  const dueRowKey = (row: Pick<MaintenanceDueItem, "part_type" | "part_id">) =>
-    `${row.part_type}-${row.part_id}`;
+  // Modals & Filter States
+  const [isCreateWorkOrderModalOpen, setIsCreateWorkOrderModalOpen] = useState(false);
+  const [createWorkOrderInitialDefects, setCreateWorkOrderDefectIds] = useState<number[]>([]);
+  const [isLogDefectModalOpen, setIsLogDefectModalOpen] = useState(false);
 
-  const selectedDueItem = useMemo(
-    () => dueTrackingRows.find((row) => dueRowKey(row) === selectedDueKey) ?? null,
-    [dueTrackingRows, selectedDueKey],
-  );
+  // Tracking Filters & Harmonized Lists
+  const [trackingAssetFilter, setTrackingAssetFilter] = useState<string>("");
+  const [trackingStatusFilter, setTrackingStatusFilter] = useState<string>("all");
+  const [trackingTypeFilter, setTrackingTypeFilter] = useState<string>("all");
+
+  // Compliance Filter
+  const [complianceAssetFilter, setComplianceAssetFilter] = useState<string>("");
+
+  const allTrackingItems = useMemo(() => dueItemsResponse?.data ?? [], [dueItemsResponse]);
+
+  const filteredTrackingItems = useMemo(() => {
+    return allTrackingItems.filter((row) => {
+      if (trackingAssetFilter && String(row.asset_id) !== trackingAssetFilter) {
+        return false;
+      }
+      if (trackingStatusFilter !== "all" && row.status !== trackingStatusFilter) {
+        return false;
+      }
+      if (trackingTypeFilter !== "all" && row.part_type !== trackingTypeFilter) {
+        return false;
+      }
+      return true;
+    });
+  }, [allTrackingItems, trackingAssetFilter, trackingStatusFilter, trackingTypeFilter]);
+
+  const trackingCounts = useMemo(() => {
+    return {
+      total: allTrackingItems.length,
+      filtered: filteredTrackingItems.length,
+      ok: allTrackingItems.filter((i) => i.status === "ok").length,
+      due_soon: allTrackingItems.filter((i) => i.status === "due_soon").length,
+      overdue: allTrackingItems.filter((i) => i.status === "overdue").length,
+    };
+  }, [allTrackingItems, filteredTrackingItems]);
+
+  const filteredComplianceRecords = useMemo(() => {
+    if (!complianceAssetFilter) return complianceRecords;
+    return complianceRecords.filter((rec: any) => {
+      const recAssetId = rec.asset_id || rec.task?.work_order?.asset_id || rec.task?.workOrder?.asset_id;
+      return recAssetId ? String(recAssetId) === complianceAssetFilter : true;
+    });
+  }, [complianceRecords, complianceAssetFilter]);
+
   const selectedComplianceItem = useMemo(
     () => complianceRecords.find((row) => row.id === selectedComplianceId) ?? null,
     [complianceRecords, selectedComplianceId],
@@ -175,7 +307,7 @@ export const MaintenancePage = () => {
     });
   };
 
-  const handleCreateWorkOrderFromDefects = async () => {
+  const handleCreateWorkOrderFromDefects = () => {
     if (selectedDefectIds.size === 0) {
       setDefectWorkOrderFeedback({
         type: "error",
@@ -197,57 +329,9 @@ export const MaintenancePage = () => {
       return;
     }
 
-    try {
-      const selectedCount = selectedDefectIds.size;
-      const title =
-        selectedCount === 1
-          ? `Defect Work Order #${selected[0].id}`
-          : `Defect Work Order (${selectedCount} defects)`;
-
-      await createWorkOrder({
-        asset_id: primaryAssetId,
-        title,
-        defect_ids: Array.from(selectedDefectIds),
-      }).unwrap();
-
-      setSelectedDefectIds(new Set<number>());
-      setDefectWorkOrderFeedback({
-        type: "success",
-        message: "Work order created successfully from selected defects.",
-      });
-    } catch {
-      setDefectWorkOrderFeedback({
-        type: "error",
-        message: "Failed to create work order from selected defects.",
-      });
-    }
+    setCreateWorkOrderDefectIds(Array.from(selectedDefectIds));
+    setIsCreateWorkOrderModalOpen(true);
   };
-
-  const statCards = useMemo(
-    () => [
-      {
-        label: "Work Orders",
-        value: String(summary?.total_work_orders ?? 0),
-        icon: "mdi:file-document-edit-outline",
-      },
-      {
-        label: "Open Defects",
-        value: String(summary?.open_defects ?? 0),
-        icon: "mdi:alert-circle-outline",
-      },
-      {
-        label: "Compliance Due (30d)",
-        value: String(summary?.compliance_due_next_30_days ?? 0),
-        icon: "mdi:clock-alert-outline",
-      },
-      {
-        label: "Resolution Rate",
-        value: `${summary?.defect_resolution_rate ?? 0}%`,
-        icon: "mdi:check-decagram-outline",
-      },
-    ],
-    [summary],
-  );
 
   const handleExportWorkOrdersExcel = async () => {
     if (isExportingWorkOrders) return;
@@ -339,426 +423,1157 @@ export const MaintenancePage = () => {
     }
   };
 
+  // Switch tab helper
+  const handleSelectMainTab = (tabId: MainTabKey) => {
+    setActiveMainTab(tabId);
+    if (tabId === "overview") {
+      navigate("/dashboard/maintenance");
+    } else if (tabId === "maintenance") {
+      if (activeMaintenanceSubTab === "programs") navigate("/dashboard/maintenance/planning");
+      else if (activeMaintenanceSubTab === "compliance") navigate("/dashboard/maintenance/compliance");
+      else navigate("/dashboard/maintenance/tracking");
+    } else if (tabId === "work-orders") {
+      if (activeWorkOrdersSubTab === "defects") navigate("/dashboard/maintenance/defects");
+      else navigate("/dashboard/maintenance/work-orders");
+    } else if (tabId === "inventory") {
+      navigate("/dashboard/maintenance/inventory");
+    }
+  };
+
+  const handleDrilldownFromOverview = (
+    tabId: "maintenance" | "work-orders" | "inventory",
+    subTabId?: string,
+  ) => {
+    setActiveMainTab(tabId);
+    if (tabId === "maintenance") {
+      const sub = (subTabId as MaintenanceSubTabKey) || "tracking";
+      setActiveMaintenanceSubTab(sub);
+      if (sub === "programs") navigate("/dashboard/maintenance/planning");
+      else if (sub === "compliance") navigate("/dashboard/maintenance/compliance");
+      else navigate("/dashboard/maintenance/tracking");
+    } else if (tabId === "work-orders") {
+      const sub = (subTabId as WorkOrdersSubTabKey) || "work-orders";
+      setActiveWorkOrdersSubTab(sub);
+      if (sub === "defects") navigate("/dashboard/maintenance/defects");
+      else navigate("/dashboard/maintenance/work-orders");
+    } else if (tabId === "inventory") {
+      setActiveInventorySubTab((subTabId as MaintenanceInventorySubTab) || "stocks");
+      navigate("/dashboard/maintenance/inventory");
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Top Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold uppercase tracking-wide text-white">
-            Maintenance
-          </h1>
-          <p className="text-xs text-gray-400 mt-1 uppercase tracking-wider">
-            Planning, Compliance, Work Orders, Defects, and Tracking
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {SECTIONS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => navigate(item.path)}
+          <h1
             className={cn(
-              "text-left bg-[#001219] border rounded-xl p-4 transition-colors",
-              section === item.key
-                ? "border-[#7FD5FF] shadow-[0_0_0_1px_rgba(127,213,255,0.3)]"
-                : "border-[#0A4D66]/40 hover:border-[#7FD5FF]/50",
+              "text-2xl font-bold uppercase tracking-wide",
+              isDark ? "text-white" : "text-slate-900",
             )}
           >
-            <div className="flex items-center gap-3">
-              <Icon icon={item.icon} className="w-5 h-5 text-[#7FD5FF]" />
-              <span className="text-sm font-semibold text-white">
-                {item.label}
-              </span>
-            </div>
-          </button>
-        ))}
+            Maintenance Hub
+          </h1>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {statCards.map((stat) => (
-          <div
-            key={stat.label}
-            className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-400 uppercase">{stat.label}</p>
-              <Icon icon={stat.icon} className="w-4 h-4 text-[#7FD5FF]" />
-            </div>
-            <p className="text-2xl font-bold text-white">{stat.value}</p>
-          </div>
-        ))}
+      {/* Top-Level Navigation Tabs */}
+      <div className={cn("border-b relative", isDark ? "border-[#0A4D66]/40" : "border-slate-300")}>
+        <div className="flex space-x-2 sm:space-x-4">
+          {MAIN_TABS.map((tab) => {
+            const isActive = activeMainTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleSelectMainTab(tab.id)}
+                className={cn(
+                  "flex items-center space-x-2 px-4 py-3 text-sm transition-all relative outline-none rounded-t-lg",
+                  isActive
+                    ? isDark
+                      ? "text-[#7FD5FF] font-bold bg-[#7FD5FF]/10"
+                      : "text-sky-600 font-bold bg-sky-50"
+                    : isDark
+                      ? "text-gray-400 font-medium hover:text-white hover:bg-white/5"
+                      : "text-slate-600 font-medium hover:text-slate-900 hover:bg-slate-100",
+                )}
+              >
+                <Icon
+                  icon={tab.icon}
+                  className={cn(
+                    "w-5 h-5 transition-colors",
+                    isActive
+                      ? isDark
+                        ? "text-[#7FD5FF]"
+                        : "text-sky-600"
+                      : isDark
+                        ? "text-gray-400"
+                        : "text-slate-500",
+                  )}
+                />
+                <span>{tab.label}</span>
+                {isActive && (
+                  <div
+                    className={cn(
+                      "absolute bottom-0 left-0 right-0 h-[3px] rounded-t-full transition-all",
+                      isDark
+                        ? "bg-[#00A3E0] shadow-[0_0_12px_rgba(0,163,224,0.9)]"
+                        : "bg-sky-600 shadow-sm",
+                    )}
+                  />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {isLoading ? (
-        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-gray-400">
-          Loading maintenance metrics...
-        </div>
-      ) : null}
+      {/* TAB 1: OVERVIEW */}
+      {activeMainTab === "overview" && (
+        <MaintenanceOverviewTab
+          onNavigateTab={handleDrilldownFromOverview}
+          onOpenCreateWorkOrder={() => {
+            setCreateWorkOrderDefectIds([]);
+            setIsCreateWorkOrderModalOpen(true);
+          }}
+          onOpenLogDefect={() => setIsLogDefectModalOpen(true)}
+        />
+      )}
 
-      {isError ? (
-        <div className="bg-[#001219] border border-red-500/40 rounded-xl p-6 text-red-300">
-          Failed to load maintenance metrics.
-        </div>
-      ) : null}
-
-      {section === "planning" && <PlanningPage />}
-
-      {section === "tracking" && (
-        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-sm font-bold text-[#7FD5FF] uppercase">
-              Due/Overdue: Components, Engines, Avionics
-            </h2>
-            <select
-              value={dueTypeFilter}
-              onChange={(e) =>
-                setDueTypeFilter(e.target.value as "aircraft" | "vehicle" | "equipment" | "")
-              }
-              className="rounded border border-[#0A4D66]/40 bg-[#001825] px-2 py-1.5 text-xs text-gray-200 focus:outline-none"
+      {/* TAB 2: MAINTENANCE */}
+      {activeMainTab === "maintenance" && (
+        <div className="space-y-6">
+          {/* 3 Maintenance Subtabs with pill style */}
+          <div className="flex items-center justify-between">
+            <div
+              className={cn(
+                "flex items-center space-x-1 p-1 rounded-xl border",
+                isDark ? "bg-[#0A4D66] border-[#0A4D66]" : "bg-slate-200 border-slate-300",
+              )}
             >
-              <option value="aircraft">Aircraft Only</option>
-              <option value="vehicle">Vehicles Only</option>
-              <option value="equipment">Equipment Only</option>
-              <option value="">All Asset Types</option>
-            </select>
+              {MAINTENANCE_SUB_TABS.map((subTab) => {
+                const isActive = activeMaintenanceSubTab === subTab.id;
+                return (
+                  <button
+                    key={subTab.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveMaintenanceSubTab(subTab.id);
+                      if (subTab.id === "programs") navigate("/dashboard/maintenance/planning");
+                      else if (subTab.id === "compliance") navigate("/dashboard/maintenance/compliance");
+                      else if (subTab.id === "aircraft") navigate("/dashboard/maintenance/aircraft");
+                      else navigate("/dashboard/maintenance/tracking");
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                      isActive
+                        ? isDark
+                          ? "bg-[#001825] text-[#7FD5FF] font-bold shadow-md border border-[#7FD5FF]/50"
+                          : "bg-white text-sky-700 font-bold shadow-md border border-slate-300"
+                        : isDark
+                          ? "text-gray-200 hover:text-white"
+                          : "text-slate-600 hover:text-slate-900",
+                    )}
+                  >
+                    <Icon
+                      icon={subTab.icon}
+                      className={cn(
+                        "w-4 h-4",
+                        isActive
+                          ? isDark
+                            ? "text-[#7FD5FF]"
+                            : "text-sky-700"
+                          : isDark
+                            ? "text-gray-300"
+                            : "text-slate-500",
+                      )}
+                    />
+                    <span>{subTab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {dueItemsResponse && (
-            <div className="flex flex-wrap items-center gap-4 mb-4 text-xs">
-              <span className="inline-flex items-center gap-1.5 text-red-300">
-                <span className="w-2 h-2 rounded-full bg-red-400" />
-                Overdue: {dueItemsResponse.counts_by_status.overdue}
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-amber-300">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                Due Soon: {dueItemsResponse.counts_by_status.due_soon}
-              </span>
-            </div>
-          )}
+          {/* Subtab Content: Maintenance Programs (Planning) */}
+          {activeMaintenanceSubTab === "programs" && <PlanningPage />}
 
-          {isDueItemsLoading ? (
-            <div className="text-gray-400">Loading due/overdue items...</div>
-          ) : isDueItemsError ? (
-            <div className="text-red-300">Failed to load due/overdue items.</div>
-          ) : dueTrackingRows.length === 0 ? (
-            <div className="text-gray-400">No due/overdue components, engines, or avionics found.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-400 border-b border-[#0A4D66]/40">
-                    <th className="py-2 pr-3">Type</th>
-                    <th className="py-2 pr-3">Item</th>
-                    <th className="py-2 pr-3">Asset</th>
-                    <th className="py-2 pr-3">Hours Left</th>
-                    <th className="py-2 pr-3">Projected Due</th>
-                    <th className="py-2 pr-3">Status</th>
-                    <th className="py-2 pr-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dueTrackingRows.map((row) => (
-                    <tr key={dueRowKey(row)} className="border-b border-[#0A4D66]/20 text-gray-200">
-                      <td className="py-2 pr-3 capitalize">{row.part_type}</td>
-                      <td className="py-2 pr-3">{row.part_label}</td>
-                      <td className="py-2 pr-3">
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/dashboard/assets/${row.asset_id}`)}
-                          className="text-[#7FD5FF] hover:underline"
-                        >
-                          {row.asset_name}
-                          {row.asset_tail_number ? ` (${row.asset_tail_number})` : ""}
-                        </button>
-                      </td>
-                      <td className="py-2 pr-3">
-                        {row.hours_remaining === null
-                          ? "-"
-                          : `${Math.abs(row.hours_remaining).toLocaleString()} hrs`}
-                      </td>
-                      <td className="py-2 pr-3">
-                        {row.projected_due_date
-                          ? new Date(row.projected_due_date).toLocaleDateString("en-GB", {
-                              day: "numeric",
-                              month: "short",
-                              year: "numeric",
-                            })
-                          : "-"}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span
+          {/* Subtab Content: Due/Overdue Tracking */}
+          {activeMaintenanceSubTab === "tracking" && (
+            <div
+              className={cn(
+                "border rounded-xl p-6",
+                isDark ? "bg-[#001219] border-[#0A4D66]/40 text-white" : "bg-white border-slate-200 text-slate-800 shadow-sm",
+              )}
+            >
+              {/* Header & Subtitle */}
+              <div className="mb-4">
+                <h2 className="text-sm font-bold text-[#0A4D66] dark:text-[#7FD5FF] uppercase tracking-wide">
+                  Maintenance Tracking Records
+                </h2>
+                <p className={cn("text-xs mt-0.5", isDark ? "text-gray-400" : "text-slate-500")}>
+                  Components, engines and avionics across all assets
+                </p>
+              </div>
+
+              {/* 3 Dropdown Filters with Search */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <SearchableSelect
+                  size="sm"
+                  placeholder="All Assets"
+                  searchPlaceholder="Search aircraft..."
+                  value={trackingAssetFilter}
+                  onChange={(val) => setTrackingAssetFilter(val ? String(val) : "")}
+                  options={[
+                    { value: "", label: "All Assets" },
+                    ...aircraftAssets.map((asset) => ({
+                      value: String(asset.id),
+                      label: `${asset.name}${asset.tail_number ? ` (${asset.tail_number})` : ""}`,
+                    })),
+                  ]}
+                  clearable={false}
+                />
+
+                <SearchableSelect
+                  size="sm"
+                  placeholder="All Statuses"
+                  searchPlaceholder="Search status..."
+                  value={trackingStatusFilter}
+                  onChange={(val) => setTrackingStatusFilter(val ? String(val) : "all")}
+                  options={[
+                    { value: "all", label: "All Statuses" },
+                    { value: "ok", label: "OK Only" },
+                    { value: "due_soon", label: "Due Soon" },
+                    { value: "overdue", label: "Overdue" },
+                  ]}
+                  clearable={false}
+                />
+
+                <SearchableSelect
+                  size="sm"
+                  placeholder="All Item Types"
+                  searchPlaceholder="Search item type..."
+                  value={trackingTypeFilter}
+                  onChange={(val) => setTrackingTypeFilter(val ? String(val) : "all")}
+                  options={[
+                    { value: "all", label: "All Item Types" },
+                    { value: "component", label: "Components" },
+                    { value: "engine", label: "Engines" },
+                    { value: "avionics", label: "Avionics" },
+                    { value: "asset", label: "Airframe" },
+                  ]}
+                  clearable={false}
+                />
+              </div>
+
+              {/* Status breakdown pills */}
+              <div className="flex flex-wrap items-center gap-2 mb-4 text-xs font-semibold">
+                <span className={cn("text-xs font-medium mr-2", isDark ? "text-gray-400" : "text-slate-600")}>
+                  Showing {trackingCounts.filtered} of {trackingCounts.total}
+                </span>
+                {trackingCounts.ok > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30">
+                    OK: {trackingCounts.ok}
+                  </span>
+                )}
+                {trackingCounts.due_soon > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+                    Due Soon: {trackingCounts.due_soon}
+                  </span>
+                )}
+                {trackingCounts.overdue > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/30">
+                    Overdue: {trackingCounts.overdue}
+                  </span>
+                )}
+              </div>
+
+              {isDueItemsLoading ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  Loading tracking records...
+                </div>
+              ) : isDueItemsError ? (
+                <div className="text-red-500 dark:text-red-300 text-xs py-4">Failed to load tracking records.</div>
+              ) : filteredTrackingItems.length === 0 ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  No components, engines, or avionics matching filter.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr
+                        className={cn(
+                          "text-left border-b font-semibold uppercase tracking-wider",
+                          isDark ? "text-gray-400 border-[#0A4D66]/40" : "text-slate-500 border-slate-200",
+                        )}
+                      >
+                        <th className="py-2.5 px-3">Type</th>
+                        <th className="py-2.5 px-3">Item</th>
+                        <th className="py-2.5 px-3">Serial</th>
+                        <th className="py-2.5 px-3">Asset</th>
+                        <th className="py-2.5 px-3">Current</th>
+                        <th className="py-2.5 px-3">Next Due</th>
+                        <th className="py-2.5 px-3">Remaining</th>
+                        <th className="py-2.5 px-3">Projected Due</th>
+                        <th className="py-2.5 px-3 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
+                      {filteredTrackingItems.map((row) => (
+                        <tr
+                          key={`${row.part_type}-${row.part_id}-${row.asset_id}`}
+                          tabIndex={row.asset_id ? 0 : undefined}
+                          role={row.asset_id ? "button" : undefined}
+                          title={row.asset_id ? "Click to view asset details" : undefined}
+                          onClick={(e) => {
+                            if (row.asset_id) {
+                              onInteractiveRowClick(e, () => navigate(`/maintenance/aircraft/${row.asset_id}`));
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (row.asset_id) {
+                              onInteractiveRowKeyDown(e, () => navigate(`/maintenance/aircraft/${row.asset_id}`));
+                            }
+                          }}
                           className={cn(
-                            "text-xs font-medium capitalize",
-                            row.status === "overdue" ? "text-red-300" : "text-amber-300",
+                            "transition-colors",
+                            isDark ? "hover:bg-[#001825]/60 text-gray-200" : "hover:bg-slate-50 text-slate-700",
+                            row.asset_id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                           )}
                         >
-                          {row.status === "overdue" ? "Overdue" : "Due Soon"}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDueKey(dueRowKey(row))}
-                          className="text-xs text-[#7FD5FF] hover:underline"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          <td className="py-2.5 px-3 capitalize font-medium">{row.part_type}</td>
+                          <td className="py-2.5 px-3 font-semibold">{row.part_label}</td>
+                          <td className="py-2.5 px-3 text-gray-400">{row.part_serial_number || "-"}</td>
+                          <td className="py-2.5 px-3">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/maintenance/aircraft/${row.asset_id}`)}
+                              className="text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-medium"
+                            >
+                              {row.asset_name}
+                              {row.asset_tail_number ? ` (${row.asset_tail_number})` : ""}
+                            </button>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {row.current_hours ?? 0} hrs / {row.current_cycles ?? 0} cyc
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {row.next_due_hours !== null && row.next_due_hours !== undefined
+                              ? `${row.next_due_hours} hrs`
+                              : row.next_due_date
+                                ? formatDate(row.next_due_date)
+                                : "-"}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {row.hours_remaining !== null
+                              ? `${Math.abs(row.hours_remaining).toLocaleString()} hrs`
+                              : row.days_remaining !== null
+                                ? `${row.days_remaining} days`
+                                : "-"}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {row.projected_due_date ? formatDate(row.projected_due_date) : "-"}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <span
+                              className={cn(
+                                "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border",
+                                row.status === "overdue"
+                                  ? "bg-red-500/10 text-red-500 dark:text-red-300 border-red-500/30"
+                                  : row.status === "due_soon"
+                                    ? "bg-amber-500/10 text-amber-500 dark:text-amber-300 border-amber-500/30"
+                                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
+                              )}
+                            >
+                              {row.status === "overdue" ? "Overdue" : row.status === "due_soon" ? "Due Soon" : "OK"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
-          {selectedDueItem && (
-            <div className="mt-4 rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 text-sm text-gray-200">
-              <div className="text-xs uppercase text-[#7FD5FF] mb-2 capitalize">
-                {selectedDueItem.part_type} Details
-              </div>
-              <div>Item: {selectedDueItem.part_label}</div>
-              <div>Serial: {selectedDueItem.part_serial_number ?? "-"}</div>
-              <div>
-                Asset: {selectedDueItem.asset_name}
-                {selectedDueItem.asset_tail_number ? ` (${selectedDueItem.asset_tail_number})` : ""}
-              </div>
-              <div>Current Hours: {selectedDueItem.current_hours ?? "-"}</div>
-              <div>Current Cycles: {selectedDueItem.current_cycles ?? "-"}</div>
-              <div>Next Due Hours: {selectedDueItem.next_due_hours ?? "-"}</div>
-              <div>Next Due Cycles: {selectedDueItem.next_due_cycles ?? "-"}</div>
-              <div>Next Due Date: {selectedDueItem.next_due_date ?? "-"}</div>
-              <div>Projected Due Date: {selectedDueItem.projected_due_date ?? "-"}</div>
-            </div>
-          )}
-        </div>
-      )}
 
-      {section === "compliance" && (
-        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-4">
-            Compliance Records
-          </h2>
-          {isComplianceLoading ? (
-            <div className="text-gray-400">Loading compliance records...</div>
-          ) : isComplianceError ? (
-            <div className="text-red-300">Failed to load compliance records.</div>
-          ) : complianceRecords.length === 0 ? (
-            <div className="text-gray-400">No compliance records found.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-gray-400 border-b border-[#0A4D66]/40">
-                    <th className="py-2 pr-3">Record ID</th>
-                    <th className="py-2 pr-3">Completion Date</th>
-                    <th className="py-2 pr-3">Next Due Date</th>
-                    <th className="py-2 pr-3">Next Due Hours</th>
-                    <th className="py-2 pr-3">Remarks</th>
-                    <th className="py-2 pr-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {complianceRecords.map((row) => (
-                    <tr key={row.id} className="border-b border-[#0A4D66]/20 text-gray-200">
-                      <td className="py-2 pr-3">#{row.id}</td>
-                      <td className="py-2 pr-3">{formatDate(row.completion_date)}</td>
-                      <td className="py-2 pr-3">{formatDate(row.next_due_date)}</td>
-                      <td className="py-2 pr-3">{row.next_due_hours ?? "-"}</td>
-                      <td className="py-2 pr-3">{row.remarks || "-"}</td>
-                      <td className="py-2 pr-3">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedComplianceId(row.id)}
-                          className="text-xs text-[#7FD5FF] hover:underline"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {selectedComplianceItem && (
-            <div className="mt-4 rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 text-sm text-gray-200">
-              <div className="text-xs uppercase text-[#7FD5FF] mb-2">Compliance Record Details</div>
-              <div>Record ID: #{selectedComplianceItem.id}</div>
-              <div>Completion Date: {formatDate(selectedComplianceItem.completion_date)}</div>
-              <div>Next Due Date: {formatDate(selectedComplianceItem.next_due_date)}</div>
-              <div>Next Due Hours: {selectedComplianceItem.next_due_hours ?? "-"}</div>
-              <div>Linked Work Order Task: {selectedComplianceItem.work_order_task_id ?? "-"}</div>
-              <div>Component ID: {selectedComplianceItem.component_id ?? "-"}</div>
-              <div>Engine ID: {selectedComplianceItem.engine_id ?? "-"}</div>
-              <div>Avionics ID: {selectedComplianceItem.avionics_id ?? "-"}</div>
-              <div>Remarks: {selectedComplianceItem.remarks || "-"}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {section === "work-orders" && (
-        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h2 className="text-sm font-bold text-[#7FD5FF] uppercase">
-              Work Orders
-            </h2>
-            <button
-              type="button"
-              onClick={handleExportWorkOrdersExcel}
-              disabled={isExportingWorkOrders || isWorkOrdersLoading}
-              className="inline-flex items-center gap-2 rounded border border-emerald-400/50 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          {/* Subtab Content: Compliance Records */}
+          {activeMaintenanceSubTab === "compliance" && (
+            <div
+              className={cn(
+                "border rounded-xl p-6",
+                isDark ? "bg-[#001219] border-[#0A4D66]/40 text-white" : "bg-white border-slate-200 text-slate-800 shadow-sm",
+              )}
             >
-              <Icon icon={isExportingWorkOrders ? "mdi:loading" : "mdi:microsoft-excel"} className={cn("w-4 h-4", isExportingWorkOrders ? "animate-spin" : "")} />
-              <span>{isExportingWorkOrders ? "Exporting..." : "Export Excel"}</span>
-            </button>
-          </div>
-          {isWorkOrdersLoading ? (
-            <div className="text-gray-400">Loading work orders...</div>
-          ) : isWorkOrdersError ? (
-            <div className="text-red-300">Failed to load work orders.</div>
-          ) : workOrders.length === 0 ? (
-            <div className="text-gray-400">No work orders found.</div>
-          ) : (
-            <div className="space-y-3">
-              {workOrders.map((order) => (
-                <button
-                  key={order.id}
-                  type="button"
-                  onClick={() => navigate(`/dashboard/maintenance/work-orders/${order.id}`)}
-                  className="w-full text-left rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 hover:border-[#7FD5FF]/50 hover:bg-[#001825]/80 transition-colors"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-white">
-                        {order.title || `Work Order #${order.id}`}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Asset ID: {order.asset_id ?? "-"}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="text-xs text-gray-400">
-                        {formatDate(order.created_at)}
-                      </div>
-                      <Icon icon="mdi:arrow-right" className="w-4 h-4 text-[#7FD5FF]" />
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {section === "defects" && (
-        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-4">
-            Defects Logging
-          </h2>
-          {isDefectRecordsLoading ? (
-            <div className="text-gray-400">Loading discrepancies/defects...</div>
-          ) : isDefectRecordsError ? (
-            <div className="text-red-300">Failed to load discrepancies/defects.</div>
-          ) : defectRecords.length === 0 ? (
-            <div className="text-gray-400">No discrepancies/defects found.</div>
-          ) : (
-            <>
-              <div className="mb-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleCreateWorkOrderFromDefects}
-                  disabled={isCreatingWorkOrder || selectedDefectIds.size === 0}
-                  className="rounded border border-emerald-400 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isCreatingWorkOrder
-                    ? "Creating Work Order..."
-                    : `Create Work Order (${selectedDefectIds.size})`}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleToggleAllDefects}
-                  className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
-                >
-                  {allDefectsSelected ? "Unselect All" : "Select All"}
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <div>
+                  <h2 className="text-sm font-bold text-[#0A4D66] dark:text-[#7FD5FF] uppercase tracking-wide">
+                    Compliance Records
+                  </h2>
+                  <p className={cn("text-xs mt-0.5", isDark ? "text-gray-400" : "text-slate-500")}>
+                    Airworthiness Directives, Service Bulletins & Phase Inspection Completion History
+                  </p>
+                </div>
+                <div className="w-56">
+                  <select
+                    value={complianceAssetFilter}
+                    onChange={(e) => setComplianceAssetFilter(e.target.value)}
+                    className={cn(
+                      "w-full rounded-lg border px-3 py-1.5 text-xs outline-none transition-colors",
+                      isDark
+                        ? "border-[#0A4D66]/50 bg-[#001825] text-gray-200 focus:border-[#7FD5FF]"
+                        : "border-slate-300 bg-white text-slate-800 focus:border-[#0A4D66] shadow-sm",
+                    )}
+                  >
+                    <option value="">All Aircraft</option>
+                    {aircraftAssets.map((asset) => (
+                      <option key={asset.id} value={String(asset.id)}>
+                        {asset.name} {asset.tail_number ? `(${asset.tail_number})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {defectWorkOrderFeedback && (
-                <div
-                  className={cn(
-                    "mb-4 rounded border px-3 py-2 text-xs",
-                    defectWorkOrderFeedback.type === "success"
-                      ? "border-emerald-500/40 bg-emerald-900/20 text-emerald-300"
-                      : "border-red-500/40 bg-red-900/20 text-red-300",
-                  )}
-                >
-                  {defectWorkOrderFeedback.message}
+              {isComplianceLoading ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  Loading compliance records...
+                </div>
+              ) : isComplianceError ? (
+                <div className="text-red-500 dark:text-red-300 text-xs py-4">Failed to load compliance records.</div>
+              ) : filteredComplianceRecords.length === 0 ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  No compliance records found.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr
+                        className={cn(
+                          "text-left border-b font-semibold uppercase tracking-wider",
+                          isDark ? "text-gray-400 border-[#0A4D66]/40" : "text-slate-500 border-slate-200",
+                        )}
+                      >
+                        <th className="py-2.5 px-3">Record ID</th>
+                        <th className="py-2.5 px-3">Linked Work Order</th>
+                        <th className="py-2.5 px-3">Target Asset</th>
+                        <th className="py-2.5 px-3">Completion Date</th>
+                        <th className="py-2.5 px-3">Next Due</th>
+                        <th className="py-2.5 px-3">Compliance Description</th>
+                        <th className="py-2.5 px-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
+                      {filteredComplianceRecords.map((row) => (
+                        <tr
+                          key={row.id}
+                          tabIndex={0}
+                          role="button"
+                          title="Click to view compliance details"
+                          onClick={(e) => onInteractiveRowClick(e, () => setSelectedComplianceId(row.id))}
+                          onKeyDown={(e) => onInteractiveRowKeyDown(e, () => setSelectedComplianceId(row.id))}
+                          className={cn(
+                            "transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
+                            isDark ? "hover:bg-[#0A4D66]/30 text-gray-200" : "hover:bg-sky-50 text-slate-700",
+                            selectedComplianceId === row.id && (isDark ? "bg-[#0A4D66]/20" : "bg-sky-50")
+                          )}
+                        >
+                          <td className="py-2.5 px-3 font-semibold text-[#0A4D66] dark:text-[#7FD5FF]">
+                            #{row.id}
+                          </td>
+                          <td className="py-2.5 px-3 font-medium">
+                            {row.task?.work_order?.title ||
+                              (row.task?.work_order_id
+                                ? `WO #${row.task.work_order_id}`
+                                : row.work_order_task_id
+                                  ? `WO Task #${row.work_order_task_id}`
+                                  : "-")}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {row.task?.work_order?.asset?.name ||
+                              row.task?.work_order?.asset?.tail_number ||
+                              "-"}
+                          </td>
+                          <td className="py-2.5 px-3">{formatDate(row.completion_date)}</td>
+                          <td className="py-2.5 px-3">
+                            {formatDate(row.next_due_date)}
+                            {row.next_due_hours ? ` (${row.next_due_hours} hrs)` : ""}
+                          </td>
+                          <td className="py-2.5 px-3 truncate max-w-xs text-slate-600 dark:text-gray-300">
+                            {row.description || row.remarks || "-"}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedComplianceId(row.id)}
+                              className="text-xs text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-semibold"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-gray-400 border-b border-[#0A4D66]/40">
-                      <th className="py-2 pr-3">Select</th>
-                      <th className="py-2 pr-3">ID</th>
-                      <th className="py-2 pr-3">Title</th>
-                      <th className="py-2 pr-3">Severity</th>
-                      <th className="py-2 pr-3">Status</th>
-                      <th className="py-2 pr-3">Reported At</th>
-                      <th className="py-2 pr-3">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {defectRecords.map((defect) => (
-                      <tr key={defect.id} className="border-b border-[#0A4D66]/20 text-gray-200">
-                        <td className="py-2 pr-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedDefectIds.has(defect.id)}
-                            onChange={() => handleToggleDefect(defect.id)}
-                            className="h-4 w-4 rounded border-[#0A4D66]/60 bg-[#001825] text-[#7FD5FF]"
-                            title={`Select defect ${defect.id}`}
-                          />
-                        </td>
-                        <td className="py-2 pr-3">#{defect.id}</td>
-                        <td className="py-2 pr-3">{defect.title || "-"}</td>
-                        <td className="py-2 pr-3">{defect.severity || "-"}</td>
-                        <td className="py-2 pr-3">{defect.status || "-"}</td>
-                        <td className="py-2 pr-3">{formatDate(defect.reported_at)}</td>
-                        <td className="py-2 pr-3">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedDefectId(defect.id)}
-                            className="text-xs text-[#7FD5FF] hover:underline"
-                          >
-                            View Details
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+              {selectedComplianceItem && (
+                <div
+                  className={cn(
+                    "mt-4 rounded-xl border p-4 text-xs space-y-1.5",
+                    isDark
+                      ? "border-[#0A4D66]/40 bg-[#001825] text-gray-200"
+                      : "border-slate-200 bg-slate-50 text-slate-800 shadow-sm",
+                  )}
+                >
+                  <div className="flex items-center justify-between border-b pb-2 mb-2 dark:border-slate-700">
+                    <span className="text-xs uppercase font-bold text-[#0A4D66] dark:text-[#7FD5FF]">
+                      Compliance Record #{selectedComplianceItem.id} Details
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedComplianceId(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-white"
+                    >
+                      Close ✕
+                    </button>
+                  </div>
+                  <div>
+                    <strong>Linked Work Order:</strong>{" "}
+                    {selectedComplianceItem.task?.work_order?.title ||
+                      (selectedComplianceItem.task?.work_order_id
+                        ? `WO #${selectedComplianceItem.task.work_order_id}`
+                        : selectedComplianceItem.work_order_task_id
+                          ? `WO Task #${selectedComplianceItem.work_order_task_id}`
+                          : "-")}
+                  </div>
+                  <div>
+                    <strong>Target Asset:</strong>{" "}
+                    {selectedComplianceItem.task?.work_order?.asset?.name
+                      ? `${selectedComplianceItem.task.work_order.asset.name} (${selectedComplianceItem.task.work_order.asset.tail_number || "No Tail"})`
+                      : "-"}
+                  </div>
+                  {selectedComplianceItem.task?.program && (
+                    <div>
+                      <strong>Maintenance Program:</strong> {selectedComplianceItem.task.program.name}
+                    </div>
+                  )}
+                  {selectedComplianceItem.task?.defect && (
+                    <div>
+                      <strong>Resolved Defect Snag:</strong> {selectedComplianceItem.task.defect.title}
+                    </div>
+                  )}
+                  <div>
+                    <strong>Completion Date:</strong> {formatDate(selectedComplianceItem.completion_date)}
+                  </div>
+                  <div>
+                    <strong>Next Due Date:</strong> {formatDate(selectedComplianceItem.next_due_date)}
+                  </div>
+                  <div>
+                    <strong>Next Due Hours:</strong> {selectedComplianceItem.next_due_hours ?? "-"}
+                  </div>
+                  <div>
+                    <strong>Compliance Description:</strong>{" "}
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                      {selectedComplianceItem.description || selectedComplianceItem.remarks || "-"}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
-          {selectedDefectItem && (
-            <div className="mt-4 rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4 text-sm text-gray-200">
-              <div className="text-xs uppercase text-[#7FD5FF] mb-2">Defect Details</div>
-              <div>ID: #{selectedDefectItem.id}</div>
-              <div>Title: {selectedDefectItem.title || "-"}</div>
-              <div>Description: {selectedDefectItem.description || "-"}</div>
-              <div>Severity: {selectedDefectItem.severity || "-"}</div>
-              <div>Status: {selectedDefectItem.status || "-"}</div>
-              <div>Reported At: {formatDate(selectedDefectItem.reported_at)}</div>
-              <div>Resolved At: {formatDate(selectedDefectItem.resolved_at)}</div>
-              <div>Asset ID: {selectedDefectItem.asset_id ?? "-"}</div>
-              <div>Remarks: {selectedDefectItem.remarks || "-"}</div>
+
+          {/* Subtab Content: Aircraft Fleet Maintenance */}
+          {activeMaintenanceSubTab === "aircraft" && (
+            <div
+              className={cn(
+                "border rounded-xl p-6",
+                isDark ? "bg-[#001219] border-[#0A4D66]/40 text-white" : "bg-white border-slate-200 text-slate-800 shadow-sm",
+              )}
+            >
+              {/* Header & Subtitle */}
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                  <h2 className="text-sm font-bold text-[#0A4D66] dark:text-[#7FD5FF] uppercase tracking-wide">
+                    Aircraft Fleet Maintenance
+                  </h2>
+                  <p className={cn("text-xs mt-0.5", isDark ? "text-gray-400" : "text-slate-500")}>
+                    Inspect aircraft fleet through a maintenance engineering lens. Monitor operating hours, airworthiness status, and component tracking.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Breakdown Pills */}
+              <div className="flex flex-wrap items-center gap-2 mb-4 text-xs font-semibold">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/30">
+                  Total Aircraft: {aircraftAssets.length}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30">
+                  Airworthy / Serviceable: {aircraftAssets.filter((a) => (a.serviceability_status || "serviceable") === "serviceable").length}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/30">
+                  In Maintenance: {aircraftAssets.filter((a) => a.serviceability_status === "under_maintenance").length}
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/30">
+                  Grounded: {aircraftAssets.filter((a) => a.serviceability_status === "grounded").length}
+                </span>
+              </div>
+
+              {/* Filters */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div className="relative">
+                  <Icon
+                    icon="mdi:magnify"
+                    className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    value={aircraftSearch}
+                    onChange={(e) => setAircraftSearch(e.target.value)}
+                    placeholder="Search tail no, model, serial..."
+                    className={cn(
+                      "w-full rounded-lg border pl-9 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
+                      isDark ? "bg-[#001825] border-[#0A4D66]/50 text-white placeholder:text-gray-500" : "bg-white border-slate-300 text-slate-800 placeholder:text-slate-400",
+                    )}
+                  />
+                </div>
+
+                <SearchableSelect
+                  size="sm"
+                  placeholder="All Units"
+                  searchPlaceholder="Search unit..."
+                  value={aircraftUnitFilter}
+                  onChange={(val) => setAircraftUnitFilter(val ? String(val) : "")}
+                  options={[
+                    { value: "", label: "All Units" },
+                    ...units.map((u) => ({ value: String(u.id), label: u.name })),
+                  ]}
+                  clearable={false}
+                />
+
+                <SearchableSelect
+                  size="sm"
+                  placeholder="All Statuses"
+                  searchPlaceholder="Search status..."
+                  value={aircraftStatusFilter}
+                  onChange={(val) => setAircraftStatusFilter(val ? String(val) : "all")}
+                  options={[
+                    { value: "all", label: "All Statuses" },
+                    { value: "serviceable", label: "Serviceable (Airworthy)" },
+                    { value: "under_maintenance", label: "Under Maintenance" },
+                    { value: "grounded", label: "Grounded" },
+                  ]}
+                  clearable={false}
+                />
+              </div>
+
+              {/* Table */}
+              {isAircraftLoading ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  Loading aircraft fleet...
+                </div>
+              ) : filteredAircraftList.length === 0 ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  No aircraft matching filters.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr
+                        className={cn(
+                          "text-left border-b font-semibold uppercase tracking-wider",
+                          isDark ? "text-gray-400 border-[#0A4D66]/40" : "text-slate-500 border-slate-200",
+                        )}
+                      >
+                        <th className="py-2.5 px-3">Tail Number</th>
+                        <th className="py-2.5 px-3">Aircraft Model</th>
+                        <th className="py-2.5 px-3">Serial Number</th>
+                        <th className="py-2.5 px-3">Assigned Unit</th>
+                        <th className="py-2.5 px-3">Total Hours</th>
+                        <th className="py-2.5 px-3">Total Cycles</th>
+                        <th className="py-2.5 px-3">Airworthiness</th>
+                        <th className="py-2.5 px-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
+                      {filteredAircraftList.map((asset) => {
+                        const status = asset.serviceability_status || "serviceable";
+                        const isGrounded = status === "grounded";
+                        const isMaint = status === "under_maintenance";
+                        const assignedUnit = units.find((u) => u.id === asset.unit_id);
+
+                        return (
+                          <tr
+                            key={asset.id}
+                            tabIndex={0}
+                            role="button"
+                            title="Click to view aircraft maintenance details"
+                            onClick={(e) => onInteractiveRowClick(e, () => navigate(`/maintenance/aircraft/${asset.id}`))}
+                            onKeyDown={(e) => onInteractiveRowKeyDown(e, () => navigate(`/maintenance/aircraft/${asset.id}`))}
+                            className={cn(
+                              "transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
+                              isDark ? "hover:bg-[#0A4D66]/20 text-gray-200" : "hover:bg-slate-50 text-slate-700",
+                            )}
+                          >
+                            <td className="py-2.5 px-3 font-semibold text-[#0A4D66] dark:text-[#7FD5FF]">
+                              <span className="inline-flex items-center gap-1.5">
+                                <Icon icon="mdi:airplane" className="w-4 h-4 text-[#7FD5FF]" />
+                                <span>{asset.tail_number || "No Tail"}</span>
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-medium text-white">
+                              {asset.name} {asset.model ? `(${asset.model})` : ""}
+                            </td>
+                            <td className="py-2.5 px-3 text-gray-400">
+                              {asset.serial_number || "—"}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {assignedUnit?.name || "—"}
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-emerald-400">
+                              {(asset.current_total_hours || 0).toLocaleString()} hrs
+                            </td>
+                            <td className="py-2.5 px-3">
+                              {(asset.current_total_cycles || 0).toLocaleString()} cyc
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border capitalize",
+                                  isGrounded
+                                    ? "bg-red-500/10 text-red-400 border-red-500/30"
+                                    : isMaint
+                                      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "w-1.5 h-1.5 rounded-full",
+                                    isGrounded ? "bg-red-400" : isMaint ? "bg-amber-400" : "bg-emerald-400",
+                                  )}
+                                />
+                                {status === "serviceable" ? "Airworthy" : status}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/maintenance/aircraft/${asset.id}`);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-medium shadow-sm transition-colors"
+                              >
+                                <Icon icon="mdi:wrench-outline" className="w-3.5 h-3.5" />
+                                <span>Maintenance Hub</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
+
+      {/* TAB 3: WORK ORDERS */}
+      {activeMainTab === "work-orders" && (
+        <div className="space-y-6">
+          {/* 2 Work Orders Subtabs */}
+          <div className="flex items-center justify-between">
+            <div
+              className={cn(
+                "flex items-center space-x-1 p-1 rounded-xl border",
+                isDark ? "bg-[#0A4D66] border-[#0A4D66]" : "bg-slate-200 border-slate-300",
+              )}
+            >
+              {WORK_ORDERS_SUB_TABS.map((subTab) => {
+                const isActive = activeWorkOrdersSubTab === subTab.id;
+                return (
+                  <button
+                    key={subTab.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveWorkOrdersSubTab(subTab.id);
+                      if (subTab.id === "defects") navigate("/dashboard/maintenance/defects");
+                      else navigate("/dashboard/maintenance/work-orders");
+                    }}
+                    className={cn(
+                      "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all",
+                      isActive
+                        ? isDark
+                          ? "bg-[#001825] text-[#7FD5FF] font-bold shadow-md border border-[#7FD5FF]/50"
+                          : "bg-white text-sky-700 font-bold shadow-md border border-slate-300"
+                        : isDark
+                          ? "text-gray-200 hover:text-white"
+                          : "text-slate-600 hover:text-slate-900",
+                    )}
+                  >
+                    <Icon
+                      icon={subTab.icon}
+                      className={cn(
+                        "w-4 h-4",
+                        isActive
+                          ? isDark
+                            ? "text-[#7FD5FF]"
+                            : "text-sky-700"
+                          : isDark
+                            ? "text-gray-300"
+                            : "text-slate-500",
+                      )}
+                    />
+                    <span>{subTab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Actions for Work Orders */}
+            {activeWorkOrdersSubTab === "work-orders" && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreateWorkOrderDefectIds([]);
+                    setIsCreateWorkOrderModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0A4D66] text-white hover:bg-[#083c50] shadow transition-colors"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  <span>New Work Order</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportWorkOrdersExcel}
+                  disabled={isExportingWorkOrders || isWorkOrdersLoading}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed",
+                    isDark
+                      ? "border-emerald-500/40 text-emerald-300 hover:bg-emerald-950/20"
+                      : "border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100",
+                  )}
+                >
+                  <Icon
+                    icon={isExportingWorkOrders ? "mdi:loading" : "mdi:microsoft-excel"}
+                    className={cn("w-4 h-4", isExportingWorkOrders ? "animate-spin" : "")}
+                  />
+                  <span>{isExportingWorkOrders ? "Exporting..." : "Export Excel"}</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Subtab Content: Work Orders List */}
+          {activeWorkOrdersSubTab === "work-orders" && (
+            <div
+              className={cn(
+                "border rounded-xl p-6",
+                isDark ? "bg-[#001219] border-[#0A4D66]/40 text-white" : "bg-white border-slate-200 text-slate-800 shadow-sm",
+              )}
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-[#0A4D66] dark:text-[#7FD5FF] uppercase">
+                  Active Work Orders
+                </h2>
+              </div>
+
+              {isWorkOrdersLoading ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  Loading work orders...
+                </div>
+              ) : isWorkOrdersError ? (
+                <div className="text-red-500 dark:text-red-300 text-xs py-4">Failed to load work orders.</div>
+              ) : workOrders.length === 0 ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  No work orders found. Click "New Work Order" to create one.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {workOrders.map((order) => {
+                    const isCompleted = order.status === "completed";
+                    const isInProgress = order.status === "in_progress";
+                    return (
+                      <div
+                        key={order.id}
+                        onClick={() => navigate(`/dashboard/maintenance/work-orders/${order.id}`)}
+                        className={cn(
+                          "w-full text-left rounded-xl border p-4 transition-all group cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3",
+                          isDark
+                            ? "border-[#0A4D66]/30 bg-[#001825] hover:border-[#7FD5FF]/50 hover:bg-[#001825]/90"
+                            : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100",
+                        )}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={cn("text-sm font-semibold", isDark ? "text-white" : "text-slate-900")}>
+                              {order.title || `Work Order #${order.id}`}
+                            </span>
+                            <span
+                              className={cn(
+                                "text-[10px] font-bold uppercase px-2 py-0.5 rounded border",
+                                isCompleted
+                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                  : isInProgress
+                                    ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
+                                    : "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                              )}
+                            >
+                              {isCompleted ? "Completed" : isInProgress ? "In Progress" : "Pending"}
+                            </span>
+                          </div>
+                          <div className={cn("text-xs", isDark ? "text-gray-400" : "text-slate-500")}>
+                            Asset ID: {order.asset_id ?? "-"} • Tasks: {order.tasks?.length ?? 0}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <div className={cn("text-xs", isDark ? "text-gray-400" : "text-slate-500")}>
+                            {formatDate(order.created_at)}
+                          </div>
+                          {!isCompleted && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleQuickCompleteWorkOrder(e, order.id)}
+                              disabled={isCompletingWorkOrder}
+                              className="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors flex items-center gap-1"
+                            >
+                              <Icon icon="mdi:check-circle-outline" className="w-3.5 h-3.5" />
+                              <span>Complete</span>
+                            </button>
+                          )}
+                          <Icon icon="mdi:arrow-right" className="w-4 h-4 text-[#0A4D66] dark:text-[#7FD5FF] group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Subtab Content: Defects Logging */}
+          {activeWorkOrdersSubTab === "defects" && (
+            <div
+              className={cn(
+                "border rounded-xl p-6",
+                isDark ? "bg-[#001219] border-[#0A4D66]/40 text-white" : "bg-white border-slate-200 text-slate-800 shadow-sm",
+              )}
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-bold text-[#0A4D66] dark:text-[#7FD5FF] uppercase">
+                  Discrepancies & Defect Snag List
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => setIsLogDefectModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0A4D66] text-white hover:bg-[#083c50] shadow transition-colors"
+                >
+                  <Icon icon="mdi:plus" className="w-4 h-4" />
+                  <span>Log Defect / Snag</span>
+                </button>
+              </div>
+
+              {isDefectRecordsLoading ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  Loading discrepancies/defects...
+                </div>
+              ) : isDefectRecordsError ? (
+                <div className="text-red-500 dark:text-red-300 text-xs py-4">Failed to load discrepancies/defects.</div>
+              ) : defectRecords.length === 0 ? (
+                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
+                  No discrepancies/defects found.
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCreateWorkOrderFromDefects}
+                      disabled={selectedDefectIds.size === 0}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Icon icon="mdi:file-document-plus" className="w-4 h-4" />
+                      <span>
+                        {selectedDefectIds.size === 0
+                          ? "Create Work Order from Defects"
+                          : `Create Work Order from Defects (${selectedDefectIds.size})`}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleToggleAllDefects}
+                      className={cn(
+                        "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                        isDark
+                          ? "border-[#7FD5FF]/50 text-[#7FD5FF] hover:bg-[#0A4D66]/20"
+                          : "border-slate-300 text-slate-700 hover:bg-slate-50",
+                      )}
+                    >
+                      {allDefectsSelected ? "Unselect All" : "Select All"}
+                    </button>
+                  </div>
+
+                  {defectWorkOrderFeedback && (
+                    <div
+                      className={cn(
+                        "mb-4 rounded-lg border px-3 py-2 text-xs",
+                        defectWorkOrderFeedback.type === "success"
+                          ? "border-emerald-500/40 bg-emerald-900/20 text-emerald-300"
+                          : "border-red-500/40 bg-red-900/20 text-red-300",
+                      )}
+                    >
+                      {defectWorkOrderFeedback.message}
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr
+                          className={cn(
+                            "text-left border-b font-semibold uppercase tracking-wider",
+                            isDark ? "text-gray-400 border-[#0A4D66]/40" : "text-slate-500 border-slate-200",
+                          )}
+                        >
+                          <th className="py-2.5 px-3 w-8">Select</th>
+                          <th className="py-2.5 px-3">ID</th>
+                          <th className="py-2.5 px-3">Title</th>
+                          <th className="py-2.5 px-3">Severity</th>
+                          <th className="py-2.5 px-3">Status</th>
+                          <th className="py-2.5 px-3">Reported At</th>
+                          <th className="py-2.5 px-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
+                        {defectRecords.map((defect) => (
+                          <tr
+                            key={defect.id}
+                            tabIndex={0}
+                            role="button"
+                            title="Click to view defect details"
+                            onClick={(e) => onInteractiveRowClick(e, () => setSelectedDefectId(defect.id))}
+                            onKeyDown={(e) => onInteractiveRowKeyDown(e, () => setSelectedDefectId(defect.id))}
+                            className={cn(
+                              "transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
+                              isDark ? "hover:bg-[#0A4D66]/30 text-gray-200" : "hover:bg-sky-50 text-slate-700",
+                              selectedDefectItem?.id === defect.id && (isDark ? "bg-[#0A4D66]/20" : "bg-sky-50")
+                            )}
+                          >
+                            <td className="py-2.5 px-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedDefectIds.has(defect.id)}
+                                onChange={() => handleToggleDefect(defect.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                                title={`Select defect ${defect.id}`}
+                              />
+                            </td>
+                            <td className="py-2.5 px-3 font-semibold text-[#0A4D66] dark:text-[#7FD5FF]">
+                              #{defect.id}
+                            </td>
+                            <td className="py-2.5 px-3 font-medium">{defect.title || "-"}</td>
+                            <td className="py-2.5 px-3 capitalize">
+                              <span
+                                className={cn(
+                                  "px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                                  defect.severity === "critical"
+                                    ? "bg-red-500/10 text-red-400 border-red-500/30"
+                                    : defect.severity === "major"
+                                      ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                      : "bg-blue-500/10 text-blue-400 border-blue-500/30",
+                                )}
+                              >
+                                {defect.severity || "routine"}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 capitalize">{defect.status || "-"}</td>
+                            <td className="py-2.5 px-3">{formatDate(defect.reported_at)}</td>
+                            <td className="py-2.5 px-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDefectId(defect.id)}
+                                className="text-xs text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-semibold"
+                              >
+                                View Details
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+
+              {selectedDefectItem && (
+                <div
+                  className={cn(
+                    "mt-4 rounded-xl border p-4 text-xs space-y-1.5",
+                    isDark
+                      ? "border-[#0A4D66]/40 bg-[#001825] text-gray-200"
+                      : "border-slate-200 bg-slate-50 text-slate-800 shadow-sm",
+                  )}
+                >
+                  <div className="flex items-center justify-between border-b pb-2 mb-2 dark:border-slate-700">
+                    <span className="text-xs uppercase font-bold text-[#0A4D66] dark:text-[#7FD5FF]">
+                      Defect #{selectedDefectItem.id} Details
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDefectId(null)}
+                      className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-white"
+                    >
+                      Close ✕
+                    </button>
+                  </div>
+                  <div><strong>Title:</strong> {selectedDefectItem.title || "-"}</div>
+                  <div><strong>Description:</strong> {selectedDefectItem.description || "-"}</div>
+                  <div><strong>Severity:</strong> {selectedDefectItem.severity || "-"}</div>
+                  <div><strong>Status:</strong> {selectedDefectItem.status || "-"}</div>
+                  <div><strong>Reported At:</strong> {formatDate(selectedDefectItem.reported_at)}</div>
+                  <div><strong>Resolved At:</strong> {formatDate(selectedDefectItem.resolved_at)}</div>
+                  <div><strong>Asset ID:</strong> {selectedDefectItem.asset_id ?? "-"}</div>
+                  <div><strong>Remarks:</strong> {selectedDefectItem.remarks || "-"}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 4: INVENTORY */}
+      {activeMainTab === "inventory" && (
+        <MaintenanceInventorySection initialSubTab={activeInventorySubTab} />
+      )}
+
+      {/* CREATE WORK ORDER MODAL */}
+      <CreateWorkOrderModal
+        isOpen={isCreateWorkOrderModalOpen}
+        onClose={() => setIsCreateWorkOrderModalOpen(false)}
+        initialDefectIds={createWorkOrderInitialDefects}
+        onSuccess={(woId) => {
+          setIsCreateWorkOrderModalOpen(false);
+          setSelectedDefectIds(new Set());
+          navigate(`/dashboard/maintenance/work-orders/${woId}`);
+        }}
+      />
+
+      {/* LOG DEFECT / SNAG MODAL */}
+      <LogDefectModal
+        isOpen={isLogDefectModalOpen}
+        onClose={() => setIsLogDefectModalOpen(false)}
+      />
     </div>
   );
 };

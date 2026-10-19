@@ -75,7 +75,7 @@ const NAV_ITEMS: NavItem[] = [
   {
     name: "Strategic Command",
     path: "/dashboard/strategic",
-    icon: "mdi:map-marker-radius-outline",
+    icon: "mdi:radar",
     requiredPermissions: ["dashboard.strategic.view"],
   },
   {
@@ -227,11 +227,11 @@ export const Sidebar = () => {
 
   const navItemCls = (isActive: boolean) =>
     cn(
-      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200",
+      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
       isActive
         ? isDark
-          ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-2 border-[#7FD5FF]"
-          : "bg-blue-50 text-[#0369A1] border-l-2 border-[#0369A1]"
+          ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-4 border-[#7FD5FF]"
+          : "bg-blue-50/90 text-[#0369A1] font-bold border-l-4 border-[#0369A1] shadow-sm"
         : isDark
           ? `hover:bg-[#0A4D66]/50 hover:text-white ${defaultText}`
           : `hover:bg-gray-100 hover:text-gray-900 ${defaultText}`,
@@ -239,11 +239,11 @@ export const Sidebar = () => {
 
   const navItemSmCls = (isActive: boolean) =>
     cn(
-      "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200",
+      "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
       isActive
         ? isDark
-          ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-2 border-[#7FD5FF]"
-          : "bg-blue-50 text-[#0369A1] border-l-2 border-[#0369A1]"
+          ? "bg-[#0A4D66] text-white shadow-lg shadow-blue-900/20 border-l-4 border-[#7FD5FF]"
+          : "bg-blue-50/90 text-[#0369A1] font-bold border-l-4 border-[#0369A1] shadow-sm"
         : isDark
           ? `hover:bg-[#0A4D66]/50 hover:text-white ${defaultText}`
           : `hover:bg-gray-100 hover:text-gray-900 ${defaultText}`,
@@ -251,11 +251,11 @@ export const Sidebar = () => {
 
   const bottomItemCls = (isActive: boolean) =>
     cn(
-      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors duration-200",
+      "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-150",
       isActive
         ? isDark
-          ? "bg-[#0A4D66] text-white"
-          : "bg-blue-50 text-[#0369A1] border-l-2 border-[#0369A1]"
+          ? "bg-[#0A4D66] text-white border-l-4 border-[#7FD5FF]"
+          : "bg-blue-50/90 text-[#0369A1] font-bold border-l-4 border-[#0369A1] shadow-sm"
         : isDark
           ? `hover:bg-[#0A4D66]/50 hover:text-white ${defaultText}`
           : `hover:bg-gray-100 hover:text-gray-900 ${defaultText}`,
@@ -283,8 +283,35 @@ export const Sidebar = () => {
             end={item.path === "/dashboard"}
             className={({ isActive }) => navItemCls(isActive)}
           >
-            <Icon icon={item.icon} className="w-5 h-5" />
-            <span>{item.name}</span>
+            {({ isActive }) => (
+              <>
+                <Icon
+                  icon={item.icon}
+                  className={cn(
+                    "w-5 h-5 shrink-0 transition-colors",
+                    isActive
+                      ? isDark
+                        ? "text-[#7FD5FF]"
+                        : "text-[#0369A1]"
+                      : isDark
+                        ? "text-gray-400"
+                        : "text-gray-500",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "truncate",
+                    isActive
+                      ? isDark
+                        ? "text-white font-medium"
+                        : "text-[#0369A1] font-bold"
+                      : "",
+                  )}
+                >
+                  {item.name}
+                </span>
+              </>
+            )}
           </NavLink>
         ))}
 
@@ -301,8 +328,35 @@ export const Sidebar = () => {
                 to={item.path}
                 className={({ isActive }) => navItemSmCls(isActive)}
               >
-                <Icon icon={item.icon} className="w-5 h-5" />
-                <span>{item.name}</span>
+                {({ isActive }) => (
+                  <>
+                    <Icon
+                      icon={item.icon}
+                      className={cn(
+                        "w-5 h-5 shrink-0 transition-colors",
+                        isActive
+                          ? isDark
+                            ? "text-[#7FD5FF]"
+                            : "text-[#0369A1]"
+                          : isDark
+                            ? "text-gray-400"
+                            : "text-gray-500",
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "truncate",
+                        isActive
+                          ? isDark
+                            ? "text-white font-medium"
+                            : "text-[#0369A1] font-bold"
+                          : "",
+                      )}
+                    >
+                      {item.name}
+                    </span>
+                  </>
+                )}
               </NavLink>
             ))}
           </div>
@@ -320,8 +374,35 @@ export const Sidebar = () => {
               to={item.path}
               className={({ isActive }) => bottomItemCls(isActive)}
             >
-              <Icon icon={item.icon} className="w-5 h-5" />
-              <span>{item.name}</span>
+              {({ isActive }) => (
+                <>
+                  <Icon
+                    icon={item.icon}
+                    className={cn(
+                      "w-5 h-5 shrink-0 transition-colors",
+                      isActive
+                        ? isDark
+                          ? "text-[#7FD5FF]"
+                          : "text-[#0369A1]"
+                        : isDark
+                          ? "text-gray-400"
+                          : "text-gray-500",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "truncate",
+                      isActive
+                        ? isDark
+                          ? "text-white font-medium"
+                          : "text-[#0369A1] font-bold"
+                        : "",
+                    )}
+                  >
+                    {item.name}
+                  </span>
+                </>
+              )}
             </NavLink>
           ))}
           <button

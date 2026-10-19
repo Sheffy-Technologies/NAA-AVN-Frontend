@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react";
-import { useTheme } from "@/context/ThemeContext";
-import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
@@ -23,6 +21,7 @@ import {
 } from "../api";
 import { OperationLocationPicker } from "./OperationLocationPicker";
 import Modal from "@/shared/ui/modal/Modal";
+import { BackButton, CancelButton } from "@/shared/ui/button";
 
 type OperationFormMode = "create" | "edit";
 
@@ -259,9 +258,7 @@ export const OperationForm = ({
   onSubmit,
   isSubmitting,
 }: OperationFormProps) => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { isDark } = useTheme();
   const [coordinateInputMode, setCoordinateInputMode] =
     useState<CoordinateInputMode>("latlon");
   const [activeMapTarget, setActiveMapTarget] = useState<MapTarget>(
@@ -674,32 +671,30 @@ export const OperationForm = ({
     await onSubmit(payload);
   };
 
+  const isFormDirty = Boolean(
+    formData.name?.trim() ||
+    formData.description?.trim() ||
+    formData.departure_longitude?.trim() ||
+    formData.arrival_longitude?.trim() ||
+    assets.some((a) => a.asset_id > 0),
+  );
+
   return (
     <div className="min-h-screen bg-[#001219] text-gray-200 flex flex-col">
       <div className="bg-[#0A4D66] px-6 py-4 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
-          {isCreateMode ? (
-            <button
-              onClick={() => navigate(-1)}
-              className={`inline-flex items-center gap-2 transition-colors text-sm font-medium ${isDark ? "text-white/80 hover:text-white" : "text-gray-600 hover:text-gray-900"}`}
-              type="button"
-            >
-              <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-              Back
-            </button>
-          ) : null}
+          <BackButton fallbackUrl="/dashboard/operations" isDirty={isFormDirty} />
           <h1 className="text-white font-bold text-lg uppercase tracking-wider">
             {pageTitle}
           </h1>
         </div>
-        <button
-          onClick={() => navigate("/dashboard/operations")}
-          className="flex items-center gap-2 text-white/80 hover:text-white transition-colors text-sm font-medium"
-          type="button"
-        >
-          <Icon icon="mdi:close-circle" className="w-5 h-5" />
-          Save & Exit
-        </button>
+        <CancelButton
+          fallbackUrl="/dashboard/operations"
+          isDirty={isFormDirty}
+          label="Cancel & Exit"
+          variant="outline"
+          className="border-white/20 text-white hover:bg-white/10"
+        />
       </div>
 
       <div className="flex-1 p-6 md:p-8 overflow-y-auto">
@@ -1011,7 +1006,7 @@ export const OperationForm = ({
                   <button
                     type="button"
                     onClick={addManualWaypoint}
-                    className="inline-flex items-center gap-2 rounded-sm bg-[#001825] px-3 py-1.5 text-xs font-semibold text-black hover:bg-gray-200"
+                    className="inline-flex items-center gap-2 rounded-sm bg-[#0A4D66] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#083c50] transition-colors"
                   >
                     <Icon icon="mdi:plus" className="h-4 w-4" />
                     Add manually
@@ -1212,7 +1207,7 @@ export const OperationForm = ({
                 <button
                   type="button"
                   onClick={addAsset}
-                  className="inline-flex items-center gap-2 rounded-sm bg-[#001825] px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 transition-colors"
+                  className="inline-flex items-center gap-2 rounded-sm bg-[#0A4D66] px-4 py-2 text-sm font-semibold text-white hover:bg-[#083c50] transition-colors"
                 >
                   <Icon icon="mdi:plus-circle" className="h-4 w-4" />
                   Add Aircraft
@@ -1344,11 +1339,19 @@ export const OperationForm = ({
               </div>
             </section>
 
-          <div className="mt-10 flex justify-end border-t border-[#0A4D66]/30 pt-8">
+          <div className="mt-10 flex items-center justify-end gap-4 border-t border-[#0A4D66]/30 pt-8">
+            <CancelButton
+              fallbackUrl="/dashboard/operations"
+              isDirty={isFormDirty}
+              label="Cancel"
+              variant="outline"
+              size="md"
+              className="h-14 px-8 text-base border-slate-600 text-gray-300 hover:bg-white/5"
+            />
             <button
               type="submit"
               disabled={isSubmitting}
-              className="h-16 w-full max-w-130 bg-[#0369A1] text-white text-2xl font-semibold rounded-sm hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+              className="h-14 px-10 min-w-[200px] bg-[#0369A1] text-white text-lg font-semibold rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50 shadow-md"
             >
               {isSubmitting ? "Saving..." : submitLabel}
             </button>

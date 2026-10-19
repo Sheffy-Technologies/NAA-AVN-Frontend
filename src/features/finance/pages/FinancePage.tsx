@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useGetFinanceDashboardQuery,
@@ -660,7 +661,7 @@ export const FinancePage = () => {
               "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold transition-colors",
               resolvedSelectedAccountId == null
                 ? "bg-[#0A4D66]/30 text-gray-400 cursor-not-allowed"
-                : "bg-emerald-500 text-black hover:bg-emerald-600",
+                : "bg-emerald-600 text-white hover:bg-emerald-700",
             )}
             title={
               resolvedSelectedAccountId == null
@@ -676,10 +677,10 @@ export const FinancePage = () => {
             <button
               type="button"
               onClick={() => setIsImportOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs sm:text-sm font-semibold border border-[#0A4D66]/40 text-gray-200 hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
-              <Icon icon="mdi:upload" className="w-4 h-4" />
-              <span>Import CSV</span>
+              <Icon icon="mdi:upload" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span className="text-slate-700 dark:text-slate-200 font-semibold">Import CSV</span>
             </button>
           )}
 
@@ -980,9 +981,15 @@ export const FinancePage = () => {
                   filteredExpenses.map((row, index) => (
                     <tr
                       key={row.id}
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view expense details"
+                      onClick={(e) => onInteractiveRowClick(e, () => handleViewExpense(row.id))}
+                      onKeyDown={(e) => onInteractiveRowKeyDown(e, () => handleViewExpense(row.id))}
                       className={cn(
-                        "border-t border-[#0A4D66]/40",
+                        "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
                         index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                        activeExpenseId === row.id && "bg-[#0A4D66]/30",
                       )}
                     >
                       <td className="px-4 sm:px-6 py-3 align-middle text-white">
@@ -1014,8 +1021,11 @@ export const FinancePage = () => {
                       <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
                         <button
                           type="button"
-                          onClick={() => handleToggleExpenseDetail(row.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleExpenseDetail(row.id);
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                         >
                           <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
                         </button>
@@ -1174,8 +1184,13 @@ export const FinancePage = () => {
                   filteredBudgets.map((budget, index) => (
                     <tr
                       key={budget.id}
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view budget details"
+                      onClick={(e) => onInteractiveRowClick(e, () => handleViewBudget(budget.id))}
+                      onKeyDown={(e) => onInteractiveRowKeyDown(e, () => handleViewBudget(budget.id))}
                       className={cn(
-                        "border-t border-[#0A4D66]/40",
+                        "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
                         index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                       )}
                     >
@@ -1227,8 +1242,11 @@ export const FinancePage = () => {
                       <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
                         <button
                           type="button"
-                          onClick={() => handleToggleBudgetActions(budget.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleBudgetActions(budget.id);
+                          }}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                         >
                           <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
                         </button>
@@ -1427,7 +1445,7 @@ export const FinancePage = () => {
                   onClick={handleDownloadExpensePdf}
                   disabled={isExportingExpensePdf}
                   className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-3 py-2 text-sm font-medium text-black hover:bg-emerald-600",
+                    "inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 transition-colors",
                     isExportingExpensePdf && "opacity-70 cursor-not-allowed",
                   )}
                 >

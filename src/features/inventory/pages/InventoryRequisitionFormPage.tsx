@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { BackButton } from "@/shared/ui/button";
 import {
   useCreateInventoryMutation,
   useCreateInventoryRequisitionMutation,
@@ -9,6 +10,7 @@ import {
   useGetInventoriesQuery,
 } from "@/features/inventory/api";
 import { useGetAssetsQuery } from "@/features/assets/api";
+import { formatCategoryName } from "../inventoryUtils";
 
 // Requisitions only draw from the central store's stock (unit_id 1).
 const REQUISITION_UNIT_ID = 1;
@@ -228,9 +230,12 @@ export const InventoryRequisitionFormPage = () => {
   return (
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          ADD REQUEST
-        </h1>
+        <div className="flex items-center gap-3">
+          <BackButton fallbackUrl="/dashboard/inventory" />
+          <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
+            ADD REQUEST
+          </h1>
+        </div>
         <button
           type="button"
           onClick={handleExit}
@@ -248,9 +253,9 @@ export const InventoryRequisitionFormPage = () => {
             <button
               type="button"
               onClick={handleAddLine}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#001825] border border-[#0A4D66]/40 hover:border-[#7FD5FF]/60 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#0A4D66] text-white hover:bg-[#083c50] shadow-sm transition-colors font-semibold"
             >
-              <Icon icon="mdi:plus" className="w-3.5 h-3.5" />
+              <Icon icon="mdi:plus" className="w-3.5 h-3.5 text-white" />
               <span>Add</span>
             </button>
           </div>
@@ -272,13 +277,17 @@ export const InventoryRequisitionFormPage = () => {
                     <div className="text-xs font-semibold tracking-wide text-white uppercase">
                       REQUEST {index + 1}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveLine(index)}
-                      className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/30 text-gray-400 hover:text-white transition-colors"
-                    >
-                      <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                    </button>
+                    {lines.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLine(index)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 dark:text-red-400 dark:hover:text-red-300 dark:bg-red-950/40 dark:hover:bg-red-900/50 dark:border-red-900/40 transition-colors shadow-xs"
+                        title="Remove request"
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -307,7 +316,7 @@ export const InventoryRequisitionFormPage = () => {
                               })
                             }
                           />
-                          <span>{category.name}</span>
+                          <span>{formatCategoryName(category.name)}</span>
                         </label>
                       ))}
                     </div>
@@ -433,7 +442,7 @@ export const InventoryRequisitionFormPage = () => {
               onClick={handleSubmit}
               disabled={isSubmitting}
               className={cn(
-                "px-8 sm:px-12 py-3 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-bold hover:bg-[#0369A1]/90 transition-colors",
+                "px-8 sm:px-12 py-3 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-bold hover:bg-[#0369A1]/90 transition-colors",
                 isSubmitting && "opacity-70 cursor-not-allowed",
               )}
             >
@@ -505,7 +514,7 @@ export const InventoryRequisitionFormPage = () => {
               <button
                 type="button"
                 onClick={handleCloseAddInventory}
-                className="rounded border border-[#0A4D66]/50 px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/20 transition-colors"
+                className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-4 py-2 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
               >
                 Cancel
               </button>
@@ -514,7 +523,7 @@ export const InventoryRequisitionFormPage = () => {
                 onClick={handleCreateInventory}
                 disabled={isCreatingInventory}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded bg-[#0369A1] px-4 py-2 text-xs font-semibold text-black hover:bg-[#0369A1]/90 transition-colors",
+                  "inline-flex items-center gap-2 rounded bg-[#0369A1] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0369A1]/90 transition-colors",
                   isCreatingInventory && "opacity-70 cursor-not-allowed",
                 )}
               >

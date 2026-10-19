@@ -603,7 +603,7 @@ export const BudgetInfoPage = () => {
                 <button
                   type="button"
                   onClick={handleAddFinance}
-                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
+                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Finance</span>
@@ -880,7 +880,7 @@ export const BudgetInfoPage = () => {
                   type="button"
                   onClick={handleCreateIncome}
                   disabled={isCreatingIncome || !hasNumericBudgetId}
-                  className="inline-flex items-center gap-2 rounded bg-emerald-500 px-3 py-1.5 text-xs sm:text-sm font-semibold text-black hover:bg-emerald-600 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded bg-emerald-600 px-3 py-1.5 text-xs sm:text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
                   <span>Add Income</span>
