@@ -23,6 +23,7 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
+import { BackButton, CancelButton } from "@/shared/ui/button";
 
 interface ApiError {
   data?: {
@@ -535,18 +536,17 @@ export const EditPersonnelPage = () => {
     );
   }
 
+  const isFormDirty = Boolean(
+    formData.firstname?.trim() ||
+    formData.lastname?.trim() ||
+    formData.service_number?.trim(),
+  );
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate(-1)}
-          title="Go back"
-          aria-label="Go back"
-          className="p-2 hover:bg-[#001825]/5 rounded-full transition-colors text-gray-400 hover:text-white"
-        >
-          <Icon icon="mdi:arrow-left" className="w-6 h-6" />
-        </button>
-        <h1 className="text-2xl font-semibold text-white">Edit Personnel</h1>
+        <BackButton fallbackUrl="/dashboard/personnel" isDirty={isFormDirty} />
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">Edit Personnel</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8 max-w-6xl">
@@ -944,11 +944,18 @@ export const EditPersonnelPage = () => {
           </div>
         </div>
 
-        <div className="flex justify-end pt-6">
+        <div className="flex items-center justify-end gap-4 pt-6">
+          <CancelButton
+            fallbackUrl="/dashboard/personnel"
+            isDirty={isFormDirty}
+            label="Cancel"
+            size="md"
+            className="h-10 px-6"
+          />
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-2 bg-cyan-500 text-black font-medium rounded-md hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-8 py-2 bg-[#0A4D66] text-white font-semibold rounded-md hover:bg-[#083c50] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#7FD5FF] disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
           >
             {isSubmitting ? "Updating..." : "Update Personnel"}
           </button>

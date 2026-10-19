@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
@@ -14,7 +14,8 @@ import {
   useSendPurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
 } from "../api";
-import { buildPurchaseOrderDocument, personName } from "../procurementDocuments";
+import { BackButton } from "@/shared/ui/button";
+import { PurchaseOrderPrintDocument } from "../components/PurchaseOrderPrintDocument";
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -30,10 +31,10 @@ const formatDate = (value?: string | null) => {
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export default function PurchaseOrderDetailsPage() {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
-  const currentUser = useAppSelector((state) => state.auth.user);
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  const printDocumentRef = useRef<HTMLDivElement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [grnFormOpen, setGrnFormOpen] = useState(false);
   const [grnDate, setGrnDate] = useState(todayIso());
@@ -42,6 +43,7 @@ export default function PurchaseOrderDetailsPage() {
   const [grnError, setGrnError] = useState<string | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   const {
     data: order,
@@ -154,13 +156,21 @@ export default function PurchaseOrderDetailsPage() {
     );
 
   const handleDownloadPdf = async () => {
-    const poDocument = buildDocument();
-    if (!poDocument || isDownloadingPdf) return;
+    if (!printDocumentRef.current || !order || isDownloadingPdf) return;
 
     setIsDownloadingPdf(true);
     try {
-      await exportNaavnPdf([poDocument], documentFileName());
-      dispatch(showToast({ message: "PDF downloaded", type: "success" }));
+      await downloadElementAsPdf({
+        element: printDocumentRef.current,
+        fileName: `NAAVN-006_Purchase_Order_${order.id}`,
+        backgroundColor: "#ffffff",
+      });
+      dispatch(
+        showToast({
+          message: "Purchase Order PDF (NAAVN-006) downloaded",
+          type: "success",
+        }),
+      );
     } catch {
       dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
     } finally {
@@ -223,33 +233,36 @@ export default function PurchaseOrderDetailsPage() {
           {feedback}
         </div>
       )}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">
-            Purchase Order #{order.id}
-          </h1>
-          <p className="text-xs text-gray-400 mt-1">
-            {order.name || "Untitled Purchase Order"}
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <BackButton fallbackUrl="/dashboard/inventory" />
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+              Purchase Order #{order.id}
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+              {order.name || "Untitled Purchase Order"}
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-gray-200 hover:bg-[#0A4D66]/20 transition-colors"
-            onClick={() => navigate(-1)}
+            onClick={() => setIsPreviewOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm"
           >
-            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-            Back
+            <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-sky-500" />
+            Preview Document
           </button>
           <button
             type="button"
             onClick={handleExportExcel}
             disabled={isExportingExcel}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Icon
               icon={isExportingExcel ? "mdi:loading" : "mdi:file-excel-outline"}
-              className={cn("w-4 h-4", isExportingExcel && "animate-spin")}
+              className={cn("w-4 h-4 text-emerald-600 dark:text-emerald-400", isExportingExcel && "animate-spin")}
             />
             {isExportingExcel ? "Exporting..." : "Export Excel"}
           </button>
@@ -257,11 +270,11 @@ export default function PurchaseOrderDetailsPage() {
             type="button"
             onClick={handleDownloadPdf}
             disabled={isDownloadingPdf}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Icon
               icon={isDownloadingPdf ? "mdi:loading" : "mdi:file-pdf-box"}
-              className={cn("w-4 h-4", isDownloadingPdf && "animate-spin")}
+              className={cn("w-4 h-4 text-red-600 dark:text-red-400", isDownloadingPdf && "animate-spin")}
             />
             {isDownloadingPdf ? "Downloading..." : "Export PDF"}
           </button>
@@ -275,7 +288,7 @@ export default function PurchaseOrderDetailsPage() {
                   ? undefined
                   : "Supplier has no email address on file"
               }
-              className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#0369A1] text-black text-xs font-semibold shadow hover:bg-[#0369A1]/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded bg-[#0369A1] text-white text-xs font-semibold shadow hover:bg-[#0369A1]/90 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <Icon
                 icon={isSendingToVendor ? "mdi:loading" : "mdi:email-send-outline"}
@@ -287,7 +300,7 @@ export default function PurchaseOrderDetailsPage() {
           {order.status !== "received" && (
             <button
               type="button"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-500 text-black text-xs font-semibold shadow hover:bg-emerald-600 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white text-xs font-semibold shadow hover:bg-emerald-700 transition-colors"
               onClick={handleOpenGrnForm}
             >
               <Icon icon="mdi:clipboard-check-outline" className="w-4 h-4" />
@@ -424,7 +437,7 @@ export default function PurchaseOrderDetailsPage() {
               <button
                 type="button"
                 onClick={() => setGrnFormOpen(false)}
-                className="rounded border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:bg-[#0A4D66]/20 transition-colors"
+                className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-4 py-2 text-sm font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
               >
                 Cancel
               </button>
@@ -432,7 +445,7 @@ export default function PurchaseOrderDetailsPage() {
                 type="button"
                 onClick={handleSubmitGrn}
                 disabled={isSubmittingGrn}
-                className="inline-flex items-center gap-2 rounded bg-emerald-500 px-5 py-2 text-sm font-semibold text-black hover:bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-2 rounded bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
                 <Icon
                   icon={isSubmittingGrn ? "mdi:loading" : "mdi:check-bold"}
@@ -506,6 +519,79 @@ export default function PurchaseOrderDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* Off-screen high-fidelity NAAVN-006 document element for PDF download */}
+      <div
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: 0,
+          width: "794px",
+          pointerEvents: "none",
+          zIndex: -999,
+        }}
+        aria-hidden="true"
+      >
+        <PurchaseOrderPrintDocument ref={printDocumentRef} order={order} />
+      </div>
+
+      {/* Document Preview Modal */}
+      {isPreviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+          <div className="relative flex max-h-[95vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400">
+                  <Icon icon="mdi:file-document-outline" className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Purchase Order Document Preview
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Document Ref No.: NAAVN-006 • Nigerian Army Aviation
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
+                >
+                  <Icon icon="mdi:printer" className="h-4 w-4" />
+                  Print Form
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#0369A1] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0369A1]/90 disabled:opacity-60 transition-colors"
+                >
+                  <Icon
+                    icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+                    className={cn("h-4 w-4", isDownloadingPdf && "animate-spin")}
+                  />
+                  {isDownloadingPdf ? "Downloading..." : "Download PDF"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                >
+                  <Icon icon="mdi:close" className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6 bg-slate-950/70 flex justify-center">
+              <div className="shadow-2xl rounded-sm overflow-hidden bg-white">
+                <PurchaseOrderPrintDocument order={order} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

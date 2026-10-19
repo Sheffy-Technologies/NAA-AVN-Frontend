@@ -14,6 +14,7 @@ import {
   useGetExpenseCategoriesQuery,
 } from "../api";
 import { Icon } from "@/shared/icons/Icon";
+import { BackButton } from "@/shared/ui/button";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { NewInventoryItemFields } from "../components/NewInventoryItemFields";
 import {
@@ -313,17 +314,14 @@ export default function PurchaseOrderFormPage() {
   return (
     <div className="max-w-2xl mx-auto py-8">
       <div className="flex items-center gap-3 mb-6">
-        {initialRfqId ? (
-          <button
-            type="button"
-            onClick={() => navigate(`/dashboard/inventory/rfq/${initialRfqId}`)}
-            className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
-            title="Back to RFQ"
-          >
-            <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-          </button>
-        ) : null}
-        <h2 className="text-xl font-bold text-white">Create Purchase Order</h2>
+        <BackButton
+          fallbackUrl={
+            initialRfqId
+              ? `/dashboard/inventory/rfq/${initialRfqId}`
+              : "/dashboard/inventory/purchase-orders"
+          }
+        />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Create Purchase Order</h2>
         {initialRfqId && (
           <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[#7FD5FF]/30 bg-[#0369A1]/10 px-3 py-1 text-xs text-[#7FD5FF]">
             <Icon icon="mdi:link-variant" className="w-3.5 h-3.5" />
@@ -605,7 +603,7 @@ export default function PurchaseOrderFormPage() {
               type="button"
               title="Add Item"
               aria-label="Add Item"
-              className="px-3 py-2 rounded bg-emerald-500 text-black text-xs font-semibold hover:bg-emerald-600"
+              className="px-3 py-2 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors"
               onClick={handleAddItem}
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
@@ -639,7 +637,7 @@ export default function PurchaseOrderFormPage() {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="px-6 py-2 rounded bg-emerald-500 text-black text-sm font-semibold hover:bg-emerald-600 disabled:opacity-60"
+            className="px-6 py-2 rounded bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-60 transition-colors"
             disabled={isLoading}
           >
             {isLoading ? "Creating..." : "Create Purchase Order"}

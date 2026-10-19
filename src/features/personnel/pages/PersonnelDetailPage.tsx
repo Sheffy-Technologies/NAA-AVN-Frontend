@@ -12,6 +12,7 @@ import { EditCourseModal } from "../components/EditCourseModal";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -408,89 +409,20 @@ export const PersonnelDetailPage = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-4 text-xs sm:text-sm">
-              <button
-                type="button"
-                onClick={() => setActiveTab("bio")}
-                className={cn(
-                  "inline-flex items-center gap-2 pb-1 border-b-2",
-                  activeTab === "bio"
-                    ? "border-[#7FD5FF] text-white"
-                    : "border-transparent text-gray-400 hover:text-gray-200",
-                )}
-              >
-                <Icon
-                  icon="mdi:shield-account-outline"
-                  className="w-4 h-4 text-gray-400"
-                />
-                <span>Personnel bio data</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("activity")}
-                className={cn(
-                  "inline-flex items-center gap-2 pb-1 border-b-2",
-                  activeTab === "activity"
-                    ? "border-[#7FD5FF] text-white"
-                    : "border-transparent text-gray-400 hover:text-gray-200",
-                )}
-              >
-                <Icon
-                  icon="mdi:clock-outline"
-                  className="w-4 h-4 text-gray-400"
-                />
-                <span>Activity Log</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("pass")}
-                className={cn(
-                  "inline-flex items-center gap-2 pb-1 border-b-2",
-                  activeTab === "pass"
-                    ? "border-[#7FD5FF] text-white"
-                    : "border-transparent text-gray-400 hover:text-gray-200",
-                )}
-              >
-                <Icon
-                  icon="mdi:calendar-check-outline"
-                  className="w-4 h-4 text-gray-400"
-                />
-                <span>Pass</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("course")}
-                className={cn(
-                  "inline-flex items-center gap-2 pb-1 border-b-2",
-                  activeTab === "course"
-                    ? "border-[#7FD5FF] text-white"
-                    : "border-transparent text-gray-400 hover:text-gray-200",
-                )}
-              >
-                <Icon
-                  icon="mdi:school-outline"
-                  className="w-4 h-4 text-gray-400"
-                />
-                <span>Course</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("attendance")}
-                className={cn(
-                  "inline-flex items-center gap-2 pb-1 border-b-2",
-                  activeTab === "attendance"
-                    ? "border-[#7FD5FF] text-white"
-                    : "border-transparent text-gray-400 hover:text-gray-200",
-                )}
-              >
-                <Icon
-                  icon="mdi:clipboard-check-outline"
-                  className="w-4 h-4 text-gray-400"
-                />
-                <span>Attendance</span>
-              </button>
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300">
+            <AppTabs
+              tabs={[
+                { id: "bio", label: "Personnel bio data", icon: "mdi:shield-account-outline" },
+                { id: "activity", label: "Activity Log", icon: "mdi:clock-outline" },
+                { id: "pass", label: "Pass", icon: "mdi:calendar-check-outline" },
+                { id: "course", label: "Course", icon: "mdi:school-outline" },
+                { id: "attendance", label: "Attendance", icon: "mdi:clipboard-check-outline" },
+              ]}
+              activeTab={activeTab}
+              onChange={(tab) => setActiveTab(tab as typeof activeTab)}
+              size="sm"
+              containerClassName="border-b-0"
+            />
 
             {activeTab === "activity" && (
               <div className="flex items-center gap-2">

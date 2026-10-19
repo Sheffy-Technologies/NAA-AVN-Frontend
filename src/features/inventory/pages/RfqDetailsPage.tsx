@@ -1,12 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
-import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
-import { exportNaavnPdf } from "@/shared/documents/naavnPdf";
-import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
+import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useGetRfqsQuery,
   useGetSupplierQuotationsQuery,
@@ -14,9 +12,7 @@ import {
   useCreateSupplierQuotationMutation,
   useApproveSupplierQuotationMutation,
 } from "@/features/inventory/api";
-import { buildRfqDocument } from "@/features/inventory/procurementDocuments";
-
-const ALL_SUPPLIERS = "all";
+import { RfqPrintDocument } from "../components/RfqPrintDocument";
 
 const formatDateShort = (isoString: string | null | undefined) => {
   if (!isoString) return "-";
@@ -203,6 +199,35 @@ export function RfqDetailsPage() {
     navigate(`/dashboard/inventory/purchase-orders/new?${params.toString()}`);
   };
 
+  const printDocumentRef = useRef<HTMLDivElement | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!printDocumentRef.current || !rfq || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    try {
+      await downloadElementAsPdf({
+        element: printDocumentRef.current,
+        fileName: `NAAVN-005_RFQ_${rfq.rfq_number || rfq.id}`,
+        backgroundColor: "#ffffff",
+      });
+      dispatch(
+        showToast({
+          message: "RFQ Document (NAAVN-005) downloaded successfully",
+          type: "success",
+        }),
+      );
+    } catch {
+      dispatch(
+        showToast({ message: "Failed to download RFQ PDF", type: "error" }),
+      );
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   if (isRfqLoading) {
     return (
       <div className="flex items-center justify-center py-20 text-gray-400">
@@ -281,50 +306,31 @@ export function RfqDetailsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {(rfq.suppliers?.length ?? 0) > 1 && (
-            <select
-              value={exportSupplierId}
-              onChange={(e) => setExportSupplierId(e.target.value)}
-              title="Supplier the exported RFQ is addressed to"
-              className="rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
-            >
-              {rfq.suppliers?.map((supplier, index) => (
-                <option key={supplier.id} value={index === 0 ? "" : String(supplier.id)}>
-                  Attn: {supplier.name}
-                </option>
-              ))}
-              <option value={ALL_SUPPLIERS}>All suppliers (one form each)</option>
-            </select>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => handleExport("excel")}
-            disabled={exportingFormat !== null}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-sm text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+            onClick={() => setIsPreviewOpen(true)}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm"
           >
-            <Icon
-              icon={exportingFormat === "excel" ? "mdi:loading" : "mdi:file-excel-outline"}
-              className={cn("w-4 h-4", exportingFormat === "excel" && "animate-spin")}
-            />
-            {exportingFormat === "excel" ? "Exporting..." : "Export Excel"}
+            <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-sky-500" />
+            Preview Document
           </button>
           <button
             type="button"
-            onClick={() => handleExport("pdf")}
-            disabled={exportingFormat !== null}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded border border-[#0A4D66]/50 text-sm text-gray-200 hover:bg-[#0A4D66]/20 transition-colors disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap"
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <Icon
-              icon={exportingFormat === "pdf" ? "mdi:loading" : "mdi:file-pdf-box"}
-              className={cn("w-4 h-4", exportingFormat === "pdf" && "animate-spin")}
+              icon={isDownloadingPdf ? "mdi:loading" : "mdi:file-pdf-box"}
+              className={cn("w-4 h-4 text-red-600 dark:text-red-400", isDownloadingPdf && "animate-spin")}
             />
-            {exportingFormat === "pdf" ? "Downloading..." : "Export PDF"}
+            {isDownloadingPdf ? "Downloading..." : "Export PDF"}
           </button>
           <button
             type="button"
             onClick={handleCreatePO}
-            className="inline-flex items-center gap-2 rounded bg-emerald-500 px-4 py-2 text-sm font-semibold text-black shadow hover:bg-emerald-600 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 transition-colors whitespace-nowrap"
           >
             <Icon icon="mdi:cart-plus" className="w-4 h-4" />
             Create Purchase Order
@@ -374,7 +380,7 @@ export function RfqDetailsPage() {
           <button
             type="button"
             onClick={handleCreatePO}
-            className="inline-flex items-center gap-2 rounded bg-emerald-500 px-4 py-1.5 text-xs font-semibold text-black hover:bg-emerald-600 transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 rounded bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors whitespace-nowrap"
           >
             <Icon icon="mdi:cart-arrow-right" className="w-4 h-4" />
             Create PO from this RFQ
@@ -458,7 +464,7 @@ export function RfqDetailsPage() {
                               handleApproveQuotation(quotation.id)
                             }
                             disabled={!canApprove || isApprovingQuotation}
-                            className="rounded bg-emerald-400 px-3 py-1 text-xs font-semibold text-black hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+                            className="rounded bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
                           >
                             {isApprovingQuotation ? "Approving..." : "Approve"}
                           </button>
@@ -639,6 +645,86 @@ export function RfqDetailsPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Off-screen high-fidelity NAAVN-005 document element for PDF download */}
+      <div
+        style={{
+          position: "fixed",
+          left: "-9999px",
+          top: 0,
+          width: "794px",
+          pointerEvents: "none",
+          zIndex: -999,
+        }}
+        aria-hidden="true"
+      >
+        <RfqPrintDocument
+          ref={printDocumentRef}
+          rfq={rfq}
+          approvedQuotation={approvedQuotation}
+        />
+      </div>
+
+      {/* Document Preview Modal */}
+      {isPreviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs">
+          <div className="relative flex max-h-[95vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-500/10 text-sky-400">
+                  <Icon icon="mdi:file-document-outline" className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Request For Quotation (RFQ) Document Preview
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Document Ref No.: NAAVN-005 • Nigerian Army Aviation
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
+                >
+                  <Icon icon="mdi:printer" className="h-4 w-4" />
+                  Print Form
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={isDownloadingPdf}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#0369A1] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0369A1]/90 disabled:opacity-60 transition-colors"
+                >
+                  <Icon
+                    icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+                    className={cn("h-4 w-4", isDownloadingPdf && "animate-spin")}
+                  />
+                  {isDownloadingPdf ? "Downloading..." : "Download PDF"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+                >
+                  <Icon icon="mdi:close" className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6 bg-slate-950/70 flex justify-center">
+              <div className="shadow-2xl rounded-sm overflow-hidden bg-white">
+                <RfqPrintDocument
+                  rfq={rfq}
+                  approvedQuotation={approvedQuotation}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

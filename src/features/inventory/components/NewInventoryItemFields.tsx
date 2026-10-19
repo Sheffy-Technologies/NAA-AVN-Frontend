@@ -1,6 +1,7 @@
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import type { InventoryExpenseCategory } from "../api";
 import type { NewInventoryDraft } from "../newInventoryItem";
+import { formatCategoryName } from "../inventoryUtils";
 
 type Props = {
   draft: NewInventoryDraft;
@@ -81,17 +82,27 @@ export const NewInventoryItemFields = ({
           searchPlaceholder="Search stores..."
           options={STORE_OPTIONS}
           value={draft.store}
-          onChange={(value) => value !== null && set("store", value as NewInventoryDraft["store"])}
-          clearable={false}
-        />
-        <SearchableSelect
-          buttonClassName="py-2"
-          placeholder="Expense category (optional)"
-          searchPlaceholder="Search expense categories..."
-          options={expenseCategories.map((category) => ({ value: category.id, label: category.name }))}
-          value={draft.expense_category_id ? Number(draft.expense_category_id) : null}
-          onChange={(value) => set("expense_category_id", value === null ? "" : String(value))}
-        />
+          onChange={(e) => set("store", e.target.value as NewInventoryDraft["store"])}
+        >
+          <option value="bonded">Bonded</option>
+          <option value="quarantine">Quarantine</option>
+          <option value="flammable">Flammable</option>
+          <option value="rubber">Rubber</option>
+          <option value="others">Others</option>
+        </select>
+        <select
+          className={inputClassName}
+          aria-label="New item expense category"
+          value={draft.expense_category_id}
+          onChange={(e) => set("expense_category_id", e.target.value)}
+        >
+          <option value="">Expense category (optional)</option>
+          {expenseCategories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {formatCategoryName(category.name)}
+            </option>
+          ))}
+        </select>
         <input
           className={inputClassName}
           placeholder="Serial number (optional)"
@@ -100,7 +111,21 @@ export const NewInventoryItemFields = ({
           onChange={(e) => set("serial_number", e.target.value)}
         />
         <input
-          className={`${inputClassName} sm:col-span-2`}
+          className={inputClassName}
+          placeholder="NSN (e.g., 2840-01-123-4567) (optional)"
+          aria-label="New item NSN"
+          value={draft.nsn}
+          onChange={(e) => set("nsn", e.target.value)}
+        />
+        <input
+          className={inputClassName}
+          placeholder="ATA Chapter (e.g., 71 - Power Plant) (optional)"
+          aria-label="New item ATA Chapter"
+          value={draft.ata_chapter}
+          onChange={(e) => set("ata_chapter", e.target.value)}
+        />
+        <input
+          className={`${inputClassName} sm:col-span-3`}
           placeholder="Remark (optional)"
           aria-label="New item remark"
           value={draft.remark}

@@ -601,7 +601,7 @@ export const AfterActionReportForm = ({
           <button
             type="button"
             onClick={addContact}
-            className="bg-[#001825] text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+            className="bg-[#0A4D66] text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 hover:bg-[#083c50] transition-colors"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" /> Add Contact
           </button>
@@ -944,7 +944,7 @@ export const AfterActionReportForm = ({
           <button
             type="button"
             onClick={addResource}
-            className="bg-[#001825] text-black text-xs font-bold px-3 py-1 rounded flex items-center gap-1 hover:bg-gray-200 transition-colors"
+            className="bg-[#0A4D66] text-white text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 hover:bg-[#083c50] transition-colors"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" /> Add Resource Used
           </button>
@@ -1075,7 +1075,7 @@ export const AfterActionReportForm = ({
         <button
           type="submit"
           disabled={isLoading}
-          className="bg-[#0369A1] text-black font-bold py-3 px-12 rounded hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
+          className="bg-[#0A4D66] text-white font-bold py-3 px-12 rounded hover:bg-[#083c50] transition-colors disabled:opacity-50"
         >
           {isLoading ? "Saving..." : "Save"}
         </button>

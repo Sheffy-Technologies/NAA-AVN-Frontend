@@ -1296,19 +1296,76 @@ export const ProcurementLifecyclePage = () => {
                 <th className="text-right px-3 py-2">Qty Received</th>
               </tr>
             </thead>
-            <tbody>
-              {grnForm.items.map((item, idx) => {
-                const inv = inventoryById.get(Number(item.inventory_id));
-                return (
-                  <tr
-                    key={`${item.inventory_id}-${idx}`}
-                    className="border-t border-[var(--theme-divider)] text-[var(--theme-text-secondary)]"
-                  >
-                    <td className="px-3 py-2">{inv ? inventoryLabel(inv) : `#${item.inventory_id}`}</td>
-                    <td className="px-3 py-2 text-right">{item.quantity_received}</td>
-                  </tr>
-                );
-              })}
+            <tbody className="divide-y divide-[var(--theme-divider)]">
+              {lifecycleRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--theme-text-muted)]">
+                    No lifecycle records yet.
+                  </td>
+                </tr>
+              ) : (
+                lifecycleRows.map((row) => {
+                  const stage = row.grn
+                    ? "Completed (GRN Posted)"
+                    : row.po
+                      ? "Purchase Order Created"
+                      : row.approvedQuotation
+                        ? "Quotation Approved"
+                        : row.rfq
+                          ? "RFQ Issued"
+                          : "Requisition Created";
+
+                  return (
+                    <tr key={row.req.id} className="text-[var(--theme-text-secondary)]">
+                      <td className="px-3 py-2">
+                        REQ #{row.req.id}
+                        <div className="text-xs text-[var(--theme-text-muted)]">WO #{row.req.work_order_id || "-"}</div>
+                      </td>
+                      <td className="px-3 py-2">{row.rfq ? row.rfq.rfq_number : "-"}</td>
+                      <td className="px-3 py-2">
+                        {row.approvedQuotation
+                          ? `${row.approvedQuotation.quotation_number || `QT-${row.approvedQuotation.id}`} (${row.approvedQuotation.supplier?.name || `Supplier #${row.approvedQuotation.supplier_id}`})`
+                          : "-"}
+                      </td>
+                      <td className="px-3 py-2">{row.po ? `PO #${row.po.id}` : "-"}</td>
+                      <td className="px-3 py-2">{row.grn ? row.grn.grn_number : "-"}</td>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex rounded-full border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)] px-2 py-1 text-xs text-[var(--theme-accent)]">
+                          {stage}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded border border-[var(--theme-border-em)] px-2 py-1 text-xs text-slate-700 dark:text-gray-200 hover:text-slate-900 dark:hover:text-white hover:bg-[var(--theme-bg-panel)] transition-colors"
+                            onClick={() => handleOpenRfq(row.rfq?.id)}
+                          >
+                            <Icon icon="mdi:file-document-edit-outline" className="h-3.5 w-3.5" />
+                            Open RFQ
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-2 py-1 text-xs text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors"
+                            onClick={() => handleOpenPo(row.po?.id)}
+                          >
+                            <Icon icon="mdi:cart-outline" className="h-3.5 w-3.5" />
+                            Open PO
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded border border-amber-500/40 px-2 py-1 text-xs text-amber-800 dark:text-amber-300 hover:bg-amber-500/10 transition-colors"
+                            onClick={() => handleOpenGrn(row.po?.id)}
+                          >
+                            <Icon icon="mdi:package-check" className="h-3.5 w-3.5" />
+                            Open GRN
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>

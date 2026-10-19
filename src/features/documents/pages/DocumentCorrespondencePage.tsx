@@ -286,7 +286,7 @@ export const DocumentCorrespondencePage = () => {
               onClick={() => void handleSubmit()}
               disabled={isSubmitting}
               className={cn(
-                "inline-flex items-center gap-2 rounded bg-[#0369A1] px-5 py-2 text-xs font-semibold text-black hover:bg-[#0369A1]/90 transition-colors",
+                "inline-flex items-center gap-2 rounded bg-[#0369A1] px-5 py-2 text-xs font-semibold text-white hover:bg-[#0369A1]/90 transition-colors",
                 isSubmitting && "opacity-70 cursor-not-allowed",
               )}
             >

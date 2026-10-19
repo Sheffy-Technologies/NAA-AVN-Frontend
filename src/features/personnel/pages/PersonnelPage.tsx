@@ -20,6 +20,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import {
   ImportCsvModal,
   type ImportCsvField,
@@ -848,16 +849,16 @@ export const PersonnelPage = () => {
             <button
               type="button"
               onClick={() => setIsImportOpen(true)}
-              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded border border-[#0A4D66]/40 text-gray-200 text-xs sm:text-sm font-medium hover:text-white hover:border-[#7FD5FF]/50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
-              <Icon icon="mdi:upload" className="w-4 h-4" />
-              <span className="hidden sm:inline">Import CSV</span>
-              <span className="sm:hidden">Import</span>
+              <Icon icon="mdi:upload" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span className="hidden sm:inline text-slate-700 dark:text-slate-200 font-semibold">Import CSV</span>
+              <span className="sm:hidden text-slate-700 dark:text-slate-200 font-semibold">Import</span>
             </button>
             <button
               type="button"
               onClick={() => navigate("/dashboard/personnel/add")}
-              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
+              className="inline-flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               <span className="hidden sm:inline">Add Personnel</span>
@@ -959,8 +960,17 @@ export const PersonnelPage = () => {
                   filteredPersonnel.map((p, index) => (
                     <tr
                       key={p.id}
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view personnel details"
+                      onClick={(e) =>
+                        onInteractiveRowClick(e, () => handleOpenDetail(p.id))
+                      }
+                      onKeyDown={(e) =>
+                        onInteractiveRowKeyDown(e, () => handleOpenDetail(p.id))
+                      }
                       className={cn(
-                        "border-t border-[#0A4D66]/40",
+                        "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                         index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                       )}
                     >
@@ -1042,7 +1052,10 @@ export const PersonnelPage = () => {
                       >
                         <button
                           type="button"
-                          onClick={() => handleToggleActions(p.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleActions(p.id);
+                          }}
                           title="Open personnel actions"
                           aria-label="Open personnel actions"
                           className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"

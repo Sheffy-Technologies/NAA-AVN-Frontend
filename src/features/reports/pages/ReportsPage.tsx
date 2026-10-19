@@ -484,7 +484,7 @@ export const ReportsPage = () => {
               <button
                 type="button"
                 onClick={handleAddFilter}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs font-medium hover:bg-[#0369A1]/90 transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-white text-xs font-medium hover:bg-[#0369A1]/90 transition-colors"
               >
                 <Icon icon="mdi:plus" className="w-4 h-4" />
                 <span>Add Filter</span>
@@ -568,10 +568,10 @@ export const ReportsPage = () => {
               onClick={runReport}
               disabled={!selectedResource}
               className={cn(
-                "inline-flex items-center gap-2 px-3 py-1.5 rounded text-black text-xs sm:text-sm font-medium transition-colors",
+                "inline-flex items-center gap-2 px-3 py-1.5 rounded text-white text-xs sm:text-sm font-medium transition-colors",
                 selectedResource
                   ? "bg-[#0369A1] hover:bg-[#0369A1]/90"
-                  : "bg-[#0369A1]/40 text-black/60 cursor-not-allowed",
+                  : "bg-[#0369A1]/40 text-white/60 cursor-not-allowed",
               )}
             >
               <Icon icon="mdi:play-circle-outline" className="w-4 h-4" />
@@ -582,10 +582,10 @@ export const ReportsPage = () => {
               onClick={() => void handleExportCsv()}
               disabled={!appliedArgs || isExporting}
               className={cn(
-                "inline-flex items-center gap-2 px-3 py-1.5 rounded text-black text-xs sm:text-sm font-medium transition-colors",
+                "inline-flex items-center gap-2 px-3 py-1.5 rounded text-white text-xs sm:text-sm font-medium transition-colors",
                 appliedArgs && !isExporting
                   ? "bg-[#0369A1] hover:bg-[#0369A1]/90"
-                  : "bg-[#0369A1]/40 text-black/60 cursor-not-allowed",
+                  : "bg-[#0369A1]/40 text-white/60 cursor-not-allowed",
               )}
             >
               <Icon icon="mdi:file-delimited-outline" className="w-4 h-4" />

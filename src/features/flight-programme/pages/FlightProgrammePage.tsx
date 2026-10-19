@@ -249,7 +249,7 @@ export const FlightProgrammePage = () => {
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black font-medium"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-white font-medium hover:bg-[#0369A1]/90 transition-colors"
           >
             <Icon icon="mdi:plus" className="w-4 h-4" />
             <span>Add Flight</span>

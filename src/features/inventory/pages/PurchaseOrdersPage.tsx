@@ -62,7 +62,7 @@ export default function PurchaseOrdersPage() {
         <h1 className="text-2xl font-bold text-white">Purchase Orders</h1>
         <Link
           to="/dashboard/inventory/purchase-orders/new"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-500 text-black text-xs font-semibold shadow hover:bg-emerald-600 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white text-xs font-semibold shadow hover:bg-emerald-700 transition-colors"
         >
           <Icon icon="mdi:cart-plus" className="w-4 h-4" />
           Create Purchase Order

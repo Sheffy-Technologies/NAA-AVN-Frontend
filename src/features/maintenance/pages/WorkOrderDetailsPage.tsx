@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import {
+  useCompleteWorkOrderMutation,
   useCreateMaintenanceInventoryMutation,
   useGetWorkOrderByIdQuery,
   useUpdateMaintenanceInventoryMutation,
   useUpdateWorkOrderTaskMutation,
 } from "@/features/maintenance/api";
+import { cn } from "@/shared/utils/cn";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import {
   useCreateInventoryMutation,
@@ -25,17 +27,7 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { MultiSelect, type MultiSelectOption } from "@/shared/ui/multi-select/MultiSelect";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
-import { toInventoryOptions } from "@/features/inventory/inventoryOptions";
-import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
-import { exportNaavnPdf } from "@/shared/documents/naavnPdf";
-import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
-import {
-  buildWorkOrderDocument,
-  formatPersonnelName,
-  formatReporter,
-  getTaskAssignedPersonnel,
-  getTaskMaintenanceInventories,
-} from "@/features/maintenance/workOrderDocument";
+import { BackButton } from "@/shared/ui/button";
 
 const PERSONNEL_FILTERS = {
   branches: [],
@@ -58,7 +50,6 @@ const formatDate = (value?: string | null) => {
 };
 
 export const WorkOrderDetailsPage = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
   const workOrderId = id ? parseInt(id, 10) : null;
@@ -83,13 +74,9 @@ export const WorkOrderDetailsPage = () => {
   const { data: personnel = [], isLoading: isPersonnelLoading } = useGetPersonnelQuery(
     PERSONNEL_FILTERS
   );
-  const {
-    data: inventories = [],
-    isLoading: isInventoriesLoading,
-    refetch: refetchInventories,
-  } = useGetInventoriesQuery();
-  const { data: expenseCategories = [] } = useGetExpenseCategoriesQuery();
-  const [createInventory, { isLoading: isCreatingInventory }] = useCreateInventoryMutation();
+  const { data: inventories = [], isLoading: isInventoriesLoading } = useGetInventoriesQuery();
+  const [completeWorkOrder, { isLoading: isCompletingWorkOrder }] =
+    useCompleteWorkOrderMutation();
   const [createMaintenanceInventory, { isLoading: isRequestingInventory }] =
     useCreateMaintenanceInventoryMutation();
   const [updateMaintenanceInventory, { isLoading: isInstallingInventory }] =
@@ -121,7 +108,15 @@ export const WorkOrderDetailsPage = () => {
     [personnel],
   );
 
-  const inventoryOptions = useMemo(() => toInventoryOptions(inventories), [inventories]);
+  const inventoryOptions = useMemo(
+    () =>
+      inventories.map((item) => ({
+        value: String(item.id),
+        label: `${item.description || item.part_number || `Inventory #${item.id}`} (Stock: ${item.current_stock})`,
+        description: `Part No: ${item.part_number || "N/A"} • Store: ${item.store || "General"}`,
+      })),
+    [inventories],
+  );
 
   const defaultSelectedPersonnelByTask = useMemo<Record<number, string[]>>(() => {
     if (!workOrder?.tasks) return {};
@@ -330,8 +325,38 @@ export const WorkOrderDetailsPage = () => {
     }
   };
 
-  const handleExport = async (format: "excel" | "pdf") => {
-    if (!workOrder || exportingFormat) return;
+  const handleCompleteWorkOrder = async () => {
+    if (!workOrderId || isCompletingWorkOrder) return;
+    try {
+      await completeWorkOrder(workOrderId).unwrap();
+      dispatch(
+        showToast({
+          message: "Work order marked as completed. Automatic compliance record generated.",
+          type: "success",
+        })
+      );
+      setFeedback({
+        type: "success",
+        message: "Work order marked as completed. Automatic compliance record generated.",
+      });
+      await refetch();
+    } catch (error: unknown) {
+      const responseError = error as { data?: { message?: string } };
+      dispatch(
+        showToast({
+          message: responseError?.data?.message || "Failed to complete work order.",
+          type: "error",
+        })
+      );
+      setFeedback({
+        type: "error",
+        message: responseError?.data?.message || "Failed to complete work order.",
+      });
+    }
+  };
+
+  const handleExportExcel = async () => {
+    if (!workOrder || isExportingExcel) return;
 
     const documents = [buildWorkOrderDocument(workOrder)];
     const fileName = sanitizeDocumentFileName(`NAAVN Work Order ${workOrder.id}`);
@@ -373,14 +398,11 @@ export const WorkOrderDetailsPage = () => {
   return (
     <div className="min-h-screen bg-[#001219] p-6">
       <div className="max-w-4xl mx-auto">
-        <button
-          type="button"
-          onClick={() => navigate("/dashboard/maintenance/work-orders")}
-          className="flex items-center gap-2 text-[#7FD5FF] hover:text-white mb-6 transition-colors"
-        >
-          <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-          Back to Work Orders
-        </button>
+        <BackButton
+          fallbackUrl="/dashboard/maintenance/work-orders"
+          label="Back to Work Orders"
+          className="mb-6"
+        />
 
         {isLoading ? (
           <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-gray-400">
@@ -406,14 +428,55 @@ export const WorkOrderDetailsPage = () => {
 
             {/* Work Order Header */}
             <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                  <h1 className="text-2xl font-bold text-white mb-2">
-                    {workOrder.title || `Work Order #${workOrder.id}`}
-                  </h1>
+                  <div className="flex items-center gap-3 mb-1">
+                    <h1 className="text-2xl font-bold text-white">
+                      {workOrder.title || `Work Order #${workOrder.id}`}
+                    </h1>
+                    <span
+                      className={cn(
+                        "text-xs font-bold uppercase px-2.5 py-1 rounded border",
+                        workOrder.status === "completed"
+                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                          : workOrder.status === "in_progress"
+                            ? "bg-sky-500/20 text-sky-400 border-sky-500/30"
+                            : "bg-amber-500/20 text-amber-400 border-amber-500/30",
+                      )}
+                    >
+                      {workOrder.status === "completed"
+                        ? "Completed"
+                        : workOrder.status === "in_progress"
+                          ? "In Progress"
+                          : "Pending"}
+                    </span>
+                  </div>
                   <p className="text-xs uppercase text-gray-400">
                     Work Order #{workOrder.id}
                   </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {workOrder.status !== "completed" && (
+                    <button
+                      type="button"
+                      onClick={handleCompleteWorkOrder}
+                      disabled={isCompletingWorkOrder}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors disabled:opacity-50"
+                    >
+                      <Icon icon="mdi:check-decagram" className="w-4 h-4" />
+                      <span>{isCompletingWorkOrder ? "Completing..." : "Complete Work Order"}</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    disabled={isExportingExcel}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium bg-[#001825] border border-[#0A4D66]/60 text-gray-200 hover:text-white hover:border-[#7FD5FF] transition-colors"
+                  >
+                    <Icon icon="mdi:file-excel" className="w-4 h-4 text-emerald-400" />
+                    <span>Export</span>
+                  </button>
                 </div>
               </div>
 
@@ -754,44 +817,21 @@ export const WorkOrderDetailsPage = () => {
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                            <div className="md:col-span-2 flex gap-2">
+                            <div className="md:col-span-2">
                               <SearchableSelect
-                                className="flex-1 min-w-0"
-                                buttonClassName="py-2"
-                                placeholder={
-                                  newItemByTask[task.id]
-                                    ? "New item (details below)"
-                                    : isInventoriesLoading
-                                      ? "Loading inventory..."
-                                      : "Select Inventory Item"
-                                }
-                                searchPlaceholder="Search by part number or description..."
-                                options={inventoryOptions}
-                                value={
-                                  !newItemByTask[task.id] && selectedInventoryByTask[task.id]
-                                    ? Number(selectedInventoryByTask[task.id])
-                                    : null
-                                }
-                                onChange={(value) =>
+                                size="sm"
+                                placeholder="Search & select spare part..."
+                                searchPlaceholder="Type part description or part number..."
+                                value={selectedInventoryByTask[task.id] ?? ""}
+                                onChange={(val) =>
                                   setSelectedInventoryByTask((prev) => ({
                                     ...prev,
-                                    [task.id]: value === null ? "" : String(value),
+                                    [task.id]: val ? String(val) : "",
                                   }))
                                 }
-                                disabled={isInventoriesLoading || !!newItemByTask[task.id]}
+                                options={inventoryOptions}
+                                clearable={true}
                               />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setNewItemByTask((prev) => ({
-                                    ...prev,
-                                    [task.id]: prev[task.id] ? null : emptyNewInventoryDraft(),
-                                  }))
-                                }
-                                className="shrink-0 rounded border border-[#0A4D66]/50 px-3 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20"
-                              >
-                                {newItemByTask[task.id] ? "Pick from list" : "Not in list?"}
-                              </button>
                             </div>
 
                             <input
@@ -902,26 +942,12 @@ export const WorkOrderDetailsPage = () => {
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  onClick={() => handleExport("excel")}
-                  disabled={exportingFormat !== null}
-                  className="rounded border border-emerald-400/50 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleExportExcel}
+                  disabled={isExportingExcel}
+                  className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                 >
-                  {exportingFormat === "excel" ? "Exporting..." : "Export Excel"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleExport("pdf")}
-                  disabled={exportingFormat !== null}
-                  className="rounded border border-emerald-400/50 px-4 py-2 text-sm text-emerald-300 hover:bg-emerald-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {exportingFormat === "pdf" ? "Exporting..." : "Export PDF"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/dashboard/maintenance/work-orders")}
-                  className="rounded border border-[#7FD5FF]/50 px-4 py-2 text-sm text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
-                >
-                  Back to List
+                  <Icon icon="mdi:file-excel-outline" className="w-4 h-4 text-emerald-400" />
+                  <span>{isExportingExcel ? "Exporting..." : "Export Excel"}</span>
                 </button>
               </div>
             </div>

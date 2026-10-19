@@ -13,12 +13,16 @@ import {
   type DashboardOperationsRecentOperation,
 } from "../api";
 
+import { MetricCard, type MetricBadgeColor } from "@/shared/ui/metric/MetricCard";
+
 type Card = {
   label: string;
   value: string | number;
   icon?: string;
   bgClass?: string;
   iconClass?: string;
+  badge?: string;
+  badgeColor?: MetricBadgeColor;
 };
 
 type DashboardTabId =
@@ -123,34 +127,14 @@ const CardItem = ({
   card: Card;
   onClick?: () => void;
 }) => (
-  <button
-    type="button"
+  <MetricCard
+    label={card.label}
+    value={card.value}
+    icon={card.icon}
+    badge={card.badge}
+    badgeColor={card.badgeColor}
     onClick={onClick}
-    className={cn(
-      "w-full text-left rounded-lg border border-[#0A4D66]/40 p-4 flex items-center justify-between transition-colors",
-      onClick
-        ? "cursor-pointer hover:border-[#7FD5FF]/50"
-        : "cursor-default",
-      card.bgClass || "bg-[#001219]",
-    )}
-  >
-    <div>
-      <p className="text-[11px] uppercase tracking-wide text-gray-400">
-        {card.label}
-      </p>
-      <p className="text-2xl font-semibold text-white">{card.value}</p>
-    </div>
-    {card.icon && (
-      <div
-        className={cn(
-          "w-9 h-9 rounded flex items-center justify-center",
-          card.iconClass || "bg-[#001219]",
-        )}
-      >
-        <Icon icon={card.icon} className="w-5 h-5 text-white/90" />
-      </div>
-    )}
-  </button>
+  />
 );
 
 const TableShell = ({
@@ -159,7 +143,7 @@ const TableShell = ({
   right,
   children,
 }: {
-  title: string;
+  title: React.ReactNode;
   left?: React.ReactNode;
   right?: React.ReactNode;
   children: React.ReactNode;
@@ -167,9 +151,13 @@ const TableShell = ({
   <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
     <div className="px-4 py-3 border-b border-[#0A4D66]/40 flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
-        <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
-          {title}
-        </div>
+        {typeof title === "string" ? (
+          <div className="text-xs font-bold tracking-wide text-gray-200 uppercase">
+            {title}
+          </div>
+        ) : (
+          title
+        )}
         {left}
       </div>
       <div className="flex items-center gap-2">{right}</div>
@@ -288,6 +276,7 @@ export const DashboardPage = () => {
   const canAccessStrategicDashboard = permissions.includes("dashboard.strategic.view");
   const [activeTab, setActiveTab] = useState<DashboardTabId>("operations");
   const [operationsViewMode, setOperationsViewMode] = useState<"table" | "card">("table");
+  const [operationsTab, setOperationsTab] = useState<"upcoming" | "recent">("upcoming");
   const [selectedUnitByTab, setSelectedUnitByTab] = useState<
     Record<DashboardTabId, string>
   >({
@@ -337,29 +326,29 @@ export const DashboardPage = () => {
         label: "Balance of Account",
         value: `₦${balanceOfAccount.toLocaleString()}`,
         icon: "mdi:bank",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
+        badge: "Solvent",
+        badgeColor: "emerald",
       },
       {
         label: "Monthly Expenditure",
         value: `₦${monthly.toLocaleString()}`,
         icon: "mdi:calendar-month",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
+        badge: "Monthly",
+        badgeColor: "sky",
       },
       {
         label: "Total Expenditure",
         value: `₦${total.toLocaleString()}`,
         icon: "mdi:cash-fast",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
+        badge: "YTD",
+        badgeColor: "indigo",
       },
       {
         label: "Opening Balance",
         value: `₦${openingBalance.toLocaleString()}`,
         icon: "mdi:account-cash",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
+        badge: "Budget",
+        badgeColor: "neutral",
       },
     ];
   }, [finance]);
@@ -370,29 +359,29 @@ export const DashboardPage = () => {
         label: "Total In Stock",
         value: inventories?.total_stock ?? 0,
         icon: "mdi:warehouse",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
+        badge: "Catalog",
+        badgeColor: "sky",
       },
       {
         label: "Low Stock Items",
         value: inventories?.low_stock ?? 0,
         icon: "mdi:alert",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#6b4b00]/60",
+        badge: "Reorder",
+        badgeColor: "amber",
       },
       {
         label: "Expired Items",
         value: inventories?.expired_items ?? 0,
         icon: "mdi:alert-octagon",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#5a0a0a]/60",
+        badge: "Expired",
+        badgeColor: "red",
       },
       {
         label: "Critical",
         value: inventories?.critical_stock ?? 0,
         icon: "mdi:alert-decagram",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#7a0000]/60",
+        badge: "Critical",
+        badgeColor: "red",
       },
     ];
   }, [inventories]);
@@ -403,29 +392,21 @@ export const DashboardPage = () => {
         label: "Planned",
         value: operations?.planned ?? 0,
         icon: "mdi:database",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
       },
       {
         label: "Completed",
         value: operations?.completed ?? 0,
         icon: "mdi:database-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
-        iconClass: "bg-emerald-700/50",
       },
       {
         label: "Ongoing",
         value: operations?.ongoing ?? 0,
         icon: "mdi:database-sync",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#241e00]",
-        iconClass: "bg-amber-600/50",
       },
       {
         label: "Aborted",
         value: operations?.aborted ?? 0,
         icon: "mdi:database-off",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#240000]",
-        iconClass: "bg-red-700/50",
       },
     ];
   }, [operations]);
@@ -436,29 +417,29 @@ export const DashboardPage = () => {
         label: "Total",
         value: maintenance?.total_aircraft ?? 0,
         icon: "mdi:airplane",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
+        badge: "Fleet",
+        badgeColor: "sky",
       },
       {
         label: "Serviceable",
         value: maintenance?.maintenance_events?.serviceable ?? 0,
         icon: "mdi:airplane-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
-        iconClass: "bg-emerald-700/50",
+        badge: "Ready",
+        badgeColor: "emerald",
       },
       {
         label: "Under Maintenance",
         value: maintenance?.maintenance_events?.under_maintenance ?? 0,
         icon: "mdi:toolbox",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#241e00]",
-        iconClass: "bg-amber-600/50",
+        badge: "Hangar",
+        badgeColor: "amber",
       },
       {
         label: "Grounded",
         value: maintenance?.maintenance_events?.grounded ?? 0,
         icon: "mdi:airplane-off",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#240000]",
-        iconClass: "bg-red-700/50",
+        badge: "AOG",
+        badgeColor: "red",
       },
     ];
   }, [maintenance]);
@@ -469,29 +450,29 @@ export const DashboardPage = () => {
         label: "Total",
         value: personnel?.total_personnel ?? 0,
         icon: "mdi:account-group",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001825]",
-        iconClass: "bg-[#0A4D66]/60",
+        badge: "Strength",
+        badgeColor: "sky",
       },
       {
         label: "Active",
         value: personnel?.active ?? 0,
         icon: "mdi:account-check",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#001219]",
-        iconClass: "bg-emerald-700/50",
+        badge: "Deployable",
+        badgeColor: "emerald",
       },
       {
         label: "Medical",
         value: personnel?.medical ?? 0,
         icon: "mdi:hospital",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#241e00]",
-        iconClass: "bg-amber-600/50",
+        badge: "Medical",
+        badgeColor: "amber",
       },
       {
         label: "Grounded",
         value: personnel?.grounded ?? 0,
         icon: "mdi:alert",
-        bgClass: "bg-gradient-to-r from-[#001219] to-[#240000]",
-        iconClass: "bg-red-700/50",
+        badge: "Stand Down",
+        badgeColor: "red",
       },
     ];
   }, [personnel]);
@@ -778,10 +759,14 @@ export const DashboardPage = () => {
           <button
             type="button"
             onClick={() => navigate("/dashboard/strategic")}
-            className="mb-3 inline-flex shrink-0 items-center gap-2 rounded-lg border border-[#7FD5FF]/40 bg-[#0A4D66]/40 px-3 py-1.5 text-xs font-medium text-[#C9F1FF] transition-colors hover:bg-[#0A4D66]/60"
+            className="mb-3 inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#0A4D66] hover:bg-[#083c50] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm border border-transparent transition-all active:scale-[0.98]"
           >
-            <Icon icon="mdi:map-marker-radius-outline" className="h-4 w-4" />
-            Strategic Command Dashboard
+            <Icon
+              icon="mdi:radar"
+              className="h-4 w-4 text-white !text-white"
+              style={{ color: "#ffffff" }}
+            />
+            <span>Strategic Command Dashboard</span>
           </button>
         )}
       </div>
@@ -806,7 +791,54 @@ export const DashboardPage = () => {
           </div>
 
           <TableShell
-            title="Upcoming Operations"
+            title={
+              <div className="inline-flex items-center space-x-1 p-1 rounded-lg border border-[#0A4D66]/50 bg-[#001825]">
+                <button
+                  type="button"
+                  onClick={() => setOperationsTab("upcoming")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5",
+                    operationsTab === "upcoming"
+                      ? "bg-[#0A4D66] text-white shadow-sm"
+                      : "text-gray-400 hover:text-white hover:bg-slate-800/40",
+                  )}
+                >
+                  <span>Upcoming Operations</span>
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.2 rounded-full text-[10px]",
+                      operationsTab === "upcoming"
+                        ? "bg-white/20 text-white font-bold"
+                        : "bg-slate-800 text-gray-400",
+                    )}
+                  >
+                    {filteredOperationsRows.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOperationsTab("recent")}
+                  className={cn(
+                    "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5",
+                    operationsTab === "recent"
+                      ? "bg-[#0A4D66] text-white shadow-sm"
+                      : "text-gray-400 hover:text-white hover:bg-slate-800/40",
+                  )}
+                >
+                  <span>Recent Operations</span>
+                  <span
+                    className={cn(
+                      "px-1.5 py-0.2 rounded-full text-[10px]",
+                      operationsTab === "recent"
+                        ? "bg-white/20 text-white font-bold"
+                        : "bg-slate-800 text-gray-400",
+                    )}
+                  >
+                    {conductedOperationsRows.length}
+                  </span>
+                </button>
+              </div>
+            }
             right={
               <TableToolbar
                 resetCount={operations?.total_operations ?? 0}
@@ -815,14 +847,20 @@ export const DashboardPage = () => {
                 onChangeUnit={(value) => setTabUnitFilter("operations", value)}
                 onResetFilter={() => resetTabUnitFilter("operations")}
                 onDownload={handleDownloadOperations}
-                isDownloadDisabled={filteredOperationsRows.length === 0}
+                isDownloadDisabled={
+                  operationsTab === "upcoming"
+                    ? filteredOperationsRows.length === 0
+                    : conductedOperationsRows.length === 0
+                }
                 viewMode={operationsViewMode}
                 onViewList={() => setOperationsViewMode("table")}
                 onViewGrid={() => setOperationsViewMode("card")}
               />
             }
           >
-            {/* Mobile card list — always shown on small screens */}
+            {operationsTab === "upcoming" ? (
+              <>
+                {/* Mobile card list — always shown on small screens */}
             <div className="md:hidden divide-y divide-[#0A4D66]/20">
               {isFetchingOps && (
                 <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
@@ -1057,9 +1095,9 @@ export const DashboardPage = () => {
               </table>
             </div>
             )}
-          </TableShell>
-
-          <TableShell title="Recent Operations">
+          </>
+        ) : (
+          <>
             <div className="md:hidden divide-y divide-[#0A4D66]/20">
               {isFetchingOps && (
                 <div className="px-4 py-6 text-sm text-gray-400">Loading…</div>
@@ -1145,7 +1183,9 @@ export const DashboardPage = () => {
                 </tbody>
               </table>
             </div>
-          </TableShell>
+          </>
+        )}
+      </TableShell>
         </div>
       )}
 

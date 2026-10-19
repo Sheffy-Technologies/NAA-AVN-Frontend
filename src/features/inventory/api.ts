@@ -53,6 +53,8 @@ export type InventoryItem = {
   unit_id: number;
   serial_number: string;
   part_number: string;
+  nsn?: string | null;
+  ata_chapter?: string | null;
   current_stock: number;
   re_order_level: number;
   unit_cost: string;
@@ -70,7 +72,6 @@ export type InventoryItem = {
   // Legacy fields that might still be needed or can be removed if verified
   part_name?: string;
   nsn_number?: string;
-  ata_chapter?: string;
 };
 
 export type InventoryDashboardResponse = {
@@ -101,6 +102,8 @@ export type CreateInventoryPayload = {
   unit_id: number | null;
   serial_number: string;
   part_number: string;
+  nsn?: string | null;
+  ata_chapter?: string | null;
   current_stock: number;
   re_order_level: number;
   unit_cost: number;
@@ -199,6 +202,7 @@ export type InventoryRequisitionDetail = InventoryRequisition & {
 };
 
 export type UpdateInventoryRequisitionPayload = {
+  status?: "pending" | "under_review" | "approved" | "rejected" | "received" | string;
   remark?: string | null;
   items?: Array<{
     id?: number;
@@ -296,6 +300,8 @@ export type StockMovement = {
   created_at?: string;
   updated_at?: string;
   stocks?: StockMovementLine[];
+  requesting_unit?: { id?: number; name?: string; unit_name?: string } | null;
+  work_order?: { id?: number; work_order_number?: string; title?: string } | null;
 };
 
 export type CreateStockMovementPayload = {
@@ -384,6 +390,8 @@ export type GoodsReceivedNote = {
   received_at?: string | null;
   notes?: string | null;
   items?: GoodsReceivedNoteItem[];
+  receiver?: { id?: number; name?: string } | null;
+  purchase_order?: PurchaseOrder | null;
 };
 
 export type CreateGoodsReceivedNotePayload = {

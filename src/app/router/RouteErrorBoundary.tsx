@@ -25,7 +25,7 @@ export const RouteErrorBoundary = () => {
           onClick={() => {
             window.location.href = "/dashboard";
           }}
-          className="mt-2 px-4 py-2 rounded-md bg-[#0369A1] text-black text-sm font-medium w-full hover:bg-[#0369A1]/90 transition-colors"
+          className="mt-2 px-4 py-2 rounded-md bg-[#0369A1] text-white text-sm font-medium w-full hover:bg-[#0369A1]/90 transition-colors"
         >
           Go to Dashboard
         </button>

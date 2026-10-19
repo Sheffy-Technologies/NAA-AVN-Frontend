@@ -1,12 +1,17 @@
-import { useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
 import {
   useGetInventoryByIdQuery,
   useUpdateInventoryStockMutation,
+  useDeleteInventoryMutation,
   type InventoryItem,
 } from "@/features/inventory/api";
+import { BackButton } from "@/shared/ui/button";
+import { formatCategoryName } from "../inventoryUtils";
 
 type UpdateStockAdjustmentType = "add" | "remove" | "audit";
 
@@ -90,11 +95,11 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-md bg-[#001219] border border-[#0A4D66]/60 rounded-xl shadow-2xl">
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
+      <div className="w-full max-w-md bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/60 rounded-xl shadow-2xl">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001219]">
           <div className="flex items-center gap-2">
-            <Icon icon="mdi:database-plus" className="w-4 h-4 text-[#7FD5FF]" />
-            <span className="text-xs sm:text-sm font-semibold tracking-wide text-white uppercase">
+            <Icon icon="mdi:database-plus" className="w-4 h-4 text-[#0369A1] dark:text-[#7FD5FF]" />
+            <span className="text-xs sm:text-sm font-semibold tracking-wide text-slate-900 dark:text-white uppercase">
               Update Stock
             </span>
           </div>
@@ -102,63 +107,63 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
             type="button"
             onClick={() => onClose(false)}
             aria-label="Close update stock modal"
-            className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
+            className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-slate-200 dark:hover:bg-[#0A4D66]/40 text-slate-500 hover:text-slate-800 dark:text-gray-300 dark:hover:text-white transition-colors"
           >
             <Icon icon="mdi:close" className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-4 sm:px-5 py-4 space-y-4 text-xs sm:text-sm text-gray-200">
+        <div className="px-4 sm:px-5 py-4 space-y-4 text-xs sm:text-sm text-slate-700 dark:text-gray-200">
           <div className="space-y-1">
-            <div className="text-[11px] uppercase text-gray-400">
+            <div className="text-[11px] uppercase text-slate-500 dark:text-gray-400">
               Inventory ID: {inventory.id}
             </div>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] text-gray-400">Part Name:</p>
-                <p className="font-semibold text-white">
-                  {inventory.part_name || inventory.part_number}
+                <p className="text-[11px] text-slate-500 dark:text-gray-400">Item Description / Part:</p>
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  {inventory.description || inventory.part_name || inventory.part_number}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[11px] text-gray-400">Category:</p>
-                <p className="font-semibold text-white">
-                  {inventory.expense_category?.name || "-"}
+                <p className="text-[11px] text-slate-500 dark:text-gray-400">Category:</p>
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  {formatCategoryName(inventory.expense_category?.name)}
                 </p>
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className="text-[11px] uppercase text-gray-400">
+            <p className="text-[11px] uppercase text-slate-500 dark:text-gray-400">
               Adjustment Type
             </p>
             <div className="space-y-1">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-gray-200">
                 <input
                   type="radio"
                   name="adjustmentType"
-                  className="form-radio text-[#7FD5FF]"
+                  className="form-radio text-[#0369A1] dark:text-[#7FD5FF]"
                   checked={adjustmentType === "add"}
                   onChange={() => setAdjustmentType("add")}
                 />
                 <span>Add Stock</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-gray-200">
                 <input
                   type="radio"
                   name="adjustmentType"
-                  className="form-radio text-[#7FD5FF]"
+                  className="form-radio text-[#0369A1] dark:text-[#7FD5FF]"
                   checked={adjustmentType === "remove"}
                   onChange={() => setAdjustmentType("remove")}
                 />
                 <span>Remove Stock</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-gray-200">
                 <input
                   type="radio"
                   name="adjustmentType"
-                  className="form-radio text-[#7FD5FF]"
+                  className="form-radio text-[#0369A1] dark:text-[#7FD5FF]"
                   checked={adjustmentType === "audit"}
                   onChange={() => setAdjustmentType("audit")}
                 />
@@ -168,47 +173,47 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <p className="text-[11px] uppercase text-gray-400">Quantity</p>
+            <p className="text-[11px] uppercase text-slate-500 dark:text-gray-400">Quantity</p>
             <input
               type="number"
               value={quantity}
               onChange={handleQuantityChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+              className="w-full bg-white dark:bg-[#001825] border border-slate-300 dark:border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:border-[#0369A1] focus:ring-1 focus:ring-[#0369A1]"
               placeholder="Enter Quantity"
               min={1}
             />
-            <div className="flex items-center gap-2 text-[11px] text-gray-300">
+            <div className="flex items-center gap-2 text-[11px] text-slate-600 dark:text-gray-300">
               <Icon icon="mdi:information-outline" className="w-3.5 h-3.5" />
               <span>
                 New Stock Level{" "}
-                <span className="font-semibold text-white">{newStockLevel}</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{newStockLevel}</span>
               </span>
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className="text-[11px] uppercase text-gray-400">
+            <p className="text-[11px] uppercase text-slate-500 dark:text-gray-400">
               Reason (Optional)
             </p>
             <input
               type="text"
               value={reason}
               onChange={handleReasonChange}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
+              className="w-full bg-white dark:bg-[#001825] border border-slate-300 dark:border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:border-[#0369A1] focus:ring-1 focus:ring-[#0369A1]"
               placeholder="e.g. Received shipment"
             />
           </div>
 
           {submitError ? (
-            <p className="text-[11px] text-red-400">{submitError}</p>
+            <p className="text-[11px] text-red-500 dark:text-red-400">{submitError}</p>
           ) : null}
         </div>
 
-        <div className="px-4 sm:px-5 py-3 border-t border-[#0A4D66]/40 bg-[#001219] flex justify-end gap-2">
+        <div className="px-4 sm:px-5 py-3 border-t border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001219] flex justify-end gap-2">
           <button
             type="button"
             onClick={() => onClose(false)}
-            className="px-3 py-1.5 rounded border border-[#0A4D66]/50 text-gray-300 text-xs sm:text-sm hover:bg-[#0A4D66]/20"
+            className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
           >
             Cancel
           </button>
@@ -217,10 +222,10 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
             onClick={handleSubmit}
             disabled={isLoading}
             className={cn(
-              "px-3 py-1.5 rounded text-xs sm:text-sm font-medium transition-colors",
+              "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shadow-sm",
               isLoading
-                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
-                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
+                ? "bg-[#0369A1]/40 text-white/60 cursor-not-allowed"
+                : "bg-[#0369A1] text-white hover:bg-[#0369A1]/90",
             )}
           >
             {isLoading ? "Updating..." : "Update Stock"}
@@ -234,11 +239,11 @@ const UpdateStockModal = ({ inventory, onClose }: UpdateStockModalProps) => {
 const mapStockLevelColor = (level: string) => {
   const normalized = level.toLowerCase();
 
-  if (normalized === "high") return "text-emerald-400";
-  if (normalized === "medium") return "text-amber-300";
-  if (normalized === "low") return "text-red-400";
+  if (normalized === "high") return "text-emerald-600 dark:text-emerald-400";
+  if (normalized === "medium") return "text-amber-600 dark:text-amber-300";
+  if (normalized === "low" || normalized === "out of stock") return "text-red-600 dark:text-red-400";
 
-  return "text-gray-300";
+  return "text-slate-700 dark:text-gray-300";
 };
 
 const formatStockHistoryDateTime = (value: string | null | undefined) => {
@@ -267,9 +272,9 @@ const mapStockTypeLabel = (stockType: string) => {
 };
 
 const mapStockTypeColor = (stockType: string) => {
-  if (stockType === "in_stock") return "text-emerald-300";
-  if (stockType === "out_of_stock") return "text-red-300";
-  return "text-gray-300";
+  if (stockType === "in_stock") return "text-emerald-600 dark:text-emerald-300";
+  if (stockType === "out_of_stock") return "text-red-600 dark:text-red-300";
+  return "text-slate-600 dark:text-gray-300";
 };
 
 const formatStockHistoryUserName = (
@@ -290,8 +295,18 @@ const formatStockHistoryUserName = (
 
 export const InventoryInfoPage = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
   const [isUpdateStockModalOpen, setIsUpdateStockModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  const isInvalidId = !id || id === "new" || id === "add";
+
+  useEffect(() => {
+    if (id === "new" || id === "add") {
+      navigate("/dashboard/inventory/add", { replace: true });
+    }
+  }, [id, navigate]);
 
   const {
     data: inventory,
@@ -299,11 +314,13 @@ export const InventoryInfoPage = () => {
     isError,
     refetch,
   } = useGetInventoryByIdQuery(id ?? "", {
-    skip: !id,
+    skip: isInvalidId,
   });
 
+  const [deleteInventory, { isLoading: isDeleting }] = useDeleteInventoryMutation();
+
   const stockLevelColor = useMemo(
-    () => (inventory ? mapStockLevelColor(inventory.stock_level) : "text-gray-300"),
+    () => (inventory ? mapStockLevelColor(inventory.stock_level) : "text-slate-700 dark:text-gray-300"),
     [inventory],
   );
 
@@ -323,21 +340,68 @@ export const InventoryInfoPage = () => {
     navigate(`/dashboard/inventory/${id}/edit`);
   };
 
+  const handleDownload = () => {
+    if (!inventory) return;
+    const headers = ["Field", "Value"];
+    const rows = [
+      ["Inventory ID", String(inventory.id)],
+      ["Part Number", inventory.part_number || "-"],
+      ["Serial Number", inventory.serial_number || "-"],
+      ["NSN", inventory.nsn || inventory.nsn_number || "-"],
+      ["ATA Chapter", inventory.ata_chapter || "-"],
+      ["Description", inventory.description || inventory.part_name || "-"],
+      ["Category", formatCategoryName(inventory.expense_category?.name || (inventory as { category?: string })?.category)],
+      ["Stock Type", inventory.store || "-"],
+      ["Current Stock", String(inventory.current_stock ?? 0)],
+      ["Unit", inventory.unit?.name || inventory.measurement_unit || "-"],
+      ["Re-Order Level", String(inventory.re_order_level ?? 0)],
+      ["Unit Cost", String(inventory.unit_cost ?? 0)],
+      ["Stock Level Status", inventory.stock_level || "-"],
+      ["Date Received", inventory.date_received || "-"],
+      ["Expiry Date", inventory.expiry_date || "-"],
+      ["Remark", inventory.remark || "-"],
+    ];
+    const csvContent = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `inventory-item-${inventory.part_number || inventory.id}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    dispatch(showToast({ message: "Stock info downloaded successfully", type: "success" }));
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!inventory?.id) return;
+    try {
+      await deleteInventory(String(inventory.id)).unwrap();
+      dispatch(showToast({ message: "Inventory item deleted successfully", type: "success" }));
+      navigate("/dashboard/inventory");
+    } catch {
+      dispatch(showToast({ message: "Failed to delete inventory item", type: "error" }));
+    } finally {
+      setIsDeleteModalOpen(false);
+    }
+  };
+
   if (!id || isError) {
     return (
       <div className="px-2 sm:px-0">
-        <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
+        <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white"
             >
               <Icon icon="mdi:arrow-left" className="w-4 h-4" />
               <span>Back</span>
             </button>
           </div>
-          <div className="p-6 text-center text-gray-400">
+          <div className="p-6 text-center text-slate-500 dark:text-gray-400">
             Failed to load inventory.
           </div>
         </section>
@@ -348,24 +412,24 @@ export const InventoryInfoPage = () => {
   if (isLoading || !inventory) {
     return (
       <div className="px-2 sm:px-0">
-        <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
+        <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
             <button
               type="button"
               onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white"
             >
               <Icon icon="mdi:arrow-left" className="w-4 h-4" />
               <span>Back</span>
             </button>
-            <span className="text-xs text-gray-400 uppercase tracking-wide">
+            <span className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">
               Stock Info
             </span>
           </div>
           <div className="p-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[2fr,1fr]">
-              <div className="h-64 bg-[#001825] border border-[#0A4D66]/40 rounded-lg animate-pulse" />
-              <div className="h-64 bg-[#001825] border border-[#0A4D66]/40 rounded-lg animate-pulse" />
+              <div className="h-64 bg-slate-100 dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-lg animate-pulse" />
+              <div className="h-64 bg-slate-100 dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-lg animate-pulse" />
             </div>
           </div>
         </section>
@@ -375,42 +439,53 @@ export const InventoryInfoPage = () => {
 
   return (
     <div className="px-2 sm:px-0">
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
+      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            <BackButton fallbackUrl="/dashboard/inventory" />
             <div className="flex flex-col">
-              <span className="text-sm sm:text-base font-semibold tracking-wide text-white uppercase">
+              <span className="text-sm sm:text-base font-semibold tracking-wide text-slate-900 dark:text-white uppercase">
                 Stock Info
               </span>
-              <span className="text-[11px] text-gray-400">
+              <span className="text-[11px] text-slate-500 dark:text-gray-400">
                 Inventory ID{inventory.id}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownload}
+              title="Download Stock Info CSV"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+            >
+              <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span className="font-semibold">Download</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(true)}
+              title="Delete Item"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-red-300 dark:border-red-500/40 bg-white dark:bg-slate-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:border-red-400 dark:hover:border-red-400 shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-red-400"
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4 text-red-600 dark:text-red-400" />
+              <span className="font-semibold">Delete</span>
+            </button>
             <button
               type="button"
               onClick={() => setIsUpdateStockModalOpen(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0369A1] hover:bg-[#0369A1]/90 text-white text-xs sm:text-sm font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
-              <Icon icon="mdi:database-plus" className="w-4 h-4" />
+              <Icon icon="mdi:database-plus" className="w-4 h-4 text-white" />
               <span>Update Stock</span>
             </button>
             <button
               type="button"
               onClick={handleEdit}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors"
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0369A1] hover:bg-[#0369A1]/90 text-white text-xs sm:text-sm font-medium transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
-              <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+              <Icon icon="mdi:pencil-outline" className="w-4 h-4 text-white" />
               <span>Edit</span>
             </button>
           </div>
@@ -418,37 +493,49 @@ export const InventoryInfoPage = () => {
 
         <div className="p-4 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-[2fr,1fr]">
-            <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
+            <div className="bg-white dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-slate-700 dark:text-gray-200 shadow-xs">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <div className="text-[11px] uppercase text-gray-400">
+                  <div className="text-[11px] uppercase text-slate-500 dark:text-gray-400">
                     Inventory Info
                   </div>
-                  <div className="mt-1 text-sm sm:text-base font-semibold text-white">
-                    {inventory.part_name}
+                  <div className="mt-1 text-sm sm:text-base font-semibold text-slate-900 dark:text-white">
+                    {inventory.description || inventory.part_name || `Part #${inventory.part_number}`}
                   </div>
-                  <div className="text-[11px] text-gray-400">
+                  <div className="text-[11px] text-slate-500 dark:text-gray-400">
                     Part No. {inventory.part_number}
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1 text-[11px] text-gray-300">
-                  <span>{inventory.unit?.name}</span>
-                  <span className="text-gray-400">Category</span>
-                  <span>{inventory.expense_category?.name}</span>
+                <div className="flex flex-col items-end gap-1 text-[11px] text-slate-600 dark:text-gray-300">
+                  <span className="font-medium text-slate-900 dark:text-white">{inventory.unit?.name || "-"}</span>
+                  <span className="text-slate-500 dark:text-gray-400">Category</span>
+                  <span className="font-medium text-slate-900 dark:text-white">{formatCategoryName(inventory.expense_category?.name)}</span>
                 </div>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2 pt-2 border-t border-slate-200 dark:border-[#0A4D66]/30">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-400">NSN:</span>
-                    <span className="font-semibold">
-                      {inventory.nsn_number || "-"}
+                    <span className="text-slate-500 dark:text-gray-400">Item Description:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white text-right max-w-[60%] truncate" title={inventory.description || inventory.part_name || "-"}>
+                      {inventory.description || inventory.part_name || "-"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-400">ATA Chapter:</span>
-                    <span className="font-semibold">
+                    <span className="text-slate-500 dark:text-gray-400">Serial No.:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.serial_number || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">NSN:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.nsn || inventory.nsn_number || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">ATA Chapter:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       {inventory.ata_chapter || "-"}
                     </span>
                   </div>
@@ -456,46 +543,76 @@ export const InventoryInfoPage = () => {
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-400">Expiry Date:</span>
-                    <span className="font-semibold">
+                    <span className="text-slate-500 dark:text-gray-400">Stock Type:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white capitalize">
+                      {inventory.store || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">Date Received:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.date_received || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">Expiry Date:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       {inventory.expiry_date || "-"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-400">Created At:</span>
-                    <span className="font-semibold">
+                    <span className="text-slate-500 dark:text-gray-400">Created At:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       {formatIsoDateOnly(inventory.created_at)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-400">Updated At:</span>
-                    <span className="font-semibold">
+                    <span className="text-slate-500 dark:text-gray-400">Updated At:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
                       {formatIsoDateOnly(inventory.updated_at)}
                     </span>
                   </div>
                 </div>
               </div>
+
+              {inventory.description && (
+                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-[#0A4D66]/30">
+                  <div className="text-[11px] uppercase text-slate-500 dark:text-gray-400">Full Description</div>
+                  <div className="mt-1 text-xs text-slate-800 dark:text-gray-200 leading-relaxed font-normal">
+                    {inventory.description}
+                  </div>
+                </div>
+              )}
+
+              {inventory.remark && (
+                <div className="mt-2 pt-2 border-t border-slate-200 dark:border-[#0A4D66]/20">
+                  <div className="text-[11px] uppercase text-slate-500 dark:text-gray-400">Remark</div>
+                  <div className="mt-0.5 text-xs text-slate-700 dark:text-gray-300">
+                    {inventory.remark}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-              <div className="text-[11px] uppercase text-gray-400 mb-3">
+            <div className="bg-white dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-slate-700 dark:text-gray-200 shadow-xs">
+              <div className="text-[11px] uppercase text-slate-500 dark:text-gray-400 mb-3">
                 Stock Summary
               </div>
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-gray-400">Re-Order Level:</span>
-                  <span className="text-base font-semibold text-white">
+                  <span className="text-slate-500 dark:text-gray-400">Re-Order Level:</span>
+                  <span className="text-base font-semibold text-slate-900 dark:text-white">
                     {inventory.re_order_level}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-gray-400">Quantity in-stock:</span>
-                  <span className="text-base font-semibold text-white">
+                  <span className="text-slate-500 dark:text-gray-400">Quantity in-stock:</span>
+                  <span className="text-base font-semibold text-slate-900 dark:text-white">
                     {inventory.current_stock}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-gray-400">Stock Level:</span>
+                  <span className="text-slate-500 dark:text-gray-400">Stock Level:</span>
                   <span className={cn("text-base font-semibold", stockLevelColor)}>
                     {inventory.stock_level}
                   </span>
@@ -504,25 +621,25 @@ export const InventoryInfoPage = () => {
             </div>
           </div>
 
-          <div className="mt-6 bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
+          <div className="mt-6 bg-white dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-slate-700 dark:text-gray-200 shadow-xs">
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[11px] uppercase text-gray-400">
+              <div className="text-[11px] uppercase text-slate-500 dark:text-gray-400">
                 Stock Update History
               </div>
-              <div className="text-[11px] text-gray-400">
+              <div className="text-[11px] text-slate-500 dark:text-gray-400">
                 {stockHistory.length} record{stockHistory.length === 1 ? "" : "s"}
               </div>
             </div>
 
             {stockHistory.length === 0 ? (
-              <div className="rounded-md border border-[#0A4D66]/30 bg-[#001219] px-3 py-4 text-center text-gray-400">
+              <div className="rounded-md border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50 dark:bg-[#001219] px-3 py-4 text-center text-slate-500 dark:text-gray-400">
                 No stock updates yet.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full min-w-130 text-left border-collapse">
                   <thead>
-                    <tr className="text-[11px] uppercase text-gray-400 border-b border-[#0A4D66]/30">
+                    <tr className="text-[11px] uppercase text-slate-500 dark:text-gray-400 border-b border-slate-200 dark:border-[#0A4D66]/30">
                       <th className="py-2 pr-3 font-medium">ID</th>
                       <th className="py-2 pr-3 font-medium">Type</th>
                       <th className="py-2 pr-3 font-medium">Quantity</th>
@@ -534,9 +651,9 @@ export const InventoryInfoPage = () => {
                     {stockHistory.map((item) => (
                       <tr
                         key={item.id}
-                        className="border-b border-[#0A4D66]/20 last:border-b-0"
+                        className="border-b border-slate-100 dark:border-[#0A4D66]/20 last:border-b-0 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                       >
-                        <td className="py-2 pr-3 text-gray-300">{item.id}</td>
+                        <td className="py-2 pr-3 text-slate-600 dark:text-gray-300">{item.id}</td>
                         <td
                           className={cn(
                             "py-2 pr-3 font-medium",
@@ -545,13 +662,13 @@ export const InventoryInfoPage = () => {
                         >
                           {mapStockTypeLabel(item.stock_type)}
                         </td>
-                        <td className="py-2 pr-3 text-white font-semibold">
+                        <td className="py-2 pr-3 text-slate-900 dark:text-white font-semibold">
                           {item.quantity}
                         </td>
-                        <td className="py-2 pr-3 text-gray-300">
+                        <td className="py-2 pr-3 text-slate-600 dark:text-gray-300">
                           {formatStockHistoryUserName(item.user)}
                         </td>
-                        <td className="py-2 pr-3 text-gray-300">
+                        <td className="py-2 pr-3 text-slate-600 dark:text-gray-300">
                           {formatStockHistoryDateTime(item.created_at)}
                         </td>
                       </tr>
@@ -574,6 +691,43 @@ export const InventoryInfoPage = () => {
             }
           }}
         />
+      ) : null}
+
+      {isDeleteModalOpen && inventory ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/60 rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-6">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center mx-auto mb-4">
+                <Icon icon="mdi:alert-circle-outline" className="w-6 h-6" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white text-center">
+                Delete Inventory Item?
+              </h3>
+              <p className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-gray-300 text-center leading-relaxed">
+                Are you sure you want to delete <span className="font-semibold text-slate-900 dark:text-white">Part #{inventory.part_number}</span> (ID: {inventory.id})? This action cannot be undone.
+              </p>
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#001825] text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleDeleteConfirm}
+                  className="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-red-600 hover:bg-red-700 text-white shadow-sm transition-colors flex items-center gap-2"
+                >
+                  {isDeleting && <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />}
+                  <span>{isDeleting ? "Deleting..." : "Confirm Delete"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
