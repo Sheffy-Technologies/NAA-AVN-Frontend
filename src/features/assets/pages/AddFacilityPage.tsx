@@ -173,8 +173,8 @@ export const AddFacilityPage = () => {
             className={cn(
               "px-6 sm:px-10 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
               isSubmitting
-                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
-                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
+                ? "bg-[#0369A1]/40 text-white/60 cursor-not-allowed"
+                : "bg-[#0369A1] text-white hover:bg-[#0369A1]/90",
             )}
           >
             {isSubmitting ? "Saving..." : "Save Facility"}

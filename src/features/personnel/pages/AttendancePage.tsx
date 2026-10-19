@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
 import {
   useGetAttendanceQuery,
@@ -12,6 +14,7 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
+import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 
 type AttendanceTab = "today" | "history";
 
@@ -59,6 +62,7 @@ const durationLabel = (mins: number | null) => {
 };
 
 export const AttendancePage = () => {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<AttendanceTab>("today");
 
@@ -147,10 +151,10 @@ export const AttendancePage = () => {
             <button
               type="button"
               onClick={() => exportCsv(filteredHistory)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-[#0A4D66]/40 text-xs text-gray-200 hover:bg-[#0A4D66]/30"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
-              <Icon icon="mdi:download-outline" className="w-4 h-4" />
-              Export CSV
+              <Icon icon="mdi:download-outline" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
             </button>
           )}
         </div>
@@ -172,22 +176,16 @@ export const AttendancePage = () => {
         )}
 
         {/* Inner tabs */}
-        <div className="flex items-center gap-1 border-b border-[#0A4D66]/40 px-4 sm:px-6">
-          {(["today", "history"] as AttendanceTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={cn(
-                "px-3 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors capitalize",
-                activeTab === tab
-                  ? "border-[#7FD5FF] text-white"
-                  : "border-transparent text-gray-400 hover:text-gray-200",
-              )}
-            >
-              {tab === "today" ? "Today" : "History"}
-            </button>
-          ))}
+        <div className="px-4 sm:px-6">
+          <AppTabs<AttendanceTab>
+            tabs={[
+              { id: "today", label: "Today's Attendance", icon: "mdi:calendar-today" },
+              { id: "history", label: "Historical Records", icon: "mdi:history" },
+            ]}
+            activeTab={activeTab}
+            onChange={(tab) => setActiveTab(tab)}
+            size="sm"
+          />
         </div>
 
         {/* ── Today Tab ─────────────────────────────────────── */}
@@ -246,7 +244,24 @@ export const AttendancePage = () => {
                       (todayData?.present ?? []).map((log, i) => (
                         <tr
                           key={log.id}
-                          className={cn("border-t border-[#0A4D66]/40", i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]")}
+                          tabIndex={log.personnel?.id ? 0 : undefined}
+                          role={log.personnel?.id ? "button" : undefined}
+                          title={log.personnel?.id ? "Click to view personnel profile" : undefined}
+                          onClick={(e) => {
+                            if (log.personnel?.id) {
+                              onInteractiveRowClick(e, () => navigate(`/dashboard/personnel/${log.personnel!.id}`));
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (log.personnel?.id) {
+                              onInteractiveRowKeyDown(e, () => navigate(`/dashboard/personnel/${log.personnel!.id}`));
+                            }
+                          }}
+                          className={cn(
+                            "border-t border-[#0A4D66]/40 transition-colors",
+                            i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                            log.personnel?.id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
+                          )}
                         >
                           <td className="px-4 sm:px-6 py-3 text-white">
                             {log.personnel ? `${log.personnel.firstname} ${log.personnel.lastname}` : "—"}
@@ -302,7 +317,15 @@ export const AttendancePage = () => {
                       (todayData?.absent ?? []).map((p, i) => (
                         <tr
                           key={p.id}
-                          className={cn("border-t border-[#0A4D66]/40", i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]")}
+                          tabIndex={0}
+                          role="button"
+                          title="Click to view personnel profile"
+                          onClick={(e) => onInteractiveRowClick(e, () => navigate(`/dashboard/personnel/${p.id}`))}
+                          onKeyDown={(e) => onInteractiveRowKeyDown(e, () => navigate(`/dashboard/personnel/${p.id}`))}
+                          className={cn(
+                            "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
+                            i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]"
+                          )}
                         >
                           <td className="px-4 sm:px-6 py-3 text-white">{p.firstname} {p.lastname}</td>
                           <td className="px-4 py-3">{p.service_number}</td>
@@ -413,48 +436,71 @@ export const AttendancePage = () => {
                       <td colSpan={10} className="px-6 py-8 text-center text-gray-500">No records found.</td>
                     </tr>
                   ) : (
-                    filteredHistory.map((log, i) => (
-                      <tr
-                        key={log.id}
-                        className={cn("border-t border-[#0A4D66]/40", i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]")}
-                      >
-                        <td className="px-4 sm:px-6 py-3 text-white">{formatDate(log.date)}</td>
-                        <td className="px-4 py-3 text-white">
-                          {log.personnel ? `${log.personnel.firstname} ${log.personnel.lastname}` : "—"}
-                        </td>
-                        <td className="px-4 py-3">{log.personnel?.rank?.name ?? "—"}</td>
-                        <td className="px-4 py-3">{log.personnel?.unit?.name ?? "—"}</td>
-                        <td className="px-4 py-3 text-emerald-400">{formatTime(log.clock_in)}</td>
-                        <td className="px-4 py-3 text-red-400">{formatTime(log.clock_out)}</td>
-                        <td className="px-4 py-3">{durationLabel(log.duration_minutes)}</td>
-                        <td className="px-4 py-3">
-                          <span className={cn(
-                            "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium",
-                            STATUS_COLORS[log.status] ?? "text-gray-400 bg-gray-400/10",
-                          )}>
-                            <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[log.status] ?? "bg-gray-400")} />
-                            {STATUS_LABELS[log.status] ?? log.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {log.is_within_range ? (
-                            <Icon icon="mdi:check-circle-outline" className="w-4 h-4 text-emerald-400" />
-                          ) : (
-                            <Icon icon="mdi:map-marker-off-outline" className="w-4 h-4 text-amber-400" />
+                    filteredHistory.map((log, i) => {
+                      const personnelId = log.personnel?.id || log.personnel_id;
+                      return (
+                        <tr
+                          key={log.id}
+                          tabIndex={personnelId ? 0 : undefined}
+                          role={personnelId ? "button" : undefined}
+                          title={personnelId ? "Click to view personnel profile" : undefined}
+                          onClick={(e) => {
+                            if (personnelId) {
+                              onInteractiveRowClick(e, () => navigate(`/dashboard/personnel/${personnelId}`));
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (personnelId) {
+                              onInteractiveRowKeyDown(e, () => navigate(`/dashboard/personnel/${personnelId}`));
+                            }
+                          }}
+                          className={cn(
+                            "border-t border-[#0A4D66]/40 transition-colors",
+                            i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                            personnelId && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                           )}
-                        </td>
-                        <td className="px-4 sm:px-6 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(log.id)}
-                            title="Delete record"
-                            className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-red-900/40 text-red-400"
-                          >
-                            <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                        >
+                          <td className="px-4 sm:px-6 py-3 text-white">{formatDate(log.date)}</td>
+                          <td className="px-4 py-3 text-white">
+                            {log.personnel ? `${log.personnel.firstname} ${log.personnel.lastname}` : "—"}
+                          </td>
+                          <td className="px-4 py-3">{log.personnel?.rank?.name ?? "—"}</td>
+                          <td className="px-4 py-3">{log.personnel?.unit?.name ?? "—"}</td>
+                          <td className="px-4 py-3 text-emerald-400">{formatTime(log.clock_in)}</td>
+                          <td className="px-4 py-3 text-red-400">{formatTime(log.clock_out)}</td>
+                          <td className="px-4 py-3">{durationLabel(log.duration_minutes)}</td>
+                          <td className="px-4 py-3">
+                            <span className={cn(
+                              "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium",
+                              STATUS_COLORS[log.status] ?? "text-gray-400 bg-gray-400/10",
+                            )}>
+                              <span className={cn("w-1.5 h-1.5 rounded-full", STATUS_DOT[log.status] ?? "bg-gray-400")} />
+                              {STATUS_LABELS[log.status] ?? log.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {log.is_within_range ? (
+                              <Icon icon="mdi:check-circle-outline" className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <Icon icon="mdi:map-marker-off-outline" className="w-4 h-4 text-amber-400" />
+                            )}
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(log.id);
+                              }}
+                              title="Delete record"
+                              className="inline-flex items-center justify-center w-7 h-7 rounded hover:bg-red-900/40 text-red-400 focus:outline-none focus:ring-1 focus:ring-red-400"
+                            >
+                              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

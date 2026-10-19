@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
@@ -8,6 +7,7 @@ import { useUpdateMeMutation } from "@/features/users/api";
 import { updateCurrentUser } from "@/features/auth/authSlice";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { BackButton } from "@/shared/ui/button";
 
 type FormValues = {
   firstname: string;
@@ -28,7 +28,6 @@ const emptyValues: FormValues = {
 };
 
 export const UserDetailsPage = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const authUser = useAppSelector((state) => state.auth.user);
   const { data: me, isLoading } = useGetMeQuery();
@@ -129,16 +128,9 @@ export const UserDetailsPage = () => {
   return (
     <div className="px-2 sm:px-0 space-y-4">
       <section className="flex items-center justify-between">
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-400 hover:text-gray-200"
-          >
-            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-            <span>Back</span>
-          </button>
-          <h1 className="text-base sm:text-lg font-semibold text-white">
+        <div className="flex items-center gap-3">
+          <BackButton fallbackUrl="/dashboard/users" />
+          <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
             Edit User Details
           </h1>
         </div>
@@ -163,8 +155,8 @@ export const UserDetailsPage = () => {
             className={cn(
               "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
               isUpdating || isLoading || !selectedUser
-                ? "bg-[#0369A1]/50 text-black cursor-not-allowed"
-                : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
+                ? "bg-[#0369A1]/50 text-white/70 cursor-not-allowed"
+                : "bg-[#0369A1] text-white hover:bg-[#0369A1]/90",
             )}
           >
             <span>{isUpdating ? "Saving..." : "Save Changes"}</span>

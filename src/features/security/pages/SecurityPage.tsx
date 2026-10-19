@@ -25,6 +25,7 @@ import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
 import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
+import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 
 type SecurityTab = "activity" | "device" | "user" | "rbac" | "system";
 
@@ -618,17 +619,6 @@ export const SecurityPage = () => {
     [editUserId, userRows],
   );
 
-  const renderTabButton = (tab: SecurityTab, label: string) => (
-    <button
-      onClick={() => setActiveTab(tab)}
-      className={cn(
-        "pb-3 text-lg font-semibold border-b-2 transition-colors",
-        activeTab === tab ? "text-white border-white" : "text-gray-400 border-transparent",
-      )}
-    >
-      {label}
-    </button>
-  );
 
   const renderRoleCard = (role: RoleRecord) => {
     const permissionNames = (role.permissions || []).map((permission) => permission.name);
@@ -716,17 +706,38 @@ export const SecurityPage = () => {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-8 border-b border-[#0A4D66]/40">
-        {renderTabButton("activity", "Activity Log")}
-        {renderTabButton("device", "Device Management")}
-        {renderTabButton("user", "User Management")}
-        {renderTabButton("rbac", "Access Control")}
-        {isSuperAdmin && renderTabButton("system", "System Settings")}
-      </div>
+      <AppTabs<SecurityTab>
+        tabs={[
+          { id: "activity", label: "Activity Log", icon: "mdi:history" },
+          { id: "device", label: "Device Management", icon: "mdi:devices" },
+          { id: "user", label: "User Management", icon: "mdi:account-group" },
+          { id: "rbac", label: "Access Control", icon: "mdi:shield-account" },
+          ...(isSuperAdmin ? [{ id: "system" as SecurityTab, label: "System Settings", icon: "mdi:cog" }] : []),
+        ]}
+        activeTab={activeTab}
+        onChange={(tab) => setActiveTab(tab)}
+      />
 
-      <div className="overflow-hidden rounded-sm border border-[#0A4D66]/40 bg-[#001825]">
-        <div className="flex items-center justify-between border-b border-[#0A4D66]/30 px-6 py-4">
-          <h2 className="text-3xl font-bold uppercase text-white">
+      <div
+        className={cn(
+          "overflow-hidden rounded-xl border transition-colors",
+          isDark
+            ? "border-[#0A4D66]/40 bg-[#001825]"
+            : "border-slate-200 bg-white shadow-sm",
+        )}
+      >
+        <div
+          className={cn(
+            "flex items-center justify-between border-b px-6 py-4 transition-colors",
+            isDark ? "border-[#0A4D66]/30" : "border-slate-200",
+          )}
+        >
+          <h2
+            className={cn(
+              "text-xl font-bold uppercase transition-colors",
+              isDark ? "text-white" : "text-slate-900",
+            )}
+          >
             {activeTab === "user"
               ? "User Management"
               : activeTab === "device"
@@ -1592,7 +1603,7 @@ export const SecurityPage = () => {
               <button
                 type="button"
                 onClick={closeAssignRolesModal}
-                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+                className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-4 py-2 text-sm font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
               >
                 Cancel
               </button>
@@ -1660,7 +1671,7 @@ export const SecurityPage = () => {
               <button
                 type="button"
                 onClick={closeAssignUnitsModal}
-                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+                className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-4 py-2 text-sm font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
               >
                 Cancel
               </button>
@@ -1834,7 +1845,7 @@ export const SecurityPage = () => {
               <button
                 type="button"
                 onClick={closeEditUserModal}
-                className="rounded-md border border-[#0A4D66]/50 px-4 py-2 text-sm text-gray-300 hover:text-white"
+                className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-4 py-2 text-sm font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
               >
                 Cancel
               </button>

@@ -1,6 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
   useCreateExpenseMutation,
@@ -24,6 +23,7 @@ import {
   type WorkOrderResponse,
 } from "@/features/maintenance/api";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
+import { BackButton, CancelButton } from "@/shared/ui/button";
 
 type FinanceFormValues = {
   budget_id: number | "";
@@ -183,9 +183,14 @@ export const FinanceFormPage = () => {
       setSubmitError(null);
     };
 
-  const handleCancel = () => {
-    navigate("/dashboard/finance");
-  };
+  const isFormDirty = Boolean(
+    values.budget_id ||
+    values.part_number.trim() ||
+    values.part_name.trim() ||
+    values.quantity.trim() ||
+    values.unit_cost.trim(),
+  );
+
 
   const handleSubmit = async () => {
     setSubmitError(null);
@@ -279,17 +284,12 @@ export const FinanceFormPage = () => {
   return (
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
-          {isEditing ? "EDIT EXPENSE" : "ADD EXPENSE"}
-        </h1>
-        <button
-          type="button"
-          onClick={handleCancel}
-          className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-300 hover:text-white"
-        >
-          <Icon icon="mdi:close-circle-outline" className="w-4 h-4" />
-          <span>Save &amp; Exit</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <BackButton fallbackUrl="/dashboard/finance" isDirty={isFormDirty} />
+          <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
+            {isEditing ? "EDIT EXPENSE" : "ADD EXPENSE"}
+          </h1>
+        </div>
       </div>
 
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 sm:p-6">
@@ -512,17 +512,23 @@ export const FinanceFormPage = () => {
           <p className="mt-4 text-[11px] text-red-400">{submitError}</p>
         )}
 
-        <div className="mt-6 flex justify-end">
+        <div className="mt-6 flex items-center justify-end gap-3">
+          <CancelButton
+            fallbackUrl="/dashboard/finance"
+            isDirty={isFormDirty}
+            label="Cancel"
+            size="md"
+          />
           <button
             type="button"
             onClick={handleSubmit}
             className={cn(
-              "w-full sm:w-90 px-6 sm:px-10 py-2.5 rounded bg-[#0369A1] text-black text-xs sm:text-sm font-medium hover:bg-[#0369A1]/90 transition-colors",
+              "px-8 py-2.5 rounded bg-[#0369A1] text-white text-xs sm:text-sm font-semibold hover:bg-[#0369A1]/90 transition-colors shadow-sm",
               (isLoading || isUpdating) && "opacity-70 cursor-not-allowed",
             )}
             disabled={isLoading || isUpdating}
           >
-            {isLoading || isUpdating ? "Saving..." : "Save"}
+            {isLoading || isUpdating ? "Saving..." : isEditing ? "Save Changes" : "Save"}
           </button>
         </div>
       </section>

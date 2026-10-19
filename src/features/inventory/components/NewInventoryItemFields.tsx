@@ -1,5 +1,6 @@
 import type { InventoryExpenseCategory } from "../api";
 import type { NewInventoryDraft } from "../newInventoryItem";
+import { formatCategoryName } from "../inventoryUtils";
 
 type Props = {
   draft: NewInventoryDraft;
@@ -87,7 +88,7 @@ export const NewInventoryItemFields = ({
           <option value="">Expense category (optional)</option>
           {expenseCategories.map((category) => (
             <option key={category.id} value={category.id}>
-              {category.name}
+              {formatCategoryName(category.name)}
             </option>
           ))}
         </select>
@@ -99,7 +100,21 @@ export const NewInventoryItemFields = ({
           onChange={(e) => set("serial_number", e.target.value)}
         />
         <input
-          className={`${inputClassName} sm:col-span-2`}
+          className={inputClassName}
+          placeholder="NSN (e.g., 2840-01-123-4567) (optional)"
+          aria-label="New item NSN"
+          value={draft.nsn}
+          onChange={(e) => set("nsn", e.target.value)}
+        />
+        <input
+          className={inputClassName}
+          placeholder="ATA Chapter (e.g., 71 - Power Plant) (optional)"
+          aria-label="New item ATA Chapter"
+          value={draft.ata_chapter}
+          onChange={(e) => set("ata_chapter", e.target.value)}
+        />
+        <input
+          className={`${inputClassName} sm:col-span-3`}
           placeholder="Remark (optional)"
           aria-label="New item remark"
           value={draft.remark}

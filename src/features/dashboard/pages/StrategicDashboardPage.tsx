@@ -237,19 +237,26 @@ export const StrategicDashboardPage = () => {
   return (
     <div className="space-y-5 px-2 pb-10 sm:px-0">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#0A4D66]/40 bg-[#001219] px-5 py-4">
-        <div>
-          <h1 className="text-xl font-bold text-white">Strategic Command Dashboard</h1>
-          <p className="text-xs text-gray-400">
-            Consolidated, read-only command oversight · As of{" "}
-            {new Date(data.generated_at).toLocaleString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-              hour12: false,
-            })}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#001825] border border-[#7FD5FF]/40 flex items-center justify-center text-white shadow-[0_0_15px_rgba(127,213,255,0.2)]">
+            <Icon icon="mdi:radar" className="w-6 h-6 animate-pulse text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white flex items-center gap-2">
+              Strategic Command Dashboard
+            </h1>
+            <p className="text-xs text-gray-400">
+              Consolidated, read-only command oversight · As of{" "}
+              {new Date(data.generated_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
+            </p>
+          </div>
         </div>
         <button
           type="button"

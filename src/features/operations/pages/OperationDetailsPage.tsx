@@ -16,6 +16,8 @@ import {
 } from "../api";
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
 import Modal from "@/shared/ui/modal/Modal";
+import { AppTabs } from "@/shared/ui/tabs/AppTabs";
+import { BackButton } from "@/shared/ui/button";
 
 const InfoRow = ({
   label,
@@ -1135,15 +1137,8 @@ export const OperationDetailsPage = () => {
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/dashboard/operations")}
-              className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors"
-            >
-              <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-              Back
-            </button>
-
-            <div className="text-sm text-gray-400">{operation.name}</div>
+            <BackButton fallbackUrl="/dashboard/operations" />
+            <div className="text-sm text-slate-700 dark:text-gray-300 font-medium">{operation.name}</div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -1212,42 +1207,25 @@ export const OperationDetailsPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setActiveTab("operation")}
-            className={cn(
-              "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
-              activeTab === "operation"
-                ? "border-white text-white"
-                : "border-transparent text-gray-500 hover:text-gray-300",
-            )}
-          >
-            <Icon icon="mdi:database" className="inline-block w-4 h-4 mr-2" />
-            Operation
-          </button>
-          <button
-            onClick={() => setActiveTab("aar")}
-            className={cn(
-              "px-4 py-2 font-medium text-sm border-b-2 transition-colors",
-              activeTab === "aar"
-                ? "border-white text-white"
-                : "border-transparent text-gray-500 hover:text-gray-300",
-            )}
-          >
-            <Icon
-              icon="mdi:file-document-outline"
-              className="inline-block w-4 h-4 mr-2"
-            />
-            After Action Report
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300">
+          <AppTabs<"operation" | "aar">
+            tabs={[
+              { id: "operation", label: "Operation", icon: "mdi:database" },
+              { id: "aar", label: "After Action Report", icon: "mdi:file-document-outline" },
+            ]}
+            activeTab={activeTab}
+            onChange={(t) => setActiveTab(t)}
+            size="sm"
+            containerClassName="border-b-0"
+          />
           {!operation.afterActionReport && (
             <button
               type="button"
               onClick={handleAddAfterActionReport}
-              className="ml-2 inline-flex items-center gap-2 rounded-lg bg-[#0A4D66] px-3 py-2 text-xs font-semibold text-white hover:bg-[#0A4D66]/80 transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0A4D66] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#083c50] transition-colors shadow-sm mb-2 sm:mb-0"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
-              Add AAR
+              <span>Add AAR</span>
             </button>
           )}
         </div>

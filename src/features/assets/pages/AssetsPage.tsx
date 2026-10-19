@@ -20,6 +20,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { FacilitiesMapView } from "@/features/assets/components/FacilitiesMapView";
 import {
   ImportCsvModal,
@@ -506,18 +507,18 @@ export const AssetsPage = () => {
                 onClick={handleDownloadExcel}
                 title="Download filtered assets Excel"
                 aria-label="Download filtered assets Excel"
-                className="p-1.5 text-gray-400 hover:text-white"
+                className="p-1.5 rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
               >
-                <Icon icon="mdi:download" className="w-4 h-4" />
+                <Icon icon="mdi:download" className="w-4 h-4 text-slate-600 dark:text-gray-300" />
               </button>
               {(activeTab === "vehicle" || activeTab === "facility") && (
                 <button
                   type="button"
                   onClick={() => setIsImportOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium border border-[#0A4D66]/40 text-gray-300 hover:text-white hover:border-[#7FD5FF]/50 transition-colors whitespace-nowrap"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
-                  <Icon icon="mdi:upload" className="w-4 h-4" />
-                  Import CSV
+                  <Icon icon="mdi:upload" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Import CSV</span>
                 </button>
               )}
             </div>
@@ -614,8 +615,25 @@ export const AssetsPage = () => {
                       return (
                         <tr
                           key={vehicle.id}
+                          tabIndex={0}
+                          role="button"
+                          title="Click to edit vehicle"
+                          onClick={(e) =>
+                            onInteractiveRowClick(e, () =>
+                              navigate(
+                                `/dashboard/assets/vehicles/${vehicle.id}/edit`,
+                              ),
+                            )
+                          }
+                          onKeyDown={(e) =>
+                            onInteractiveRowKeyDown(e, () =>
+                              navigate(
+                                `/dashboard/assets/vehicles/${vehicle.id}/edit`,
+                              ),
+                            )
+                          }
                           className={cn(
-                            "hover:bg-[#0A4D66]/20 transition-colors",
+                            "hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30",
                             idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                           )}
                         >
@@ -721,8 +739,17 @@ export const AssetsPage = () => {
                     filteredAssets.map((asset, idx) => (
                       <tr
                         key={asset.id}
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view asset details"
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () => handleOpenDetail(asset.id))
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () => handleOpenDetail(asset.id))
+                        }
                         className={cn(
-                          "hover:bg-[#0A4D66]/20 transition-colors",
+                          "hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30",
                           idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                         )}
                       >
@@ -792,7 +819,10 @@ export const AssetsPage = () => {
                             type="button"
                             title="Open actions"
                             aria-label="Open actions"
-                            onClick={() => handleToggleActions(asset.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleActions(asset.id);
+                            }}
                             className="text-gray-400 hover:text-white"
                           >
                             <Icon

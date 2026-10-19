@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useGetMaintenanceProgramsQuery } from "../api";
 
@@ -33,10 +34,12 @@ export const PlanningPage = () => {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-bold text-[#7FD5FF] uppercase">Maintenance Programs (Planning)</h2>
         <button
-          className="rounded border border-emerald-400 px-3 py-1.5 text-xs text-emerald-300 hover:bg-emerald-900/20 transition-colors"
+          type="button"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0A4D66] hover:bg-[#083c50] text-white text-xs font-semibold shadow-sm border border-[#7FD5FF]/40 transition-colors"
           onClick={() => navigate("/dashboard/maintenance/add-task")}
         >
-          + Add Task
+          <Icon icon="mdi:plus" className="w-4 h-4 text-[#7FD5FF]" />
+          <span>Add Task</span>
         </button>
       </div>
 

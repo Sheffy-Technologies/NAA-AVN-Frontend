@@ -2,6 +2,7 @@ import { useMemo, useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import {
   useGetAssetsQuery,
   useGetDocumentTypesQuery,
@@ -440,7 +441,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
             className={cn(
               "px-4 py-1.5 rounded text-xs font-medium transition-colors",
               isLoading
-                ? "bg-[#0369A1]/40 text-black/60 cursor-not-allowed"
+                ? "bg-[#0369A1]/40 text-white/60 cursor-not-allowed"
                 : "bg-[#0369A1] text-white hover:bg-[#0369A1]/90",
             )}
           >
@@ -590,7 +591,15 @@ export const DocumentsPage = () => {
                     const assignedCount = doc.assigned_personnel?.length ?? 0;
 
                     return (
-                      <tr key={doc.id} className="border-b border-[#0A4D66]/20 last:border-b-0 hover:bg-[#001825]/60">
+                      <tr
+                        key={doc.id}
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view document correspondence"
+                        onClick={(e) => onInteractiveRowClick(e, () => navigate(`/dashboard/documents/${doc.id}`))}
+                        onKeyDown={(e) => onInteractiveRowKeyDown(e, () => navigate(`/dashboard/documents/${doc.id}`))}
+                        className="border-b border-[#0A4D66]/20 last:border-b-0 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
+                      >
                         <td className="py-2.5 pr-4">
                           <div className="font-medium text-white leading-5 max-w-xs truncate">{title}</div>
                           {doc.file_header && doc.title && (
@@ -639,8 +648,11 @@ export const DocumentsPage = () => {
                           <div className="inline-flex items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => navigate(`/dashboard/documents/${doc.id}`)}
-                              className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/50 px-2 py-1 text-[11px] text-gray-200 hover:bg-[#0A4D66]/30"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/dashboard/documents/${doc.id}`);
+                              }}
+                              className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/50 px-2 py-1 text-[11px] text-gray-200 hover:bg-[#0A4D66]/30 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                             >
                               <Icon icon="mdi:eye-outline" className="w-3.5 h-3.5" />
                               Open
@@ -649,7 +661,8 @@ export const DocumentsPage = () => {
                               <a
                                 href={fileUrl}
                                 download
-                                className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/50 px-2 py-1 text-[11px] text-gray-200 hover:bg-[#0A4D66]/30"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/50 px-2 py-1 text-[11px] text-gray-200 hover:bg-[#0A4D66]/30 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                               >
                                 <Icon icon="mdi:download" className="w-3.5 h-3.5" />
                               </a>

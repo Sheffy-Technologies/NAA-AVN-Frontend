@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import * as XLSX from "xlsx";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import {
@@ -178,9 +179,13 @@ export const OperationsPage = () => {
             {filteredOperations.map((op, idx) => (
               <tr
                 key={op.id}
-                onClick={() => navigate(String(op.id))}
+                tabIndex={0}
+                role="button"
+                title="Click to view operation details"
+                onClick={(e) => onInteractiveRowClick(e, () => navigate(String(op.id)))}
+                onKeyDown={(e) => onInteractiveRowKeyDown(e, () => navigate(String(op.id)))}
                 className={cn(
-                  "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors",
+                  "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
                   idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                 )}
               >
@@ -477,7 +482,7 @@ export const OperationsPage = () => {
             </button>
             <button
               onClick={() => navigate("/dashboard/operations/add")}
-              className="bg-[#0369A1] text-black text-xs font-bold px-4 py-2 rounded flex items-center gap-2 hover:bg-[#0369A1]/90 transition-colors"
+              className="bg-[#0369A1] text-white text-xs font-bold px-4 py-2 rounded flex items-center gap-2 hover:bg-[#0369A1]/90 transition-colors"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
               ADD MISSION/FLIGHT OPERATION

@@ -4,6 +4,7 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetUnitsQuery, useDeleteUnitMutation, type Unit } from "@/shared/api/units";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 
 type UnitRow = {
   id: number;
@@ -141,8 +142,17 @@ export const UnitsPage = () => {
                 units.map((unit, index) => (
                   <tr
                     key={unit.id}
+                    tabIndex={0}
+                    role="button"
+                    title="Click to view unit details"
+                    onClick={(e) =>
+                      onInteractiveRowClick(e, () => handleView(unit.id))
+                    }
+                    onKeyDown={(e) =>
+                      onInteractiveRowKeyDown(e, () => handleView(unit.id))
+                    }
                     className={cn(
-                      "border-t border-[#0A4D66]/40",
+                      "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                       index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                     )}
                   >

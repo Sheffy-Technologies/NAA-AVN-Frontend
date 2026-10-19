@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { useCreateUserMutation } from "@/features/users/api";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
+import { BackButton, CancelButton } from "@/shared/ui/button";
 
 export const AddUserPage = () => {
   const navigate = useNavigate();
@@ -49,6 +49,10 @@ export const AddUserPage = () => {
     }
   };
 
+  const isFormDirty = Boolean(
+    form.firstname || form.lastname || form.email || form.username || form.password,
+  );
+
   const inputClassName =
     "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors";
 
@@ -56,15 +60,8 @@ export const AddUserPage = () => {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white"
-          >
-            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-            Back
-          </button>
-          <h1 className="text-2xl font-bold text-white">Add User</h1>
+          <BackButton fallbackUrl="/dashboard/users" isDirty={isFormDirty} />
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Add User</h1>
         </div>
       </div>
 
@@ -132,19 +129,18 @@ export const AddUserPage = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <CancelButton
+            fallbackUrl="/dashboard/users"
+            isDirty={isFormDirty}
+            label="Cancel"
+            size="md"
+          />
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-[#0369A1] text-white rounded px-4 py-2 font-medium"
+            className="bg-[#0369A1] text-white rounded px-5 py-2 font-semibold hover:bg-[#0369A1]/90 transition-colors shadow-sm disabled:opacity-50"
           >
             {isLoading ? "Creating..." : "Create User"}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="text-gray-300 hover:text-white"
-          >
-            Cancel
           </button>
         </div>
       </form>

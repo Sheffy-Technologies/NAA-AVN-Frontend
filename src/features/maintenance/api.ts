@@ -261,6 +261,7 @@ export type WorkOrderResponse = {
   asset_id?: number | null;
   reported_by?: number | WorkOrderReporter | null;
   title: string;
+  status?: "pending" | "in_progress" | "completed" | string;
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
@@ -312,10 +313,46 @@ export type ComplianceRecord = {
   next_due_hours?: number | string | null;
   next_due_cycles?: number | string | null;
   remarks?: string | null;
+  description?: string | null;
   component_id?: number | null;
   engine_id?: number | null;
   avionics_id?: number | null;
   work_order_task_id?: number | null;
+  asset_id?: number | null;
+  task?: {
+    id: number;
+    description?: string;
+    work_order_id?: number;
+    work_order?: {
+      id: number;
+      title?: string;
+      asset_id?: number;
+      asset?: WorkOrderAsset;
+    };
+    program?: {
+      id: number;
+      name?: string;
+    };
+    defect?: {
+      id: number;
+      title?: string;
+    };
+  };
+  component?: {
+    id: number;
+    part_number?: string;
+    serial_number?: string;
+  };
+  engine?: {
+    id: number;
+    model?: string;
+    serial_number?: string;
+  };
+  avionics?: {
+    id: number;
+    model?: string;
+    serial_number?: string;
+  };
 };
 
 export type DefectRecord = {
@@ -338,10 +375,22 @@ export type DefectRecord = {
   deleted_at?: string | null;
 };
 
+export type CreateMaintenanceDefectRequest = {
+  asset_id: number;
+  title: string;
+  description?: string | null;
+  severity?: "low" | "medium" | "high" | "critical";
+  status?: "open" | "in_progress" | "resolved" | "closed";
+  reported_at?: string | null;
+  reported_hours?: number | string | null;
+  reported_by?: number | null;
+  remarks?: string | null;
+};
+
 export const maintenanceApi = createApi({
   reducerPath: "maintenanceApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["MaintenancePrograms", "WorkOrders", "Defects"],
+  tagTypes: ["MaintenancePrograms", "WorkOrders", "Defects", "ComplianceRecords"],
   endpoints: (builder) => ({
     getMaintenanceMetrics: builder.query<
       MaintenanceMetricsResponse,
@@ -401,6 +450,31 @@ export const maintenanceApi = createApi({
       }),
       invalidatesTags: [{ type: "WorkOrders", id: "LIST" }, { type: "Defects", id: "LIST" }],
     }),
+    completeWorkOrder: builder.mutation<WorkOrderResponse, number | string>({
+      query: (id) => ({
+        url: `/work-orders/${id}/complete`,
+        method: "POST",
+      }),
+      invalidatesTags: [
+        { type: "WorkOrders", id: "LIST" },
+        { type: "Defects", id: "LIST" },
+        { type: "ComplianceRecords", id: "LIST" },
+      ],
+    }),
+    updateWorkOrder: builder.mutation<
+      WorkOrderResponse,
+      { id: number | string; status?: string; title?: string }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/work-orders/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+      invalidatesTags: [
+        { type: "WorkOrders", id: "LIST" },
+        { type: "ComplianceRecords", id: "LIST" },
+      ],
+    }),
     getWorkOrders: builder.query<WorkOrderResponse[], { asset_id?: number } | void>({
       query: (params) => ({
         url: "/work-orders",
@@ -422,6 +496,7 @@ export const maintenanceApi = createApi({
         method: "GET",
         params: params || undefined,
       }),
+      providesTags: [{ type: "ComplianceRecords", id: "LIST" }],
     }),
     getMaintenanceDueItems: builder.query<MaintenanceDueResponse, MaintenanceDueFilters | void>({
       query: (params) => ({
@@ -437,6 +512,14 @@ export const maintenanceApi = createApi({
         method: "GET",
       }),
       providesTags: [{ type: "Defects", id: "LIST" }],
+    }),
+    createDefect: builder.mutation<DefectRecord, CreateMaintenanceDefectRequest>({
+      query: (data) => ({
+        url: "/defects",
+        method: "POST",
+        data,
+      }),
+      invalidatesTags: [{ type: "Defects", id: "LIST" }],
     }),
     getComponents: builder.query<MaintenanceComponent[], void>({
       query: () => ({
@@ -499,11 +582,14 @@ export const {
   useUpdateMaintenanceProgramMutation,
   useDeleteMaintenanceProgramMutation,
   useCreateWorkOrderMutation,
+  useCompleteWorkOrderMutation,
+  useUpdateWorkOrderMutation,
   useGetWorkOrdersQuery,
   useGetWorkOrderByIdQuery,
   useGetComplianceRecordsQuery,
   useGetMaintenanceDueItemsQuery,
   useGetDefectRecordsQuery,
+  useCreateDefectMutation,
   useGetComponentsQuery,
   useGetEnginesQuery,
   useGetAvionicsQuery,

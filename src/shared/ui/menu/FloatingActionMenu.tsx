@@ -7,6 +7,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/shared/utils/cn";
+import { useTheme } from "@/context/ThemeContext";
 
 type FloatingActionMenuProps = {
   open: boolean;
@@ -25,6 +26,7 @@ export const FloatingActionMenu = ({
   className,
   widthClassName = "w-40",
 }: FloatingActionMenuProps) => {
+  const { isDark } = useTheme();
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ top: -9999, left: -9999 });
 
@@ -110,7 +112,10 @@ export const FloatingActionMenu = ({
     <div
       ref={menuRef}
       className={cn(
-        "fixed bg-[#001219] border border-[#0A4D66]/40 rounded shadow-xl z-90 overflow-hidden",
+        "fixed rounded shadow-xl z-90 overflow-hidden border transition-colors",
+        isDark
+          ? "bg-[#001219] border-[#0A4D66]/60 text-white"
+          : "bg-white border-slate-200 text-slate-800 shadow-lg",
         widthClassName,
         className,
       )}

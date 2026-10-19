@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
 import { RegisterCourseModal } from "../components/RegisterCourseModal";
 import { EditCourseModal } from "../components/EditCourseModal";
@@ -189,9 +190,23 @@ export const CoursePage = () => {
                 filteredCourses.map((course, i) => (
                   <tr
                     key={course.id}
+                    tabIndex={course.personnel_id ? 0 : undefined}
+                    role={course.personnel_id ? "button" : undefined}
+                    title={course.personnel_id ? "Click to view personnel profile" : undefined}
+                    onClick={(e) => {
+                      if (course.personnel_id) {
+                        onInteractiveRowClick(e, () => navigate(`/dashboard/personnel/${course.personnel_id}`));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (course.personnel_id) {
+                        onInteractiveRowKeyDown(e, () => navigate(`/dashboard/personnel/${course.personnel_id}`));
+                      }
+                    }}
                     className={cn(
-                      "border-t border-[#0A4D66]/40",
+                      "border-t border-[#0A4D66]/40 transition-colors",
                       i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                      course.personnel_id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                     )}
                   >
                     <td className="px-4 sm:px-6 py-3 text-white">
@@ -228,10 +243,11 @@ export const CoursePage = () => {
                     >
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpenActionId((c) => (c === course.id ? null : course.id))
-                        }
-                        className="inline-flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenActionId((c) => (c === course.id ? null : course.id));
+                        }}
+                        className="inline-flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#0A4D66]/40 text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                       >
                         <Icon icon="mdi:dots-vertical" className="w-4 h-4" />
                       </button>

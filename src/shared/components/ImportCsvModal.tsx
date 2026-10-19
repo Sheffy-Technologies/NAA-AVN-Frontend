@@ -285,7 +285,7 @@ export const ImportCsvModal = ({
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-md px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0A4D66]/30"
+            className="rounded-lg border border-slate-300 dark:border-[#0A4D66]/60 bg-white dark:bg-[#001825] px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/30 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
           >
             {results ? "Done" : "Cancel"}
           </button>

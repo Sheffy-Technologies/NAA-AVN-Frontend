@@ -1,6 +1,7 @@
 import { useState, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
+import { BackButton } from "@/shared/ui/button";
 import { cn } from "@/shared/utils/cn";
 import { useCreateSupplierMutation } from "@/features/inventory/api";
 
@@ -75,23 +76,12 @@ export const AddSupplierPage = () => {
   return (
     <div className="px-2 sm:px-0">
       <section className="flex items-center justify-between mb-4">
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/dashboard/inventory", {
-                state: { inventoryTab: "Suppliers" },
-              })
-            }
-            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-400 hover:text-gray-200"
-          >
-            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-            <span>Back to Suppliers</span>
-          </button>
-          <h1 className="text-base sm:text-lg font-semibold text-white">
-            Add Supplier
-          </h1>
-        </div>
+          <div className="flex items-center gap-3">
+            <BackButton fallbackUrl="/dashboard/inventory" />
+            <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
+              Add Supplier
+            </h1>
+          </div>
         <button
           type="button"
           onClick={handleSubmit}
@@ -99,8 +89,8 @@ export const AddSupplierPage = () => {
           className={cn(
             "inline-flex items-center gap-2 px-4 py-2 rounded text-xs sm:text-sm font-medium transition-colors",
             isLoading
-              ? "bg-[#0369A1]/50 text-black cursor-not-allowed"
-              : "bg-[#0369A1] text-black hover:bg-[#0369A1]/90",
+              ? "bg-[#0369A1]/50 text-white/70 cursor-not-allowed"
+              : "bg-[#0369A1] text-white hover:bg-[#0369A1]/90",
           )}
         >
           <span>{isLoading ? "Saving..." : "Save & Exit"}</span>
@@ -114,9 +104,9 @@ export const AddSupplierPage = () => {
         </div>
       )}
 
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219]">
-          <h2 className="text-sm sm:text-base font-semibold text-white uppercase tracking-wide">
+      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm">
+        <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001219]">
+          <h2 className="text-sm sm:text-base font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
             Supplier Details
           </h2>
         </div>
@@ -124,8 +114,8 @@ export const AddSupplierPage = () => {
         <div className="px-4 sm:px-6 py-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Name <span className="text-red-400">*</span>
+              <label className="text-[11px] uppercase font-medium text-slate-600 dark:text-gray-400">
+                Name <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -133,29 +123,29 @@ export const AddSupplierPage = () => {
                 onChange={handleChange("name")}
                 title="Supplier name"
                 placeholder="Enter supplier name"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-white dark:bg-[#001825] border border-slate-300 dark:border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:border-[#0369A1] dark:focus:border-[#7FD5FF]/40 transition-colors"
               />
               {errors.name && (
-                <p className="text-[11px] text-red-400">{errors.name}</p>
+                <p className="text-[11px] text-red-500 font-medium">{errors.name}</p>
               )}
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
-                Contact
+              <label className="text-[11px] uppercase font-medium text-slate-600 dark:text-gray-400">
+                Phone Number
               </label>
               <input
-                type="text"
+                type="tel"
                 value={values.contact}
                 onChange={handleChange("contact")}
-                title="Supplier contact"
-                placeholder="Enter contact person"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                title="Supplier phone number"
+                placeholder="Enter phone number"
+                className="w-full bg-white dark:bg-[#001825] border border-slate-300 dark:border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:border-[#0369A1] dark:focus:border-[#7FD5FF]/40 transition-colors"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] uppercase text-gray-400">
+              <label className="text-[11px] uppercase font-medium text-slate-600 dark:text-gray-400">
                 Email
               </label>
               <input
@@ -164,15 +154,15 @@ export const AddSupplierPage = () => {
                 onChange={handleChange("email")}
                 title="Supplier email"
                 placeholder="Enter supplier email"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-white dark:bg-[#001825] border border-slate-300 dark:border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:border-[#0369A1] dark:focus:border-[#7FD5FF]/40 transition-colors"
               />
               {errors.email && (
-                <p className="text-[11px] text-red-400">{errors.email}</p>
+                <p className="text-[11px] text-red-500 font-medium">{errors.email}</p>
               )}
             </div>
 
             <div className="space-y-1 lg:col-span-2">
-              <label className="text-[11px] uppercase text-gray-400">
+              <label className="text-[11px] uppercase font-medium text-slate-600 dark:text-gray-400">
                 Address
               </label>
               <input
@@ -181,7 +171,7 @@ export const AddSupplierPage = () => {
                 onChange={handleChange("address")}
                 title="Supplier address"
                 placeholder="Enter supplier address"
-                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]/40 transition-colors"
+                className="w-full bg-white dark:bg-[#001825] border border-slate-300 dark:border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none placeholder:text-slate-400 dark:placeholder:text-gray-500 focus:border-[#0369A1] dark:focus:border-[#7FD5FF]/40 transition-colors"
               />
             </div>
           </div>
