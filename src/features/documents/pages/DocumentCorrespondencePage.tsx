@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useCreateDocumentMinuteMutation,
   useGetDocumentByIdQuery,
@@ -60,7 +61,6 @@ const formatDateTime = (value?: string | null) => {
 };
 
 export const DocumentCorrespondencePage = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
   const authUser = useAppSelector((state) => state.auth.user);
@@ -94,10 +94,6 @@ export const DocumentCorrespondencePage = () => {
     [users, currentUserId],
   );
 
-  const handleExit = () => {
-    navigate("/dashboard/documents");
-  };
-
   const handleSubmit = async () => {
     if (!document) return;
     setSubmitError(null);
@@ -128,7 +124,12 @@ export const DocumentCorrespondencePage = () => {
   };
 
   if (!id) {
-    return <div className="p-6 text-center text-gray-400">Invalid document.</div>;
+    return (
+      <div className="p-6 space-y-4">
+        <BackButton fallbackUrl="/dashboard/documents" />
+        <div className="text-center text-gray-400">Invalid document.</div>
+      </div>
+    );
   }
 
   if (isDocumentLoading) {
@@ -137,8 +138,11 @@ export const DocumentCorrespondencePage = () => {
 
   if (isDocumentError || !document) {
     return (
-      <div className="p-6 text-center text-red-300">
-        Failed to load document.
+      <div className="p-6 space-y-4">
+        <BackButton fallbackUrl="/dashboard/documents" />
+        <div className="text-center text-red-300">
+          Failed to load document.
+        </div>
       </div>
     );
   }
@@ -147,15 +151,7 @@ export const DocumentCorrespondencePage = () => {
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleExit}
-            title="Back to documents"
-            aria-label="Back to documents"
-            className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/30 text-gray-400 hover:text-white transition-colors"
-          >
-            <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-          </button>
+          <BackButton fallbackUrl="/dashboard/documents" />
           <div>
             <h1 className="text-base sm:text-lg font-semibold text-white uppercase tracking-wide">
               {document.title || document.name || `Document #${document.id}`}

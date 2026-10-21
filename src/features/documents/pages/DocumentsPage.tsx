@@ -1,7 +1,8 @@
 import { useMemo, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import {
   useGetAssetsQuery,
@@ -457,6 +458,7 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
 
 export const DocumentsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [viewMode, setViewMode] = useState<DocumentsViewMode>("table");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -481,7 +483,12 @@ export const DocumentsPage = () => {
   }, [documentsData, search, classFilter]);
 
   return (
-    <div className="px-2 sm:px-0">
+    <div className="px-2 sm:px-0 space-y-4">
+      {location.state?.from && (
+        <div className="flex items-center">
+          <BackButton fallbackUrl="/dashboard" />
+        </div>
+      )}
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-90">
         {/* Header bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40">
@@ -596,8 +603,20 @@ export const DocumentsPage = () => {
                         tabIndex={0}
                         role="button"
                         title="Click to view document correspondence"
-                        onClick={(e) => onInteractiveRowClick(e, () => navigate(`/dashboard/documents/${doc.id}`))}
-                        onKeyDown={(e) => onInteractiveRowKeyDown(e, () => navigate(`/dashboard/documents/${doc.id}`))}
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () =>
+                            navigate(`/dashboard/documents/${doc.id}`, {
+                              state: { from: "/dashboard/documents", fromLabel: "Documents" },
+                            }),
+                          )
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () =>
+                            navigate(`/dashboard/documents/${doc.id}`, {
+                              state: { from: "/dashboard/documents", fromLabel: "Documents" },
+                            }),
+                          )
+                        }
                         className="border-b border-[#0A4D66]/20 last:border-b-0 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                       >
                         <td className="py-2.5 pr-4">
@@ -650,7 +669,9 @@ export const DocumentsPage = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/dashboard/documents/${doc.id}`);
+                                navigate(`/dashboard/documents/${doc.id}`, {
+                                  state: { from: "/dashboard/documents", fromLabel: "Documents" },
+                                });
                               }}
                               className="inline-flex items-center gap-1 rounded border border-[#0A4D66]/50 px-2 py-1 text-[11px] text-gray-200 hover:bg-[#0A4D66]/30 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                             >
@@ -684,8 +705,24 @@ export const DocumentsPage = () => {
                 return (
                   <article
                     key={doc.id}
-                    onClick={() => navigate(`/dashboard/documents/${doc.id}`)}
-                    className="rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-4 cursor-pointer hover:border-[#7FD5FF]/50 transition-colors"
+                    tabIndex={0}
+                    role="button"
+                    title="Click to view document correspondence"
+                    onClick={(e) =>
+                      onInteractiveRowClick(e, () =>
+                        navigate(`/dashboard/documents/${doc.id}`, {
+                          state: { from: "/dashboard/documents", fromLabel: "Documents" },
+                        }),
+                      )
+                    }
+                    onKeyDown={(e) =>
+                      onInteractiveRowKeyDown(e, () =>
+                        navigate(`/dashboard/documents/${doc.id}`, {
+                          state: { from: "/dashboard/documents", fromLabel: "Documents" },
+                        }),
+                      )
+                    }
+                    className="rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-4 cursor-pointer hover:border-[#7FD5FF]/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                   >
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="min-w-0">

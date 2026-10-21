@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { useGetExpensesQuery } from "@/features/finance/api";
 import { useAppSelector } from "@/shared/hooks/redux";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import {
   useGetDashboardFinanceQuery,
   useGetDashboardInventoriesQuery,
@@ -784,6 +785,7 @@ export const DashboardPage = () => {
                 onClick={() =>
                   navigate(
                     `/dashboard/operations?status=${c.label.toLowerCase()}`,
+                    { state: { from: "/dashboard", fromLabel: "Dashboard" } },
                   )
                 }
               />
@@ -873,7 +875,31 @@ export const DashboardPage = () => {
               {filteredOperationsRows.map((op) => (
                 <div
                   key={op.id ?? `${op.name ?? "operation"}-${op.created_at ?? ""}`}
-                  className="space-y-3 px-4 py-4"
+                  tabIndex={op.id ? 0 : undefined}
+                  role={op.id ? "button" : undefined}
+                  title={op.id ? "Click to view operation details" : undefined}
+                  onClick={(e) =>
+                    op.id
+                      ? onInteractiveRowClick(e, () =>
+                          navigate(`/dashboard/operations/${op.id}`, {
+                            state: { from: "/dashboard", fromLabel: "Dashboard" },
+                          }),
+                        )
+                      : undefined
+                  }
+                  onKeyDown={(e) =>
+                    op.id
+                      ? onInteractiveRowKeyDown(e, () =>
+                          navigate(`/dashboard/operations/${op.id}`, {
+                            state: { from: "/dashboard", fromLabel: "Dashboard" },
+                          }),
+                        )
+                      : undefined
+                  }
+                  className={cn(
+                    "space-y-3 px-4 py-4 transition-colors",
+                    op.id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:bg-[#0A4D66]/30",
+                  )}
                 >
                   <div>
                     <p className="text-sm font-semibold text-white">{op.name || "—"}</p>
@@ -894,7 +920,9 @@ export const DashboardPage = () => {
                       type="button"
                       onClick={() =>
                         op.id
-                          ? navigate(`/dashboard/operations/${op.id}`)
+                          ? navigate(`/dashboard/operations/${op.id}`, {
+                              state: { from: "/dashboard", fromLabel: "Dashboard" },
+                            })
                           : undefined
                       }
                       className={cn(
@@ -1044,7 +1072,31 @@ export const DashboardPage = () => {
                           op.id ??
                           `${op.name ?? "operation"}-${op.created_at ?? ""}`
                         }
-                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                        tabIndex={op.id ? 0 : undefined}
+                        role={op.id ? "button" : undefined}
+                        title={op.id ? "Click to view operation details" : undefined}
+                        onClick={(e) =>
+                          op.id
+                            ? onInteractiveRowClick(e, () =>
+                                navigate(`/dashboard/operations/${op.id}`, {
+                                  state: { from: "/dashboard", fromLabel: "Dashboard" },
+                                }),
+                              )
+                            : undefined
+                        }
+                        onKeyDown={(e) =>
+                          op.id
+                            ? onInteractiveRowKeyDown(e, () =>
+                                navigate(`/dashboard/operations/${op.id}`, {
+                                  state: { from: "/dashboard", fromLabel: "Dashboard" },
+                                }),
+                              )
+                            : undefined
+                        }
+                        className={cn(
+                          "border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/20 transition-colors",
+                          op.id && "cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30",
+                        )}
                       >
                         <td className="px-4 py-3 font-medium text-white">
                           {op.name || "—"}
@@ -1069,7 +1121,9 @@ export const DashboardPage = () => {
                             type="button"
                             onClick={() =>
                               op.id
-                                ? navigate(`/dashboard/operations/${op.id}`)
+                                ? navigate(`/dashboard/operations/${op.id}`, {
+                                    state: { from: "/dashboard", fromLabel: "Dashboard" },
+                                  })
                                 : undefined
                             }
                             className={cn(
@@ -1110,7 +1164,31 @@ export const DashboardPage = () => {
               {conductedOperationsRows.map((op) => (
                 <div
                   key={op.id ?? `${op.name ?? "operation"}-${op.created_at ?? ""}`}
-                  className="space-y-3 px-4 py-4"
+                  tabIndex={op.id ? 0 : undefined}
+                  role={op.id ? "button" : undefined}
+                  title={op.id ? "Click to view operation details" : undefined}
+                  onClick={(e) =>
+                    op.id
+                      ? onInteractiveRowClick(e, () =>
+                          navigate(`/dashboard/operations/${op.id}`, {
+                            state: { from: "/dashboard", fromLabel: "Dashboard" },
+                          }),
+                        )
+                      : undefined
+                  }
+                  onKeyDown={(e) =>
+                    op.id
+                      ? onInteractiveRowKeyDown(e, () =>
+                          navigate(`/dashboard/operations/${op.id}`, {
+                            state: { from: "/dashboard", fromLabel: "Dashboard" },
+                          }),
+                        )
+                      : undefined
+                  }
+                  className={cn(
+                    "space-y-3 px-4 py-4 transition-colors",
+                    op.id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:bg-[#0A4D66]/30",
+                  )}
                 >
                   <div>
                     <p className="text-sm font-semibold text-white">{op.name || "—"}</p>
@@ -1161,7 +1239,31 @@ export const DashboardPage = () => {
                   {conductedOperationsRows.map((op) => (
                     <tr
                       key={op.id ?? `${op.name ?? "operation"}-${op.created_at ?? ""}`}
-                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                      tabIndex={op.id ? 0 : undefined}
+                      role={op.id ? "button" : undefined}
+                      title={op.id ? "Click to view operation details" : undefined}
+                      onClick={(e) =>
+                        op.id
+                          ? onInteractiveRowClick(e, () =>
+                              navigate(`/dashboard/operations/${op.id}`, {
+                                state: { from: "/dashboard", fromLabel: "Dashboard" },
+                              }),
+                            )
+                          : undefined
+                      }
+                      onKeyDown={(e) =>
+                        op.id
+                          ? onInteractiveRowKeyDown(e, () =>
+                              navigate(`/dashboard/operations/${op.id}`, {
+                                state: { from: "/dashboard", fromLabel: "Dashboard" },
+                              }),
+                            )
+                          : undefined
+                      }
+                      className={cn(
+                        "border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/20 transition-colors",
+                        op.id && "cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30",
+                      )}
                     >
                       <td className="px-4 py-3 font-medium text-white">
                         {op.name || "—"}
@@ -1199,7 +1301,12 @@ export const DashboardPage = () => {
               <CardItem
                 key={c.label}
                 card={c}
-                onClick={() => navigate("/dashboard/maintenance")}
+                onClick={() =>
+                  navigate(
+                    c.label === "Total" ? "/dashboard/assets" : "/dashboard/maintenance",
+                    { state: { from: "/dashboard", fromLabel: "Dashboard" } },
+                  )
+                }
               />
             ))}
           </div>
@@ -1228,7 +1335,27 @@ export const DashboardPage = () => {
                 </div>
               )}
               {filteredMaintenanceRows.map((a) => (
-                <div key={a.id} className="space-y-3 px-4 py-4">
+                <div
+                  key={a.id}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to view aircraft details"
+                  onClick={(e) =>
+                    onInteractiveRowClick(e, () =>
+                      navigate(`/dashboard/assets/${a.id}`, {
+                        state: { from: "/dashboard", fromLabel: "Dashboard" },
+                      }),
+                    )
+                  }
+                  onKeyDown={(e) =>
+                    onInteractiveRowKeyDown(e, () =>
+                      navigate(`/dashboard/assets/${a.id}`, {
+                        state: { from: "/dashboard", fromLabel: "Dashboard" },
+                      }),
+                    )
+                  }
+                  className="space-y-3 px-4 py-4 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
+                >
                   <div>
                     <p className="text-sm font-semibold text-white">{a.name || "—"}</p>
                     <p className="text-xs text-gray-400">{a.tail_number || "—"}</p>
@@ -1334,7 +1461,24 @@ export const DashboardPage = () => {
                     return (
                       <tr
                         key={a.id}
-                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view aircraft details"
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () =>
+                            navigate(`/dashboard/assets/${a.id}`, {
+                              state: { from: "/dashboard", fromLabel: "Dashboard" },
+                            }),
+                          )
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () =>
+                            navigate(`/dashboard/assets/${a.id}`, {
+                              state: { from: "/dashboard", fromLabel: "Dashboard" },
+                            }),
+                          )
+                        }
+                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
                       >
                         <td className="px-4 py-3 text-gray-300">
                           {a.tail_number || "—"}
@@ -1412,10 +1556,30 @@ export const DashboardPage = () => {
                   item.cycles_remaining !== null
                     ? formatRemainingMetric(item.cycles_remaining, "cyc")
                     : null;
+                const destUrl = item.asset_id
+                  ? `/dashboard/assets/${item.asset_id}`
+                  : "/dashboard/maintenance";
                 return (
                   <div
                     key={`${item.part_type}-${item.part_id}`}
-                    className="space-y-3 px-4 py-4"
+                    tabIndex={0}
+                    role="button"
+                    title="Click to view details"
+                    onClick={(e) =>
+                      onInteractiveRowClick(e, () =>
+                        navigate(destUrl, {
+                          state: { from: "/dashboard", fromLabel: "Dashboard" },
+                        }),
+                      )
+                    }
+                    onKeyDown={(e) =>
+                      onInteractiveRowKeyDown(e, () =>
+                        navigate(destUrl, {
+                          state: { from: "/dashboard", fromLabel: "Dashboard" },
+                        }),
+                      )
+                    }
+                    className="space-y-3 px-4 py-4 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
                   >
                     <div>
                       <p className="text-sm font-semibold text-white">
@@ -1490,10 +1654,30 @@ export const DashboardPage = () => {
                       item.cycles_remaining !== null
                         ? formatRemainingMetric(item.cycles_remaining, "cyc")
                         : null;
+                    const destUrl = item.asset_id
+                      ? `/dashboard/assets/${item.asset_id}`
+                      : "/dashboard/maintenance";
                     return (
                       <tr
                         key={`${item.part_type}-${item.part_id}`}
-                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view details"
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () =>
+                            navigate(destUrl, {
+                              state: { from: "/dashboard", fromLabel: "Dashboard" },
+                            }),
+                          )
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () =>
+                            navigate(destUrl, {
+                              state: { from: "/dashboard", fromLabel: "Dashboard" },
+                            }),
+                          )
+                        }
+                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
                       >
                         <td className="px-4 py-3 font-medium text-white">
                           {item.part_label}
@@ -1539,7 +1723,11 @@ export const DashboardPage = () => {
               <CardItem
                 key={c.label}
                 card={c}
-                onClick={() => navigate("/dashboard/finance")}
+                onClick={() =>
+                  navigate("/dashboard/finance", {
+                    state: { from: "/dashboard", fromLabel: "Dashboard" },
+                  })
+                }
               />
             ))}
           </div>
@@ -1568,7 +1756,37 @@ export const DashboardPage = () => {
                 </div>
               )}
               {filteredFinanceRows.slice(0, 7).map((e) => (
-                <div key={e.id} className="space-y-3 px-4 py-4">
+                <div
+                  key={e.id}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to view finance details"
+                  onClick={(ev) =>
+                    onInteractiveRowClick(ev, () =>
+                      navigate("/dashboard/finance", {
+                        state: {
+                          from: "/dashboard",
+                          fromLabel: "Dashboard",
+                          activeTab: "expenses",
+                          expenseId: e.id,
+                        },
+                      }),
+                    )
+                  }
+                  onKeyDown={(ev) =>
+                    onInteractiveRowKeyDown(ev, () =>
+                      navigate("/dashboard/finance", {
+                        state: {
+                          from: "/dashboard",
+                          fromLabel: "Dashboard",
+                          activeTab: "expenses",
+                          expenseId: e.id,
+                        },
+                      }),
+                    )
+                  }
+                  className="space-y-3 px-4 py-4 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
+                >
                   <div>
                     <p className="text-sm font-semibold text-white">{e.part_name || "—"}</p>
                     <p className="text-xs text-gray-400">{e.expense_category?.name || "—"}</p>
@@ -1591,6 +1809,8 @@ export const DashboardPage = () => {
                       onClick={() =>
                         navigate("/dashboard/finance", {
                           state: {
+                            from: "/dashboard",
+                            fromLabel: "Dashboard",
                             activeTab: "expenses",
                             expenseId: e.id,
                           },
@@ -1637,7 +1857,34 @@ export const DashboardPage = () => {
                   {filteredFinanceRows.slice(0, 7).map((e) => (
                     <tr
                       key={e.id}
-                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view finance details"
+                      onClick={(ev) =>
+                        onInteractiveRowClick(ev, () =>
+                          navigate("/dashboard/finance", {
+                            state: {
+                              from: "/dashboard",
+                              fromLabel: "Dashboard",
+                              activeTab: "expenses",
+                              expenseId: e.id,
+                            },
+                          }),
+                        )
+                      }
+                      onKeyDown={(ev) =>
+                        onInteractiveRowKeyDown(ev, () =>
+                          navigate("/dashboard/finance", {
+                            state: {
+                              from: "/dashboard",
+                              fromLabel: "Dashboard",
+                              activeTab: "expenses",
+                              expenseId: e.id,
+                            },
+                          }),
+                        )
+                      }
+                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
                     >
                       <td className="px-4 py-3 font-medium text-white">
                         {e.part_name || "—"}
@@ -1698,7 +1945,11 @@ export const DashboardPage = () => {
               <CardItem
                 key={c.label}
                 card={c}
-                onClick={() => navigate("/dashboard/inventory")}
+                onClick={() =>
+                  navigate("/dashboard/inventory", {
+                    state: { from: "/dashboard", fromLabel: "Dashboard" },
+                  })
+                }
               />
             ))}
           </div>
@@ -1727,7 +1978,27 @@ export const DashboardPage = () => {
                 </div>
               )}
               {filteredInventoryRows.slice(0, 7).map((i) => (
-                <div key={i.id} className="space-y-3 px-4 py-4">
+                <div
+                  key={i.id}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to view inventory details"
+                  onClick={(ev) =>
+                    onInteractiveRowClick(ev, () =>
+                      navigate(`/dashboard/inventory/${i.id}`, {
+                        state: { from: "/dashboard", fromLabel: "Dashboard" },
+                      }),
+                    )
+                  }
+                  onKeyDown={(ev) =>
+                    onInteractiveRowKeyDown(ev, () =>
+                      navigate(`/dashboard/inventory/${i.id}`, {
+                        state: { from: "/dashboard", fromLabel: "Dashboard" },
+                      }),
+                    )
+                  }
+                  className="space-y-3 px-4 py-4 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
+                >
                   <div>
                     <p className="text-sm font-semibold text-white">{i.description || "—"}</p>
                     <p className="text-xs text-gray-400">{i.part_number || "—"}</p>
@@ -1745,7 +2016,11 @@ export const DashboardPage = () => {
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      onClick={() => navigate(`/dashboard/inventory/${i.id}`)}
+                      onClick={() =>
+                        navigate(`/dashboard/inventory/${i.id}`, {
+                          state: { from: "/dashboard", fromLabel: "Dashboard" },
+                        })
+                      }
                       className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
                       title="View inventory details"
                       aria-label="View inventory details"
@@ -1790,7 +2065,24 @@ export const DashboardPage = () => {
                     .map((i) => (
                       <tr
                         key={i.id}
-                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view inventory details"
+                        onClick={(ev) =>
+                          onInteractiveRowClick(ev, () =>
+                            navigate(`/dashboard/inventory/${i.id}`, {
+                              state: { from: "/dashboard", fromLabel: "Dashboard" },
+                            }),
+                          )
+                        }
+                        onKeyDown={(ev) =>
+                          onInteractiveRowKeyDown(ev, () =>
+                            navigate(`/dashboard/inventory/${i.id}`, {
+                              state: { from: "/dashboard", fromLabel: "Dashboard" },
+                            }),
+                          )
+                        }
+                        className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
                       >
                         <td className="px-4 py-3 font-medium text-white">
                           {i.description || "—"}
@@ -1844,7 +2136,11 @@ export const DashboardPage = () => {
               <CardItem
                 key={c.label}
                 card={c}
-                onClick={() => navigate("/dashboard/personnel")}
+                onClick={() =>
+                  navigate("/dashboard/personnel", {
+                    state: { from: "/dashboard", fromLabel: "Dashboard" },
+                  })
+                }
               />
             ))}
           </div>
@@ -1873,7 +2169,27 @@ export const DashboardPage = () => {
                 </div>
               )}
               {filteredPersonnelRows.slice(0, 7).map((p) => (
-                <div key={p.id} className="space-y-3 px-4 py-4">
+                <div
+                  key={p.id}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to view personnel details"
+                  onClick={(ev) =>
+                    onInteractiveRowClick(ev, () =>
+                      navigate(`/dashboard/personnel/${p.id}`, {
+                        state: { from: "/dashboard", fromLabel: "Dashboard" },
+                      }),
+                    )
+                  }
+                  onKeyDown={(ev) =>
+                    onInteractiveRowKeyDown(ev, () =>
+                      navigate(`/dashboard/personnel/${p.id}`, {
+                        state: { from: "/dashboard", fromLabel: "Dashboard" },
+                      }),
+                    )
+                  }
+                  className="space-y-3 px-4 py-4 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
+                >
                   <div>
                     <p className="text-sm font-semibold text-white">
                       {p.full_name ||
@@ -1895,7 +2211,11 @@ export const DashboardPage = () => {
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      onClick={() => navigate(`/dashboard/personnel/${p.id}`)}
+                      onClick={() =>
+                        navigate(`/dashboard/personnel/${p.id}`, {
+                          state: { from: "/dashboard", fromLabel: "Dashboard" },
+                        })
+                      }
                       className="inline-flex items-center justify-center w-9 h-9 rounded hover:bg-[#0A4D66]/30 transition-colors text-gray-200"
                       title="View personnel details"
                       aria-label="View personnel details"
@@ -1938,7 +2258,24 @@ export const DashboardPage = () => {
                   {filteredPersonnelRows.slice(0, 7).map((p) => (
                     <tr
                       key={p.id}
-                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/10 transition-colors"
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view personnel details"
+                      onClick={(ev) =>
+                        onInteractiveRowClick(ev, () =>
+                          navigate(`/dashboard/personnel/${p.id}`, {
+                            state: { from: "/dashboard", fromLabel: "Dashboard" },
+                          }),
+                        )
+                      }
+                      onKeyDown={(ev) =>
+                        onInteractiveRowKeyDown(ev, () =>
+                          navigate(`/dashboard/personnel/${p.id}`, {
+                            state: { from: "/dashboard", fromLabel: "Dashboard" },
+                          }),
+                        )
+                      }
+                      className="border-b border-[#0A4D66]/20 hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
                     >
                       <td className="px-4 py-3 font-medium text-white">
                         {p.full_name ||

@@ -729,12 +729,26 @@ export const MaintenancePage = () => {
                           title={row.asset_id ? "Click to view asset details" : undefined}
                           onClick={(e) => {
                             if (row.asset_id) {
-                              onInteractiveRowClick(e, () => navigate(`/maintenance/aircraft/${row.asset_id}`));
+                              onInteractiveRowClick(e, () =>
+                                navigate(`/dashboard/assets/${row.asset_id}`, {
+                                  state: {
+                                    from: "/dashboard/maintenance",
+                                    fromLabel: "Maintenance Tracking",
+                                  },
+                                }),
+                              );
                             }
                           }}
                           onKeyDown={(e) => {
                             if (row.asset_id) {
-                              onInteractiveRowKeyDown(e, () => navigate(`/maintenance/aircraft/${row.asset_id}`));
+                              onInteractiveRowKeyDown(e, () =>
+                                navigate(`/dashboard/assets/${row.asset_id}`, {
+                                  state: {
+                                    from: "/dashboard/maintenance",
+                                    fromLabel: "Maintenance Tracking",
+                                  },
+                                }),
+                              );
                             }
                           }}
                           className={cn(
@@ -749,7 +763,14 @@ export const MaintenancePage = () => {
                           <td className="py-2.5 px-3">
                             <button
                               type="button"
-                              onClick={() => navigate(`/maintenance/aircraft/${row.asset_id}`)}
+                              onClick={() =>
+                                navigate(`/dashboard/assets/${row.asset_id}`, {
+                                  state: {
+                                    from: "/dashboard/maintenance",
+                                    fromLabel: "Maintenance Tracking",
+                                  },
+                                })
+                              }
                               className="text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-medium"
                             >
                               {row.asset_name}
@@ -1112,9 +1133,27 @@ export const MaintenancePage = () => {
                             key={asset.id}
                             tabIndex={0}
                             role="button"
-                            title="Click to view aircraft maintenance details"
-                            onClick={(e) => onInteractiveRowClick(e, () => navigate(`/maintenance/aircraft/${asset.id}`))}
-                            onKeyDown={(e) => onInteractiveRowKeyDown(e, () => navigate(`/maintenance/aircraft/${asset.id}`))}
+                            title="Click to view aircraft details"
+                            onClick={(e) =>
+                              onInteractiveRowClick(e, () =>
+                                navigate(`/dashboard/assets/${asset.id}`, {
+                                  state: {
+                                    from: "/dashboard/maintenance",
+                                    fromLabel: "Maintenance Aircraft",
+                                  },
+                                }),
+                              )
+                            }
+                            onKeyDown={(e) =>
+                              onInteractiveRowKeyDown(e, () =>
+                                navigate(`/dashboard/assets/${asset.id}`, {
+                                  state: {
+                                    from: "/dashboard/maintenance",
+                                    fromLabel: "Maintenance Aircraft",
+                                  },
+                                }),
+                              )
+                            }
                             className={cn(
                               "transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
                               isDark ? "hover:bg-[#0A4D66]/20 text-gray-200" : "hover:bg-slate-50 text-slate-700",
@@ -1166,12 +1205,17 @@ export const MaintenancePage = () => {
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/maintenance/aircraft/${asset.id}`);
+                                  navigate(`/dashboard/assets/${asset.id}`, {
+                                    state: {
+                                      from: "/dashboard/maintenance",
+                                      fromLabel: "Maintenance Aircraft",
+                                    },
+                                  });
                                 }}
                                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#0369A1] hover:bg-[#0284C7] text-white text-xs font-medium shadow-sm transition-colors"
                               >
                                 <Icon icon="mdi:wrench-outline" className="w-3.5 h-3.5" />
-                                <span>Maintenance Hub</span>
+                                <span>View Details</span>
                               </button>
                             </td>
                           </tr>
@@ -1305,7 +1349,14 @@ export const MaintenancePage = () => {
                     return (
                       <div
                         key={order.id}
-                        onClick={() => navigate(`/dashboard/maintenance/work-orders/${order.id}`)}
+                        onClick={() =>
+                          navigate(`/dashboard/maintenance/work-orders/${order.id}`, {
+                            state: {
+                              from: "/dashboard/maintenance/work-orders",
+                              fromLabel: "Work Orders",
+                            },
+                          })
+                        }
                         className={cn(
                           "w-full text-left rounded-xl border p-4 transition-all group cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3",
                           isDark

@@ -1,7 +1,8 @@
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { useGetBudgetStatementQuery } from "@/features/finance/api";
+import { BackButton } from "@/shared/ui/button/BackButton";
 
 const formatDate = (value: string | null | undefined) => {
   if (!value) return "-";
@@ -15,7 +16,6 @@ const formatDate = (value: string | null | undefined) => {
 };
 
 export const BudgetStatementPage = () => {
-  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
   const {
@@ -41,12 +41,12 @@ export const BudgetStatementPage = () => {
     [currencySymbol],
   );
 
-  const handleBack = () => navigate(-1);
   const handlePrint = () => window.print();
 
   if (!id || isError) {
     return (
-      <div className="px-2 sm:px-0">
+      <div className="px-2 sm:px-0 space-y-4">
+        <BackButton fallbackUrl="/dashboard/finance" />
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-center text-gray-400">
           Failed to load statement.
         </div>
@@ -56,7 +56,8 @@ export const BudgetStatementPage = () => {
 
   if (isLoading || !statement) {
     return (
-      <div className="px-2 sm:px-0">
+      <div className="px-2 sm:px-0 space-y-4">
+        <BackButton fallbackUrl="/dashboard/finance" />
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-center text-gray-400">
           Loading statement...
         </div>
@@ -70,14 +71,7 @@ export const BudgetStatementPage = () => {
     <div className="px-2 sm:px-0 print:px-0 print:bg-white">
       {/* Toolbar - hidden when printing */}
       <div className="flex items-center justify-between mb-4 print:hidden">
-        <button
-          type="button"
-          onClick={handleBack}
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-[#0A4D66]/50 text-gray-200 text-xs sm:text-sm hover:bg-[#0A4D66]/20"
-        >
-          <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-          <span>Back</span>
-        </button>
+        <BackButton fallbackUrl={id ? `/dashboard/finance/budgets/${id}` : "/dashboard/finance"} />
         <button
           type="button"
           onClick={handlePrint}

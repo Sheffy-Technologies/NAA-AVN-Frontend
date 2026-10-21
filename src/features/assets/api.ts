@@ -433,6 +433,12 @@ export type Asset = {
   type: "aircraft" | "vehicle" | "airbase" | "equipment" | "facility";
   unit_id: number;
   asset_type_id?: number;
+  asset_type?: {
+    id: number;
+    name: string;
+    type?: string;
+    description?: string | null;
+  } | null;
   name: string;
   image?: string | null;
   image_url?: string | null;

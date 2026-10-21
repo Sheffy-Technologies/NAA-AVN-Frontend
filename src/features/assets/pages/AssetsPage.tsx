@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import * as XLSX from "xlsx";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useGetAssetsQuery,
   useGetFacilitiesQuery,
@@ -80,6 +81,7 @@ export const AssetsPage = () => {
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [statusMenuForId, setStatusMenuForId] = useState<number | null>(null);
   const actionMenuRef = useRef<HTMLTableCellElement>(null);
@@ -143,7 +145,9 @@ export const AssetsPage = () => {
   };
 
   const handleOpenDetail = (id: number) => {
-    navigate(`/dashboard/assets/${id}`);
+    navigate(`/dashboard/assets/${id}`, {
+      state: { from: "/dashboard/assets", fromLabel: "Assets" },
+    });
     setOpenActionId(null);
   };
 
@@ -376,6 +380,11 @@ export const AssetsPage = () => {
 
   return (
     <div className="space-y-6">
+      {location.state?.from && (
+        <div className="flex items-center">
+          <BackButton fallbackUrl="/dashboard" />
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
@@ -622,6 +631,7 @@ export const AssetsPage = () => {
                             onInteractiveRowClick(e, () =>
                               navigate(
                                 `/dashboard/assets/vehicles/${vehicle.id}/edit`,
+                                { state: { from: "/dashboard/assets", fromLabel: "Assets" } },
                               ),
                             )
                           }
@@ -629,6 +639,7 @@ export const AssetsPage = () => {
                             onInteractiveRowKeyDown(e, () =>
                               navigate(
                                 `/dashboard/assets/vehicles/${vehicle.id}/edit`,
+                                { state: { from: "/dashboard/assets", fromLabel: "Assets" } },
                               ),
                             )
                           }
@@ -691,7 +702,10 @@ export const AssetsPage = () => {
                             <button
                               type="button"
                               onClick={() =>
-                                navigate(`/dashboard/assets/vehicles/${vehicle.id}/edit`)
+                                navigate(
+                                  `/dashboard/assets/vehicles/${vehicle.id}/edit`,
+                                  { state: { from: "/dashboard/assets", fromLabel: "Assets" } },
+                                )
                               }
                               className="text-[#7FD5FF] hover:text-white text-xs"
                             >
@@ -962,7 +976,16 @@ export const AssetsPage = () => {
                 return (
                   <div
                     key={asset.id}
-                    className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden group hover:border-[#7FD5FF]/50 transition-colors"
+                    tabIndex={0}
+                    role="button"
+                    title="Click to view asset details"
+                    onClick={(e) =>
+                      onInteractiveRowClick(e, () => handleOpenDetail(asset.id))
+                    }
+                    onKeyDown={(e) =>
+                      onInteractiveRowKeyDown(e, () => handleOpenDetail(asset.id))
+                    }
+                    className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden group hover:border-[#7FD5FF]/50 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]"
                   >
                     {/* Status Strip */}
                     <div

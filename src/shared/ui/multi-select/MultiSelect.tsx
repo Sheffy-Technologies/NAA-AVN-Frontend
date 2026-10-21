@@ -124,7 +124,7 @@ export const MultiSelect = ({
         </button>
 
         {isOpen && !disabled && (
-          <div className={cn("absolute z-20 mt-1 w-full border rounded-md shadow-xl max-h-60 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col", dropdownCls)}>
+          <div className={cn("absolute z-50 mt-1 w-full border rounded-md shadow-xl max-h-60 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col", dropdownCls)}>
             {searchable && (
               <div className={cn("p-2 border-b sticky top-0", searchWrapCls)}>
                 <input

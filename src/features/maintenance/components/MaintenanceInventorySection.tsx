@@ -11,6 +11,7 @@ import {
   useGetStockMovementsQuery,
   useGetPurchaseOrdersQuery,
   useGetSuppliersQuery,
+  useGetStoresQuery,
 } from "@/features/inventory/api";
 import {
   ProcurementSection,
@@ -88,8 +89,23 @@ export const MaintenanceInventorySection = ({
   }, [initialSubTab]);
 
   // Queries
-  const { data: inventories = [], isLoading: isInventoryLoading } =
+  const { data: allInventories = [], isLoading: isInventoryLoading } =
     useGetInventoriesQuery();
+  const { data: stores = [] } = useGetStoresQuery();
+
+  const maintenanceStore = useMemo(() => {
+    return stores.find(
+      (s) => s.code === "MNT-HUB" || s.name.toLowerCase().includes("maintenance"),
+    );
+  }, [stores]);
+
+  const inventories = useMemo(() => {
+    if (!maintenanceStore) {
+      return allInventories;
+    }
+    return allInventories.filter((i) => i.store_id === maintenanceStore.id);
+  }, [allInventories, maintenanceStore]);
+
   const { data: requisitions = [], isLoading: isRequisitionsLoading } =
     useGetInventoryRequisitionsQuery();
   const { data: stockMovements = [] } = useGetStockMovementsQuery();
@@ -286,7 +302,13 @@ export const MaintenanceInventorySection = ({
           {activeSubTab === "stocks" && (
             <button
               type="button"
-              onClick={() => navigate("/dashboard/inventory/new")}
+              onClick={() =>
+                navigate(
+                  maintenanceStore
+                    ? `/dashboard/inventory/new?store_id=${maintenanceStore.id}`
+                    : "/dashboard/inventory/new",
+                )
+              }
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0A4D66] text-white hover:bg-[#083c50] shadow transition-colors"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />

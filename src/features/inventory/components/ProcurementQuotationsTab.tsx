@@ -428,7 +428,9 @@ export const ProcurementQuotationsTab: React.FC = () => {
                       title="Click to view linked RFQ and bids"
                       onClick={(e) =>
                         onInteractiveRowClick(e, () =>
-                          navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`),
+                          navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`, {
+                            state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                          }),
                         )
                       }
                       className="hover:bg-[#0A4D66]/20 cursor-pointer transition-colors"
@@ -451,7 +453,9 @@ export const ProcurementQuotationsTab: React.FC = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`);
+                            navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`, {
+                              state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                            });
                           }}
                           className="font-mono text-sky-400 hover:underline"
                         >
@@ -576,7 +580,9 @@ export const ProcurementQuotationsTab: React.FC = () => {
                       title="Click to view RFQ details"
                       onClick={(e) =>
                         onInteractiveRowClick(e, () =>
-                          navigate(`/dashboard/inventory/rfq/${rfq.id}`),
+                          navigate(`/dashboard/inventory/rfq/${rfq.id}`, {
+                            state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                          }),
                         )
                       }
                       className="hover:bg-[#0A4D66]/20 cursor-pointer transition-colors"
@@ -628,7 +634,9 @@ export const ProcurementQuotationsTab: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/dashboard/inventory/rfq/${rfq.id}`);
+                              navigate(`/dashboard/inventory/rfq/${rfq.id}`, {
+                                state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                              });
                             }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-sky-400 text-[11px] font-semibold transition-colors"
                           >

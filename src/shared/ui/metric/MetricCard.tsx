@@ -1,4 +1,5 @@
 import React from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
@@ -21,6 +22,9 @@ export interface MetricCardProps {
   badgeColor?: MetricBadgeColor;
   subtext?: string;
   isActive?: boolean;
+  to?: string;
+  fromLabel?: string;
+  navigationState?: Record<string, unknown>;
   onClick?: () => void;
   className?: string;
 }
@@ -34,10 +38,33 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   badgeColor = "sky",
   subtext,
   isActive = false,
+  to,
+  fromLabel,
+  navigationState,
   onClick,
   className,
 }) => {
   const { isDark } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const isInteractive = Boolean(onClick || to);
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+      return;
+    }
+    if (to) {
+      navigate(to, {
+        state: {
+          from: location.pathname + location.search,
+          fromLabel: fromLabel || label,
+          ...navigationState,
+        },
+      });
+    }
+  };
 
   const badgeStyles: Record<MetricBadgeColor, string> = {
     emerald: isDark
@@ -63,16 +90,16 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       : "bg-slate-100 text-slate-700 border-slate-200",
   };
 
-  const Component = onClick ? "button" : "div";
+  const Component = isInteractive ? "button" : "div";
 
   return (
     <Component
       id={id}
-      type={onClick ? "button" : undefined}
-      onClick={onClick}
+      type={isInteractive ? "button" : undefined}
+      onClick={isInteractive ? handleClick : undefined}
       className={cn(
         "text-left p-4 rounded-xl border transition-all duration-150 flex flex-col justify-between w-full group relative",
-        onClick ? "cursor-pointer hover:scale-[1.01]" : "cursor-default",
+        isInteractive ? "cursor-pointer hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-[#0284C7]" : "cursor-default",
         isDark
           ? isActive
             ? "bg-[#001825] border-[#7FD5FF] ring-1 ring-[#7FD5FF]/60 shadow-lg text-white"

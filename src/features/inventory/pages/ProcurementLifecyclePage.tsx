@@ -26,6 +26,7 @@ import {
   type NewInventoryPayload,
 } from "@/features/inventory/newInventoryItem";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
+import { BackButton } from "@/shared/ui/button/BackButton";
 
 const cardClass =
   "rounded-xl border border-[var(--theme-border-em)] bg-[var(--theme-bg-card)] p-4 sm:p-6";
@@ -436,6 +437,9 @@ export const ProcurementLifecyclePage = () => {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center">
+        <BackButton fallbackUrl="/dashboard/inventory" />
+      </div>
       <div>
         <h1 className="text-2xl font-bold text-[var(--theme-text-primary)]">Procurement Inventory Life Cycle</h1>
         <p className="text-sm mt-1 text-[var(--theme-text-muted)]">

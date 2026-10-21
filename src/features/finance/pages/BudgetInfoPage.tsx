@@ -14,6 +14,7 @@ import {
 } from "@/features/finance/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
+import { BackButton } from "@/shared/ui/button/BackButton";
 
 type BudgetInfoTabKey = "info" | "expenses" | "incomes";
 type BudgetExpenseViewMode = "table" | "grid";
@@ -207,7 +208,12 @@ export const BudgetInfoPage = () => {
   };
 
   const handleEdit = () => {
-    navigate("/dashboard/finance/budgets/add");
+    navigate("/dashboard/finance/budgets/add", {
+      state: {
+        from: `/dashboard/finance/budgets/${budget?.id}`,
+        fromLabel: budget?.name || "Budget",
+      },
+    });
   };
 
   const [deleteBudget, { isLoading: isDeleting }] = useDeleteBudgetMutation();
@@ -225,23 +231,19 @@ export const BudgetInfoPage = () => {
   };
 
   const handleAddFinance = () => {
-    navigate("/dashboard/finance/add");
+    navigate("/dashboard/finance/add", {
+      state: {
+        from: `/dashboard/finance/budgets/${budget?.id}`,
+        fromLabel: budget?.name || "Budget",
+      },
+    });
   };
 
   if (isBudgetsLoading && !budget) {
     return (
-      <div className="px-2 sm:px-0">
+      <div className="px-2 sm:px-0 space-y-4">
+        <BackButton fallbackUrl="/dashboard/finance" />
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-          <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs text-gray-300 hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
-          </div>
           <div className="p-4 sm:p-6">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="h-40 bg-[#001825] border border-[#0A4D66]/40 rounded-lg animate-pulse" />
@@ -309,14 +311,7 @@ export const BudgetInfoPage = () => {
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            <BackButton fallbackUrl="/dashboard/finance" />
           </div>
 
           <div className="flex items-center justify-center gap-2 flex-2">

@@ -1,7 +1,8 @@
 import { useMemo, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import { useGetUnitsQuery, useDeleteUnitMutation, type Unit } from "@/shared/api/units";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
@@ -16,6 +17,7 @@ type UnitRow = {
 
 export const UnitsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { data, isLoading, isError } = useGetUnitsQuery();
   const [deleteUnit] = useDeleteUnitMutation();
   
@@ -49,7 +51,9 @@ export const UnitsPage = () => {
   }, [data]);
 
   const handleAddUnit = () => {
-    navigate("/dashboard/units/add");
+    navigate("/dashboard/units/add", {
+      state: { from: "/dashboard/units", fromLabel: "Units" },
+    });
   };
 
   const handleActionClick = (id: number) => {
@@ -57,12 +61,16 @@ export const UnitsPage = () => {
   };
 
   const handleView = (id: number) => {
-    navigate(`/dashboard/units/${id}`);
+    navigate(`/dashboard/units/${id}`, {
+      state: { from: "/dashboard/units", fromLabel: "Units" },
+    });
     setActiveActionId(null);
   };
 
   const handleEdit = (id: number) => {
-    navigate(`/dashboard/units/${id}/edit`);
+    navigate(`/dashboard/units/${id}/edit`, {
+      state: { from: "/dashboard/units", fromLabel: "Units" },
+    });
     setActiveActionId(null);
   };
 
@@ -74,7 +82,12 @@ export const UnitsPage = () => {
   };
 
   return (
-    <div className="px-2 sm:px-0">
+    <div className="px-2 sm:px-0 space-y-4">
+      {location.state?.from && (
+        <div className="flex items-center">
+          <BackButton fallbackUrl="/dashboard" />
+        </div>
+      )}
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-[360px]">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center gap-3">
