@@ -1439,9 +1439,6 @@ export const AircraftSparePartsForm = ({
           <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
             <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
             <span>2. SHELF LIFE &amp; LIFE LIMIT TRACKING</span>
-            <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-700 dark:text-amber-300">
-              Airworthiness Compliance
-            </span>
           </div>
           <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
             Shelf life clock initializes upon inventory receipt ({values.date_received || new Date().toISOString().split("T")[0]})
@@ -1449,19 +1446,6 @@ export const AircraftSparePartsForm = ({
         </div>
 
         <div className="p-4 sm:p-6 space-y-6">
-          {/* Tracking Notice Banner */}
-          <div className="rounded-lg border border-amber-500/30 bg-amber-50 dark:bg-amber-950/20 p-3 sm:p-4 text-xs text-amber-800 dark:text-amber-200 space-y-1">
-            <div className="font-semibold text-xs sm:text-sm flex items-center gap-2">
-              <Icon icon="mdi:calendar-clock" className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-              <span>Shelf Life &amp; Hard-Time Life Limit Governance</span>
-            </div>
-            <p className="text-[11px] text-amber-700/80 dark:text-amber-300/80 leading-relaxed">
-              Configure applicable life-control dimensions for this aircraft component. 
-              <strong> Shelf Life</strong> defines maximum storage preservation duration before mandatory bench test/re-certification. 
-              <strong> Life Limit</strong> enforces manufacturer mandatory retirement or overhaul thresholds (Operating Hours, Flight Cycles, or Calendar Interval).
-            </p>
-          </div>
-
           <div className="grid gap-6 lg:grid-cols-2">
             {/* CARD 1: SHELF LIFE (STORAGE) */}
             <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4 relative z-20">
@@ -1748,9 +1732,194 @@ export const AircraftSparePartsForm = ({
             )}
           </div>
 
-          {/* WHEN USER SELECTS YES: Individual Unit Identification Rows */}
+          {/* WHEN USER SELECTS YES: Individual Unit Identification Rows & Variations */}
           {requiresSerialTracking === true && (
-            <div className="space-y-4 pt-1">
+            <div className="space-y-6 pt-1">
+              {/* 2. IDENTIFIER VARIATIONS */}
+              <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-[#0A4D66]/30 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Icon icon="mdi:tune-variant" className="w-4 h-4 text-amber-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
+                      2. IDENTIFIER VARIATIONS
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">
+                    Only select if specific units differ from the common part specifications
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
+                    Do any units have different identification details?
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">
+                    Checking an option reveals its corresponding override field on each unit row below. Units with blank overrides automatically inherit the common part details.
+                  </p>
+                </div>
+
+                {/* Checkbox Group */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  {/* Checkbox A: Different Part Numbers */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentPartNumbers
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentPartNumbers}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentPartNumbers: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different Part Numbers</span>
+                  </label>
+
+                  {/* Checkbox B: Different NSNs */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentNsns
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentNsns}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentNsns: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different NSNs</span>
+                  </label>
+
+                  {/* Checkbox C: Different CAGE Codes */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentCageCodes
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentCageCodes}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentCageCodes: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different CAGE Codes</span>
+                  </label>
+
+                  {/* Checkbox D: Different ATA Chapters */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentAtaChapters
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentAtaChapters}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentAtaChapters: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different ATA Chapters</span>
+                  </label>
+                </div>
+
+                {/* Quick Batch Assign Bar (if any variation is active) */}
+                {(identifierVariations.differentPartNumbers ||
+                  identifierVariations.differentNsns ||
+                  identifierVariations.differentCageCodes ||
+                  identifierVariations.differentAtaChapters) && (
+                  <div className="p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/10 border border-amber-500/30 flex flex-wrap items-center gap-3 text-xs">
+                    <span className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                      <Icon icon="mdi:flash-outline" className="w-4 h-4" />
+                      Quick Batch Override:
+                    </span>
+
+                    <select
+                      value={batchOverrideField}
+                      onChange={(e) => setBatchOverrideField(e.target.value as any)}
+                      className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
+                    >
+                      <option value="">-- Choose Field to Apply --</option>
+                      {identifierVariations.differentPartNumbers && (
+                        <option value="part_number">Part Number</option>
+                      )}
+                      {identifierVariations.differentNsns && (
+                        <option value="nsn">NSN</option>
+                      )}
+                      {identifierVariations.differentCageCodes && (
+                        <option value="cage_code">CAGE Code</option>
+                      )}
+                      {identifierVariations.differentAtaChapters && (
+                        <option value="ata_chapter">ATA Chapter</option>
+                      )}
+                    </select>
+
+                    {batchOverrideField === "ata_chapter" ? (
+                      <select
+                        value={batchOverrideAtaId}
+                        onChange={(e) => setBatchOverrideAtaId(e.target.value ? Number(e.target.value) : "")}
+                        className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
+                      >
+                        <option value="">-- Select ATA Chapter --</option>
+                        {ataChapters.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.code} - {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : batchOverrideField ? (
+                      <input
+                        type="text"
+                        value={batchOverrideValue}
+                        onChange={(e) => setBatchOverrideValue(e.target.value)}
+                        placeholder={`Enter value for all units...`}
+                        className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2.5 py-1 text-xs text-slate-800 dark:text-white font-mono"
+                      />
+                    ) : null}
+
+                    {batchOverrideField && (
+                      <button
+                        type="button"
+                        onClick={handleApplyBatchOverride}
+                        className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors"
+                      >
+                        Apply to All Units
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-[#0A4D66]/30 pb-3">
                 <div className="flex items-center gap-2">
@@ -1981,193 +2150,7 @@ export const AircraftSparePartsForm = ({
         </div>
       </section>
 
-      {/* ========================================================================= */}
-      {/* 3. IDENTIFIER VARIATIONS SECTION */}
-      {/* ========================================================================= */}
-      {requiresSerialTracking === true && (
-        <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm">
-          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex items-center justify-between">
-            <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
-              <span>IDENTIFIER VARIATIONS</span>
-            </div>
-            <span className="text-[11px] text-slate-400">
-              Only select if specific units differ from the common part specifications
-            </span>
-          </div>
-
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
-                Do any units have different identification details?
-              </p>
-              <p className="text-xs text-slate-500 dark:text-gray-400">
-                Checking an option reveals its corresponding override field on each unit row above. Units with blank overrides automatically inherit the common part details.
-              </p>
-            </div>
-
-            {/* Checkbox Group */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-              {/* Checkbox A: Different Part Numbers */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentPartNumbers
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentPartNumbers}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentPartNumbers: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different Part Numbers</span>
-              </label>
-
-              {/* Checkbox B: Different NSNs */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentNsns
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentNsns}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentNsns: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different NSNs</span>
-              </label>
-
-              {/* Checkbox C: Different CAGE Codes */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentCageCodes
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentCageCodes}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentCageCodes: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different CAGE Codes</span>
-              </label>
-
-              {/* Checkbox D: Different ATA Chapters */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentAtaChapters
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentAtaChapters}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentAtaChapters: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different ATA Chapters</span>
-              </label>
-            </div>
-
-            {/* Quick Batch Assign Bar (if any variation is active) */}
-            {(identifierVariations.differentPartNumbers ||
-              identifierVariations.differentNsns ||
-              identifierVariations.differentCageCodes ||
-              identifierVariations.differentAtaChapters) && (
-              <div className="p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/10 border border-amber-500/30 flex flex-wrap items-center gap-3 text-xs">
-                <span className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                  <Icon icon="mdi:flash-outline" className="w-4 h-4" />
-                  Quick Batch Override:
-                </span>
-
-                <select
-                  value={batchOverrideField}
-                  onChange={(e) => setBatchOverrideField(e.target.value as any)}
-                  className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
-                >
-                  <option value="">-- Choose Field to Apply --</option>
-                  {identifierVariations.differentPartNumbers && (
-                    <option value="part_number">Part Number</option>
-                  )}
-                  {identifierVariations.differentNsns && (
-                    <option value="nsn">NSN</option>
-                  )}
-                  {identifierVariations.differentCageCodes && (
-                    <option value="cage_code">CAGE Code</option>
-                  )}
-                  {identifierVariations.differentAtaChapters && (
-                    <option value="ata_chapter">ATA Chapter</option>
-                  )}
-                </select>
-
-                {batchOverrideField === "ata_chapter" ? (
-                  <select
-                    value={batchOverrideAtaId}
-                    onChange={(e) => setBatchOverrideAtaId(e.target.value ? Number(e.target.value) : "")}
-                    className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
-                  >
-                    <option value="">-- Select ATA Chapter --</option>
-                    {ataChapters.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code} - {a.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : batchOverrideField ? (
-                  <input
-                    type="text"
-                    value={batchOverrideValue}
-                    onChange={(e) => setBatchOverrideValue(e.target.value)}
-                    placeholder={`Enter value for all units...`}
-                    className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2.5 py-1 text-xs text-slate-800 dark:text-white font-mono"
-                  />
-                ) : null}
-
-                {batchOverrideField && (
-                  <button
-                    type="button"
-                    onClick={handleApplyBatchOverride}
-                    className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors"
-                  >
-                    Apply to All Units
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      )}      {/* Persistent Form Footer with Review & Save */}
+      {/* Persistent Form Footer with Review & Save */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#0A4D66]/30">
         <CancelButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} label="Cancel" size="md" />
         <button
