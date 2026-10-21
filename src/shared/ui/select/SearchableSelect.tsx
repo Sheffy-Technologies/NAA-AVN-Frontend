@@ -88,9 +88,12 @@ export const SearchableSelect = ({
 
   const selectedOption = options.find((o) => o.value === value) ?? null;
 
-  const filteredOptions = searchTerm.trim()
-    ? options.filter((o) =>
-        o.label.toLowerCase().includes(searchTerm.trim().toLowerCase()),
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const filteredOptions = normalizedSearch
+    ? options.filter(
+        (o) =>
+          o.label.toLowerCase().includes(normalizedSearch) ||
+          (o.description?.toLowerCase().includes(normalizedSearch) ?? false),
       )
     : options;
 

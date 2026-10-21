@@ -2,17 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
-import { useAppDispatch } from "@/shared/hooks/redux";
+import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
+import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
 import {
   useCreateGoodsReceivedNoteMutation,
   useGetPurchaseOrderByIdQuery,
+  useGetSupplierQuotationsQuery,
   useSendPurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
 } from "../api";
 import { BackButton } from "@/shared/ui/button";
 import { PurchaseOrderPrintDocument } from "../components/PurchaseOrderPrintDocument";
+import { buildPurchaseOrderDocument, personName } from "../procurementDocuments";
 
 const formatDate = (value?: string | null) => {
   if (!value) return "-";
@@ -30,7 +34,7 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 export default function PurchaseOrderDetailsPage() {
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  const currentUser = useAppSelector((state) => state.auth.user);
   const printDocumentRef = useRef<HTMLDivElement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [grnFormOpen, setGrnFormOpen] = useState(false);
@@ -48,6 +52,12 @@ export default function PurchaseOrderDetailsPage() {
     isError,
     refetch,
   } = useGetPurchaseOrderByIdQuery(id || "", { skip: !id });
+
+  // The PO form's "QUOTE NO." comes from the supplier's quotation on the linked RFQ.
+  const { data: rfqQuotations = [] } = useGetSupplierQuotationsQuery(
+    { rfq_id: order?.rfq_id ?? undefined },
+    { skip: !order?.rfq_id },
+  );
 
   const [updatePurchaseOrder, { isLoading: isUpdatingStatus }] =
     useUpdatePurchaseOrderMutation();
@@ -109,7 +119,7 @@ export default function PurchaseOrderDetailsPage() {
       await createGoodsReceivedNote({
         purchase_order_id: order.id,
         received_at: new Date(grnDate).toISOString(),
-        notes: grnNotes.trim() || `GRN posted from Purchase Order #${order.id}`,
+        notes: grnNotes.trim() || `Stock received against Purchase Order #${order.id}`,
         items,
       }).unwrap();
 
@@ -118,13 +128,33 @@ export default function PurchaseOrderDetailsPage() {
         body: { status: "received" },
       }).unwrap();
 
-      setFeedback("Goods Received Note created and purchase order marked as received.");
+      setFeedback("Stock received recorded and purchase order marked as received.");
       setGrnFormOpen(false);
       refetch();
     } catch {
-      setGrnError("Failed to create GRN. Please try again.");
+      setGrnError("Failed to record stock received. Please try again.");
     }
   };
+
+  const buildDocument = () => {
+    if (!order) return null;
+    const supplierQuotations = rfqQuotations.filter(
+      (quotation) => quotation.supplier_id === order.supplier_id,
+    );
+    const quotation =
+      supplierQuotations.find((q) => (q.status ?? "").toLowerCase() === "approved") ??
+      supplierQuotations[0];
+
+    return buildPurchaseOrderDocument(order, {
+      issuedBy: personName(currentUser) || currentUser?.name?.toUpperCase(),
+      quoteNumber: quotation?.quotation_number,
+    });
+  };
+
+  const documentFileName = () =>
+    sanitizeDocumentFileName(
+      `NAAVN PO ${order?.id ?? ""}${order?.supplier?.name ? ` ${order.supplier.name}` : ""}`,
+    );
 
   const handleDownloadPdf = async () => {
     if (!printDocumentRef.current || !order || isDownloadingPdf) return;
@@ -150,43 +180,12 @@ export default function PurchaseOrderDetailsPage() {
   };
 
   const handleExportExcel = async () => {
-    if (!order || isExportingExcel) return;
+    const poDocument = buildDocument();
+    if (!poDocument || isExportingExcel) return;
 
     setIsExportingExcel(true);
     try {
-      const XLSX = await import("xlsx");
-      const workbook = XLSX.utils.book_new();
-
-      const summaryRows = [
-        {
-          "Purchase Order ID": order.id,
-          Name: order.name || `Purchase Order #${order.id}`,
-          Status: order.status || "-",
-          Supplier: order.supplier?.name || "-",
-          "Order Date": formatDate(order.order_date),
-          "Expected Delivery": formatDate(order.expected_date_of_delivery),
-          Currency: order.currency?.code || "-",
-        },
-      ];
-
-      const itemRows = (order.items ?? []).map((item) => ({
-        "Inventory ID": item.inventory_id,
-        "Part Number": item.part_number || item.inventory?.part_number || "-",
-        "Qty Ordered": item.quantity_ordered ?? "-",
-        "Qty Received": item.quantity_received ?? "-",
-        "Unit Price": item.unit_price ?? "-",
-      }));
-
-      const addSheet = (name: string, rows: Array<Record<string, string | number>>) => {
-        const data = rows.length > 0 ? rows : [{ Info: "No records" }];
-        const sheet = XLSX.utils.json_to_sheet(data);
-        XLSX.utils.book_append_sheet(workbook, sheet, name);
-      };
-
-      addSheet("Summary", summaryRows);
-      addSheet("Items", itemRows);
-
-      XLSX.writeFile(workbook, `purchase-order-${order.id}.xlsx`);
+      await exportNaavnExcel([poDocument], documentFileName());
       dispatch(showToast({ message: "Excel downloaded", type: "success" }));
     } catch {
       dispatch(showToast({ message: "Failed to download Excel", type: "error" }));
@@ -306,7 +305,7 @@ export default function PurchaseOrderDetailsPage() {
               onClick={handleOpenGrnForm}
             >
               <Icon icon="mdi:clipboard-check-outline" className="w-4 h-4" />
-              Create GRN
+              Receive Stock
             </button>
           )}
           {order.status === "received" && (
@@ -325,7 +324,7 @@ export default function PurchaseOrderDetailsPage() {
             <div className="flex items-center gap-2">
               <Icon icon="mdi:clipboard-check-outline" className="w-5 h-5 text-[#7FD5FF]" />
               <span className="text-sm font-semibold text-white">
-                Goods Received Note
+                Stock Received
               </span>
             </div>
             <button
@@ -360,7 +359,7 @@ export default function PurchaseOrderDetailsPage() {
                   type="text"
                   value={grnNotes}
                   onChange={(e) => setGrnNotes(e.target.value)}
-                  placeholder={`GRN for PO #${order.id}`}
+                  placeholder={`Stock received for PO #${order.id}`}
                   className="w-full rounded border border-[#0A4D66]/50 bg-[#001825] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                 />
               </div>
@@ -453,14 +452,14 @@ export default function PurchaseOrderDetailsPage() {
                   icon={isSubmittingGrn ? "mdi:loading" : "mdi:check-bold"}
                   className={cn("w-4 h-4", isSubmittingGrn && "animate-spin")}
                 />
-                {isSubmittingGrn ? "Submitting..." : "Confirm GRN + Mark Received"}
+                {isSubmittingGrn ? "Submitting..." : "Confirm Stock Received"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <div ref={contentRef} className="space-y-6">
+      <div className="space-y-6">
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
           <div>
             <p className="text-gray-400">Status</p>

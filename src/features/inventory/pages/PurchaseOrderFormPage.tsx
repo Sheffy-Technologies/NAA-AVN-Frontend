@@ -70,10 +70,15 @@ export default function PurchaseOrderFormPage() {
   const { data: quotations = [] } = useGetSupplierQuotationsQuery();
   const [createPurchaseOrder, { isLoading }] = useCreatePurchaseOrderMutation();
 
-  const approvedBids = useMemo(
-    () => quotations.filter((quote) => String(quote.status).toLowerCase() === "approved"),
-    [quotations],
-  );
+  // Skip approved quotations whose RFQ no longer exists: picking one would send an
+  // rfq_id the API rejects ("The selected rfq id is invalid.").
+  const approvedBids = useMemo(() => {
+    const rfqIds = new Set(rfqs.map((rfq) => Number(rfq.id)));
+    return quotations.filter(
+      (quote) =>
+        String(quote.status).toLowerCase() === "approved" && rfqIds.has(Number(quote.rfq_id)),
+    );
+  }, [quotations, rfqs]);
 
   const rfqNumberById = useMemo(() => {
     const map = new Map<number, string>();
@@ -275,6 +280,13 @@ export default function PurchaseOrderFormPage() {
       return;
     }
 
+    if (form.rfq_id.trim() !== "" && rfqs.length > 0 && !rfqById.has(Number(form.rfq_id))) {
+      setError(
+        `RFQ #${form.rfq_id} no longer exists. Clear the approved bid, or start again from an existing RFQ.`,
+      );
+      return;
+    }
+
     const payload: CreatePurchaseOrderPayload = {
       items,
     };
@@ -293,8 +305,9 @@ export default function PurchaseOrderFormPage() {
     try {
       await createPurchaseOrder(payload).unwrap();
       navigate("/dashboard/inventory/purchase-orders");
-    } catch {
-      setError("Failed to create purchase order.");
+    } catch (err: unknown) {
+      const responseError = err as { data?: { message?: string } };
+      setError(responseError?.data?.message || "Failed to create purchase order.");
     }
   };
 
@@ -536,7 +549,7 @@ export default function PurchaseOrderFormPage() {
                   value: inv.id,
                   label: `${inv.part_number} - ${inv.description}`,
                 }))}
-                value={itemDraft.inventory_id || null}
+                value={itemDraft.inventory_id ? Number(itemDraft.inventory_id) : null}
                 onChange={(value) =>
                   setItemDraft((d) => ({
                     ...d,

@@ -89,6 +89,10 @@ export type Personnel = {
   last_flight_date: string | null;
   next_flight_due_date: string | null;
   flight_status: "no_flights" | "current" | "due_for_flight" | "overdue" | null;
+  // Total logged flight hours (operation_asset.flight_hours as pilot or
+  // co-pilot, plus flight_experiences) — see Personnel::getTotalFlightHoursAttribute.
+  total_flight_hours: number;
+  total_flight_hours_label: string;
   created_at: string;
   updated_at: string;
   rank: PersonnelRank;

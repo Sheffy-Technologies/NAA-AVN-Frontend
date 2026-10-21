@@ -725,19 +725,22 @@ export const FinancePage = () => {
               <div
                 key={card.id}
                 className={cn(
-                  "h-24 sm:h-28 rounded-xl flex items-center justify-between px-4 border border-[#0A4D66]/40",
+                  "min-h-24 sm:min-h-28 min-w-0 rounded-xl flex items-center justify-between gap-2 px-4 py-3 border border-[#0A4D66]/40",
                   "bg-[#001219]",
                 )}
               >
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="text-[11px] sm:text-xs uppercase tracking-wide text-gray-400">
                     {card.label}
                   </p>
-                  <p className="text-2xl sm:text-3xl font-semibold text-white mt-1">
+                  <p
+                    className="text-lg sm:text-xl xl:text-2xl 2xl:text-3xl font-semibold text-white mt-1 tabular-nums break-all leading-tight"
+                    title={isSummaryError ? undefined : card.value}
+                  >
                     {isSummaryError ? "₦—" : card.value}
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
+                <div className="shrink-0 w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
                   <Icon icon={card.icon} className="w-5 h-5 text-white" />
                 </div>
               </div>

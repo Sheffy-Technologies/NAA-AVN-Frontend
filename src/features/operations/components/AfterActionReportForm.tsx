@@ -11,6 +11,8 @@ import {
   type Operation,
 } from "../api";
 import { useGetInventoriesQuery } from "@/features/inventory/api";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
 import { useGetAssetsQuery, useUploadAssetImageMutation } from "@/features/assets/api";
 
 interface AfterActionReportFormProps {
@@ -49,6 +51,7 @@ export const AfterActionReportForm = ({
   operation: initialOperation,
   onSuccess,
 }: AfterActionReportFormProps) => {
+  const dispatch = useAppDispatch();
   const [createReport, { isLoading }] = useCreateAfterActionReportMutation();
   const [updateOperation] = useUpdateOperationMutation();
   const [uploadImage] = useUploadAssetImageMutation();
@@ -94,12 +97,19 @@ export const AfterActionReportForm = ({
     return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
   };
 
-  const getAssetFlightTimes = (idx: number, asset: OperationAssignedAsset) => ({
-    departure_takeoff: flightTimes[idx]?.departure_takeoff ?? (asset.departure_takeoff?.slice(0, 5) || ""),
-    departure_landing: flightTimes[idx]?.departure_landing ?? (asset.departure_landing?.slice(0, 5) || ""),
-    return_takeoff: flightTimes[idx]?.return_takeoff ?? (asset.arrival_takeoff?.slice(0, 5) || ""),
-    return_landing: flightTimes[idx]?.return_landing ?? (asset.arrival_landing?.slice(0, 5) || ""),
-  });
+  const getAssetFlightTimes = (idx: number, asset: OperationAssignedAsset) => {
+    const departureTakeoff = asset.departure_takeoff ?? asset.pivot?.departure_takeoff;
+    const departureLanding = asset.departure_landing ?? asset.pivot?.departure_landing;
+    const arrivalTakeoff = asset.arrival_takeoff ?? asset.pivot?.arrival_takeoff;
+    const arrivalLanding = asset.arrival_landing ?? asset.pivot?.arrival_landing;
+
+    return {
+      departure_takeoff: flightTimes[idx]?.departure_takeoff ?? (departureTakeoff?.slice(0, 5) || ""),
+      departure_landing: flightTimes[idx]?.departure_landing ?? (departureLanding?.slice(0, 5) || ""),
+      return_takeoff: flightTimes[idx]?.return_takeoff ?? (arrivalTakeoff?.slice(0, 5) || ""),
+      return_landing: flightTimes[idx]?.return_landing ?? (arrivalLanding?.slice(0, 5) || ""),
+    };
+  };
 
   const calculateAssetTotalMinutes = (idx: number, asset: OperationAssignedAsset): number => {
     const times = getAssetFlightTimes(idx, asset);
@@ -280,10 +290,12 @@ export const AfterActionReportForm = ({
 
             const cycleCount = calculateAssetCycleCount(idx, asset);
 
+            // The operation endpoints return each row as the asset itself (`id` is the
+            // asset id) with crew and times under `pivot`; other shapes use asset_id.
             return {
-              asset_id: asset.asset_id ?? asset.asset?.id ?? 0,
-              pilot_id: asset.pilot_id ?? null,
-              co_pilot_id: asset.co_pilot_id ?? null,
+              asset_id: asset.asset_id ?? asset.asset?.id ?? asset.pivot?.asset_id ?? asset.id ?? 0,
+              pilot_id: asset.pilot_id ?? asset.pivot?.pilot_id ?? null,
+              co_pilot_id: asset.co_pilot_id ?? asset.pivot?.co_pilot_id ?? null,
               departure_takeoff: toApiTime(times.departure_takeoff),
               departure_landing: toApiTime(times.departure_landing),
               arrival_takeoff: toApiTime(times.return_takeoff),
@@ -312,6 +324,13 @@ export const AfterActionReportForm = ({
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error("Failed to submit AAR:", error);
+      const responseError = error as { data?: { message?: string } };
+      dispatch(
+        showToast({
+          message: responseError?.data?.message || "Failed to submit after action report.",
+          type: "error",
+        }),
+      );
     }
   };
 

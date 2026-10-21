@@ -113,6 +113,17 @@ export type OperationAssignedAsset = {
     email?: string | null;
     phone_number?: string | null;
   } | null;
+  // Flat shape: `id` is the asset's id and the crew/flight-time columns live here.
+  pivot?: {
+    asset_id?: number;
+    pilot_id?: number | null;
+    co_pilot_id?: number | null;
+    departure_takeoff?: string | null;
+    departure_landing?: string | null;
+    arrival_takeoff?: string | null;
+    arrival_landing?: string | null;
+    flight_hours?: number | string | null;
+  } | null;
   estimated_distance_nm?: number | null;
   estimated_flight_hours?: number | null;
   estimated_flight_time_label?: string | null;
