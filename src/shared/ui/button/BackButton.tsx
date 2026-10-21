@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { UnsavedChangesModal } from "../modal/UnsavedChangesModal";
+import { useNavigationContext } from "@/shared/utils/navigationContext";
 
 export interface BackButtonProps {
   fallbackUrl?: string;
@@ -21,7 +21,7 @@ export const BackButton: React.FC<BackButtonProps> = ({
   isDirty = false,
   variant = "button",
 }) => {
-  const navigate = useNavigate();
+  const { navigateBack, returnLabel } = useNavigationContext(fallbackUrl);
   const [showModal, setShowModal] = useState(false);
 
   const executeBack = () => {
@@ -29,13 +29,7 @@ export const BackButton: React.FC<BackButtonProps> = ({
       onClick();
       return;
     }
-    if (window.history.state && typeof window.history.state.idx === "number" && window.history.state.idx > 0) {
-      navigate(-1);
-    } else if (fallbackUrl) {
-      navigate(fallbackUrl);
-    } else {
-      navigate(-1);
-    }
+    navigateBack();
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -47,14 +41,16 @@ export const BackButton: React.FC<BackButtonProps> = ({
     }
   };
 
+  const buttonTitle = returnLabel ? `Back to ${returnLabel}` : label;
+
   return (
     <>
       {variant === "icon" ? (
         <button
           type="button"
           onClick={handleClick}
-          aria-label={label}
-          title={label}
+          aria-label={buttonTitle}
+          title={buttonTitle}
           className={cn(
             "p-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]",
             className,
@@ -66,6 +62,8 @@ export const BackButton: React.FC<BackButtonProps> = ({
         <button
           type="button"
           onClick={handleClick}
+          aria-label={buttonTitle}
+          title={buttonTitle}
           className={cn(
             "inline-flex items-center gap-1.5 py-1 px-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-xs sm:text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#0284C7]",
             className,
@@ -78,6 +76,8 @@ export const BackButton: React.FC<BackButtonProps> = ({
         <button
           type="button"
           onClick={handleClick}
+          aria-label={buttonTitle}
+          title={buttonTitle}
           className={cn(
             "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0284C7]",
             className,

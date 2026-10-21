@@ -29,9 +29,12 @@ type FlightEvent = {
   color: string;
 };
 
-const parseHour = (dateTime: string): number | null => {
-  const [, timePart] = dateTime.split(" ");
-  if (!timePart) {
+const parseHour = (dateTime?: string | null): number | null => {
+  if (!dateTime) return null;
+  const normalized = String(dateTime).replace("T", " ").trim();
+  const parts = normalized.split(" ");
+  const timePart = parts.length > 1 ? parts[1] : parts[0];
+  if (!timePart || !timePart.includes(":")) {
     return null;
   }
   const [hourStr] = timePart.split(":");
@@ -40,9 +43,24 @@ const parseHour = (dateTime: string): number | null => {
   return hour;
 };
 
+const getProgramStartTime = (program: DashboardHomeFlightProgram): string => {
+  return program.start_time || program.start_date_time || "";
+};
+
+const getProgramEndTime = (program: DashboardHomeFlightProgram): string => {
+  return program.end_time || program.end_date_time || "";
+};
+
+const getProgramDateKey = (dateTime?: string | null): string => {
+  if (!dateTime) return "";
+  const normalized = String(dateTime).replace("T", " ").trim();
+  const [datePart] = normalized.split(" ");
+  return datePart || "";
+};
+
 const formatProgrammeLabel = (program: DashboardHomeFlightProgram) => {
   if (program?.pilot?.call_sign) {
-    return program?.pilot?.call_sign;
+    return program.pilot.call_sign;
   }
 
   const name =
@@ -51,7 +69,7 @@ const formatProgrammeLabel = (program: DashboardHomeFlightProgram) => {
     return name;
   }
 
-  return program.name;
+  return program.name || "Flight Programme";
 };
 
 export const FlightProgrammePage = () => {
@@ -90,10 +108,12 @@ export const FlightProgrammePage = () => {
   );
 
   const flightPrograms: DashboardHomeFlightProgram[] = useMemo(() => {
-    if (!flightProgramsData) return [];
+    if (!flightProgramsData || !Array.isArray(flightProgramsData)) return [];
 
     return flightProgramsData.filter((program) => {
-      const [datePart] = program.start_time.split(" ");
+      const rawStart = getProgramStartTime(program);
+      if (!rawStart) return false;
+      const datePart = getProgramDateKey(rawStart);
       return datePart === selectedDateKey;
     });
   }, [flightProgramsData, selectedDateKey]);
@@ -102,8 +122,8 @@ export const FlightProgrammePage = () => {
     const hours: number[] = [];
 
     flightPrograms.forEach((program) => {
-      const start = parseHour(program.start_time);
-      const end = parseHour(program.end_time);
+      const start = parseHour(getProgramStartTime(program));
+      const end = parseHour(getProgramEndTime(program));
       if (start !== null) {
         hours.push(start);
       }
@@ -136,8 +156,8 @@ export const FlightProgrammePage = () => {
     const colors = ["#2ecc71", "#f1c40f", "#ff9f43", "#74b9ff"];
 
     return flightPrograms.map((program, index) => {
-      const rawStart = parseHour(program.start_time);
-      const rawEnd = parseHour(program.end_time);
+      const rawStart = parseHour(getProgramStartTime(program));
+      const rawEnd = parseHour(getProgramEndTime(program));
 
       let startHour =
         rawStart !== null ? rawStart : Math.max(startTimeline, endTimeline - 3);
@@ -424,10 +444,10 @@ export const FlightProgrammePage = () => {
                                 <div className="px-4 py-3 border-b border-[#0A4D66]/40 flex items-center justify-between gap-2">
                                   <div>
                                     <p className="text-[11px] text-gray-400">
-                                      {program.unit.name}
+                                      {program.unit?.name || "No Unit"}
                                     </p>
                                     <p className="text-sm font-semibold text-white">
-                                      {program.name}
+                                      {program.name || "Flight Programme"}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-1 text-gray-300">
@@ -457,13 +477,13 @@ export const FlightProgrammePage = () => {
                                       Purpose:
                                     </span>
                                     <span className="font-semibold">
-                                      {program.flight_program_type.name}
+                                      {program.flight_program_type?.name || "General"}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-gray-400">Unit:</span>
                                     <span className="font-semibold">
-                                      {program.unit.name}
+                                      {program.unit?.name || "N/A"}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
@@ -471,8 +491,9 @@ export const FlightProgrammePage = () => {
                                       Pilot:
                                     </span>
                                     <span className="font-semibold">
-                                      {program.pilot.firstname}{" "}
-                                      {program.pilot.lastname}
+                                      {program.pilot
+                                        ? `${program.pilot.firstname || ""} ${program.pilot.lastname || ""}`.trim() || "Unassigned"
+                                        : "Unassigned"}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
@@ -480,7 +501,7 @@ export const FlightProgrammePage = () => {
                                       Total Hours:
                                     </span>
                                     <span className="font-semibold">
-                                      {program.total_hours}
+                                      {program.total_hours ?? "0"}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
@@ -488,7 +509,7 @@ export const FlightProgrammePage = () => {
                                       Start Time:
                                     </span>
                                     <span className="font-semibold">
-                                      {program.start_time}
+                                      {getProgramStartTime(program) || "N/A"}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
@@ -496,7 +517,7 @@ export const FlightProgrammePage = () => {
                                       End Time:
                                     </span>
                                     <span className="font-semibold">
-                                      {program.end_time}
+                                      {getProgramEndTime(program) || "N/A"}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
@@ -504,7 +525,7 @@ export const FlightProgrammePage = () => {
                                       Status:
                                     </span>
                                     <span className="font-semibold text-emerald-400">
-                                      {program.status}
+                                      {program.status || "N/A"}
                                     </span>
                                   </div>
                                 </div>

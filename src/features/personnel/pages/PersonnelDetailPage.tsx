@@ -13,6 +13,7 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
+import { BackButton } from "@/shared/ui/button/BackButton";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -326,8 +327,13 @@ export const PersonnelDetailPage = () => {
       phone: apiPerson.phone_number,
       address: apiPerson.address,
       dialogue: "",
+<<<<<<< HEAD
       aircraftRatedOn: "",
       totalFlightTimeHours: apiPerson.total_flight_hours ?? 0,
+=======
+      aircraftRatedOn: apiPerson.rating_type || "N/A",
+      totalFlightTimeHours: 0,
+>>>>>>> d1a1b2e716b92d8b5daf74817195ffac2b5432d1
       aircraftHours: [],
       isPilot: apiPerson.is_pilot,
       lastFlightDate: apiPerson.last_flight_date,
@@ -335,10 +341,6 @@ export const PersonnelDetailPage = () => {
       flightStatus: apiPerson.flight_status,
     };
   }, [apiPerson]);
-
-  const handleBack = () => {
-    navigate("/dashboard/personnel");
-  };
 
   const handleDownloadPdf = async () => {
     if (!contentRef.current || !person || isDownloadingPdf) return;
@@ -368,14 +370,7 @@ export const PersonnelDetailPage = () => {
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
         <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
           <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            <BackButton fallbackUrl="/dashboard/personnel" />
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -664,9 +659,9 @@ export const PersonnelDetailPage = () => {
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
-                      Aircraft Rated On
+                      Type Rating (Platform)
                     </div>
-                    <p className="text-white">{person.aircraftRatedOn}</p>
+                    <p className="text-white font-medium">{person.aircraftRatedOn}</p>
                   </div>
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">

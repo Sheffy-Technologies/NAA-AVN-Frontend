@@ -15,6 +15,8 @@ import {
   type OperationAssignedAsset,
 } from "../api";
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
+import { WeatherBriefingCard } from "../components/WeatherBriefingCard";
+import { MissionPlanningCard } from "../components/MissionPlanningCard";
 import Modal from "@/shared/ui/modal/Modal";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { BackButton } from "@/shared/ui/button";
@@ -114,7 +116,7 @@ const AssetCard = ({
 }: {
   entry: OperationAssignedAsset;
   index: number;
-  navigate: (path: string) => void;
+  navigate: (path: string, options?: { state?: unknown }) => void;
   operationId: number | string;
 }) => {
   const dispatch = useAppDispatch();
@@ -180,10 +182,23 @@ const AssetCard = ({
     entry.asset_id ??
     null;
   const goToAsset = () => {
-    if (assetIdValue) navigate(`/dashboard/assets/${assetIdValue}`);
+    if (assetIdValue) {
+      navigate(`/dashboard/assets/${assetIdValue}`, {
+        state: {
+          from: `/dashboard/operations/${operationId}`,
+          fromLabel: "Operation",
+        },
+      });
+    }
   };
-  const goToPerson = (personId: number) =>
-    navigate(`/dashboard/personnel/${personId}`);
+  const goToPerson = (personId: number) => {
+    navigate(`/dashboard/personnel/${personId}`, {
+      state: {
+        from: `/dashboard/operations/${operationId}`,
+        fromLabel: "Operation",
+      },
+    });
+  };
 
   const cardKey =
     entry.id ??
@@ -803,6 +818,36 @@ const OperationTab = ({
           heightClassName="h-120"
         />
       </div>
+
+      {Boolean(
+        (operation.departure_latitude && operation.departure_longitude) ||
+        (operation.arrival_latitude && operation.arrival_longitude)
+      ) && (
+        <div className="space-y-6">
+          <MissionPlanningCard
+            departureLat={operation.departure_latitude}
+            departureLng={operation.departure_longitude}
+            arrivalLat={operation.arrival_latitude}
+            arrivalLng={operation.arrival_longitude}
+            waypoints={(operation.waypoints ?? []).map((w) => ({
+              name: w.name,
+              latitude: w.latitude,
+              longitude: w.longitude,
+            }))}
+            unitId={operation.unit?.id}
+            aircraftCount={operation.assets?.length || 1}
+            isEditable={false}
+          />
+          <WeatherBriefingCard
+            departureLat={operation.departure_latitude}
+            departureLon={operation.departure_longitude}
+            arrivalLat={operation.arrival_latitude}
+            arrivalLon={operation.arrival_longitude}
+            flightDate={operation.start_date_time ? operation.start_date_time.slice(0, 10) : undefined}
+            flightTime={operation.start_date_time && operation.start_date_time.length > 10 ? operation.start_date_time.slice(11, 16) : undefined}
+          />
+        </div>
+      )}
     </div>
   );
 };
@@ -1020,12 +1065,7 @@ export const OperationDetailsPage = () => {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#001219] text-gray-400 gap-4">
         <p>Operation not found</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="text-[#7FD5FF] hover:underline"
-        >
-          Go Back
-        </button>
+        <BackButton fallbackUrl="/dashboard/operations" />
       </div>
     );
   }

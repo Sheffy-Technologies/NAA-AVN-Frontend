@@ -6,6 +6,7 @@ import { useGetUnitByIdQuery } from "@/shared/api/units";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { BackButton } from "@/shared/ui/button/BackButton";
 
 type Card = {
   label: string;
@@ -196,14 +197,7 @@ export const UnitsDetailsPage = () => {
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            <BackButton fallbackUrl="/dashboard/units" />
           </div>
 
           <div className="p-4 sm:p-6 space-y-4">
@@ -227,14 +221,7 @@ export const UnitsDetailsPage = () => {
       <div className="px-2 sm:px-0">
         <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
           <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219] flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-gray-300 hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            <BackButton fallbackUrl="/dashboard/units" />
           </div>
 
           <div className="p-6 text-center space-y-3">
@@ -257,14 +244,9 @@ export const UnitsDetailsPage = () => {
     <div className="px-2 sm:px-0 space-y-6">
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001219]">
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-gray-400 hover:text-white mb-4 text-sm"
-          >
-            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-            <span>Back</span>
-          </button>
+          <div className="mb-4">
+            <BackButton fallbackUrl="/dashboard/units" />
+          </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-2">

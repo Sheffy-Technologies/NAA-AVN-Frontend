@@ -331,13 +331,45 @@ export const InventoryInfoPage = () => {
     });
   }, [inventory]);
 
-  const handleBack = () => {
-    navigate("/dashboard/inventory");
+  const [unitSearchQuery, setUnitSearchQuery] = useState("");
+
+  const filteredUnits = useMemo(() => {
+    if (!inventory?.units) return [];
+    if (!unitSearchQuery.trim()) return inventory.units;
+    const q = unitSearchQuery.toLowerCase();
+    return inventory.units.filter(
+      (u) =>
+        u.serial_number?.toLowerCase().includes(q) ||
+        u.part_number?.toLowerCase().includes(q) ||
+        u.cage_code?.toLowerCase().includes(q) ||
+        u.nsn?.toLowerCase().includes(q) ||
+        u.alternate_support_part_no?.toLowerCase().includes(q) ||
+        String(u.unit_index).includes(q),
+    );
+  }, [inventory?.units, unitSearchQuery]);
+
+  const handleCopyAllSerials = () => {
+    if (!inventory?.units || inventory.units.length === 0) return;
+    const serialsList = inventory.units
+      .map((u, i) => `${i + 1}. ${u.serial_number || "-"}`)
+      .join("\n");
+    navigator.clipboard.writeText(serialsList);
+    dispatch(
+      showToast({
+        message: `Copied ${inventory.units.length} item identifications to clipboard`,
+        type: "success",
+      }),
+    );
   };
 
   const handleEdit = () => {
     if (!id) return;
-    navigate(`/dashboard/inventory/${id}/edit`);
+    navigate(`/dashboard/inventory/${id}/edit`, {
+      state: {
+        from: `/dashboard/inventory/${id}`,
+        fromLabel: inventory?.part_name || inventory?.description || "Inventory Item",
+      },
+    });
   };
 
   const handleDownload = () => {
@@ -392,14 +424,7 @@ export const InventoryInfoPage = () => {
       <div className="px-2 sm:px-0">
         <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
           <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            <BackButton fallbackUrl="/dashboard/inventory" />
           </div>
           <div className="p-6 text-center text-slate-500 dark:text-gray-400">
             Failed to load inventory.
@@ -414,14 +439,7 @@ export const InventoryInfoPage = () => {
       <div className="px-2 sm:px-0">
         <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
           <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-2 text-xs sm:text-sm text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white"
-            >
-              <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            <BackButton fallbackUrl="/dashboard/inventory" />
             <span className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">
               Stock Info
             </span>
@@ -617,9 +635,287 @@ export const InventoryInfoPage = () => {
                     {inventory.stock_level}
                   </span>
                 </div>
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-[#0A4D66]/20">
+                    <span className="text-slate-500 dark:text-gray-400">Unit Cost:</span>
+                    <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                      {inventory.currency?.symbol || inventory.currency_code || "$"}
+                      {inventory.unit_cost ?? "0.00"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">Unit of Issue:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.unit_of_issue || inventory.measurement_unit || "EA"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">Special Storage:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white capitalize">
+                      {inventory.special_storage || "Standard"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">Lead Time:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.lead_time_days ? `${inventory.lead_time_days} ${inventory.lead_time_unit || 'days'}` : "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">CAGE Code:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.cage_code || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">Manufacturer:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.manufacturer || "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-slate-500 dark:text-gray-400">Supplier:</span>
+                    <span className="font-semibold text-slate-900 dark:text-white">
+                      {inventory.supplier?.name || "-"}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+
+          {/* Shelf Life & Life Limit Details */}
+          {(inventory.shelf_life_types?.length || inventory.life_limit_types?.length) ? (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {inventory.shelf_life_types && inventory.shelf_life_types.length > 0 && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-50/40 dark:bg-amber-950/20 p-4 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide">
+                    <Icon icon="mdi:clock-fast" className="w-4 h-4 text-amber-500" />
+                    <span>Shelf Life Tracking</span>
+                  </div>
+                  <div className="space-y-1 text-slate-700 dark:text-gray-300">
+                    <div>
+                      Dimensions: <span className="font-semibold uppercase">{inventory.shelf_life_types.join(", ")}</span>
+                    </div>
+                    {inventory.shelf_life_hours && (
+                      <div>Hours Limit: <span className="font-semibold">{inventory.shelf_life_hours} hrs</span></div>
+                    )}
+                    {inventory.shelf_life_cycles && (
+                      <div>Cycles Limit: <span className="font-semibold">{inventory.shelf_life_cycles} cycles</span></div>
+                    )}
+                    {inventory.shelf_life_calendar_value && (
+                      <div>Calendar Duration: <span className="font-semibold">{inventory.shelf_life_calendar_value} {inventory.shelf_life_calendar_interval}</span></div>
+                    )}
+                    {inventory.shelf_life_start_date && (
+                      <div className="text-[11px] text-amber-600 dark:text-amber-400">
+                        Started: {new Date(inventory.shelf_life_start_date).toLocaleDateString()}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {inventory.life_limit_types && inventory.life_limit_types.length > 0 && (
+                <div className="rounded-lg border border-rose-500/30 bg-rose-50/40 dark:bg-rose-950/20 p-4 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-bold text-rose-800 dark:text-rose-200 uppercase tracking-wide">
+                    <Icon icon="mdi:shield-alert-outline" className="w-4 h-4 text-rose-500" />
+                    <span>Life Limited (LLP) Thresholds</span>
+                  </div>
+                  <div className="space-y-1 text-slate-700 dark:text-gray-300">
+                    <div>
+                      Dimensions: <span className="font-semibold uppercase">{inventory.life_limit_types.join(", ")}</span>
+                    </div>
+                    {inventory.life_limit_hours && (
+                      <div>Max Hours: <span className="font-semibold">{inventory.life_limit_hours} hrs</span></div>
+                    )}
+                    {inventory.life_limit_cycles && (
+                      <div>Max Cycles: <span className="font-semibold">{inventory.life_limit_cycles} cycles</span></div>
+                    )}
+                    {inventory.life_limit_calendar_value && (
+                      <div>Max Duration: <span className="font-semibold">{inventory.life_limit_calendar_value} {inventory.life_limit_calendar_interval}</span></div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* Item Identification / Serialized Units Matrix */}
+          {inventory.units && inventory.units.length > 0 ? (
+            <div className="mt-6 bg-white dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 dark:text-gray-200 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-4 border-b border-slate-200 dark:border-[#0A4D66]/30 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-sky-100 dark:bg-sky-950/70 border border-sky-300 dark:border-sky-800 flex items-center justify-center text-sky-600 dark:text-sky-300">
+                    <Icon icon="mdi:barcode-scan" className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>Item Identification Matrix</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-700">
+                        {inventory.units.length} {inventory.units.length === 1 ? "Unit" : "Units"}
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 dark:text-gray-400">
+                      Individual item tracking, serial number assignment, and status
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={unitSearchQuery}
+                      onChange={(e) => setUnitSearchQuery(e.target.value)}
+                      placeholder="Filter serials or P/N..."
+                      className="rounded-lg pl-8 pr-3 py-1.5 text-xs bg-slate-50 dark:bg-[#001219] border border-slate-300 dark:border-[#0A4D66]/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    />
+                    <Icon
+                      icon="mdi:magnify"
+                      className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyAllSerials}
+                    title="Copy all serial numbers to clipboard"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition-colors shadow-xs"
+                  >
+                    <Icon icon="mdi:content-copy" className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Copy All ({inventory.units.length})</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border border-slate-200 dark:border-[#0A4D66]/30 rounded-lg">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-[10px] uppercase font-bold text-slate-500 dark:text-gray-400 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50/80 dark:bg-[#001219]/90 tracking-wider">
+                      <th className="py-2.5 px-3 w-14">#</th>
+                      <th className="py-2.5 px-3">Item Identification / Serial No</th>
+                      <th className="py-2.5 px-3">Part Number</th>
+                      <th className="py-2.5 px-3">CAGE Code</th>
+                      <th className="py-2.5 px-3">NSN</th>
+                      <th className="py-2.5 px-3">Alt Support P/N</th>
+                      <th className="py-2.5 px-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-[#0A4D66]/20">
+                    {filteredUnits.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-4 text-center text-xs text-slate-500 dark:text-gray-400">
+                          No item identification matches &ldquo;{unitSearchQuery}&rdquo;
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredUnits.map((u, idx) => (
+                        <tr
+                          key={u.id || idx}
+                          className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <td className="py-2.5 px-3 font-semibold text-slate-600 dark:text-gray-300">
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold bg-slate-100 dark:bg-[#0A4D66]/30 text-slate-700 dark:text-slate-300">
+                              {u.unit_index || idx + 1}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1.5 font-mono font-bold text-sky-600 dark:text-sky-400 text-xs sm:text-sm">
+                              <span>{u.serial_number || "-"}</span>
+                              {u.serial_number && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(u.serial_number);
+                                    dispatch(showToast({ message: `Copied ${u.serial_number}`, type: "success" }));
+                                  }}
+                                  title="Copy Serial Number"
+                                  className="text-slate-400 hover:text-sky-500 p-0.5 rounded transition-colors"
+                                >
+                                  <Icon icon="mdi:content-copy" className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-gray-200">
+                            {u.part_number || inventory.part_number}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-gray-400 font-mono text-[11px]">
+                            {u.cage_code || inventory.cage_code || "-"}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-gray-400 font-mono text-[11px]">
+                            {u.nsn || inventory.nsn || "-"}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-gray-400">
+                            {u.alternate_support_part_no || inventory.alternate_support_part_no || "-"}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 capitalize border border-emerald-300 dark:border-emerald-800">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span>{u.status || "available"}</span>
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (inventory.is_serialized || formatCategoryName(inventory.expense_category?.name).toLowerCase().includes("spare") || inventory.serial_number) ? (
+            <div className="mt-6 bg-white dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 dark:text-gray-200 shadow-sm space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-[#0A4D66]/30 pb-3">
+                <div className="flex items-center gap-2">
+                  <Icon icon="mdi:barcode-scan" className="w-5 h-5 text-sky-500" />
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">
+                    Item Identification ({inventory.current_stock || 1} Total In Stock)
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 hover:bg-sky-100"
+                >
+                  <Icon icon="mdi:pencil-outline" className="w-3.5 h-3.5" />
+                  <span>Configure Individual Unit IDs</span>
+                </button>
+              </div>
+              <div className="overflow-x-auto border border-slate-200 dark:border-[#0A4D66]/30 rounded-lg">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-[10px] uppercase font-bold text-slate-500 dark:text-gray-400 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50/80 dark:bg-[#001219]/90 tracking-wider">
+                      <th className="py-2.5 px-3 w-14">#</th>
+                      <th className="py-2.5 px-3">Item Identification / Serial No</th>
+                      <th className="py-2.5 px-3">Part Number</th>
+                      <th className="py-2.5 px-3">CAGE Code</th>
+                      <th className="py-2.5 px-3">NSN</th>
+                      <th className="py-2.5 px-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2.5 px-3 font-semibold text-slate-600 dark:text-gray-300">#1</td>
+                      <td className="py-2.5 px-3 font-mono font-bold text-sky-600 dark:text-sky-400">
+                        {inventory.serial_number || "Single Part Tracking"}
+                      </td>
+                      <td className="py-2.5 px-3 font-medium text-slate-800 dark:text-gray-200">
+                        {inventory.part_number}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-gray-400 font-mono text-[11px]">
+                        {inventory.cage_code || "-"}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-600 dark:text-gray-400 font-mono text-[11px]">
+                        {inventory.nsn || "-"}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 capitalize border border-emerald-300 dark:border-emerald-800">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span>available</span>
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-6 bg-white dark:bg-[#001825] border border-slate-200 dark:border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-slate-700 dark:text-gray-200 shadow-xs">
             <div className="flex items-center justify-between mb-3">

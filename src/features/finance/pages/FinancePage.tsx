@@ -4,6 +4,7 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useGetFinanceDashboardQuery,
   useGetExpensesQuery,
@@ -530,11 +531,15 @@ export const FinancePage = () => {
       );
       return;
     }
-    navigate(`/dashboard/finance/budgets/${resolvedSelectedAccountId}/statement`);
+    navigate(`/dashboard/finance/budgets/${resolvedSelectedAccountId}/statement`, {
+      state: { from: "/dashboard/finance", fromLabel: "Finance" },
+    });
   };
 
   const handleViewBudget = (id: number) => {
-    navigate(`/dashboard/finance/budgets/${id}`);
+    navigate(`/dashboard/finance/budgets/${id}`, {
+      state: { from: "/dashboard/finance", fromLabel: "Finance" },
+    });
   };
 
   const handleViewExpense = (id: number) => {
@@ -579,7 +584,12 @@ export const FinancePage = () => {
   };
 
   return (
-    <div className="px-2 sm:px-0">
+    <div className="px-2 sm:px-0 space-y-4">
+      {location.state?.from && (
+        <div className="flex items-center">
+          <BackButton fallbackUrl="/dashboard" />
+        </div>
+      )}
       {/* Account selector + report */}
       <section className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2" ref={accountMenuRef}>
@@ -1097,7 +1107,12 @@ export const FinancePage = () => {
               : filteredExpenses.map((row) => (
                   <div
                     key={row.id}
-                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200"
+                    tabIndex={0}
+                    role="button"
+                    title="Click to view expense details"
+                    onClick={(e) => onInteractiveRowClick(e, () => handleViewExpense(row.id))}
+                    onKeyDown={(e) => onInteractiveRowKeyDown(e, () => handleViewExpense(row.id))}
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200 cursor-pointer hover:border-[#7FD5FF]/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div>
@@ -1327,7 +1342,12 @@ export const FinancePage = () => {
               : filteredBudgets.map((budget) => (
                   <div
                     key={budget.id}
-                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200"
+                    tabIndex={0}
+                    role="button"
+                    title="Click to view budget details"
+                    onClick={(e) => onInteractiveRowClick(e, () => handleViewBudget(budget.id))}
+                    onKeyDown={(e) => onInteractiveRowKeyDown(e, () => handleViewBudget(budget.id))}
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200 cursor-pointer hover:border-[#7FD5FF]/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div>

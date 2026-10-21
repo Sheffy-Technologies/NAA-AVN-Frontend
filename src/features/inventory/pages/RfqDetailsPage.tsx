@@ -5,6 +5,7 @@ import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useGetRfqsQuery,
   useGetSupplierQuotationsQuery,
@@ -258,18 +259,7 @@ export function RfqDetailsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              navigate("/dashboard/inventory", {
-                state: { inventoryTab: "Parts Requisitions" },
-              })
-            }
-            className="inline-flex items-center justify-center p-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-400 hover:text-white transition-colors"
-            title="Back to Inventory"
-          >
-            <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-          </button>
+          <BackButton fallbackUrl="/dashboard/inventory" />
           <div>
             <div className="text-xs uppercase tracking-wide text-[#7FD5FF] mb-0.5">
               RFQ Details

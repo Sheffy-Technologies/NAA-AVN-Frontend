@@ -15,6 +15,8 @@ import {
   useCreateSupplierMutation,
   useGetExpenseCategoriesQuery,
   useGetSuppliersQuery,
+  useGetStoresQuery,
+  type Store,
 } from "@/features/inventory/api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
@@ -26,6 +28,7 @@ import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import { DataTable } from "@/shared/ui/table/DataTable";
 import { MetricCard } from "@/shared/ui/metric/MetricCard";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   ImportCsvModal,
   type ImportCsvField,
@@ -35,6 +38,9 @@ import {
   formatCategoryName,
   isCategoryMatch,
 } from "../inventoryUtils";
+import { StoreModal } from "@/features/inventory/components/StoreModal";
+import { StoreInventoryModal } from "@/features/inventory/components/StoreInventoryModal";
+import { DeleteStoreModal } from "@/features/inventory/components/DeleteStoreModal";
 
 type InventoryStatusLevel = "High" | "Low" | "Critical" | "Medium" | "Unknown";
 
@@ -44,6 +50,9 @@ type InventoryRow = {
   partNumber: string;
   partName: string;
   category: string;
+  storeId?: number | null;
+  storeName?: string;
+  storeCode?: string | null;
   nsn: string;
   ataChapter: string;
   unit: string;
@@ -51,7 +60,7 @@ type InventoryRow = {
   currentStock: number;
   reorderLevel: number;
   type: string;
-  assetId: number;
+  assetId: number | null;
   description: string;
   remark: string;
   serialNumber: string;
@@ -60,7 +69,6 @@ type InventoryRow = {
   aircraftType: string;
   measurementUnit: string;
 };
-
 
 type MultiFilterState<T> = {
   all: boolean;
@@ -84,6 +92,11 @@ const INVENTORY_TABS = [
     label: "Suppliers",
     icon: "mdi:truck-delivery-outline",
   },
+  {
+    id: "Stores",
+    label: "Stores",
+    icon: "mdi:store-outline",
+  },
 ] as const;
 
 const STOCK_TABLE_COLUMNS = [
@@ -91,6 +104,7 @@ const STOCK_TABLE_COLUMNS = [
   { key: "serial", header: "Unit", className: "px-6 py-4" },
   { key: "aircraft", header: "Aircraft Type", className: "px-6 py-4" },
   { key: "category", header: "Category", className: "px-6 py-4" },
+  { key: "store", header: "Store", className: "px-6 py-4" },
   { key: "level", header: "Stock Level", className: "px-6 py-4" },
   {
     key: "current",
@@ -469,6 +483,7 @@ export const InventoryPage = () => {
       )
         return "Procurement";
       if (nextTab === "Suppliers") return "Suppliers";
+      if (nextTab === "Stores" || nextTab === "Store") return "Stores";
     }
     const params = new URLSearchParams(location.search);
     const tabParam = params.get("tab")?.toLowerCase();
@@ -481,6 +496,7 @@ export const InventoryPage = () => {
     )
       return "Procurement";
     if (tabParam === "suppliers" || tabParam === "supplier") return "Suppliers";
+    if (tabParam === "stores" || tabParam === "store") return "Stores";
     return "Stock";
   }, [location.state, location.search]);
 
@@ -507,7 +523,7 @@ export const InventoryPage = () => {
   }, [location.state, location.search]);
 
   // State for Tabs and Filters
-  const [activeTab, setActiveTab] = useState<"Stock" | "Requisitions" | "Procurement" | "Suppliers">(initialTab);
+  const [activeTab, setActiveTab] = useState<(typeof INVENTORY_TABS)[number]["id"]>(initialTab);
   const [activeProcurementSubTab, setActiveProcurementSubTab] =
     useState<ProcurementSubTabKey>(initialProcurementSubTab);
 
@@ -529,6 +545,8 @@ export const InventoryPage = () => {
         setActiveTab("Procurement");
       } else if (nextTab === "Suppliers") {
         setActiveTab("Suppliers");
+      } else if (nextTab === "Stores" || nextTab === "Store") {
+        setActiveTab("Stores");
       }
     }
   }, [location.state]);
@@ -565,7 +583,40 @@ export const InventoryPage = () => {
   const [updateStockRow, setUpdateStockRow] = useState<InventoryRow | null>(
     null,
   );
-  const [openFilterMenu, setOpenFilterMenu] = useState<"units" | null>(null);
+  const [openFilterMenu, setOpenFilterMenu] = useState<"units" | "stores" | null>(null);
+
+  // Stores Data and State
+  const {
+    data: storesData = [],
+    isLoading: isStoresLoading,
+    refetch: refetchStores,
+  } = useGetStoresQuery();
+
+  const generalStore = useMemo(() => {
+    return storesData.find(
+      (s) => s.code === "GEN-STR" || s.name.toLowerCase().includes("general"),
+    );
+  }, [storesData]);
+
+  // Store filter on Stock tab: default to General Store ID when loaded
+  const [storeFilterId, setStoreFilterId] = useState<number | "all">("all");
+  const [hasSetDefaultStore, setHasSetDefaultStore] = useState(false);
+
+  useEffect(() => {
+    if (generalStore && !hasSetDefaultStore) {
+      setStoreFilterId(generalStore.id);
+      setHasSetDefaultStore(true);
+    }
+  }, [generalStore, hasSetDefaultStore]);
+
+  // Stores Tab Specific State
+  const [storeSearchQuery, setStoreSearchQuery] = useState("");
+  const [storeTypeFilter, setStoreTypeFilter] = useState<"all" | "system" | "custom">("all");
+  const [storeViewMode, setStoreViewMode] = useState<"grid" | "table">("grid");
+  const [isAddStoreOpen, setIsAddStoreOpen] = useState(false);
+  const [storeForEdit, setStoreForEdit] = useState<Store | null>(null);
+  const [storeForView, setStoreForView] = useState<Store | null>(null);
+  const [storeForDelete, setStoreForDelete] = useState<Store | null>(null);
   const [requisitionPeriod, setRequisitionPeriod] = useState<
     "all" | "month" | "quarter" | "year"
   >("all");
@@ -747,6 +798,9 @@ export const InventoryPage = () => {
         partNumber: item.part_number,
         partName: item.description || item.part_name || "N/A",
         category: formatCategoryName(item.expense_category?.name),
+        storeId: item.store_id,
+        storeName: item.store_location?.name,
+        storeCode: item.store_location?.code,
         nsn: item.nsn || item.nsn_number || "-",
         ataChapter: item.ata_chapter || "-",
         unit: item.unit?.name || "N/A",
@@ -756,8 +810,11 @@ export const InventoryPage = () => {
         type: item.type ?? "unknown",
         assetId: item.asset_id,
         description: item.description,
-        remark: item.remark,
-        serialNumber: item.serial_number || "-",
+        remark: item.remark || "",
+        serialNumber:
+          item.units && item.units.length > 1
+            ? `${item.units[0]?.serial_number || item.serial_number} (+${item.units.length - 1} units)`
+            : item.serial_number || "-",
         lastUpdated: item.updated_at,
         expiryDate: item.expiry_date,
         aircraftType:
@@ -771,6 +828,7 @@ export const InventoryPage = () => {
     const standardCategories = [
       { id: "all", label: "All" },
       { id: "Aircraft spares", label: "Aircraft spares" },
+      { id: "Minor spare", label: "Minor spare" },
       { id: "Consumables", label: "Consumables" },
       { id: "Ground support", label: "Ground support" },
       { id: "General (QM Stores)", label: "General (QM Stores)" },
@@ -807,10 +865,17 @@ export const InventoryPage = () => {
   };
 
   const categorySearchFilteredRows = useMemo(() => {
+    let base = inventoryRows;
+
+    // Filter by store (defaulting to General Store to differentiate from Maintenance Hub)
+    if (storeFilterId !== "all") {
+      base = base.filter((row) => row.storeId === storeFilterId);
+    }
+
     const byCategory =
       activeSubTab === "all"
-        ? inventoryRows
-        : inventoryRows.filter((row) =>
+        ? base
+        : base.filter((row) =>
             isCategoryMatch(row.category, activeSubTab),
           );
 
@@ -827,9 +892,11 @@ export const InventoryPage = () => {
         row.inventoryId,
         row.aircraftType,
         row.category,
+        row.storeName,
+        row.storeCode,
       ].some((field) => field?.toLowerCase().includes(query)),
     );
-  }, [inventoryRows, activeSubTab, stockSearchQuery]);
+  }, [inventoryRows, activeSubTab, stockSearchQuery, storeFilterId]);
 
   const filteredInventoryRows = useMemo(() => {
     switch (stockStatFilter) {
@@ -938,7 +1005,64 @@ export const InventoryPage = () => {
     }, initial);
   }, [requisitionsData]);
 
-  const selectedFilterCount = unitFilter.all ? 0 : unitFilter.selected.length;
+  const selectedFilterCount =
+    (unitFilter.all ? 0 : unitFilter.selected.length) +
+    (storeFilterId === (generalStore?.id ?? "all") ? 0 : 1);
+
+  const formatCurrency = (val: number | string | undefined | null) => {
+    const num = Number(val ?? 0);
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(num);
+  };
+
+  const filteredStores = useMemo(() => {
+    let result = storesData;
+    if (storeTypeFilter === "system") {
+      result = result.filter((s) => s.is_system);
+    } else if (storeTypeFilter === "custom") {
+      result = result.filter((s) => !s.is_system);
+    }
+
+    const q = storeSearchQuery.trim().toLowerCase();
+    if (!q) return result;
+
+    return result.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.code?.toLowerCase().includes(q) ||
+        s.description?.toLowerCase().includes(q) ||
+        s.unit?.name?.toLowerCase().includes(q),
+    );
+  }, [storesData, storeTypeFilter, storeSearchQuery]);
+
+  const handleExportStores = () => {
+    const headers = [
+      "Store Name",
+      "Code",
+      "Type",
+      "Operating Base / Unit",
+      "Items Count",
+      "Total Stock",
+      "Estimated Valuation ($)",
+      "Description",
+      "Created Date",
+    ];
+    const rows = filteredStores.map((s) => [
+      s.name,
+      s.code || "-",
+      s.is_system ? "Core System Store (Protected)" : "Custom Store",
+      s.unit?.name || "General Logistics",
+      String(s.inventories_count ?? s.inventories?.length ?? 0),
+      String(s.total_stock ?? 0),
+      String(s.total_value ?? 0),
+      s.description || "-",
+      formatDateShort(s.created_at),
+    ]);
+    downloadCsv("inventory-stores.csv", [headers, ...rows]);
+  };
 
   const supplierStats = useMemo(() => {
     const withEmail = suppliersData.filter((supplier) =>
@@ -960,17 +1084,20 @@ export const InventoryPage = () => {
   }, [suppliersData]);
 
   const handleOpenRfqDetails = (rfqId: number) => {
-    navigate(`/dashboard/inventory/rfq/${rfqId}`);
+    navigate(`/dashboard/inventory/rfq/${rfqId}`, {
+      state: { from: "/dashboard/inventory", fromLabel: "Inventory Procurement" },
+    });
   };
 
   const handleExportStocks = () => {
-    const headers = ["Item Description", "Part Number", "Unit", "Aircraft Type", "Category", "Stock Level", "Current Stock", "Reorder Level", "Last Updated"];
+    const headers = ["Item Description", "Part Number", "Unit", "Aircraft Type", "Category", "Store", "Stock Level", "Current Stock", "Reorder Level", "Last Updated"];
     const rows = filteredInventoryRows.map((r) => [
       r.description || r.partName,
       r.partNumber,
       r.unit,
       r.aircraftType,
       r.category,
+      r.storeName || "Gen Store(HQ)",
       r.stockLevel,
       String(r.currentStock),
       String(r.reorderLevel),
@@ -995,7 +1122,6 @@ export const InventoryPage = () => {
     downloadCsv("requisitions.csv", [headers, ...rows]);
   };
 
-
   const handleExportSuppliers = () => {
     const headers = ["Supplier", "Phone Number", "Email", "Address", "Created"];
     const rows = suppliersData.map((s) => [
@@ -1008,19 +1134,23 @@ export const InventoryPage = () => {
     downloadCsv("suppliers.csv", [headers, ...rows]);
   };
 
-
   const resetFilters = () => {
     setUnitFilter({ all: true, selected: [] });
+    setStoreFilterId(generalStore?.id ?? "all");
     setOpenFilterMenu(null);
   };
 
   const handleOpenDetail = (id: number) => {
-    navigate(`/dashboard/inventory/${id}`);
+    navigate(`/dashboard/inventory/${id}`, {
+      state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+    });
     setOpenActionId(null);
   };
 
   const handleOpenEdit = (id: number) => {
-    navigate(`/dashboard/inventory/${id}/edit`);
+    navigate(`/dashboard/inventory/${id}/edit`, {
+      state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+    });
     setOpenActionId(null);
   };
 
@@ -1117,6 +1247,11 @@ export const InventoryPage = () => {
 
   return (
     <div className="space-y-6">
+      {location.state?.from && (
+        <div className="flex items-center">
+          <BackButton fallbackUrl="/dashboard" />
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full overflow-x-auto scrollbar-thin">
@@ -1363,6 +1498,85 @@ export const InventoryPage = () => {
                       </div>
                     )}
                   </div>
+
+                  {/* Store Filter Dropdown */}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenFilterMenu(
+                          openFilterMenu === "stores" ? null : "stores",
+                        )
+                      }
+                      className={cn(
+                        "rounded px-3 py-1.5 text-xs inline-flex items-center gap-1.5 whitespace-nowrap transition-colors border",
+                        isDark
+                          ? "bg-[#001825] border-[#0A4D66]/40 text-white focus:outline-none focus:border-[#7FD5FF]"
+                          : "bg-white border-slate-300 text-slate-800 shadow-sm focus:outline-none focus:border-[#0369A1]",
+                        storeFilterId !== "all" && "border-[#7FD5FF] text-[#7FD5FF] font-medium",
+                      )}
+                    >
+                      <Icon icon="mdi:store-outline" className="w-3.5 h-3.5 text-sky-400" />
+                      <span>
+                        {storeFilterId === "all"
+                          ? "All Stores"
+                          : storesData.find((s) => s.id === storeFilterId)?.name ?? "Store Filter"}
+                      </span>
+                      <Icon
+                        icon="mdi:chevron-down"
+                        className={cn(
+                          "w-3.5 h-3.5",
+                          isDark ? "text-gray-400" : "text-slate-500",
+                        )}
+                      />
+                    </button>
+                    {openFilterMenu === "stores" && (
+                      <div className="absolute top-full mt-1 left-0 z-40 w-64 bg-[#001219] border border-[#0A4D66]/40 rounded-md shadow-xl p-2 text-xs text-gray-200">
+                        <div className="px-2 py-1 text-[10px] uppercase font-bold text-gray-400 border-b border-[#0A4D66]/30 mb-1">
+                          Select Repository
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStoreFilterId("all");
+                            setOpenFilterMenu(null);
+                          }}
+                          className={cn(
+                            "w-full text-left px-2.5 py-1.5 rounded text-xs transition-colors flex items-center justify-between",
+                            storeFilterId === "all"
+                              ? "bg-[#0A4D66] text-white font-semibold"
+                              : "hover:bg-[#0A4D66]/30 text-gray-300",
+                          )}
+                        >
+                          <span>All Stores (Global Fleet)</span>
+                          {storeFilterId === "all" && <Icon icon="mdi:check" className="w-3.5 h-3.5" />}
+                        </button>
+                        {storesData.map((s) => (
+                          <button
+                            key={s.id}
+                            type="button"
+                            onClick={() => {
+                              setStoreFilterId(s.id);
+                              setOpenFilterMenu(null);
+                            }}
+                            className={cn(
+                              "w-full text-left px-2.5 py-1.5 rounded text-xs transition-colors flex items-center justify-between",
+                              storeFilterId === s.id
+                                ? "bg-[#0A4D66] text-white font-semibold"
+                                : "hover:bg-[#0A4D66]/30 text-gray-300",
+                            )}
+                          >
+                            <div className="truncate pr-2">
+                              <span>{s.name}</span>
+                              {s.code && <span className="ml-1 text-[10px] text-gray-400 font-mono">({s.code})</span>}
+                              {s.is_system && <span className="ml-1 text-[9px] text-amber-400 font-medium">★ System</span>}
+                            </div>
+                            {storeFilterId === s.id && <Icon icon="mdi:check" className="w-3.5 h-3.5 shrink-0" />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <button
@@ -1383,7 +1597,15 @@ export const InventoryPage = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate("/dashboard/inventory/add")}
+                  onClick={() =>
+                    navigate(
+                      storeFilterId !== "all"
+                        ? `/dashboard/inventory/add?store_id=${storeFilterId}`
+                        : generalStore
+                          ? `/dashboard/inventory/add?store_id=${generalStore.id}`
+                          : "/dashboard/inventory/add",
+                    )
+                  }
                   className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap"
                 >
                   <Icon icon="mdi:plus" className="w-4 h-4" />
@@ -1430,7 +1652,9 @@ export const InventoryPage = () => {
                       if ((e.target as HTMLElement).closest("button, a, input, select, textarea, [role='button']")) {
                         return;
                       }
-                      navigate(`/dashboard/inventory/${row.id}`);
+                      navigate(`/dashboard/inventory/${row.id}`, {
+                        state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+                      });
                     }}
                     className={cn(
                       "transition-colors cursor-pointer",
@@ -1461,6 +1685,9 @@ export const InventoryPage = () => {
                     </td>
                     <td className={cn("px-6 py-4", isDark ? "text-gray-400" : "text-slate-600")}>
                       {row.category}
+                    </td>
+                    <td className={cn("px-6 py-4", isDark ? "text-gray-300" : "text-slate-600")}>
+                      {row.storeName || "Gen Store(HQ)"}
                     </td>
                     <td className="px-6 py-4">
                       <span
@@ -1520,7 +1747,17 @@ export const InventoryPage = () => {
                   filteredInventoryRows.map((row) => (
                     <div
                       key={row.id}
-                      className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative group hover:border-[#7FD5FF]/50 transition-colors"
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view inventory details"
+                      onClick={(e) =>
+                        onInteractiveRowClick(e, () =>
+                          navigate(`/dashboard/inventory/${row.id}`, {
+                            state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+                          }),
+                        )
+                      }
+                      className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative group hover:border-[#7FD5FF]/50 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                     >
                       <div
                         className={cn(
@@ -1597,6 +1834,12 @@ export const InventoryPage = () => {
                           </span>
                           <span className="text-white font-medium">
                             {row.aircraftType}
+                          </span>
+                        </div>
+                        <div className="col-span-2 pt-1 border-t border-[#0A4D66]/20 flex items-center justify-between">
+                          <span className="text-gray-500">Store Repository:</span>
+                          <span className={isDark ? "text-gray-300" : "text-slate-700"}>
+                            {row.storeName || "Gen Store(HQ)"}
                           </span>
                         </div>
                       </div>
@@ -1863,6 +2106,9 @@ export const InventoryPage = () => {
                               onInteractiveRowClick(e, () =>
                                 navigate(
                                   `/dashboard/inventory/requisitions/${requisition.id}`,
+                                  {
+                                    state: { from: "/dashboard/inventory", fromLabel: "Inventory Requisitions" },
+                                  },
                                 ),
                               )
                             }
@@ -1932,6 +2178,9 @@ export const InventoryPage = () => {
                                   e.stopPropagation();
                                   navigate(
                                     `/dashboard/inventory/requisitions/${requisition.id}`,
+                                    {
+                                      state: { from: "/dashboard/inventory", fromLabel: "Inventory Requisitions" },
+                                    },
                                   );
                                 }}
                                 title="View requisition"
@@ -1981,6 +2230,9 @@ export const InventoryPage = () => {
                         onClick={() =>
                           navigate(
                             `/dashboard/inventory/requisitions/${requisition.id}`,
+                            {
+                              state: { from: "/dashboard/inventory", fromLabel: "Inventory Requisitions" },
+                            },
                           )
                         }
                         className="text-left bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 hover:border-[#7FD5FF]/50 transition-colors"
@@ -2341,6 +2593,473 @@ export const InventoryPage = () => {
               </div>
             )}
           </>
+        ) : activeTab === "Stores" ? (
+          <>
+            <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
+              {/* Stores Top Row: Search, Type filter tabs, and Actions */}
+              <div className="flex flex-col lg:flex-row lg:flex-wrap justify-between items-start lg:items-center gap-4">
+                <div className="flex items-center gap-3 w-full lg:w-auto flex-1 max-w-xl">
+                  {/* Search */}
+                  <div className="relative flex-1">
+                    <Icon
+                      icon="mdi:magnify"
+                      className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                    />
+                    <input
+                      type="text"
+                      value={storeSearchQuery}
+                      onChange={(e) => setStoreSearchQuery(e.target.value)}
+                      placeholder="Search store name, code, base location..."
+                      className={cn(
+                        "w-full rounded pl-9 pr-8 py-1.5 text-xs outline-none transition-colors border",
+                        isDark
+                          ? "bg-[#001825] border-[#0A4D66]/40 text-white placeholder:text-gray-500 focus:border-[#7FD5FF]"
+                          : "bg-white border-slate-300 text-slate-800 placeholder:text-gray-400 focus:border-[#0369A1] shadow-sm",
+                      )}
+                    />
+                    {storeSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setStoreSearchQuery("")}
+                        title="Clear search"
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                      >
+                        <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* View Mode Toggle */}
+                  <div className={cn("flex items-center space-x-1 p-1 rounded-lg border shrink-0", isDark ? "bg-[#001825] border-[#0A4D66]/40" : "bg-slate-100 border-slate-200")}>
+                    <button
+                      type="button"
+                      onClick={() => setStoreViewMode("grid")}
+                      title="Grid view"
+                      aria-label="Grid view"
+                      className={cn(
+                        "p-1.5 rounded transition-all",
+                        storeViewMode === "grid"
+                          ? isDark
+                            ? "bg-[#0A4D66] text-white shadow-sm border border-[#7FD5FF]/40"
+                            : "bg-white text-[#0A4D66] shadow-sm border border-slate-200 font-bold"
+                          : isDark
+                            ? "text-gray-300 hover:text-white"
+                            : "text-slate-500 hover:text-slate-900",
+                      )}
+                    >
+                      <Icon icon="mdi:view-grid" className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStoreViewMode("table")}
+                      title="Table view"
+                      aria-label="Table view"
+                      className={cn(
+                        "p-1.5 rounded transition-all",
+                        storeViewMode === "table"
+                          ? isDark
+                            ? "bg-[#0A4D66] text-white shadow-sm border border-[#7FD5FF]/40"
+                            : "bg-white text-[#0A4D66] shadow-sm border border-slate-200 font-bold"
+                          : isDark
+                            ? "text-gray-300 hover:text-white"
+                            : "text-slate-500 hover:text-slate-900",
+                      )}
+                    >
+                      <Icon icon="mdi:table" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter Pills & Actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className={cn("inline-flex items-center space-x-1 p-1 rounded-lg border", isDark ? "bg-[#001825] border-[#0A4D66]/50" : "bg-slate-100 border-slate-200")}>
+                    <button
+                      type="button"
+                      onClick={() => setStoreTypeFilter("all")}
+                      className={cn(
+                        "px-2.5 py-1 rounded text-xs font-medium transition-all whitespace-nowrap",
+                        storeTypeFilter === "all"
+                          ? isDark
+                            ? "bg-[#0A4D66] text-white font-semibold shadow-sm border border-[#7FD5FF]/40"
+                            : "bg-[#0A4D66] text-white font-semibold shadow-sm"
+                          : isDark
+                            ? "text-gray-300 hover:text-white"
+                            : "text-slate-600 hover:text-slate-900",
+                      )}
+                    >
+                      All Stores ({storesData.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStoreTypeFilter("system")}
+                      className={cn(
+                        "px-2.5 py-1 rounded text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1",
+                        storeTypeFilter === "system"
+                          ? isDark
+                            ? "bg-[#0A4D66] text-white font-semibold shadow-sm border border-[#7FD5FF]/40"
+                            : "bg-[#0A4D66] text-white font-semibold shadow-sm"
+                          : isDark
+                            ? "text-amber-400 hover:text-amber-300"
+                            : "text-amber-600 hover:text-amber-700",
+                      )}
+                    >
+                      <Icon icon="mdi:shield-lock-outline" className="w-3.5 h-3.5" />
+                      <span>Core System ({storesData.filter((s) => s.is_system).length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStoreTypeFilter("custom")}
+                      className={cn(
+                        "px-2.5 py-1 rounded text-xs font-medium transition-all whitespace-nowrap",
+                        storeTypeFilter === "custom"
+                          ? isDark
+                            ? "bg-[#0A4D66] text-white font-semibold shadow-sm border border-[#7FD5FF]/40"
+                            : "bg-[#0A4D66] text-white font-semibold shadow-sm"
+                          : isDark
+                            ? "text-gray-300 hover:text-white"
+                            : "text-slate-600 hover:text-slate-900",
+                      )}
+                    >
+                      Custom Repositories ({storesData.filter((s) => !s.is_system).length})
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleExportStores}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 shadow-sm transition-colors whitespace-nowrap"
+                  >
+                    <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                    <span>Export CSV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAddStoreOpen(true)}
+                    className="flex items-center space-x-2 bg-[#0369A1] hover:bg-[#0369A1]/90 text-white px-4 py-1.5 rounded text-xs font-bold transition-colors whitespace-nowrap shadow-sm"
+                  >
+                    <Icon icon="mdi:plus" className="w-4 h-4" />
+                    <span>Add Store</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Stores KPI Metric Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 border-t border-[#0A4D66]/40 pt-4">
+                <MetricCard
+                  label="Total Repositories"
+                  value={storesData.length}
+                  icon="mdi:store-outline"
+                />
+                <MetricCard
+                  label="Core System Stores"
+                  value={storesData.filter((s) => s.is_system).length}
+                  icon="mdi:shield-lock-outline"
+                  badge="Protected"
+                  badgeColor="sky"
+                />
+                <MetricCard
+                  label="Custom Stores"
+                  value={storesData.filter((s) => !s.is_system).length}
+                  icon="mdi:store-check-outline"
+                />
+                <MetricCard
+                  label="Total Stock In Stores"
+                  value={storesData.reduce((acc, s) => acc + (s.total_stock || 0), 0)}
+                  icon="mdi:cube-outline"
+                  badge="Units"
+                  badgeColor="sky"
+                />
+                <MetricCard
+                  label="Fleet Stores Valuation"
+                  value={formatCurrency(storesData.reduce((acc, s) => acc + (s.total_value || 0), 0))}
+                  icon="mdi:currency-usd"
+                  badge="Valuation"
+                  badgeColor="emerald"
+                />
+              </div>
+            </div>
+
+            {/* Stores Content View (Grid or Table) */}
+            {isStoresLoading ? (
+              <div className="py-20 text-center text-xs text-gray-400 bg-[#001219] rounded-xl border border-[#0A4D66]/40">
+                <Icon icon="mdi:loading" className="w-8 h-8 animate-spin mx-auto mb-2 text-[#7FD5FF]" />
+                <p>Loading inventory stores...</p>
+              </div>
+            ) : filteredStores.length === 0 ? (
+              <div className="py-20 text-center text-xs text-gray-400 bg-[#001219] rounded-xl border border-[#0A4D66]/40">
+                <Icon icon="mdi:store-outline" className="w-10 h-10 mx-auto mb-3 text-gray-500 opacity-60" />
+                <p className="font-semibold text-gray-300">No stores found.</p>
+                <p className="mt-1 text-gray-500">
+                  {storeSearchQuery ? "Try refining your search filter." : "Click '+ Add Store' to create a custom inventory storage location."}
+                </p>
+              </div>
+            ) : storeViewMode === "table" ? (
+              <div className="rounded-xl border border-[#0A4D66]/40 overflow-hidden bg-[#001219]">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-[#0A4D66]/40 bg-[#001825]/90 text-[11px] uppercase tracking-wider text-gray-400">
+                      <th className="px-6 py-4 font-semibold">Store Name &amp; Code</th>
+                      <th className="px-6 py-4 font-semibold">Type &amp; Status</th>
+                      <th className="px-6 py-4 font-semibold">Operating Base / Unit</th>
+                      <th className="px-6 py-4 font-semibold text-right">Items Count</th>
+                      <th className="px-6 py-4 font-semibold text-right">Total Units</th>
+                      <th className="px-6 py-4 font-semibold text-right">Valuation</th>
+                      <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A4D66]/20 text-gray-200">
+                    {filteredStores.map((store) => (
+                      <tr
+                        key={store.id}
+                        className="hover:bg-[#0A4D66]/15 transition-colors cursor-pointer"
+                        onClick={() => setStoreForView(store)}
+                      >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Icon
+                              icon={store.is_system ? "mdi:shield-home-outline" : "mdi:store-outline"}
+                              className={cn(
+                                "w-5 h-5 shrink-0",
+                                store.is_system ? "text-amber-400" : "text-[#7FD5FF]",
+                              )}
+                            />
+                            <div>
+                              <div className="font-semibold text-white tracking-wide">
+                                {store.name}
+                              </div>
+                              {store.code && (
+                                <div className="text-[11px] font-mono text-sky-400">
+                                  {store.code}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {store.is_system ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                              <Icon icon="mdi:shield-lock-outline" className="w-3.5 h-3.5" />
+                              <span>Core System Store (Protected)</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                              <Icon icon="mdi:check-circle-outline" className="w-3.5 h-3.5" />
+                              <span>Custom Repository</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-gray-300">
+                          {store.unit?.name ?? "General Logistics / All Units"}
+                        </td>
+                        <td className="px-6 py-4 text-right font-mono font-semibold text-white">
+                          {store.inventories_count ?? store.inventories?.length ?? 0}
+                        </td>
+                        <td className="px-6 py-4 text-right font-mono font-semibold text-[#7FD5FF]">
+                          {store.total_stock ?? 0}
+                        </td>
+                        <td className="px-6 py-4 text-right font-mono font-bold text-emerald-400">
+                          {formatCurrency(store.total_value)}
+                        </td>
+                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setStoreForView(store)}
+                              title="View Items In Store"
+                              className="p-1.5 rounded hover:bg-[#0A4D66]/40 text-[#7FD5FF] hover:text-white transition-colors"
+                            >
+                              <Icon icon="mdi:eye" className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/dashboard/inventory/add?store_id=${store.id}`)}
+                              title="Add Item To This Store"
+                              className="p-1.5 rounded hover:bg-emerald-600/30 text-emerald-400 hover:text-emerald-300 transition-colors"
+                            >
+                              <Icon icon="mdi:plus-circle" className="w-4 h-4" />
+                            </button>
+                            {store.is_system ? (
+                              <span
+                                title="System Store cannot be edited or deleted"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] text-gray-500 bg-gray-900/40 border border-gray-700/40 cursor-not-allowed"
+                              >
+                                <Icon icon="mdi:lock" className="w-3 h-3 text-amber-500/60" />
+                                <span>Locked</span>
+                              </span>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setStoreForEdit(store)}
+                                  title="Edit Store"
+                                  className="p-1.5 rounded hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-colors"
+                                >
+                                  <Icon icon="mdi:pencil" className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setStoreForDelete(store)}
+                                  title="Delete Store"
+                                  className="p-1.5 rounded hover:bg-red-600/30 text-red-400 hover:text-red-300 transition-colors"
+                                >
+                                  <Icon icon="mdi:delete" className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredStores.map((store) => (
+                  <div
+                    key={store.id}
+                    className="bg-[#001219] border border-[#0A4D66]/40 hover:border-[#7FD5FF]/50 rounded-xl p-5 flex flex-col justify-between gap-4 transition-all relative group shadow-sm cursor-pointer"
+                    onClick={() => setStoreForView(store)}
+                  >
+                    <div className="space-y-3">
+                      {/* Store Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "w-11 h-11 rounded-xl flex items-center justify-center border",
+                            store.is_system
+                              ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+                              : "bg-[#0A4D66]/30 border-[#0A4D66]/60 text-[#7FD5FF]",
+                          )}>
+                            <Icon
+                              icon={store.is_system ? "mdi:shield-home-outline" : "mdi:store-outline"}
+                              className="w-6 h-6"
+                            />
+                          </div>
+                          <div>
+                            <h3 className="text-white font-bold text-base group-hover:text-[#7FD5FF] transition-colors">
+                              {store.name}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {store.code && (
+                                <span className="font-mono text-xs px-1.5 py-0.2 rounded bg-sky-950/80 border border-sky-500/40 text-sky-300 font-semibold">
+                                  {store.code}
+                                </span>
+                              )}
+                              <span className="text-xs text-gray-400">
+                                {store.unit?.name ?? "General Logistics"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {store.is_system ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                            <Icon icon="mdi:shield-lock-outline" className="w-3 h-3" />
+                            <span>System Protected</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                            <span>Custom</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {store.description && (
+                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed">
+                          {store.description}
+                        </p>
+                      )}
+
+                      {/* Store Metrics Inside Card */}
+                      <div className="grid grid-cols-3 gap-2 p-2.5 rounded-lg bg-[#001825] border border-[#0A4D66]/30 text-center">
+                        <div>
+                          <span className="text-[10px] text-gray-500 uppercase block font-semibold">
+                            Items
+                          </span>
+                          <span className="text-sm font-bold text-white">
+                            {store.inventories_count ?? store.inventories?.length ?? 0}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-500 uppercase block font-semibold">
+                            Units
+                          </span>
+                          <span className="text-sm font-bold text-[#7FD5FF]">
+                            {store.total_stock ?? 0}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-gray-500 uppercase block font-semibold">
+                            Valuation
+                          </span>
+                          <span className="text-sm font-bold text-emerald-400">
+                            {formatCurrency(store.total_value)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Action Footer */}
+                    <div
+                      className="flex items-center justify-between pt-3 border-t border-[#0A4D66]/30 text-xs"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setStoreForView(store)}
+                        className="inline-flex items-center gap-1 text-[#7FD5FF] hover:underline font-semibold"
+                      >
+                        <Icon icon="mdi:eye-outline" className="w-4 h-4" />
+                        <span>View Items ({store.inventories_count ?? store.inventories?.length ?? 0})</span>
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/dashboard/inventory/add?store_id=${store.id}`)}
+                          title="Add Item To Store"
+                          className="p-1.5 rounded hover:bg-emerald-600/30 text-emerald-400 hover:text-emerald-300 transition-colors"
+                        >
+                          <Icon icon="mdi:plus-circle" className="w-4 h-4" />
+                        </button>
+                        {store.is_system ? (
+                          <span
+                            title="System stores cannot be edited or deleted"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] text-gray-500 bg-gray-900/60 border border-gray-700/40 cursor-not-allowed"
+                          >
+                            <Icon icon="mdi:lock" className="w-3 h-3 text-amber-500/70" />
+                            <span>Protected</span>
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setStoreForEdit(store)}
+                              title="Edit Store"
+                              className="p-1.5 rounded hover:bg-amber-600/30 text-amber-400 hover:text-amber-300 transition-colors"
+                            >
+                              <Icon icon="mdi:pencil" className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setStoreForDelete(store)}
+                              title="Delete Store"
+                              className="p-1.5 rounded hover:bg-red-600/30 text-red-400 hover:text-red-300 transition-colors"
+                            >
+                              <Icon icon="mdi:delete" className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-gray-500">
             <Icon icon="mdi:tools" className="w-12 h-12 mb-4 opacity-20" />
@@ -2376,6 +3095,37 @@ export const InventoryPage = () => {
           }}
         />
       )}
+
+      {/* Stores Modals */}
+      <StoreModal
+        open={isAddStoreOpen || Boolean(storeForEdit)}
+        onClose={() => {
+          setIsAddStoreOpen(false);
+          setStoreForEdit(null);
+        }}
+        initialData={storeForEdit}
+        onSuccess={() => {
+          refetchStores();
+        }}
+      />
+
+      <StoreInventoryModal
+        open={Boolean(storeForView)}
+        onClose={() => setStoreForView(null)}
+        storeId={storeForView?.id ?? null}
+        onAddInventoryToStore={(sId) => {
+          navigate(`/dashboard/inventory/add?store_id=${sId}`);
+        }}
+      />
+
+      <DeleteStoreModal
+        open={Boolean(storeForDelete)}
+        onClose={() => setStoreForDelete(null)}
+        store={storeForDelete}
+        onSuccess={() => {
+          refetchStores();
+        }}
+      />
 
       <ImportCsvModal
         open={isImportOpen}

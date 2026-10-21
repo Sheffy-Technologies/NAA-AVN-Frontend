@@ -56,3 +56,55 @@ Env vars (see `.env.example`): `VITE_API_BASE_URL`, `VITE_REVERB_APP_KEY`, `VITE
 **Release pipeline**: `.github/workflows/release.yml` builds native installers on `macos-latest` (both `aarch64-apple-darwin` and `x86_64-apple-darwin`), `ubuntu-22.04`, and `windows-latest` via `tauri-apps/tauri-action`, triggered by pushing a `v*` tag (or manual `workflow_dispatch`). This is the only reliable way to produce a real Windows installer — cross-compiling from macOS (`tauri:build:win64`) only validates that the Rust side compiles, since NSIS bundling needs to run on Windows.
 
 **Testing**: `vitest` + `jsdom` + `@testing-library/react`, configured directly in `vite.config.ts` (`test.setupFiles: "./src/test/setup.ts"`) rather than a separate vitest config file. Test coverage is currently minimal (`src/test/authSlice.test.ts`, `src/test/LoginPage.test.tsx`).
+
+## Domain architecture
+
+Two developers work on this codebase in parallel (PR #13, branch `feature/maintenance-hub-fleet-updates`). A merge has already dropped imports, hooks and buttons silently (commit `9c1d231`). After any merge, run `npm run build`, then check that each conflicted page still has the features both sides had, not just that it compiles. Change history: `NAA_Aviation_Comprehensive_Update_Report_Oct16_Oct19.md` and `NAA_Aviation_Update_Report_Oct21.md` in the repo root.
+
+**Maintenance Hub vs Assets**: there are two separate aircraft views that share only basic airframe attributes (registration, model, manufacturer, unit).
+- `/dashboard/assets/:id` (`features/assets/pages/AssetDetailsPage.tsx`) is the flight-operations view.
+- `/dashboard/maintenance/aircraft/:id` (`features/maintenance/pages/MaintenanceAircraftDetailsPage.tsx`) is the engineering view: components, engines and avionics editing; an independent flight ledger (`/flight-logs`, via `features/assets/components/FlightLogModal.tsx`); read-only operation history with a "Log Duration in Flight" action; defects; tracking.
+- Maintenance Hub tables link to the engineering route, never to the asset page.
+
+**Pilot type rating vs airframe**:
+- A pilot's qualification belongs to the aircraft *platform* (backend `AssetType`, e.g. "Bell UH-1H Helicopter"). It is stored on `personnel.rating_type` and never as a tail number.
+- Operations and flight hours attach to the *physical airframe* (`Asset`, e.g. NA 010).
+- The backend eager-loads `assetType` on assets. `OperationForm` labels airframes as `Platform → Tail` and shows whether the chosen crew is type-rated for that platform.
+
+**Procurement** (`features/inventory`):
+- The flow lives in `components/ProcurementSection.tsx` and its tabs: Overview, a Kanban pipeline with a `+` button per stage, Part Requisitions, RFQs (shown before Suppliers), Quotations, Purchase Orders, Stock Issued, Stock Received.
+- `pages/ProcurementLifecyclePage.tsx` is the older all-in-one flow; it still works and can still create requisitions.
+- Items "not in stock" are sent inline as `new_inventory` on PO, work-order and requisition payloads (`newInventoryItem.ts`, `components/NewInventoryItemFields.tsx`). The backend creates the inventory record inside the same transaction.
+
+**Inventory**:
+- Inventory now has multiple stores (`/stores`; system stores cannot be deleted).
+- Serialized `inventory_units` track individual components.
+- New fields: NSN, ATA chapter, CAGE code, plus batch, GSE and consumable fields.
+- Aircraft spare parts use their own batch intake form (`components/AircraftSparePartsForm.tsx`, chosen by category in `InventoryFormPage.tsx`). Common details are entered once; serial numbers are optional per unit and can be auto-generated in sequence.
+- Other categories (minor spares, consumables, GSE, general/QM stores) stay on non-serialized batch intake.
+- The backend rejects duplicate serial numbers, both within one batch and against existing records.
+
+**Official NAAVN documents** (Purchase Order NAAVN-006, RFQ, Work Order). Two implementations exist; pick one before extending either.
+- `src/shared/documents/` (`naavnDocument.ts` model, `naavnExcel.ts` via ExcelJS, `naavnPdf.ts` vector jsPDF) is driven by builders in `features/inventory/procurementDocuments.ts` and `features/maintenance/workOrderDocument.ts`. It follows the sample templates kept in `docs/` and is used for **all Excel exports** and for the **work-order PDF**.
+- `features/inventory/components/PurchaseOrderPrintDocument.tsx` and `RfqPrintDocument.tsx` are on-screen HTML layouts captured with `downloadElementAsPdf` (html2canvas). They are used for **PO and RFQ PDF** and the in-page document preview.
+- ExcelJS shares style objects between cells of a column, so always assign a fresh `cell.style` object; never mutate `cell.border` and similar in place.
+
+**Operations**:
+- `OperationLocationPicker.tsx` waypoints are draggable and recompute coordinates (lat/lon, MGRS, DMS), leg distances and flight time as they move.
+- Fuel calculation and unit fuel stock appear per allocated aircraft in section 3 of `OperationForm`.
+- A weather briefing (NOAA METAR/TAF) is served by `/weather/briefing`.
+- The backend wraps broadcasts in try/catch, so an offline Reverb server no longer turns mission saves into 500 errors.
+- Operation asset rows come back as the asset itself (`id` = asset id), with crew and flight times under `pivot`. Read `asset_id ?? asset.id` and `pilot_id ?? pivot.pilot_id`, as `OperationForm` and `AfterActionReportForm` do.
+
+**Attendance**: personnel clock in and out themselves from the header (`features/personnel/components/ClockInModal.tsx` → `/attendance/clock-in` / `clock-out`, with geolocation for the unit geofence). This needs the user account linked to a personnel record. `AttendancePage` is view, export and delete only; no screen creates or edits attendance manually.
+
+## UI conventions
+
+- **Clickable table rows**: use `onInteractiveRowClick` / `onInteractiveRowKeyDown` from `src/shared/utils/onInteractiveRowClick.ts`, with `tabIndex={0}` on the row. They ignore clicks that start on buttons, menus, checkboxes, inputs, links or text selections.
+- **Back navigation**: use `BackButton` (`src/shared/ui/button`) instead of `navigate(-1)`. It resolves the destination via `src/shared/utils/navigationContext.ts`: router state `from`/`fromLabel` first, then `?returnTo=` / `?from=`, then `fallbackUrl`, validated to same-origin paths only. Pass `isDirty` to get the unsaved-changes prompt. When linking to a detail page, pass `state={{ from, fromLabel }}` so the button reads "Back to …".
+- **`SearchableSelect`** (`src/shared/ui/select`) matches the selected value with `===`. Pass `value` with the same type as the option values (numbers vs strings); a mismatch silently shows the placeholder.
+- Show the API's `error.data.message` in toasts and error states rather than a generic "Failed to …".
+
+## Backend deploy notes
+
+New migrations must be run (`php artisan migrate`) on staging/production before the matching frontend ships: stores, `inventory_units` (+ ATA columns), inventory specification/batch/GSE fields, `personnel.rating_type`, work-order `status`, inventory `nsn`/`ata_chapter`, and the platform/airframe seed migration (`2026_10_21_000002`). The deployed API is `https://avn-api.claimify.ng/api`; local `.env` points at it, so local backend data may not match what the app shows.

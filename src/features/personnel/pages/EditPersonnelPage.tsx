@@ -151,8 +151,10 @@ export const EditPersonnelPage = () => {
   });
 
   // Additional State for Ratings & Flight Hours
-  const [selectedAircraftIds, setSelectedAircraftIds] = useState<number[]>([]);
-  const [flightHours, setFlightHours] = useState<Record<number, string>>({});
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+  const [platformFlightHours, setPlatformFlightHours] = useState<
+    Record<string, string>
+  >({});
 
   const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
   const [ratingExpiryDates, setRatingExpiryDates] = useState<
@@ -226,39 +228,46 @@ export const EditPersonnelPage = () => {
       );
     }
 
+    // Initialize Type Rating platforms
+    if (personnel.rating_type) {
+      const parts = personnel.rating_type
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean);
+      const recognizedPlatforms: string[] = [];
+      parts.forEach((part) => {
+        const lower = part.toLowerCase();
+        if (lower.includes("bell") || lower.includes("uh-1h") || lower.includes("uh1h")) {
+          recognizedPlatforms.push("Bell UH-1H Helicopter");
+        } else if (lower.includes("magnus") || lower.includes("212")) {
+          recognizedPlatforms.push("Magnus Fusion 212");
+        } else {
+          recognizedPlatforms.push(part);
+        }
+      });
+      setSelectedPlatforms(Array.from(new Set(recognizedPlatforms)));
+    }
+
     if (
       Array.isArray(personnel.flight_experiences) &&
       personnel.flight_experiences.length > 0
     ) {
-      setSelectedAircraftIds(
-        personnel.flight_experiences
-          .map((experience) => experience.asset_id)
-          .filter((assetId): assetId is number => typeof assetId === "number"),
-      );
-      setFlightHours(
-        personnel.flight_experiences.reduce<Record<number, string>>(
-          (acc, experience) => {
-            if (typeof experience.asset_id === "number") {
-              acc[experience.asset_id] = String(experience.flight_hours ?? 0);
-            }
-            return acc;
-          },
-          {},
-        ),
-      );
-    } else if (personnel.rating_type && aircraftAssets.length > 0) {
-      const allRatings = personnel.rating_type
-        .split(",")
-        .map((r) => r.trim().toLowerCase())
-        .filter(Boolean);
-      const aircraftIds = allRatings
-        .map(
-          (name) =>
-            aircraftAssets.find((asset) => asset.name.trim().toLowerCase() === name)
-              ?.id,
-        )
-        .filter((assetId): assetId is number => typeof assetId === "number");
-      setSelectedAircraftIds(aircraftIds);
+      const initialHours: Record<string, string> = {};
+      personnel.flight_experiences.forEach((exp) => {
+        const asset = aircraftAssets.find((a) => a.id === exp.asset_id);
+        const platform =
+          asset?.asset_type?.name ||
+          (asset?.name?.toLowerCase().includes("bell")
+            ? "Bell UH-1H Helicopter"
+            : asset?.name?.toLowerCase().includes("magnus")
+            ? "Magnus Fusion 212"
+            : asset?.name) ||
+          "Bell UH-1H Helicopter";
+        if (platform) {
+          initialHours[platform] = String(exp.flight_hours ?? 0);
+        }
+      });
+      setPlatformFlightHours(initialHours);
     }
 
     setStatus((personnel.status || "").toLowerCase());
@@ -349,26 +358,26 @@ export const EditPersonnelPage = () => {
     }));
   };
 
-  const handleAircraftChange = (selected: (string | number)[]) => {
-    const ids = selected as number[];
-    setSelectedAircraftIds(ids);
+  const handleTypeRatingChange = (selected: (string | number)[]) => {
+    const platforms = selected.map(String);
+    setSelectedPlatforms(platforms);
 
-    // Clean up flight hours for deselected aircraft
-    setFlightHours((prev) => {
+    // Clean up flight hours for deselected platforms
+    setPlatformFlightHours((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((key) => {
-        if (!ids.includes(Number(key))) {
-          delete next[Number(key)];
+        if (!platforms.includes(key)) {
+          delete next[key];
         }
       });
       return next;
     });
   };
 
-  const handleFlightHourChange = (aircraftId: number, value: string) => {
-    setFlightHours((prev) => ({
+  const handlePlatformFlightHourChange = (platform: string, value: string) => {
+    setPlatformFlightHours((prev) => ({
       ...prev,
-      [aircraftId]: value,
+      [platform]: value,
     }));
   };
 
@@ -427,14 +436,24 @@ export const EditPersonnelPage = () => {
     if (!id) return;
 
     try {
-      const aircraftNames = selectedAircraftIds
-        .map((assetId) =>
-          aircraftAssets.find((asset) => asset.id === assetId)?.name,
-        )
-        .filter(Boolean) as string[];
-      const selectedRatingNames = selectedRatings
-        .map((ratingId) => ratings.find((rating) => rating.id === ratingId)?.name)
-        .filter(Boolean) as string[];
+      const flightExperiencesPayload = selectedPlatforms
+        .map((platform) => {
+          const matchingAsset = aircraftAssets.find(
+            (a) =>
+              a.asset_type?.name === platform ||
+              (platform.includes("Bell") &&
+                (a.name?.includes("Bell") || a.model?.includes("UH-1H"))) ||
+              (platform.includes("Magnus") &&
+                (a.name?.includes("Magnus") || a.model?.includes("212"))),
+          );
+          return {
+            asset_id: matchingAsset?.id ?? 0,
+            flight_hours: Number(platformFlightHours[platform] || 0),
+            notes: `Platform: ${platform}`,
+          };
+        })
+        .filter((exp) => exp.asset_id > 0);
+
       const normalizedDeployments = deployments
         .filter((deployment) =>
           Object.values(deployment).some((value) => Boolean(value)),
@@ -452,17 +471,13 @@ export const EditPersonnelPage = () => {
 
       const payload: CreatePersonnelRequest = {
         ...formData,
-        rating_type: [...selectedRatingNames, ...aircraftNames].join(","),
+        rating_type: selectedPlatforms.join(", "),
         status: status || undefined,
         ratings: selectedRatings.map((ratingId) => ({
           rating_id: ratingId,
           expiry_date: ratingExpiryDates[ratingId] || null,
         })),
-        flight_experiences: selectedAircraftIds.map((assetId) => ({
-          asset_id: assetId,
-          flight_hours: Number(flightHours[assetId] || 0),
-          notes: "",
-        })),
+        flight_experiences: flightExperiencesPayload,
         // These are optional; an unselected dropdown resolves to "" or 0, which
         // must become null rather than 0 (an invalid foreign key) on submit.
         rank_id: toNullableId(formData.rank_id),
@@ -499,14 +514,12 @@ export const EditPersonnelPage = () => {
     }
   };
 
-  const aircraftOptions: MultiSelectOption[] = useMemo(() => {
-    if (isLoadingAircraftAssets) return [];
-
-    return aircraftAssets.map((a) => ({
-      label: `${a.name}${a.tail_number ? ` (${a.tail_number})` : ""}`,
-      value: a.id,
-    }));
-  }, [aircraftAssets, isLoadingAircraftAssets]);
+  const typeRatingPlatformOptions: MultiSelectOption[] = useMemo(() => {
+    return [
+      { label: "Bell UH-1H Helicopter", value: "Bell UH-1H Helicopter" },
+      { label: "Magnus Fusion 212", value: "Magnus Fusion 212" },
+    ];
+  }, []);
 
   const ratingOptions: MultiSelectOption[] = useMemo(
     () =>
@@ -696,11 +709,11 @@ export const EditPersonnelPage = () => {
               disabled={isLoadingRatings}
             />
             <MultiSelect
-              label="Aircraft Rated On"
-              placeholder="Select Aircraft"
-              options={aircraftOptions}
-              selectedValues={selectedAircraftIds}
-              onChange={handleAircraftChange}
+              label="Type Rating"
+              placeholder="Select Type Rating"
+              options={typeRatingPlatformOptions}
+              selectedValues={selectedPlatforms}
+              onChange={handleTypeRatingChange}
             />
           </div>
         </div>
@@ -728,30 +741,27 @@ export const EditPersonnelPage = () => {
           </div>
         )}
 
-        {/* Aircraft Operational Experience Section */}
-        {selectedAircraftIds.length > 0 && (
+        {/* Aircraft Platform Operational Experience Section */}
+        {selectedPlatforms.length > 0 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
             <h2 className="text-lg font-medium text-cyan-400 border-b border-white/10 pb-2 uppercase">
-              Aircraft Operational Experience
+              Platform Operational Experience
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedAircraftIds.map((aircraftId) => {
-                const aircraft = aircraftAssets.find((a) => a.id === aircraftId);
-                return (
-                  <InputField
-                    key={aircraftId}
-                    label={aircraft?.name || "Unknown Aircraft"}
-                    type="number"
-                    value={flightHours[aircraftId] || ""}
-                    onChange={(e) =>
-                      handleFlightHourChange(aircraftId, e.target.value)
-                    }
-                    placeholder="Enter Total Flight Hours"
-                    min="0"
-                    step="0.1"
-                  />
-                );
-              })}
+              {selectedPlatforms.map((platform) => (
+                <InputField
+                  key={platform}
+                  label={`${platform} Total Flight Hours`}
+                  type="number"
+                  value={platformFlightHours[platform] || ""}
+                  onChange={(e) =>
+                    handlePlatformFlightHourChange(platform, e.target.value)
+                  }
+                  placeholder="Enter Total Flight Hours"
+                  min="0"
+                  step="0.1"
+                />
+              ))}
             </div>
           </div>
         )}

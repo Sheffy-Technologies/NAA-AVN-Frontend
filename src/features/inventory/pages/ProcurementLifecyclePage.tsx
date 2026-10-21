@@ -41,10 +41,7 @@ import {
   toInventoryOptions,
 } from "@/features/inventory/inventoryOptions";
 import { useGetWorkOrdersQuery } from "@/features/maintenance/api";
-import { useGetUnitsQuery } from "@/shared/api/units";
-import { SearchableSelect, type SearchableSelectOption } from "@/shared/ui/select/SearchableSelect";
-import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
-import { cn } from "@/shared/utils/cn";
+import { BackButton } from "@/shared/ui/button/BackButton";
 
 const cardClass =
   "rounded-xl border border-[var(--theme-border-em)] bg-[var(--theme-bg-card)] p-4 sm:p-6";
@@ -667,12 +664,17 @@ export const ProcurementLifecyclePage = () => {
     }
   };
 
-  const handleIssueStock = async () => {
-    const req = issueRequisition;
-    if (!req?.stocks?.length) {
-      setError("Select a requisition to issue stock against.");
-      return;
-    }
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center">
+        <BackButton fallbackUrl="/dashboard/inventory" />
+      </div>
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--theme-text-primary)]">Procurement Inventory Life Cycle</h1>
+        <p className="text-sm mt-1 text-[var(--theme-text-muted)]">
+          Requisition from engineering work orders, RFQ/quotation approval, PO creation, GRN, and batched stock updates.
+        </p>
+      </div>
 
     const toIssue: Array<{ lineId: number; quantity: number }> = [];
     for (const [index, line] of req.stocks.entries()) {

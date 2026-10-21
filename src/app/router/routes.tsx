@@ -1,5 +1,5 @@
 import { Suspense, lazy, type ReactElement } from "react";
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useParams, useLocation } from "react-router-dom";
 import { AuthLayout } from "@/app/layout/AuthLayout";
 import { RouteErrorBoundary } from "@/app/router/RouteErrorBoundary";
 import { RequireAuth } from "@/app/router/RequireAuth";
@@ -295,11 +295,21 @@ const WorkOrderDetailsPage = lazy(() =>
     default: module.WorkOrderDetailsPage,
   })),
 );
-const MaintenanceAircraftDetailsPage = lazy(() =>
-  import("@/features/maintenance/pages/MaintenanceAircraftDetailsPage").then((module) => ({
-    default: module.MaintenanceAircraftDetailsPage,
-  })),
-);
+const MaintenanceAircraftRedirect = () => {
+  const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  return (
+    <Navigate
+      to={`/dashboard/assets/${id}`}
+      replace
+      state={
+        location.state?.from
+          ? location.state
+          : { from: "/dashboard/maintenance", fromLabel: "Maintenance Hub" }
+      }
+    />
+  );
+};
 const UserDetailsPage = lazy(() =>
   import("@/features/users/pages/UserDetailsPage").then((module) => ({
     default: module.UserDetailsPage,
@@ -900,9 +910,7 @@ export const router = createBrowserRouter([
       {
         path: "maintenance/aircraft/:id",
         element: guardWithPermissions((
-          <Suspense fallback={loadingElement}>
-            <MaintenanceAircraftDetailsPage />
-          </Suspense>
+          <MaintenanceAircraftRedirect />
         ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {

@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
 import { cn } from "@/shared/utils/cn";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useGetPersonnelQuery,
   type Personnel as ApiPersonnel,
@@ -107,6 +108,7 @@ const PERSONNEL_IMPORT_FIELDS: ImportCsvField[] = [
 
 export const PersonnelPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const [unitFilter, setUnitFilter] = useState<MultiFilterState<number>>({
     all: true,
@@ -428,7 +430,9 @@ export const PersonnelPage = () => {
   };
 
   const handleOpenDetail = (id: string) => {
-    navigate(`/dashboard/personnel/${id}`);
+    navigate(`/dashboard/personnel/${id}`, {
+      state: { from: "/dashboard/personnel", fromLabel: "Personnel" },
+    });
   };
 
   const getPersonnelInitials = (name: string) =>
@@ -441,7 +445,12 @@ export const PersonnelPage = () => {
       .toUpperCase();
 
   return (
-    <div className="px-2 sm:px-0">
+    <div className="px-2 sm:px-0 space-y-4">
+      {location.state?.from && (
+        <div className="flex items-center">
+          <BackButton fallbackUrl="/dashboard" />
+        </div>
+      )}
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl">
         {/* Module-level tab bar */}
         <PersonnelModuleTabs />
@@ -1200,8 +1209,16 @@ export const PersonnelPage = () => {
               : filteredPersonnel.map((p) => (
                   <div
                     key={p.id}
-                    onClick={() => handleOpenDetail(p.id)}
-                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-xl p-5 flex flex-col gap-4 cursor-pointer hover:border-[#7FD5FF]/70 transition-colors"
+                    tabIndex={0}
+                    role="button"
+                    title="Click to view personnel details"
+                    onClick={(e) =>
+                      onInteractiveRowClick(e, () => handleOpenDetail(p.id))
+                    }
+                    onKeyDown={(e) =>
+                      onInteractiveRowKeyDown(e, () => handleOpenDetail(p.id))
+                    }
+                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-xl p-5 flex flex-col gap-4 cursor-pointer hover:border-[#7FD5FF]/70 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]"
                   >
                     <div className="flex items-start gap-4">
                       {p.image ? (

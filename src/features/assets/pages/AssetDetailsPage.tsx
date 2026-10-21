@@ -38,6 +38,7 @@ import {
   ImportCsvModal,
   type ImportCsvField,
 } from "@/shared/components/ImportCsvModal";
+import { BackButton } from "@/shared/ui/button/BackButton";
 
 
 // Mirrors AddAssetPage.tsx's fallback list, used when the engine positions
@@ -2020,13 +2021,7 @@ export const AssetDetailsPage = () => {
       {/* Ad-hoc Task Modal removed */}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors"
-        >
-          <Icon icon="mdi:arrow-left" className="w-5 h-5" />
-          <span>Back</span>
-        </button>
+        <BackButton fallbackUrl="/dashboard/assets" />
 
         <div className="flex items-center space-x-2">
           <button
@@ -2042,7 +2037,14 @@ export const AssetDetailsPage = () => {
             <span>Update status</span>
           </button>
           <button
-            onClick={() => navigate("/dashboard/operations/add")}
+            onClick={() =>
+              navigate("/dashboard/operations/add", {
+                state: {
+                  from: `/dashboard/assets/${asset.id}`,
+                  fromLabel: asset.name || "Asset Details",
+                },
+              })
+            }
             className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
           >
             <Icon icon="mdi:clock-outline" className="w-4 h-4" />
@@ -2050,7 +2052,12 @@ export const AssetDetailsPage = () => {
           </button>
           <button
             onClick={() =>
-              navigate(`/dashboard/assets/${asset.id}/defects/add`)
+              navigate(`/dashboard/assets/${asset.id}/defects/add`, {
+                state: {
+                  from: `/dashboard/assets/${asset.id}`,
+                  fromLabel: asset.name || "Asset Details",
+                },
+              })
             }
             className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
           >
@@ -2058,7 +2065,14 @@ export const AssetDetailsPage = () => {
             <span>Report Defect</span>
           </button>
           <button
-            onClick={() => navigate(`/dashboard/assets/${asset.id}/edit`)}
+            onClick={() =>
+              navigate(`/dashboard/assets/${asset.id}/edit`, {
+                state: {
+                  from: `/dashboard/assets/${asset.id}`,
+                  fromLabel: asset.name || "Asset Details",
+                },
+              })
+            }
             className="flex items-center space-x-2 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded hover:bg-[#0A4D66]/20 text-xs text-[#7FD5FF] transition-colors"
           >
             <Icon icon="mdi:pencil-outline" className="w-4 h-4" />

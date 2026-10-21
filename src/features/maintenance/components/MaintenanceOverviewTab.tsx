@@ -181,7 +181,13 @@ export const MaintenanceOverviewTab = ({
         icon: "mdi:airplane",
         badge: `${serviceableAircraft} Serviceable`,
         badgeColor: "emerald",
-        onClick: () => navigate("/dashboard/assets"),
+        onClick: () =>
+          navigate("/dashboard/assets", {
+            state: {
+              from: "/dashboard/maintenance",
+              fromLabel: "Maintenance Hub Overview",
+            },
+          }),
       },
       {
         id: "work_orders",
@@ -395,7 +401,14 @@ export const MaintenanceOverviewTab = ({
                 {recentWorkOrders.map((wo) => (
                   <div
                     key={wo.id}
-                    onClick={() => navigate(`/dashboard/maintenance/work-orders/${wo.id}`)}
+                    onClick={() =>
+                      navigate(`/dashboard/maintenance/work-orders/${wo.id}`, {
+                        state: {
+                          from: "/dashboard/maintenance",
+                          fromLabel: "Maintenance Hub Overview",
+                        },
+                      })
+                    }
                     className={cn(
                       "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors",
                       isDark
@@ -672,7 +685,14 @@ export const MaintenanceOverviewTab = ({
                   return (
                     <div
                       key={item.id}
-                      onClick={() => onNavigateTab("inventory", "stocks")}
+                      onClick={() =>
+                        navigate(`/dashboard/inventory/${item.id}`, {
+                          state: {
+                            from: "/dashboard/maintenance",
+                            fromLabel: "Maintenance Hub Overview",
+                          },
+                        })
+                      }
                       className={cn(
                         "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors",
                         isCritical
