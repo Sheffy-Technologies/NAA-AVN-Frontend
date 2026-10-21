@@ -81,20 +81,22 @@ export type DashboardHomeFlightProgramType = {
 
 export type DashboardHomeFlightProgram = {
   id: number;
-  unit_id: number;
-  pilot_id: number;
-  flight_program_type_id: number;
+  unit_id?: number | null;
+  pilot_id?: number | null;
+  flight_program_type_id?: number | null;
   name: string;
-  total_hours: string;
-  start_time: string;
-  end_time: string;
-  status: string;
-  description: string;
-  created_at: string;
-  updated_at: string;
-  unit: DashboardHomeBasicEntity;
-  flight_program_type: DashboardHomeFlightProgramType;
-  pilot: DashboardHomePilot;
+  total_hours?: string | number | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  start_date_time?: string | null;
+  end_date_time?: string | null;
+  status?: string | null;
+  description?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  unit?: DashboardHomeBasicEntity | null;
+  flight_program_type?: DashboardHomeFlightProgramType | null;
+  pilot?: DashboardHomePilot | null;
 };
 
 export type DashboardHomeResponse = {

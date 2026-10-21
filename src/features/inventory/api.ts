@@ -44,21 +44,113 @@ export type InventoryStock = {
   } | null;
 };
 
+export type Store = {
+  id: number;
+  name: string;
+  code: string | null;
+  description: string | null;
+  is_system: boolean;
+  unit_id: number | null;
+  unit?: InventoryUnit | null;
+  inventories_count?: number;
+  total_stock?: number;
+  total_value?: number;
+  inventories?: InventoryItem[];
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type CreateStorePayload = {
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  unit_id?: number | null;
+};
+
+export type UpdateStorePayload = {
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  unit_id?: number | null;
+};
+
+export type InventorySerializedUnit = {
+  id?: number;
+  inventory_id?: number;
+  unit_index?: number;
+  serial_number: string;
+  cage_code?: string | null;
+  part_number?: string | null;
+  nsn?: string | null;
+  alternate_support_part_no?: string | null;
+  status?: string;
+  store_id?: number | null;
+  unit_id?: number | null;
+  installed_asset_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type AtaChapter = {
+  id: number;
+  code?: string;
+  chapter_number?: string;
+  chapter_name?: string;
+  name?: string;
+  description?: string | null;
+  maintenance_category?: "engines" | "avionics" | "components" | string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type InventoryItem = {
   id: number;
-  store: "bonded" | "quarantine" | "flammable" | "rubber" | "others";
+  store: "bonded" | "quarantine" | "flammable" | "rubber" | "others" | string;
+  store_id?: number | null;
+  store_location?: Store | null;
   type?: string;
-  asset_id: number;
+  asset_id: number | null;
   expense_category_id: number;
   unit_id: number;
-  serial_number: string;
+  serial_number?: string | null;
   part_number: string;
+  cage_code?: string | null;
   nsn?: string | null;
+  alternate_support_part_no?: string | null;
+  batch_number?: string | null;
+  lot_number?: string | null;
+  calibration_due_date?: string | null;
+  calibration_interval_days?: number | null;
   ata_chapter?: string | null;
+  ata_chapter_id?: number | null;
+  ata_chapter_rel?: AtaChapter | null;
   current_stock: number;
   re_order_level: number;
-  unit_cost: string;
+  unit_cost: string | number;
   measurement_unit: string;
+  unit_of_issue?: string | null;
+  lead_time_days?: number | null;
+  lead_time_unit?: string | null;
+  manufacturer?: string | null;
+  supplier_id?: number | null;
+  supplier?: InventorySupplier | null;
+  special_storage?: string | null;
+  currency_id?: number | null;
+  currency_code?: string | null;
+  currency?: ProcurementCurrency | null;
+  is_serialized?: boolean;
+  shelf_life_types?: string[] | null;
+  shelf_life_hours?: number | null;
+  shelf_life_cycles?: number | null;
+  shelf_life_calendar_interval?: string | null;
+  shelf_life_calendar_value?: number | null;
+  shelf_life_start_date?: string | null;
+  life_limit_types?: string[] | null;
+  life_limit_hours?: number | null;
+  life_limit_cycles?: number | null;
+  life_limit_calendar_interval?: string | null;
+  life_limit_calendar_value?: number | null;
+  units?: InventorySerializedUnit[];
   expiry_date: string | null;
   date_received: string | null;
   remark: string;
@@ -87,6 +179,7 @@ export type InventoryFilters = {
   aircraft_types?: number[];
   type?: string;
   unit_id?: number;
+  store_id?: number | string;
 };
 
 export type CreateInventoryPayload = {
@@ -97,21 +190,50 @@ export type CreateInventoryPayload = {
     | "rubber"
     | "others"
     | string;
-  asset_id: number | null;
-  expense_category_id: number | null;
-  unit_id: number | null;
-  serial_number: string;
+  store_id?: number | null;
+  asset_id?: number | null;
+  expense_category_id?: number | null;
+  unit_id?: number | null;
+  serial_number?: string | null;
   part_number: string;
+  cage_code?: string | null;
   nsn?: string | null;
+  alternate_support_part_no?: string | null;
+  batch_number?: string | null;
+  lot_number?: string | null;
+  calibration_due_date?: string | null;
+  calibration_interval_days?: number | null;
   ata_chapter?: string | null;
+  ata_chapter_id?: number | null;
   current_stock: number;
-  re_order_level: number;
+  re_order_level?: number;
   unit_cost: number;
-  measurement_unit: string;
-  expiry_date: string | null;
-  date_received: string | null;
-  remark: string;
-  description: string;
+  measurement_unit?: string;
+  unit_of_issue?: string | null;
+  lead_time_days?: number | null;
+  lead_time_unit?: string | null;
+  manufacturer?: string | null;
+  supplier_id?: number | null;
+  special_storage?: string | null;
+  currency_id?: number | null;
+  currency_code?: string | null;
+  is_serialized?: boolean;
+  shelf_life_types?: string[] | null;
+  shelf_life_hours?: number | null;
+  shelf_life_cycles?: number | null;
+  shelf_life_calendar_interval?: string | null;
+  shelf_life_calendar_value?: number | null;
+  shelf_life_start_date?: string | null;
+  life_limit_types?: string[] | null;
+  life_limit_hours?: number | null;
+  life_limit_cycles?: number | null;
+  life_limit_calendar_interval?: string | null;
+  life_limit_calendar_value?: number | null;
+  units?: InventorySerializedUnit[];
+  expiry_date?: string | null;
+  date_received?: string | null;
+  remark?: string;
+  description?: string;
 };
 
 export type UpdateInventoryPayload = CreateInventoryPayload;
@@ -402,12 +524,14 @@ export type CreateGoodsReceivedNotePayload = {
 export const inventoryApi = createApi({
   reducerPath: "inventoryApi",
   baseQuery: axiosBaseQuery(),
+  tagTypes: ["Inventories", "Stores", "Currencies", "AtaChapters"],
   endpoints: (builder) => ({
     getInventoryDashboard: builder.query<InventoryDashboardResponse, void>({
       query: () => ({
         url: "/dashboard/inventories",
         method: "GET",
       }),
+      providesTags: ["Inventories"],
     }),
     getExpenseCategories: builder.query<InventoryExpenseCategory[], void>({
       query: () => ({
@@ -434,6 +558,7 @@ export const inventoryApi = createApi({
         method: "GET",
         params: params || undefined,
       }),
+      providesTags: ["Inventories"],
     }),
     getInventoryById: builder.query<InventoryItem, number | string>({
       query: (id) => ({
@@ -447,6 +572,7 @@ export const inventoryApi = createApi({
         method: "POST",
         data: body,
       }),
+      invalidatesTags: ["Inventories", "Stores"],
     }),
     updateInventory: builder.mutation<
       InventoryItem,
@@ -457,12 +583,14 @@ export const inventoryApi = createApi({
         method: "PUT",
         data: body,
       }),
+      invalidatesTags: ["Inventories", "Stores"],
     }),
     deleteInventory: builder.mutation<void, number | string>({
       query: (id) => ({
         url: `/inventories/${id}`,
         method: "DELETE",
       }),
+      invalidatesTags: ["Inventories", "Stores"],
     }),
     updateInventoryStock: builder.mutation<
       unknown,
@@ -473,6 +601,7 @@ export const inventoryApi = createApi({
         method: "POST",
         data: body,
       }),
+      invalidatesTags: ["Inventories", "Stores"],
     }),
     getInventoryRequisitions: builder.query<
       InventoryRequisition[],
@@ -635,6 +764,50 @@ export const inventoryApi = createApi({
         data: body,
       }),
     }),
+    getStores: builder.query<Store[], void>({
+      query: () => ({
+        url: "/stores",
+        method: "GET",
+      }),
+      providesTags: ["Stores"],
+    }),
+    getStoreById: builder.query<Store, number | string>({
+      query: (id) => ({
+        url: `/stores/${id}`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, id) => [{ type: "Stores", id }],
+    }),
+    createStore: builder.mutation<Store, CreateStorePayload>({
+      query: (body) => ({
+        url: "/stores",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: ["Stores"],
+    }),
+    updateStore: builder.mutation<Store, { id: number | string; body: UpdateStorePayload }>({
+      query: ({ id, body }) => ({
+        url: `/stores/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+      invalidatesTags: ["Stores"],
+    }),
+    deleteStore: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `/stores/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Stores"],
+    }),
+    getAtaChapters: builder.query<AtaChapter[], void>({
+      query: () => ({
+        url: "/ata-chapters",
+        method: "GET",
+      }),
+      providesTags: ["AtaChapters"],
+    }),
   }),
 });
 
@@ -656,6 +829,7 @@ export const {
   useGetPurchaseOrdersQuery,
   useGetBudgetsQuery,
   useGetCurrenciesQuery,
+  useGetAtaChaptersQuery,
   useGetStockMovementsQuery,
   useCreateStockMovementMutation,
   useGetRfqsQuery,
@@ -671,4 +845,9 @@ export const {
   useSendPurchaseOrderMutation,
   useGetGoodsReceivedNotesQuery,
   useCreateGoodsReceivedNoteMutation,
+  useGetStoresQuery,
+  useGetStoreByIdQuery,
+  useCreateStoreMutation,
+  useUpdateStoreMutation,
+  useDeleteStoreMutation,
 } = inventoryApi;

@@ -295,7 +295,9 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
                     title="Click to view purchase order details"
                     onClick={(e) =>
                       onInteractiveRowClick(e, () =>
-                        navigate(`/dashboard/inventory/purchase-orders/${order.id}`),
+                        navigate(`/dashboard/inventory/purchase-orders/${order.id}`, {
+                          state: { from: "/dashboard/inventory", fromLabel: "Purchase Orders" },
+                        }),
                       )
                     }
                     className="hover:bg-[#0A4D66]/20 cursor-pointer transition-colors"
@@ -303,6 +305,7 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
                     <td className="px-4 py-3 font-bold text-[var(--theme-text-primary)]">
                       <Link
                         to={`/dashboard/inventory/purchase-orders/${order.id}`}
+                        state={{ from: "/dashboard/inventory", fromLabel: "Purchase Orders" }}
                         onClick={(e) => e.stopPropagation()}
                         className="hover:text-sky-400 hover:underline"
                       >
@@ -380,7 +383,9 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/dashboard/inventory/purchase-orders/${order.id}`);
+                            navigate(`/dashboard/inventory/purchase-orders/${order.id}`, {
+                              state: { from: "/dashboard/inventory", fromLabel: "Purchase Orders" },
+                            });
                           }}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-sky-400 text-[11px] font-semibold transition-colors"
                         >

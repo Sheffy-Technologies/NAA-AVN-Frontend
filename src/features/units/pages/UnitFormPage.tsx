@@ -2,6 +2,7 @@ import { useState, useEffect, type ChangeEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useCreateUnitMutation,
   useUpdateUnitMutation,
@@ -40,6 +41,10 @@ export const UnitFormPage = () => {
   const [updateUnit, { isLoading: isUpdating }] = useUpdateUnitMutation();
   const isSubmitting = isCreating || isUpdating;
 
+  const isFormDirty = Boolean(
+    values.name.trim() || values.description.trim() || values.facility_id,
+  );
+
   useEffect(() => {
     if (isEditMode && units) {
       const unit = units.find((u) => u.id === Number(id));
@@ -69,10 +74,6 @@ export const UnitFormPage = () => {
       setValues((prev) => ({ ...prev, [field]: event.target.value }));
       setSubmitError(null);
     };
-
-  const handleBack = () => {
-    navigate("/dashboard/units");
-  };
 
   const handleSubmit = async () => {
     if (!values.name.trim()) {
@@ -108,15 +109,8 @@ export const UnitFormPage = () => {
   return (
     <div className="px-2 sm:px-0">
       <section className="flex items-center justify-between mb-4">
-        <div className="space-y-1">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="inline-flex items-center gap-2 text-[11px] sm:text-xs text-gray-400 hover:text-gray-200"
-          >
-            <Icon icon="mdi:arrow-left" className="w-4 h-4" />
-            <span>Back to Units</span>
-          </button>
+        <div className="flex items-center gap-3">
+          <BackButton fallbackUrl="/dashboard/units" isDirty={isFormDirty} />
           <h1 className="text-base sm:text-lg font-semibold text-white">
             {isEditMode ? "Edit Unit" : "Add Unit"}
           </h1>

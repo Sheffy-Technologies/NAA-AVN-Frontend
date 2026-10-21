@@ -4,6 +4,7 @@ import { Icon } from "@iconify/react";
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { cn } from "@/shared/utils/cn";
+import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useGetStrategicDashboardQuery,
   type StrategicGroundedAircraft,
@@ -81,7 +82,14 @@ const Panel = ({
       {linkTo ? (
         <button
           type="button"
-          onClick={() => navigate(linkTo)}
+          onClick={() =>
+            navigate(linkTo, {
+              state: {
+                from: "/dashboard/strategic",
+                fromLabel: "Strategic Dashboard",
+              },
+            })
+          }
           className="mb-4 flex w-full items-center justify-between gap-2 text-sm font-bold uppercase tracking-wide text-[#7FD5FF] transition-colors hover:text-[#C9F1FF]"
         >
           <span className="flex items-center gap-2">
@@ -236,6 +244,9 @@ export const StrategicDashboardPage = () => {
 
   return (
     <div className="space-y-5 px-2 pb-10 sm:px-0">
+      <div className="flex items-center">
+        <BackButton fallbackUrl="/dashboard" />
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#0A4D66]/40 bg-[#001219] px-5 py-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#001825] border border-[#7FD5FF]/40 flex items-center justify-center text-white shadow-[0_0_15px_rgba(127,213,255,0.2)]">
@@ -406,8 +417,28 @@ export const StrategicDashboardPage = () => {
                     {data.fleet.grounded_aircraft.map((aircraft: StrategicGroundedAircraft) => (
                       <li
                         key={aircraft.id}
-                        className="cursor-pointer rounded border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs hover:bg-red-950/40"
-                        onClick={() => navigate(`/dashboard/assets/${aircraft.id}`)}
+                        tabIndex={0}
+                        role="button"
+                        className="cursor-pointer rounded border border-red-500/30 bg-red-950/20 px-3 py-2 text-xs hover:bg-red-950/40 focus:outline-none focus:ring-1 focus:ring-red-400"
+                        onClick={() =>
+                          navigate(`/dashboard/assets/${aircraft.id}`, {
+                            state: {
+                              from: "/dashboard/strategic",
+                              fromLabel: "Strategic Dashboard",
+                            },
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            navigate(`/dashboard/assets/${aircraft.id}`, {
+                              state: {
+                                from: "/dashboard/strategic",
+                                fromLabel: "Strategic Dashboard",
+                              },
+                            });
+                          }
+                        }}
                       >
                         <div className="font-semibold text-red-300">
                           {aircraft.name} {aircraft.tail_number ? `(${aircraft.tail_number})` : ""}

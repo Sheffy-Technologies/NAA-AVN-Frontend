@@ -21,6 +21,12 @@ export type OperationCategory = {
   id: number;
   name: string;
   description: string | null;
+  operations_count?: number;
+  ongoing_count?: number;
+  completed_count?: number;
+  planned_count?: number;
+  aborted_count?: number;
+  operations?: Operation[];
   created_at: string;
   updated_at: string;
 };
@@ -43,6 +49,8 @@ export type OperationAssetPerson = {
   firstname?: string | null;
   lastname?: string | null;
   othernames?: string | null;
+  call_sign?: string | null;
+  rating_type?: string | null;
   rank?: {
     name?: string | null;
   } | null;
@@ -52,6 +60,11 @@ export type OperationAssetDetails = {
   id?: number;
   name?: string;
   type?: string;
+  tail_number?: string | null;
+  asset_type?: {
+    id: number;
+    name: string;
+  } | null;
   total_hours?: number | string;
   total_flight_hours?: number | string;
   total_landings?: number | string;
@@ -380,6 +393,31 @@ export const operationsApi = createApi({
       }),
       invalidatesTags: ["OperationCategories"],
     }),
+    getOperationCategoryById: builder.query<OperationCategory, number | string>({
+      query: (id) => ({
+        url: `/operation-categories/${id}`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, id) => [{ type: "OperationCategories", id }],
+    }),
+    updateOperationCategory: builder.mutation<
+      OperationCategory,
+      { id: number | string; name: string; description?: string | null }
+    >({
+      query: ({ id, ...body }) => ({
+        url: `/operation-categories/${id}`,
+        method: "PUT",
+        data: body,
+      }),
+      invalidatesTags: ["OperationCategories"],
+    }),
+    deleteOperationCategory: builder.mutation<void, number | string>({
+      query: (id) => ({
+        url: `/operation-categories/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["OperationCategories"],
+    }),
     createOperationType: builder.mutation<
       OperationType,
       { name: string; description?: string | null }
@@ -459,15 +497,105 @@ export const operationsApi = createApi({
         "Operations",
       ],
     }),
+    getWeatherBriefing: builder.query<
+      WeatherBriefingResponse,
+      {
+        departure_lat?: number | null;
+        departure_lon?: number | null;
+        arrival_lat?: number | null;
+        arrival_lon?: number | null;
+        stations?: string;
+        flight_date?: string | null;
+        flight_time?: string | null;
+        force_refresh?: boolean;
+      } | void
+    >({
+      query: (params) => ({
+        url: "/weather/briefing",
+        method: "GET",
+        params: params || undefined,
+      }),
+    }),
   }),
 });
+
+export type WeatherStationData = {
+  icao: string;
+  name: string;
+  elevation_ft: number | null;
+  status: "available" | "no_metar" | "service_unavailable";
+  has_data: boolean;
+  flight_category: "VFR" | "MVFR" | "IFR" | "LIFR" | "UNKNOWN";
+  raw_metar: string | null;
+  raw_taf: string | null;
+  has_taf?: boolean;
+  taf_status?: "available" | "no_taf" | "service_unavailable";
+  taf_valid_from?: string | null;
+  taf_valid_to?: string | null;
+  observed_at: string | null;
+  age_minutes: number | null;
+  is_outdated?: boolean;
+  wind: {
+    speed_kts: number | null;
+    direction_deg: number | null;
+    direction_label?: string;
+    gust_kts: number | null;
+    label: string;
+  } | null;
+  visibility: {
+    statute_miles: number | string | null;
+    label: string;
+  } | null;
+  weather_phenomena?: {
+    raw: string | null;
+    label: string | null;
+  } | null;
+  clouds: Array<{
+    cover: string;
+    base_ft: number | null;
+  }>;
+  temperature_c: number | null;
+  dewpoint_c: number | null;
+  altimeter_hpa: number | null;
+  altimeter_inhg: number | null;
+  service_unavailable?: boolean;
+  status_message?: string;
+  context?: "departure" | "arrival";
+  distance_to_query_nm?: number;
+};
+
+export type FlightScheduleIntelligence = {
+  flight_date: string;
+  flight_time: string | null;
+  flight_datetime_formatted: string;
+  is_today: boolean;
+  is_past: boolean;
+  is_future: boolean;
+  days_from_today: number;
+  status: "TODAY_ACTIVE" | "SCHEDULED_FUTURE" | "HISTORICAL_ARCHIVED";
+  advisory: string;
+};
+
+export type WeatherBriefingResponse = {
+  source: string;
+  attribution: string;
+  fetched_at: string;
+  last_updated?: string;
+  stations: Record<string, WeatherStationData>;
+  departure_station: string | null;
+  arrival_station: string | null;
+  flight_schedule?: FlightScheduleIntelligence | null;
+};
 
 export const {
   useGetOperationsQuery,
   useGetOperationByIdQuery,
   useGetOperationTypesQuery,
   useGetOperationCategoriesQuery,
+  useGetOperationCategoryByIdQuery,
   useCreateOperationCategoryMutation,
+  useUpdateOperationCategoryMutation,
+  useDeleteOperationCategoryMutation,
   useCreateOperationTypeMutation,
   useCreateOperationMutation,
   useUpdateOperationMutation,
@@ -475,4 +603,5 @@ export const {
   useDeleteOperationMutation,
   useCreateAfterActionReportMutation,
   useLogOperationFlightHoursMutation,
+  useGetWeatherBriefingQuery,
 } = operationsApi;
