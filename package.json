@@ -8,7 +8,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && node --max-old-space-size=4096 ./node_modules/vite/bin/vite.js build",
     "lint": "eslint .",
     "tauri": "tauri",
     "tauri:build:win64": "npm run tauri build -- --target x86_64-pc-windows-gnu --no-bundle",

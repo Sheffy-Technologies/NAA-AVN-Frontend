@@ -175,6 +175,7 @@ export type AtaChapter = {
   id: number;
   chapter_number?: string;
   chapter_name?: string;
+  code?: string;
   name?: string;
   description?: string | null;
   maintenance_category?: "engines" | "avionics" | "components" | string | null;
@@ -625,6 +626,17 @@ export const assetsApi = createApi({
       }),
       providesTags: ["ComponentTypes"],
     }),
+    createComponentType: builder.mutation<
+      ComponentType,
+      { name: string; description?: string }
+    >({
+      query: (data) => ({
+        url: "/component-types",
+        method: "POST",
+        data,
+      }),
+      invalidatesTags: ["ComponentTypes"],
+    }),
     getEngineCategories: builder.query<EngineCategory[], void>({
       query: () => ({
         url: "/engine-categories",
@@ -638,6 +650,17 @@ export const assetsApi = createApi({
         method: "GET",
       }),
       providesTags: ["EngineCategories"],
+    }),
+    createAtaChapter: builder.mutation<
+      AtaChapter,
+      { code: string; name?: string; maintenance_category: string }
+    >({
+      query: (data) => ({
+        url: "/ata-chapters",
+        method: "POST",
+        data,
+      }),
+      invalidatesTags: ["EngineCategories"],
     }),
     getAvionicCategories: builder.query<AvionicCategory[], void>({
       query: () => ({
@@ -950,8 +973,10 @@ export const {
   useUploadAssetImageMutation,
   useGetEnginePositionsQuery,
   useGetComponentTypesQuery,
+  useCreateComponentTypeMutation,
   useGetEngineCategoriesQuery,
   useGetAtaChaptersQuery,
+  useCreateAtaChapterMutation,
   useGetAvionicCategoriesQuery,
   useGetDocumentTypesQuery,
   useCreateDocumentMutation,
