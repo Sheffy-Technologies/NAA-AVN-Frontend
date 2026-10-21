@@ -678,97 +678,13 @@ export const AircraftSparePartsForm = ({
           </div>
         </div>
 
-        {/* 3. SHELF LIFE & LIFE LIMIT PARAMETERS Panel */}
-        <div className="rounded-xl border border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#0A4D66]/30 pb-3">
-            <div className="flex items-center gap-2">
-              <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
-                3. Shelf Life &amp; Life Limit Tracking
-              </h3>
-            </div>
-            <span className="text-[11px] text-slate-400">Airworthiness Life Limits</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            {/* Shelf Life */}
-            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Shelf Life (Storage)</span>
-                <span className={cn(
-                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                  values.shelf_life_types.length > 0
-                    ? "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                )}>
-                  {values.shelf_life_types.length > 0 ? "Tracked" : "Unlimited"}
-                </span>
-              </div>
-              {values.shelf_life_types.length > 0 ? (
-                <div className="space-y-1 text-slate-800 dark:text-gray-200">
-                  <div className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
-                    Dimensions: {values.shelf_life_types.join(", ").toUpperCase()}
-                  </div>
-                  {values.shelf_life_types.includes("hours") && values.shelf_life_hours && (
-                    <div>Hours Limit: <span className="font-bold">{values.shelf_life_hours} hrs</span></div>
-                  )}
-                  {values.shelf_life_types.includes("cycles") && values.shelf_life_cycles && (
-                    <div>Cycles Limit: <span className="font-bold">{values.shelf_life_cycles} cycles</span></div>
-                  )}
-                  {values.shelf_life_types.includes("calendar") && values.shelf_life_calendar_value && (
-                    <div>Calendar Duration: <span className="font-bold">{values.shelf_life_calendar_value} {values.shelf_life_calendar_interval}</span></div>
-                  )}
-                  <div className="text-[10px] text-slate-400 pt-1">
-                    Clock start date: {values.date_received || new Date().toISOString().split("T")[0]}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-slate-500 italic text-[11px]">No shelf life restrictions configured.</p>
-              )}
-            </div>
-
-            {/* Life Limit */}
-            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Life Limit (In-Service Hard Time)</span>
-                <span className={cn(
-                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
-                  values.life_limit_types.length > 0
-                    ? "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                )}>
-                  {values.life_limit_types.length > 0 ? "Hard Time Limit" : "On-Condition (CM)"}
-                </span>
-              </div>
-              {values.life_limit_types.length > 0 ? (
-                <div className="space-y-1 text-slate-800 dark:text-gray-200">
-                  <div className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
-                    Dimensions: {values.life_limit_types.join(", ").toUpperCase()}
-                  </div>
-                  {values.life_limit_types.includes("hours") && values.life_limit_hours && (
-                    <div>Operating Hours Limit: <span className="font-bold">{values.life_limit_hours} hrs</span></div>
-                  )}
-                  {values.life_limit_types.includes("cycles") && values.life_limit_cycles && (
-                    <div>Flight Cycles Limit: <span className="font-bold">{values.life_limit_cycles} cycles</span></div>
-                  )}
-                  {values.life_limit_types.includes("calendar") && values.life_limit_calendar_value && (
-                    <div>Calendar Duration: <span className="font-bold">{values.life_limit_calendar_value} {values.life_limit_calendar_interval}</span></div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-slate-500 italic text-[11px]">Component is On-Condition / Condition Monitored.</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 4. ITEM IDENTIFICATION & VARIATIONS Panel */}
+        {/* 3. ITEM IDENTIFICATION & VARIATIONS Panel */}
         <div className="rounded-xl border border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] p-5 shadow-sm space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-[#0A4D66]/30 pb-3">
             <div className="flex items-center gap-2">
               <Icon icon="mdi:barcode-scan" className="w-4 h-4 text-indigo-500" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
-                4. Item Identification &amp; Unit Traceability
+                3. Item Identification &amp; Unit Traceability
               </h3>
             </div>
             <div className="flex items-center gap-2">
@@ -863,6 +779,90 @@ export const AircraftSparePartsForm = ({
                 ✓ Non-serialized inventory. Quantity of {qty} units will be recorded under part number <strong>{values.part_number}</strong> without individual unit records.
               </div>
             )}
+          </div>
+        </div>
+
+        {/* 4. SHELF LIFE & LIFE LIMIT PARAMETERS Panel */}
+        <div className="rounded-xl border border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#0A4D66]/30 pb-3">
+            <div className="flex items-center gap-2">
+              <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
+                4. Shelf Life &amp; Life Limit Tracking
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400">Airworthiness Life Limits</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            {/* Shelf Life */}
+            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Shelf Life (Storage)</span>
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                  values.shelf_life_types.length > 0
+                    ? "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                )}>
+                  {values.shelf_life_types.length > 0 ? "Tracked" : "Unlimited"}
+                </span>
+              </div>
+              {values.shelf_life_types.length > 0 ? (
+                <div className="space-y-1 text-slate-800 dark:text-gray-200">
+                  <div className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                    Dimensions: {values.shelf_life_types.join(", ").toUpperCase()}
+                  </div>
+                  {values.shelf_life_types.includes("hours") && values.shelf_life_hours && (
+                    <div>Hours Limit: <span className="font-bold">{values.shelf_life_hours} hrs</span></div>
+                  )}
+                  {values.shelf_life_types.includes("cycles") && values.shelf_life_cycles && (
+                    <div>Cycles Limit: <span className="font-bold">{values.shelf_life_cycles} cycles</span></div>
+                  )}
+                  {values.shelf_life_types.includes("calendar") && values.shelf_life_calendar_value && (
+                    <div>Calendar Duration: <span className="font-bold">{values.shelf_life_calendar_value} {values.shelf_life_calendar_interval}</span></div>
+                  )}
+                  <div className="text-[10px] text-slate-400 pt-1">
+                    Clock start date: {values.date_received || new Date().toISOString().split("T")[0]}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-500 italic text-[11px]">No shelf life restrictions configured.</p>
+              )}
+            </div>
+
+            {/* Life Limit */}
+            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Life Limit (In-Service Hard Time)</span>
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                  values.life_limit_types.length > 0
+                    ? "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                )}>
+                  {values.life_limit_types.length > 0 ? "Hard Time Limit" : "On-Condition (CM)"}
+                </span>
+              </div>
+              {values.life_limit_types.length > 0 ? (
+                <div className="space-y-1 text-slate-800 dark:text-gray-200">
+                  <div className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                    Dimensions: {values.life_limit_types.join(", ").toUpperCase()}
+                  </div>
+                  {values.life_limit_types.includes("hours") && values.life_limit_hours && (
+                    <div>Operating Hours Limit: <span className="font-bold">{values.life_limit_hours} hrs</span></div>
+                  )}
+                  {values.life_limit_types.includes("cycles") && values.life_limit_cycles && (
+                    <div>Flight Cycles Limit: <span className="font-bold">{values.life_limit_cycles} cycles</span></div>
+                  )}
+                  {values.life_limit_types.includes("calendar") && values.life_limit_calendar_value && (
+                    <div>Calendar Duration: <span className="font-bold">{values.life_limit_calendar_value} {values.life_limit_calendar_interval}</span></div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-slate-500 italic text-[11px]">Component is On-Condition / Condition Monitored.</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1432,253 +1432,12 @@ export const AircraftSparePartsForm = ({
       </section>
 
       {/* ========================================================================= */}
-      {/* 2. SHELF LIFE & LIFE LIMIT TRACKING SECTION */}
-      {/* ========================================================================= */}
-      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm relative z-30">
-        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
-            <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
-            <span>2. SHELF LIFE &amp; LIFE LIMIT TRACKING</span>
-          </div>
-          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
-            Shelf life clock initializes upon inventory receipt ({values.date_received || new Date().toISOString().split("T")[0]})
-          </span>
-        </div>
-
-        <div className="p-4 sm:p-6 space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* CARD 1: SHELF LIFE (STORAGE) */}
-            <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4 relative z-20">
-              <div className="pb-2 border-b border-slate-200 dark:border-[#0A4D66]/30 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Icon icon="mdi:archive-clock-outline" className="w-4 h-4 text-sky-500" />
-                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-gray-200">
-                    Shelf Life Specifications (Storage)
-                  </h3>
-                </div>
-                <span className="text-[10px] text-slate-400 font-medium">Pre-installation validity</span>
-              </div>
-
-              <div>
-                <MultiSelect
-                  label="Select Shelf Life Tracking Dimensions"
-                  placeholder="Select Hours, Cycles, Calendar..."
-                  options={METRIC_OPTIONS}
-                  selectedValues={values.shelf_life_types}
-                  onChange={(selected) =>
-                    setValues((prev) => ({
-                      ...prev,
-                      shelf_life_types: selected.map(String),
-                    }))
-                  }
-                />
-              </div>
-
-              {/* Conditional Inputs */}
-              <div className="grid gap-3 sm:grid-cols-2 pt-1">
-                {values.shelf_life_types.includes("hours") && (
-                  <div className="space-y-1">
-                    <label className={labelClasses}>Shelf Life Limit (Hours)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={values.shelf_life_hours}
-                      onChange={handleChange("shelf_life_hours")}
-                      className={inputClasses}
-                      placeholder="e.g. 500"
-                    />
-                  </div>
-                )}
-
-                {values.shelf_life_types.includes("cycles") && (
-                  <div className="space-y-1">
-                    <label className={labelClasses}>Shelf Life Limit (Cycles)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={values.shelf_life_cycles}
-                      onChange={handleChange("shelf_life_cycles")}
-                      className={inputClasses}
-                      placeholder="e.g. 200"
-                    />
-                  </div>
-                )}
-
-                {values.shelf_life_types.includes("calendar") && (
-                  <>
-                    <div className="space-y-1">
-                      <label className={labelClasses}>Calendar Interval</label>
-                      <div className="relative">
-                        <select
-                          value={values.shelf_life_calendar_interval}
-                          onChange={(e) =>
-                            setValues((prev) => ({
-                              ...prev,
-                              shelf_life_calendar_interval: e.target.value as "daily" | "monthly" | "yearly",
-                            }))
-                          }
-                          className={selectClasses}
-                        >
-                          <option value="daily">Days</option>
-                          <option value="monthly">Months</option>
-                          <option value="yearly">Years</option>
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className={labelClasses}>Duration Value</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={values.shelf_life_calendar_value}
-                        onChange={handleChange("shelf_life_calendar_value")}
-                        className={inputClasses}
-                        placeholder={
-                          values.shelf_life_calendar_interval === "daily"
-                            ? "e.g. 365"
-                            : values.shelf_life_calendar_interval === "monthly"
-                            ? "e.g. 24"
-                            : "e.g. 2"
-                        }
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {values.shelf_life_types.length === 0 && (
-                <p className="text-[11px] text-slate-400 italic">
-                  No shelf life limits selected. Component considered to have unlimited shelf life / on-condition preservation.
-                </p>
-              )}
-            </div>
-
-            {/* CARD 2: LIFE LIMIT (IN-SERVICE HARD TIME) */}
-            <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4 relative z-10">
-              <div className="pb-2 border-b border-slate-200 dark:border-[#0A4D66]/30 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Icon icon="mdi:timer-sand-complete" className="w-4 h-4 text-red-500" />
-                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-gray-200">
-                    Life Limit Specifications (In-Service Hard Time)
-                  </h3>
-                </div>
-                <span className="text-[10px] text-slate-400 font-medium">Overhaul / Discard limit</span>
-              </div>
-
-              <div>
-                <MultiSelect
-                  label="Select Life Limit Tracking Dimensions"
-                  placeholder="Select Hours, Cycles, Calendar..."
-                  options={METRIC_OPTIONS}
-                  selectedValues={values.life_limit_types}
-                  onChange={(selected) =>
-                    setValues((prev) => ({
-                      ...prev,
-                      life_limit_types: selected.map(String),
-                    }))
-                  }
-                />
-              </div>
-
-              {/* Conditional Inputs */}
-              <div className="grid gap-3 sm:grid-cols-2 pt-1">
-                {values.life_limit_types.includes("hours") && (
-                  <div className="space-y-1">
-                    <label className={labelClasses}>Operating Hours Limit (TBO/LL)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={values.life_limit_hours}
-                      onChange={handleChange("life_limit_hours")}
-                      className={inputClasses}
-                      placeholder="e.g. 3000"
-                    />
-                  </div>
-                )}
-
-                {values.life_limit_types.includes("cycles") && (
-                  <div className="space-y-1">
-                    <label className={labelClasses}>Flight Cycles Limit (LL)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={values.life_limit_cycles}
-                      onChange={handleChange("life_limit_cycles")}
-                      className={inputClasses}
-                      placeholder="e.g. 1500"
-                    />
-                  </div>
-                )}
-
-                {values.life_limit_types.includes("calendar") && (
-                  <>
-                    <div className="space-y-1">
-                      <label className={labelClasses}>Calendar Interval</label>
-                      <div className="relative">
-                        <select
-                          value={values.life_limit_calendar_interval}
-                          onChange={(e) =>
-                            setValues((prev) => ({
-                              ...prev,
-                              life_limit_calendar_interval: e.target.value as "daily" | "monthly" | "yearly",
-                            }))
-                          }
-                          className={selectClasses}
-                        >
-                          <option value="daily">Days</option>
-                          <option value="monthly">Months</option>
-                          <option value="yearly">Years</option>
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className={labelClasses}>Duration Value</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={values.life_limit_calendar_value}
-                        onChange={handleChange("life_limit_calendar_value")}
-                        className={inputClasses}
-                        placeholder={
-                          values.life_limit_calendar_interval === "daily"
-                            ? "e.g. 1825"
-                            : values.life_limit_calendar_interval === "monthly"
-                            ? "e.g. 60"
-                            : "e.g. 5"
-                        }
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {values.life_limit_types.length === 0 && (
-                <p className="text-[11px] text-slate-400 italic">
-                  No life limits selected. Component is On-Condition / Condition Monitored (CM).
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 3. ITEM IDENTIFICATION SECTION */}
+      {/* 2. ITEM IDENTIFICATION SECTION */}
       {/* ========================================================================= */}
       <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm">
         <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
-            <span>3. ITEM IDENTIFICATION</span>
+            <span>2. ITEM IDENTIFICATION</span>
             {requiresSerialTracking === true && (
               <span className="rounded bg-indigo-100 dark:bg-indigo-950 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
                 {qtyNumeric} Serialized Units Required
@@ -1735,20 +1494,8 @@ export const AircraftSparePartsForm = ({
           {/* WHEN USER SELECTS YES: Individual Unit Identification Rows & Variations */}
           {requiresSerialTracking === true && (
             <div className="space-y-6 pt-1">
-              {/* 2. IDENTIFIER VARIATIONS */}
+              {/* Identifier Variations Config */}
               <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-[#0A4D66]/30 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Icon icon="mdi:tune-variant" className="w-4 h-4 text-amber-500" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
-                      2. IDENTIFIER VARIATIONS
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400">
-                    Only select if specific units differ from the common part specifications
-                  </span>
-                </div>
-
                 <div className="space-y-1">
                   <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
                     Do any units have different identification details?
@@ -2147,6 +1894,247 @@ export const AircraftSparePartsForm = ({
               </div>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. SHELF LIFE & LIFE LIMIT TRACKING SECTION */}
+      {/* ========================================================================= */}
+      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm relative z-30">
+        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
+            <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
+            <span>3. SHELF LIFE &amp; LIFE LIMIT TRACKING</span>
+          </div>
+          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+            Shelf life clock initializes upon inventory receipt ({values.date_received || new Date().toISOString().split("T")[0]})
+          </span>
+        </div>
+
+        <div className="p-4 sm:p-6 space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* CARD 1: SHELF LIFE (STORAGE) */}
+            <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4 relative z-20">
+              <div className="pb-2 border-b border-slate-200 dark:border-[#0A4D66]/30 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Icon icon="mdi:archive-clock-outline" className="w-4 h-4 text-sky-500" />
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-gray-200">
+                    Shelf Life Specifications (Storage)
+                  </h3>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium">Pre-installation validity</span>
+              </div>
+
+              <div>
+                <MultiSelect
+                  label="Select Shelf Life Tracking Dimensions"
+                  placeholder="Select Hours, Cycles, Calendar..."
+                  options={METRIC_OPTIONS}
+                  selectedValues={values.shelf_life_types}
+                  onChange={(selected) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      shelf_life_types: selected.map(String),
+                    }))
+                  }
+                />
+              </div>
+
+              {/* Conditional Inputs */}
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                {values.shelf_life_types.includes("hours") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Shelf Life Limit (Hours)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.shelf_life_hours}
+                      onChange={handleChange("shelf_life_hours")}
+                      className={inputClasses}
+                      placeholder="e.g. 500"
+                    />
+                  </div>
+                )}
+
+                {values.shelf_life_types.includes("cycles") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Shelf Life Limit (Cycles)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.shelf_life_cycles}
+                      onChange={handleChange("shelf_life_cycles")}
+                      className={inputClasses}
+                      placeholder="e.g. 200"
+                    />
+                  </div>
+                )}
+
+                {values.shelf_life_types.includes("calendar") && (
+                  <>
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Calendar Interval</label>
+                      <div className="relative">
+                        <select
+                          value={values.shelf_life_calendar_interval}
+                          onChange={(e) =>
+                            setValues((prev) => ({
+                              ...prev,
+                              shelf_life_calendar_interval: e.target.value as "daily" | "monthly" | "yearly",
+                            }))
+                          }
+                          className={selectClasses}
+                        >
+                          <option value="daily">Days</option>
+                          <option value="monthly">Months</option>
+                          <option value="yearly">Years</option>
+                        </select>
+                        <Icon
+                          icon="mdi:chevron-down"
+                          className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Duration Value</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={values.shelf_life_calendar_value}
+                        onChange={handleChange("shelf_life_calendar_value")}
+                        className={inputClasses}
+                        placeholder={
+                          values.shelf_life_calendar_interval === "daily"
+                            ? "e.g. 365"
+                            : values.shelf_life_calendar_interval === "monthly"
+                            ? "e.g. 24"
+                            : "e.g. 2"
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {values.shelf_life_types.length === 0 && (
+                <p className="text-[11px] text-slate-400 italic">
+                  No shelf life limits selected. Component considered to have unlimited shelf life / on-condition preservation.
+                </p>
+              )}
+            </div>
+
+            {/* CARD 2: LIFE LIMIT (IN-SERVICE HARD TIME) */}
+            <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4 relative z-10">
+              <div className="pb-2 border-b border-slate-200 dark:border-[#0A4D66]/30 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Icon icon="mdi:timer-sand-complete" className="w-4 h-4 text-red-500" />
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-gray-200">
+                    Life Limit Specifications (In-Service Hard Time)
+                  </h3>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium">Overhaul / Discard limit</span>
+              </div>
+
+              <div>
+                <MultiSelect
+                  label="Select Life Limit Tracking Dimensions"
+                  placeholder="Select Hours, Cycles, Calendar..."
+                  options={METRIC_OPTIONS}
+                  selectedValues={values.life_limit_types}
+                  onChange={(selected) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      life_limit_types: selected.map(String),
+                    }))
+                  }
+                />
+              </div>
+
+              {/* Conditional Inputs */}
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                {values.life_limit_types.includes("hours") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Operating Hours Limit (TBO/LL)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.life_limit_hours}
+                      onChange={handleChange("life_limit_hours")}
+                      className={inputClasses}
+                      placeholder="e.g. 3000"
+                    />
+                  </div>
+                )}
+
+                {values.life_limit_types.includes("cycles") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Flight Cycles Limit (LL)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.life_limit_cycles}
+                      onChange={handleChange("life_limit_cycles")}
+                      className={inputClasses}
+                      placeholder="e.g. 1500"
+                    />
+                  </div>
+                )}
+
+                {values.life_limit_types.includes("calendar") && (
+                  <>
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Calendar Interval</label>
+                      <div className="relative">
+                        <select
+                          value={values.life_limit_calendar_interval}
+                          onChange={(e) =>
+                            setValues((prev) => ({
+                              ...prev,
+                              life_limit_calendar_interval: e.target.value as "daily" | "monthly" | "yearly",
+                            }))
+                          }
+                          className={selectClasses}
+                        >
+                          <option value="daily">Days</option>
+                          <option value="monthly">Months</option>
+                          <option value="yearly">Years</option>
+                        </select>
+                        <Icon
+                          icon="mdi:chevron-down"
+                          className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Duration Value</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={values.life_limit_calendar_value}
+                        onChange={handleChange("life_limit_calendar_value")}
+                        className={inputClasses}
+                        placeholder={
+                          values.life_limit_calendar_interval === "daily"
+                            ? "e.g. 1825"
+                            : values.life_limit_calendar_interval === "monthly"
+                            ? "e.g. 60"
+                            : "e.g. 5"
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {values.life_limit_types.length === 0 && (
+                <p className="text-[11px] text-slate-400 italic">
+                  No life limits selected. Component is On-Condition / Condition Monitored (CM).
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
