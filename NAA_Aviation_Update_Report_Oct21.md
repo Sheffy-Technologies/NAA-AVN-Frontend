@@ -266,20 +266,40 @@ php artisan test tests/Feature/PilotTypeRatingAndAircraftSelectionTest.php tests
 | `src/features/inventory/pages/InventoryFormPage.tsx` | Modified | Category routing to aircraft spare parts workflow |
 | `src/shared/ui/button/BackButton.tsx` | Modified | Context-aware navigation & returnTo parameter support |
 
-### Backend Repository (`NA-AVN-Backend-main`)
-| File Path | Status | Description |
-|-----------|--------|-------------|
-| `database/migrations/2026_10_21_000001_add_ata_chapter_to_inventory_units_table.php` | Added | Migration for ATA chapter fields in inventory units |
-| `database/migrations/2026_10_21_000002_seed_bell_and_magnus_aircraft_assets.php` | Added | Migration seeding Bell and Magnus platforms & airframes |
-| `database/migrations/2026_10_21_000003_add_rating_type_to_personnel_table.php` | Added | Migration adding rating_type column to personnel |
-| `app/Models/Asset.php` | Modified | Added assetType relationship & eager loading |
-| `app/Models/InventoryUnit.php` | Added | Model for serialized inventory units |
-| `app/Http/Controllers/AssetController.php` | Modified | Eager loads assetType on index & show |
-| `app/Http/Controllers/OperationController.php` | Modified | Broadcast exception handling & rating_type crew projection |
-| `app/Http/Controllers/PersonnelController.php` | Modified | Persists rating_type on store & update |
-| `app/Http/Controllers/InventoryController.php` | Modified | Validates serialized batch units & uniqueness |
-| `tests/Feature/PilotTypeRatingAndAircraftSelectionTest.php` | Added | Automated test for platform rating & airframe operations |
-| `tests/Feature/AircraftSparePartsRegistrationTest.php` | Added | Automated test for aircraft spare parts registration |
+### Backend Repository (`NA-AVN-Backend-main`) — Commit `f3198b9`
+| File Path | Status | Category | Description |
+|-----------|--------|----------|-------------|
+| `database/migrations/2026_10_21_000003_add_rating_type_to_personnel_table.php` | Added | Migration | Adds nullable `rating_type` column to `personnel` table |
+| `database/migrations/2026_10_21_000002_seed_bell_and_magnus_aircraft_assets.php` | Added | Migration | Seeds `Bell UH-1H Helicopter` and `Magnus Fusion 212` platforms & physical airframes (NA 010, NA 011, NA 021) |
+| `database/migrations/2026_10_21_000001_add_ata_chapter_to_inventory_units_table.php` | Added | Migration | Adds ATA chapter and classification columns to `inventory_units` |
+| `database/migrations/2026_10_20_000001_create_stores_table.php` | Added | Migration | Creates multi-store architecture with General Store & Maintenance Hub system stores |
+| `database/migrations/2026_10_20_000002_create_inventory_units_table.php` | Added | Migration | Creates serialized inventory units table for physical component tracking |
+| `database/migrations/2026_10_20_000003_expand_inventories_specification_fields.php` | Added | Migration | Expands inventory specifications (ATA chapter, NSN, CAGE code, manufacturer) |
+| `database/migrations/2026_10_20_000004_add_batch_and_gse_fields_to_inventories.php` | Added | Migration | Adds batch intake, Ground Support Equipment (GSE) and consumable attributes |
+| `app/Models/Asset.php` | Modified | Model | Adds `assetType` relation and default eager-loading `$with = ['assetType']` |
+| `app/Models/InventoryUnit.php` | Added | Model | Eloquent model for serialized aircraft components and individual tracking |
+| `app/Models/Store.php` | Added | Model | Multi-store repository model with system-store immutability rules |
+| `app/Models/Inventory.php` | Modified | Model | Adds store relationship, specifications, and unit collection associations |
+| `app/Models/Operation.php` | Modified | Model | Adds operation categories, crew projections, and airframe associations |
+| `app/Models/FlightProgram.php` | Modified | Model | Updates flight programme scheduling and operational relationships |
+| `app/Http/Controllers/StoreController.php` | Added | Controller | Complete CRUD for repository stores with system-store delete protection |
+| `app/Http/Controllers/WeatherController.php` | Added | Controller | Live NOAA METAR/TAF weather briefing API for 21 Nigerian aerodromes |
+| `app/Http/Controllers/AssetController.php` | Modified | Controller | Eager-loads assetType on aircraft index and detail endpoints |
+| `app/Http/Controllers/InventoryController.php` | Modified | Controller | Validates serialized units, intra-batch duplicates & database uniqueness |
+| `app/Http/Controllers/OperationController.php` | Modified | Controller | Broadcast error handling for offline sockets & crew rating_type projections |
+| `app/Http/Controllers/OperationAssetController.php` | Modified | Controller | Manages flight hour logging and individual airframe usage records |
+| `app/Http/Controllers/OperationCategoryController.php` | Modified | Controller | Manages operational campaigns and tactical mission category CRUD |
+| `app/Http/Controllers/CallController.php` | Modified | Controller | Handles communications and mission dispatch event logging |
+| `app/Http/Controllers/DashboardController.php` | Modified | Controller | Updates executive KPI feeds for fleet readiness and inventory stores |
+| `app/Http/Controllers/PersonnelController.php` | Modified | Controller | Persists and validates pilot `rating_type` on store and update |
+| `app/Support/ApiPermissionRegistry.php` | Modified | Security | Registers RBAC permission definitions for stores and mission operations |
+| `database/seeders/CurrencySeeder.php` | Modified | Seeder | Seeds currency formatting standards for procurement and asset valuation |
+| `database/seeders/ExpenseCategorySeeder.php` | Modified | Seeder | Seeds maintenance and operational expense classification categories |
+| `routes/api.php` | Modified | Routing | Exposes protected routes for stores, weather briefing, and inventory units |
+| `tests/Pest.php` | Modified | Testing | Global test setup and helper factories for maintenance and operations |
+| `tests/Feature/PilotTypeRatingAndAircraftSelectionTest.php` | Added | Test | Automated test verifying platform-level ratings and airframe flight logging |
+| `tests/Feature/AircraftSparePartsRegistrationTest.php` | Added | Test | Automated test for batch intake, serialized units, and duplicate rejection |
+| `tests/Feature/WeatherBriefingTest.php` | Added | Test | Automated test for live NOAA METAR/TAF parsing and ICAO flight rules |
 
 ---
 
