@@ -283,41 +283,115 @@ html.light main a[class*="hover:text-white"]:not([class*="bg-[#0A4D66]"]):not([c
 }
 
 /* 2. Secondary, outlined, and cancel buttons in light mode (universal across pages, modals, popups) */
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
-html.light button[class*="text-gray-300"],
-html.light button[class*="text-gray-200"],
-html.light button[class*="text-gray-400"],
-html.light a[class*="text-gray-300"],
-html.light a[class*="text-gray-200"] {
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
+html.light button[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]),
+html.light button[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]),
+html.light button[class*="text-gray-400"]:not([role="tab"]):not([class*="tab-link"]),
+html.light a[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]),
+html.light a[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]) {
   border-color: #cbd5e1 !important;
   color: #334155 !important;
   background-color: #ffffff !important;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
-html.light button[class*="text-gray-300"] svg,
-html.light button[class*="text-gray-300"] .iconify,
-html.light button[class*="text-gray-200"] svg,
-html.light button[class*="text-gray-200"] .iconify {
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
+html.light button[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]) svg,
+html.light button[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]) .iconify,
+html.light button[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]) svg,
+html.light button[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]) .iconify {
   color: #475569 !important;
 }
 
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
-html.light button[class*="text-slate-700"],
-html.light button[class*="text-slate-800"],
-html.light a[class*="text-slate-700"],
-html.light a[class*="text-slate-800"],
-html.light button[class*="text-slate-700"] span,
-html.light button[class*="text-slate-800"] span,
-html.light a[class*="text-slate-700"] span,
-html.light a[class*="text-slate-800"] span {
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
+html.light button[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]),
+html.light button[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]),
+html.light a[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]),
+html.light a[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]),
+html.light button[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]) span,
+html.light button[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]) span,
+html.light a[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]) span,
+html.light a[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]) span {
   color: #1e293b !important;
+}
+
+/* ── 3.4 Module & Navigation Tab Styling (Personnel, Pass, Course, Attendance) ──────── */
+html.light a[role="tab"],
+html.light a.tab-link {
+  box-shadow: none !important;
+  border-top-color: transparent !important;
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
+}
+
+html.light a[role="tab"]:not(.active),
+html.light a.tab-link:not(.active) {
+  background-color: transparent !important;
+  border-bottom-color: transparent !important;
+  color: #64748b !important;
+}
+
+html.light a[role="tab"]:not(.active) svg,
+html.light a[role="tab"]:not(.active) .iconify,
+html.light a[role="tab"]:not(.active) span,
+html.light a.tab-link:not(.active) svg,
+html.light a.tab-link:not(.active) .iconify,
+html.light a.tab-link:not(.active) span {
+  color: #64748b !important;
+}
+
+html.light a[role="tab"]:not(.active):hover,
+html.light a.tab-link:not(.active):hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light a[role="tab"]:not(.active):hover svg,
+html.light a[role="tab"]:not(.active):hover .iconify,
+html.light a[role="tab"]:not(.active):hover span,
+html.light a.tab-link:not(.active):hover svg,
+html.light a.tab-link:not(.active):hover .iconify,
+html.light a.tab-link:not(.active):hover span {
+  color: #0f172a !important;
+}
+
+html.light a[role="tab"].active,
+html.light a.tab-link.active {
+  background-color: #e0f2fe !important;
+  border-bottom-color: #0369a1 !important;
+  color: #0369a1 !important;
+  font-weight: 700 !important;
+}
+
+html.light a[role="tab"].active svg,
+html.light a[role="tab"].active .iconify,
+html.light a[role="tab"].active span,
+html.light a.tab-link.active svg,
+html.light a.tab-link.active .iconify,
+html.light a.tab-link.active span {
+  color: #0369a1 !important;
+}
+
+html.dark a[role="tab"].active,
+html.dark a.tab-link.active {
+  background-color: rgba(10, 77, 102, 0.35) !important;
+  border-bottom-color: #7fd5ff !important;
+  color: #7fd5ff !important;
+  font-weight: 700 !important;
+}
+
+html.dark a[role="tab"].active svg,
+html.dark a[role="tab"].active .iconify,
+html.dark a[role="tab"].active span,
+html.dark a.tab-link.active svg,
+html.dark a.tab-link.active .iconify,
+html.dark a.tab-link.active span {
+  color: #7fd5ff !important;
 }
 
 html.light button[class*="text-slate-700"] svg,
