@@ -1,10 +1,6 @@
 import { useRef, useState } from "react";
-<<<<<<< HEAD
-import { useParams, useNavigate } from "react-router-dom";
-import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
-=======
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
->>>>>>> cb2164bd375d0532459945257f4b54324ff8b964
+import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
@@ -891,9 +887,12 @@ const OperationTab = ({
 const AARTab = ({
   operation,
   onAddReport,
+  onChanged,
 }: {
   operation: Operation;
   onAddReport: () => void;
+  /** Refetch the operation after an approval decision changes the AAR's status. */
+  onChanged?: () => void;
 }) => {
   const report = operation.afterActionReport;
 
@@ -1087,6 +1086,9 @@ const AARTab = ({
           operationName={operation.name}
         />
       </div>
+
+      {/* Approval: while the AAR workflow is on, the report is approved here after the signatures. */}
+      <ApprovalPanel module="after-action-reports" recordId={report.id} onChanged={onChanged} />
     </div>
   );
 };
@@ -1366,6 +1368,7 @@ export const OperationDetailsPage = () => {
           <AARTab
             operation={operation}
             onAddReport={handleAddAfterActionReport}
+            onChanged={refetch}
           />
         )}
       </div>

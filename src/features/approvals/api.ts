@@ -9,6 +9,7 @@ export type ApprovalModuleKey =
   | "stock-issues"
   | "operations"
   | "courses"
+  | "after-action-reports"
   | (string & {});
 
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "cancelled";

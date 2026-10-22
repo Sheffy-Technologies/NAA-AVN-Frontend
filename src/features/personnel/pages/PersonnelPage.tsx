@@ -303,11 +303,11 @@ export const PersonnelPage = () => {
       rankId: p.rank_id,
       branchId: p.branch_id,
       specialtyId: p.specialty_id,
-      serviceNo: p.service_number,
-      name: `${p.firstname} ${p.lastname}`,
+      serviceNo: p.service_number ?? "",
+      name: [p.firstname, p.lastname].filter(Boolean).join(" "),
       image: p.image,
       rank: p.rank?.name ?? "",
-      callSign: p.call_sign,
+      callSign: p.call_sign ?? "",
       unit: p.unit?.name ?? "",
       branch: p.branch?.name ?? "",
       specialty: p.specialty?.name ?? "",
@@ -379,7 +379,7 @@ export const PersonnelPage = () => {
         person.unit,
         person.branch,
         person.specialty,
-      ].some((value) => value.toLowerCase().includes(query)),
+      ].some((value) => (value ?? "").toLowerCase().includes(query)),
     );
   }, [displayedPersonnel, flightStatusFilter, searchQuery]);
 

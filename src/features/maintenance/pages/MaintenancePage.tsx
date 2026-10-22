@@ -21,6 +21,7 @@ import { MaintenanceOverviewTab } from "../components/MaintenanceOverviewTab";
 import { MaintenanceInventorySection, type MaintenanceInventorySubTab } from "../components/MaintenanceInventorySection";
 import { CreateWorkOrderModal } from "../components/CreateWorkOrderModal";
 import { LogDefectModal } from "../components/LogDefectModal";
+import { InspectionTrackingTable, PartTrackingTable } from "../components/TrackingSheetTables";
 
 type MainTabKey = "overview" | "maintenance" | "work-orders" | "inventory";
 type MaintenanceSubTabKey = "tracking" | "programs" | "compliance" | "aircraft";
@@ -700,123 +701,10 @@ export const MaintenancePage = () => {
                   No components, engines, or avionics matching filter.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr
-                        className={cn(
-                          "text-left border-b font-semibold uppercase tracking-wider",
-                          isDark ? "text-gray-400 border-[#0A4D66]/40" : "text-slate-500 border-slate-200",
-                        )}
-                      >
-                        <th className="py-2.5 px-3">Type</th>
-                        <th className="py-2.5 px-3">Item</th>
-                        <th className="py-2.5 px-3">Serial</th>
-                        <th className="py-2.5 px-3">Asset</th>
-                        <th className="py-2.5 px-3">Current</th>
-                        <th className="py-2.5 px-3">Next Due</th>
-                        <th className="py-2.5 px-3">Remaining</th>
-                        <th className="py-2.5 px-3">Projected Due</th>
-                        <th className="py-2.5 px-3 text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
-                      {filteredTrackingItems.map((row) => (
-                        <tr
-                          key={`${row.part_type}-${row.part_id}-${row.asset_id}`}
-                          tabIndex={row.asset_id ? 0 : undefined}
-                          role={row.asset_id ? "button" : undefined}
-                          title={row.asset_id ? "Click to view asset details" : undefined}
-                          onClick={(e) => {
-                            if (row.asset_id) {
-                              onInteractiveRowClick(e, () =>
-                                navigate(`/dashboard/assets/${row.asset_id}`, {
-                                  state: {
-                                    from: "/dashboard/maintenance",
-                                    fromLabel: "Maintenance Tracking",
-                                  },
-                                }),
-                              );
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (row.asset_id) {
-                              onInteractiveRowKeyDown(e, () =>
-                                navigate(`/dashboard/assets/${row.asset_id}`, {
-                                  state: {
-                                    from: "/dashboard/maintenance",
-                                    fromLabel: "Maintenance Tracking",
-                                  },
-                                }),
-                              );
-                            }
-                          }}
-                          className={cn(
-                            "transition-colors",
-                            isDark ? "hover:bg-[#001825]/60 text-gray-200" : "hover:bg-slate-50 text-slate-700",
-                            row.asset_id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
-                          )}
-                        >
-                          <td className="py-2.5 px-3 capitalize font-medium">{row.part_type}</td>
-                          <td className="py-2.5 px-3 font-semibold">{row.part_label}</td>
-                          <td className="py-2.5 px-3 text-gray-400">{row.part_serial_number || "-"}</td>
-                          <td className="py-2.5 px-3">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate(`/dashboard/assets/${row.asset_id}`, {
-                                  state: {
-                                    from: "/dashboard/maintenance",
-                                    fromLabel: "Maintenance Tracking",
-                                  },
-                                })
-                              }
-                              className="text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-medium"
-                            >
-                              {row.asset_name}
-                              {row.asset_tail_number ? ` (${row.asset_tail_number})` : ""}
-                            </button>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {row.current_hours ?? 0} hrs / {row.current_cycles ?? 0} cyc
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {row.next_due_hours !== null && row.next_due_hours !== undefined
-                              ? `${row.next_due_hours} hrs`
-                              : row.next_due_date
-                                ? formatDate(row.next_due_date)
-                                : "-"}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {row.hours_remaining !== null
-                              ? `${Math.abs(row.hours_remaining).toLocaleString()} hrs`
-                              : row.days_remaining !== null
-                                ? `${row.days_remaining} days`
-                                : "-"}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            {row.projected_due_date ? formatDate(row.projected_due_date) : "-"}
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            <span
-                              className={cn(
-                                "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border",
-                                row.status === "overdue"
-                                  ? "bg-red-500/10 text-red-500 dark:text-red-300 border-red-500/30"
-                                  : row.status === "due_soon"
-                                    ? "bg-amber-500/10 text-amber-500 dark:text-amber-300 border-amber-500/30"
-                                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/30",
-                              )}
-                            >
-                              {row.status === "overdue" ? "Overdue" : row.status === "due_soon" ? "Due Soon" : "OK"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <PartTrackingTable rows={filteredTrackingItems} />
               )}
+
+              <InspectionTrackingTable assetId={trackingAssetFilter || undefined} statusFilter={trackingStatusFilter} />
             </div>
           )}
 

@@ -300,6 +300,16 @@ const MyPersonnelPage = lazy(() =>
     default: module.MyPersonnelPage,
   })),
 );
+const AfterActionReportRedirect = lazy(() =>
+  import("@/features/operations/pages/AfterActionReportRedirect").then((module) => ({
+    default: module.AfterActionReportRedirect,
+  })),
+);
+const GeneratorDetailsPage = lazy(() =>
+  import("@/features/generators/pages/GeneratorDetailsPage").then((module) => ({
+    default: module.GeneratorDetailsPage,
+  })),
+);
 const ApprovalsPage = lazy(() =>
   import("@/features/approvals/pages/ApprovalsPage").then((module) => ({
     default: module.ApprovalsPage,
@@ -358,7 +368,8 @@ const loadingElement = (
 );
 
 const UNITS_ROUTE_PERMISSIONS = ["units.viewAny"];
-const ASSETS_ROUTE_PERMISSIONS = ["assets.viewAny", "dashboard.home.view"];
+// accommodation-categories.viewAny alone opens the page on its Accommodation tab.
+const ASSETS_ROUTE_PERMISSIONS = ["assets.viewAny", "dashboard.home.view", "accommodation-categories.viewAny"];
 const OPERATIONS_ROUTE_PERMISSIONS = ["dashboard.operations.view", "operations.viewAny"];
 const PERSONNEL_ROUTE_PERMISSIONS = ["dashboard.personnel.view", "personnel.viewAny"];
 const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.viewAny"];
@@ -533,6 +544,22 @@ export const router = createBrowserRouter([
             <AddFacilityPage />
           </Suspense>
         ), ASSETS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "after-action-reports/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <AfterActionReportRedirect />
+          </Suspense>
+        ), OPERATIONS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "assets/generators/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <GeneratorDetailsPage />
+          </Suspense>
+        ), ["generators.viewAny"]),
       },
       {
         path: "assets/:id",

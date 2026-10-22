@@ -21,6 +21,42 @@ export type MaintenanceDueFilters = {
   part_type?: MaintenanceDuePartType;
 };
 
+export type InspectionItemStatus = "overdue" | "due_soon" | "ok" | "not_recorded" | "not_tracked";
+
+/** A recurring task on one aircraft (MaintenanceDueCalculator::programItemsForAssets). */
+export type InspectionItem = {
+  asset_id: number;
+  asset_name: string;
+  asset_tail_number: string | null;
+  program_id: number;
+  name: string;
+  category: "scheduled" | "airworthiness_directive" | "service_bulletin" | null;
+  reference_number: string | null;
+  ata_chapter: string | null;
+  interval_type: "hours" | "cycles" | "calendar" | null;
+  interval_hours: number | null;
+  interval_cycles: number | null;
+  interval_months: number | null;
+  airframe_hours_now: number;
+  last_done_date: string | null;
+  last_done_airframe_hours: number | null;
+  last_done_cycles: number | null;
+  last_work_order_id: number | null;
+  next_due_hours: number | null;
+  next_due_cycles: number | null;
+  next_due_date: string | null;
+  hours_remaining: number | null;
+  cycles_remaining: number | null;
+  days_remaining: number | null;
+  status: InspectionItemStatus;
+};
+
+export type InspectionItemsResponse = {
+  count: number;
+  counts_by_status: Record<InspectionItemStatus, number>;
+  data: InspectionItem[];
+};
+
 export type MaintenanceMetricsResponse = {
   reference_date: string;
   summary: {
@@ -506,6 +542,14 @@ export const maintenanceApi = createApi({
       }),
       providesTags: [{ type: "WorkOrders", id: "DUE_LIST" }],
     }),
+    getInspectionItems: builder.query<
+      InspectionItemsResponse,
+      { asset_type?: "aircraft" | "vehicle" | "equipment"; asset_id?: number; unit_id?: number } | void
+    >({
+      query: (params) => ({ url: "/maintenance/inspection-items", method: "GET", params: params || undefined }),
+      // Completing a work-order task changes "last done", so it shares the due-list tag.
+      providesTags: [{ type: "WorkOrders", id: "DUE_LIST" }],
+    }),
     getDefectRecords: builder.query<DefectRecord[], void>({
       query: () => ({
         url: "/defects",
@@ -588,6 +632,7 @@ export const {
   useGetWorkOrderByIdQuery,
   useGetComplianceRecordsQuery,
   useGetMaintenanceDueItemsQuery,
+  useGetInspectionItemsQuery,
   useGetDefectRecordsQuery,
   useCreateDefectMutation,
   useGetComponentsQuery,

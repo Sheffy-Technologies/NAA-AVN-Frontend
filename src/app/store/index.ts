@@ -20,6 +20,8 @@ import { maintenanceApi } from "@/features/maintenance/api";
 import { safetyApi } from "@/features/safety/api";
 import { approvalsApi } from "@/features/approvals/api";
 import { stockIssuesApi } from "@/features/stock-issues/api";
+import { generatorsApi } from "@/features/generators/api";
+import { accommodationApi } from "@/features/accommodation/api";
 import { documentsApi } from "@/features/documents/api";
 import { reportsApi } from "@/features/reports/api";
 import { messagesApi } from "@/features/messages/api";
@@ -73,6 +75,8 @@ export const store = configureStore({
     [safetyApi.reducerPath]: safetyApi.reducer,
     [approvalsApi.reducerPath]: approvalsApi.reducer,
     [stockIssuesApi.reducerPath]: stockIssuesApi.reducer,
+    [generatorsApi.reducerPath]: generatorsApi.reducer,
+    [accommodationApi.reducerPath]: accommodationApi.reducer,
     [documentsApi.reducerPath]: documentsApi.reducer,
     [messagesApi.reducerPath]: messagesApi.reducer,
     [callsApi.reducerPath]: callsApi.reducer,
@@ -98,6 +102,8 @@ export const store = configureStore({
       safetyApi.middleware,
       approvalsApi.middleware,
       stockIssuesApi.middleware,
+      generatorsApi.middleware,
+      accommodationApi.middleware,
       documentsApi.middleware,
       messagesApi.middleware,
       callsApi.middleware,

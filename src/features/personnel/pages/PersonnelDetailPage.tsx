@@ -480,11 +480,6 @@ export const PersonnelDetailPage = () => {
       address: apiPerson.address,
       dialogue: "",
       aircraftRatedOn: apiPerson.rating_type || "N/A",
-<<<<<<< HEAD
-      totalFlightTimeHours: apiPerson.total_flight_hours ?? 0,
-      aircraftHours: [],
-      isPilot: apiPerson.is_pilot,
-=======
       totalFlightTimeHours,
       totalOperationalHours,
       totalTrainingHours,
@@ -492,7 +487,6 @@ export const PersonnelDetailPage = () => {
       isPilot,
       isEngineer: isEngineerRole,
       yearsOfExperience,
->>>>>>> cb2164bd375d0532459945257f4b54324ff8b964
       lastFlightDate: apiPerson.last_flight_date,
       nextFlightDueDate: apiPerson.next_flight_due_date,
       flightStatus: apiPerson.flight_status,

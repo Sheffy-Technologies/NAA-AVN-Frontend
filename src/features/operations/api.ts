@@ -554,6 +554,10 @@ export const operationsApi = createApi({
         "Operations",
       ],
     }),
+    /** One AAR by id; used to open it from the approvals inbox. */
+    getAfterActionReport: builder.query<AfterActionReport, number>({
+      query: (id) => ({ url: `/after-action-reports/${id}`, method: "GET" }),
+    }),
     signAfterActionReport: builder.mutation<
       AfterActionReport,
       {
@@ -814,6 +818,7 @@ export type WeatherBriefingResponse = {
 };
 
 export const {
+  useGetAfterActionReportQuery,
   useGetOperationsQuery,
   useGetOperationByIdQuery,
   useGetOperationTypesQuery,

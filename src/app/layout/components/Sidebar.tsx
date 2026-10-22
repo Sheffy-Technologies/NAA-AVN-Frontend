@@ -35,7 +35,7 @@ const NAV_ITEMS: NavItem[] = [
     name: "Assets",
     path: "/dashboard/assets",
     icon: "mdi:sitemap",
-    requiredPermissions: ["assets.viewAny", "dashboard.home.view"],
+    requiredPermissions: ["assets.viewAny", "dashboard.home.view", "accommodation-categories.viewAny"],
   },
   {
     name: "Operations",

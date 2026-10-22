@@ -4,6 +4,9 @@ import { type Operation } from "@/features/operations/api";
 
 export type AssetConfiguration = string[];
 
+/** What happens to a part at its limit (the tracking sheet's SERVICE ACTION). */
+export type ServiceAction = "retire" | "overhaul" | "inspect" | "replace";
+
 export type Engine = {
   id?: number;
   asset_id?: number;
@@ -21,6 +24,9 @@ export type Engine = {
   inspection_interval_hours?: number | string | null;
   inspection_interval_cycles?: number | string | null;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  service_action?: ServiceAction | "" | null;
+  /** Airframe total hours when the part was fitted (the sheet's "A/F @ INST"). */
+  asset_hours_at_installation?: number | string | null;
   operation_flight_hours?: number;
   current_time_since_new?: number;
   current_time_since_new_label?: string;
@@ -44,6 +50,9 @@ export type Component = {
   inspection_interval_hours?: number | string | null;
   inspection_interval_cycles?: number | string | null;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  service_action?: ServiceAction | "" | null;
+  /** Airframe total hours when the part was fitted (the sheet's "A/F @ INST"). */
+  asset_hours_at_installation?: number | string | null;
   operation_flight_hours?: number;
   current_time_since_new?: number;
   current_time_since_new_label?: string;
@@ -90,6 +99,9 @@ export type Avionics = {
   inspection_interval_unit?: "hours" | "months" | "cycle";
   inspection_interval?: number | string;
   maintenance_strategy?: "hard-time" | "on-condition" | "condition";
+  service_action?: ServiceAction | "" | null;
+  /** Airframe total hours when the part was fitted (the sheet's "A/F @ INST"). */
+  asset_hours_at_installation?: number | string | null;
   operation_flight_hours?: number;
   current_time_since_new?: number;
   current_time_since_new_label?: string;
@@ -512,6 +524,19 @@ export type MaintenanceDueItem = {
   projected_due_date: string | null;
   current_hours: number | null;
   current_cycles: number | null;
+  /** Tracking-sheet fields (MaintenanceDueCalculator::lifeTracking). */
+  airframe_hours_now?: number | null;
+  airframe_hours_at_installation?: number | null;
+  airframe_hours_at_installation_missing?: boolean;
+  component_hours_at_installation?: number | null;
+  component_current_hours?: number | null;
+  life_limit_hours?: number | null;
+  airframe_hours_due?: number | null;
+  life_remaining_hours?: number | null;
+  percent_remaining?: number | null;
+  service_action?: "retire" | "overhaul" | "inspect" | "replace" | null;
+  service_action_code?: string | null;
+  part_number?: string | null;
   part_type: MaintenanceDuePartType;
   part_id: number;
   part_label: string;

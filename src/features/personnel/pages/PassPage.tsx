@@ -191,8 +191,8 @@ export const PassPage = () => {
     if (!q) return personnelPass;
     return personnelPass.filter(
       (p) =>
-        p.firstname.toLowerCase().includes(q) ||
-        p.lastname.toLowerCase().includes(q) ||
+        p.firstname?.toLowerCase().includes(q) ||
+        p.lastname?.toLowerCase().includes(q) ||
         p.service_number?.toLowerCase().includes(q) ||
         p.rank?.name?.toLowerCase().includes(q),
     );

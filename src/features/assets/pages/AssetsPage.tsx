@@ -16,7 +16,9 @@ import {
   type Facility,
   type Vehicle,
 } from "@/features/assets/api";
-import { useAppDispatch } from "@/app/store";
+import { useAppDispatch, useAppSelector } from "@/app/store";
+import { GeneratorsTab } from "@/features/generators/components/GeneratorsTab";
+import { AccommodationTab } from "@/features/accommodation/components/AccommodationTab";
 import { showToast } from "@/shared/store/toastSlice";
 import { useGetUnitsQuery } from "@/shared/api/units";
 import { cn } from "@/shared/utils/cn";
@@ -48,19 +50,32 @@ const TABS = [
   { id: "vehicle", label: "Vehicles", icon: "mdi:car" },
   // { id: "airbase", label: "Airbases", icon: "mdi:airport" },
   { id: "facility", label: "Facilities", icon: "mdi:office-building" },
+  { id: "generator", label: "Generators", icon: "mdi:engine-outline", permission: "generators.viewAny" },
+  { id: "accommodation", label: "Accommodation", icon: "mdi:home-city-outline", permission: "accommodation-categories.viewAny" },
   // { id: "equipment", label: "Equipments", icon: "mdi:tools" },
 ];
 
+const TAB_IDS = ["aircraft", "vehicle", "facility", "generator", "accommodation"];
+
 export const AssetsPage = () => {
   const dispatch = useAppDispatch();
-  const [activeTab, setActiveTab] = useState("aircraft");
+  const permissions = useAppSelector((state) => state.auth.user?.permissions ?? []);
+  const visibleTabs = TABS.filter((t) => !("permission" in t) || permissions.includes(t.permission as string));
+  // ?tab=generator (e.g. coming back from a generator's page) reopens that tab.
+  const [activeTab, setActiveTab] = useState(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (requested && TAB_IDS.includes(requested) && visibleTabs.some((t) => t.id === requested)) return requested;
+    // Someone allowed in only for accommodation (see ASSETS_ROUTE_PERMISSIONS) starts on that tab.
+    const seesAssets = permissions.includes("assets.viewAny") || permissions.includes("dashboard.home.view");
+    return seesAssets || !visibleTabs.some((t) => t.id === "accommodation") ? "aircraft" : "accommodation";
+  });
   const [viewMode, setViewMode] = useState<"table" | "grid" | "map">("table");
   const [selectedUnitId, setSelectedUnitId] = useState<string>("all");
   const [selectedOperationStatus, setSelectedOperationStatus] =
     useState<string>("all");
   const { data: assets, isLoading: isAssetsLoading } = useGetAssetsQuery(
     { type: activeTab },
-    { skip: activeTab === "vehicle" || activeTab === "facility" },
+    { skip: activeTab === "vehicle" || activeTab === "facility" || activeTab === "generator" || activeTab === "accommodation" },
   );
   const { data: vehicles, isLoading: isVehiclesLoading } = useGetVehiclesQuery(
     undefined,
@@ -388,7 +403,7 @@ export const AssetsPage = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300 w-full overflow-x-auto">
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -397,6 +412,7 @@ export const AssetsPage = () => {
               onClick={() => {
                 setActiveTab(tab.id);
                 setViewMode("table");
+                window.history.replaceState(window.history.state, "", tab.id === "aircraft" ? location.pathname : `${location.pathname}?tab=${tab.id}`);
                 if (tab.id !== "aircraft") {
                   setSelectedUnitId("all");
                   setSelectedOperationStatus("all");
@@ -420,6 +436,11 @@ export const AssetsPage = () => {
       </div>
 
       {/* Content */}
+      {activeTab === "generator" ? (
+        <GeneratorsTab />
+      ) : activeTab === "accommodation" ? (
+        <AccommodationTab />
+      ) : (
       <div className="space-y-4">
         {/* Controls */}
         <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
@@ -1106,6 +1127,7 @@ export const AssetsPage = () => {
           </div>
         ))}
       </div>
+      )}
 
       <ImportCsvModal
         open={isImportOpen}
