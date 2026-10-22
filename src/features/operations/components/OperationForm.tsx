@@ -21,6 +21,8 @@ import {
 import { OperationLocationPicker } from "./OperationLocationPicker";
 import { WeatherBriefingCard } from "./WeatherBriefingCard";
 import { MissionPlanningCard, type MissionPlanningData } from "./MissionPlanningCard";
+import { AeronauticalDatabaseModal } from "./AeronauticalDatabaseModal";
+import { type AeronauticalPoint } from "../utils/navigationEngine";
 import Modal from "@/shared/ui/modal/Modal";
 import { BackButton, CancelButton } from "@/shared/ui/button";
 import {
@@ -342,6 +344,31 @@ export const OperationForm = ({
       [`${target}_dms_lng`]: dmsLng,
     }));
     setCoordinateErrors((prev) => ({ ...prev, [target]: "" }));
+  };
+
+  const [aeroModalTarget, setAeroModalTarget] = useState<"departure" | "arrival" | "waypoint" | null>(null);
+
+  const handleSelectAeronauticalPoint = (point: AeronauticalPoint) => {
+    const latStr = point.latitude.toFixed(6);
+    const lngStr = point.longitude.toFixed(6);
+
+    if (aeroModalTarget === "departure") {
+      setTargetFromLatLon("departure", latStr, lngStr);
+    } else if (aeroModalTarget === "arrival") {
+      setTargetFromLatLon("arrival", latStr, lngStr);
+    } else if (aeroModalTarget === "waypoint") {
+      setWaypoints((prev) => [
+        ...prev,
+        {
+          name: `${point.ident} - ${point.name}`,
+          latitude: latStr,
+          longitude: lngStr,
+          mgrs: latLonToMgrs(latStr, lngStr),
+          dms_lat: decimalToDms(point.latitude, true),
+          dms_lng: decimalToDms(point.longitude, false),
+        },
+      ]);
+    }
   };
 
   const handleLatLonChange = (
@@ -1228,19 +1255,41 @@ export const OperationForm = ({
               }))}
               onCoordinateSelect={handleCoordinateSelect}
               onWaypointMove={handleWaypointMove}
+              onWaypointDelete={removeWaypoint}
+              onWaypointRename={updateWaypointName}
               onDepartureMove={handleDepartureMove}
               onArrivalMove={handleArrivalMove}
             />
 
             {/* Departure and Arrival Coordinate Inputs */}
             <div className="rounded-xl border border-[#0A4D66]/40 bg-[#001825]/60 p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-[#0A4D66]/30 pb-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#7FD5FF]">
-                  Flight Aerodrome Endpoints
-                </h3>
-                <span className="text-[11px] text-gray-400">
-                  Mode: {coordinateInputMode.toUpperCase()}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0A4D66]/30 pb-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#7FD5FF]">
+                    Flight Aerodrome Endpoints
+                  </h3>
+                  <span className="text-[11px] text-gray-400">
+                    Mode: {coordinateInputMode.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAeroModalTarget("departure")}
+                    className="inline-flex items-center gap-1.5 rounded bg-[#0A4D66]/60 border border-[#0A4D66] px-2.5 py-1 text-xs font-semibold text-[#7FD5FF] hover:bg-[#0369A1] hover:text-white transition-colors"
+                  >
+                    <Icon icon="mdi:airplane-takeoff" className="w-3.5 h-3.5" />
+                    <span>DEP Database Fix</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAeroModalTarget("arrival")}
+                    className="inline-flex items-center gap-1.5 rounded bg-[#0A4D66]/60 border border-[#0A4D66] px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-[#0369A1] hover:text-white transition-colors"
+                  >
+                    <Icon icon="mdi:airplane-landing" className="w-3.5 h-3.5" />
+                    <span>ARR Database Fix</span>
+                  </button>
+                </div>
               </div>
 
               {coordinateInputMode === "latlon" && (
@@ -1419,14 +1468,24 @@ export const OperationForm = ({
                     Sequential navigation fixes plotted along the corridor.
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={addManualWaypoint}
-                  className="inline-flex items-center gap-1.5 rounded bg-[#0A4D66] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#083c50] transition-colors"
-                >
-                  <Icon icon="mdi:plus" className="h-4 w-4" />
-                  <span>Add Waypoint</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAeroModalTarget("waypoint")}
+                    className="inline-flex items-center gap-1.5 rounded bg-[#0369A1] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0284c7] transition-colors"
+                  >
+                    <Icon icon="mdi:radar" className="h-4 w-4" />
+                    <span>+ From Aeronautical DB</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addManualWaypoint}
+                    className="inline-flex items-center gap-1.5 rounded bg-[#0A4D66] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#083c50] transition-colors"
+                  >
+                    <Icon icon="mdi:plus" className="h-4 w-4" />
+                    <span>Add Waypoint</span>
+                  </button>
+                </div>
               </div>
 
               {waypoints.length === 0 ? (
@@ -1554,14 +1613,18 @@ export const OperationForm = ({
             {/* Operational Route Leg Breakdown */}
             <div className="pt-4 border-t border-slate-200 dark:border-[#0A4D66]/40 space-y-3">
               <MissionPlanningCard
-                variant="legs-only"
+                variant="all"
                 departureLat={formData.departure_latitude}
                 departureLng={formData.departure_longitude}
                 arrivalLat={formData.arrival_latitude}
                 arrivalLng={formData.arrival_longitude}
                 waypoints={waypoints}
                 unitId={formData.unit_id}
-                isEditable={false}
+                operationName={formData.name}
+                operationDate={formData.start_date}
+                aircraftCount={assets.length || 1}
+                isEditable={true}
+                onPlanningChange={setMissionPlan}
               />
             </div>
 
@@ -1870,6 +1933,8 @@ export const OperationForm = ({
                 arrivalLng={formData.arrival_longitude}
                 waypoints={waypoints}
                 unitId={formData.unit_id}
+                operationName={formData.name}
+                operationDate={formData.start_date}
                 aircraftCount={assets.length}
                 isEditable={true}
                 onPlanningChange={setMissionPlan}
@@ -2064,6 +2129,19 @@ export const OperationForm = ({
           </div>
         </form>
       </Modal>
+
+      <AeronauticalDatabaseModal
+        isOpen={Boolean(aeroModalTarget)}
+        onClose={() => setAeroModalTarget(null)}
+        onSelectPoint={handleSelectAeronauticalPoint}
+        title={
+          aeroModalTarget === "departure"
+            ? "Select Departure Aerodrome / Air Base"
+            : aeroModalTarget === "arrival"
+            ? "Select Arrival Aerodrome / Air Base"
+            : "Select Aeronautical Waypoint / Tactical LZ"
+        }
+      />
     </div>
   );
 };

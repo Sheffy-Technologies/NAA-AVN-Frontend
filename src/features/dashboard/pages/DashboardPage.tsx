@@ -740,17 +740,19 @@ export const DashboardPage = () => {
             <button
               key={tab.id}
               type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
+                "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap bg-transparent tab-link outline-none border-0 shadow-none",
                 activeTab === tab.id
-                  ? "text-[#7FD5FF]"
-                  : "text-gray-400 hover:text-gray-300",
+                  ? "text-sky-700 dark:text-[#7FD5FF] font-bold"
+                  : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200",
               )}
             >
               {tab.label}
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-700 dark:bg-[#0369A1] shadow-sm dark:shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
               )}
             </button>
           ))}

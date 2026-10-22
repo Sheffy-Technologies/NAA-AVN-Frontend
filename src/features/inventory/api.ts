@@ -528,10 +528,77 @@ export type CreateGoodsReceivedNotePayload = {
   }>;
 };
 
+export type ShipmentStatus = "picked_up" | "customs_clearance" | "in_transit" | "delivered";
+
+export type ShipmentCheckpoint = {
+  id: number;
+  shipment_id: number;
+  checkpoint_time?: string | null;
+  status_stage: ShipmentStatus;
+  location?: string | null;
+  description?: string | null;
+  substatus?: string | null;
+  raw_data?: unknown;
+  logged_by_user_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type Shipment = {
+  id: number;
+  purchase_order_id: number;
+  tracking_number: string;
+  carrier_code?: string | null;
+  carrier_name?: string | null;
+  status: ShipmentStatus;
+  origin?: string | null;
+  destination?: string | null;
+  latest_event_description?: string | null;
+  estimated_delivery_date?: string | null;
+  customs_reference?: string | null;
+  customs_notes?: string | null;
+  notes?: string | null;
+  tracking_more_id?: string | null;
+  raw_payload?: unknown;
+  picked_up_at?: string | null;
+  customs_cleared_at?: string | null;
+  in_transit_at?: string | null;
+  delivered_at?: string | null;
+  created_by_user_id?: number | null;
+  created_at?: string;
+  updated_at?: string;
+  checkpoints?: ShipmentCheckpoint[];
+  purchase_order?: PurchaseOrder;
+  created_by?: { id: number; name: string; email?: string } | null;
+};
+
+export type CreateShipmentPayload = {
+  purchase_order_id: number;
+  tracking_number: string;
+  carrier_code?: string;
+  carrier_name?: string;
+  origin?: string;
+  destination?: string;
+  estimated_delivery_date?: string;
+  customs_reference?: string;
+  customs_notes?: string;
+  notes?: string;
+  status?: ShipmentStatus;
+};
+
+export type UpdateShipmentStatusPayload = {
+  id: number;
+  status: ShipmentStatus;
+  location?: string;
+  description?: string;
+  customs_reference?: string;
+  customs_notes?: string;
+};
+
 export const inventoryApi = createApi({
   reducerPath: "inventoryApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Inventories", "Stores", "Currencies", "AtaChapters"],
+  tagTypes: ["Inventories", "Stores", "Currencies", "AtaChapters", "Shipments"],
   endpoints: (builder) => ({
     getInventoryDashboard: builder.query<InventoryDashboardResponse, void>({
       query: () => ({
@@ -827,6 +894,54 @@ export const inventoryApi = createApi({
       }),
       providesTags: ["AtaChapters"],
     }),
+    getShipments: builder.query<
+      Shipment[],
+      { purchase_order_id?: number | string; status?: string; search?: string } | void
+    >({
+      query: (params) => ({
+        url: "/shipments",
+        method: "GET",
+        params: params || undefined,
+      }),
+      providesTags: ["Shipments"],
+    }),
+    getShipmentById: builder.query<Shipment, number | string>({
+      query: (id) => ({
+        url: `/shipments/${id}`,
+        method: "GET",
+      }),
+      providesTags: ["Shipments"],
+    }),
+    getPurchaseOrderShipments: builder.query<Shipment[], number | string>({
+      query: (poId) => ({
+        url: `/purchase-orders/${poId}/shipments`,
+        method: "GET",
+      }),
+      providesTags: ["Shipments"],
+    }),
+    createShipment: builder.mutation<Shipment, CreateShipmentPayload>({
+      query: (body) => ({
+        url: "/shipments",
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: ["Shipments"],
+    }),
+    syncShipmentLive: builder.mutation<{ message: string; shipment: Shipment }, number | string>({
+      query: (id) => ({
+        url: `/shipments/${id}/sync`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Shipments"],
+    }),
+    updateShipmentStatus: builder.mutation<Shipment, UpdateShipmentStatusPayload>({
+      query: ({ id, ...body }) => ({
+        url: `/shipments/${id}/status`,
+        method: "PATCH",
+        data: body,
+      }),
+      invalidatesTags: ["Shipments"],
+    }),
   }),
 });
 
@@ -870,4 +985,10 @@ export const {
   useCreateStoreMutation,
   useUpdateStoreMutation,
   useDeleteStoreMutation,
+  useGetShipmentsQuery,
+  useGetShipmentByIdQuery,
+  useGetPurchaseOrderShipmentsQuery,
+  useCreateShipmentMutation,
+  useSyncShipmentLiveMutation,
+  useUpdateShipmentStatusMutation,
 } = inventoryApi;

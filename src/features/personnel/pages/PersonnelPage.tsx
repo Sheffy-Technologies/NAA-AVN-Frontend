@@ -478,7 +478,7 @@ export const PersonnelPage = () => {
           <BackButton fallbackUrl="/dashboard" />
         </div>
       )}
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl">
+      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
         {/* Module-level tab bar */}
         <PersonnelModuleTabs />
 

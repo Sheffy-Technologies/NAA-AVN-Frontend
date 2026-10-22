@@ -38,6 +38,7 @@ import {
   onInteractiveRowClick,
   formatCategoryName,
   isCategoryMatch,
+  formatAtaChapter,
 } from "../inventoryUtils";
 import { StoreModal } from "@/features/inventory/components/StoreModal";
 import { StoreInventoryModal } from "@/features/inventory/components/StoreInventoryModal";
@@ -809,7 +810,7 @@ export const InventoryPage = () => {
         storeName: item.store_location?.name,
         storeCode: item.store_location?.code,
         nsn: item.nsn || item.nsn_number || "-",
-        ataChapter: item.ata_chapter || "-",
+        ataChapter: formatAtaChapter(item.ata_chapter || item.ata_chapter_rel),
         unit: item.unit?.name || "N/A",
         stockLevel: mapStockLevel(item.stock_level),
         currentStock: item.current_stock,

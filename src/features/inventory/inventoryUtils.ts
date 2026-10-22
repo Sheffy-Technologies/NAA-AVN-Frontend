@@ -140,3 +140,37 @@ export const isCategoryMatch = (
   return itemCat === target || itemCat.includes(target);
 };
 
+export const formatAtaChapter = (val: unknown): string => {
+  if (!val) return "-";
+  if (typeof val === "string") return val.trim() || "-";
+  if (typeof val === "object" && val !== null) {
+    const ata = val as {
+      code?: string | number;
+      name?: string;
+      chapter_number?: string | number;
+      chapter_name?: string;
+    };
+    const code = ata.code ?? ata.chapter_number;
+    const name = ata.name ?? ata.chapter_name;
+    if (code && name) return `${code} - ${name}`;
+    if (code) return String(code);
+    if (name) return String(name);
+  }
+  return String(val);
+};
+
+export const extractAtaCode = (val: unknown): string => {
+  if (!val) return "";
+  if (typeof val === "string") return val.trim();
+  if (typeof val === "object" && val !== null) {
+    const ata = val as {
+      code?: string | number;
+      chapter_number?: string | number;
+      name?: string;
+    };
+    const code = ata.code ?? ata.chapter_number;
+    if (code) return String(code);
+    if (ata.name) return String(ata.name);
+  }
+  return "";
+};

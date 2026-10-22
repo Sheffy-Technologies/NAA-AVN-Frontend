@@ -10,7 +10,7 @@ import {
   useGetStockMovementsQuery,
   useGetSuppliersQuery,
 } from "../api";
-import { formatDateShort, formatTimeShort, downloadCsv, onInteractiveRowClick } from "../inventoryUtils";
+import { formatDateShort, formatTimeShort, downloadCsv, onInteractiveRowClick, onInteractiveRowKeyDown } from "../inventoryUtils";
 
 interface ProcurementPartRequisitionsTabProps {
   onNavigateToRfq?: (rfqId: number) => void;
@@ -394,21 +394,28 @@ export const ProcurementPartRequisitionsTab: React.FC<ProcurementPartRequisition
                 const hasRfq = existingRfqMovementIds.has(req.id);
                 const isSelected = selectedPartRequisitionIds.includes(req.id);
                 const linkedRfq = rfqs.find((r) => r.stock_movement_id === req.id);
+                const handleRowAction = () => {
+                  if (hasRfq && linkedRfq && onNavigateToRfq) {
+                    onNavigateToRfq(linkedRfq.id);
+                  } else if (!hasRfq) {
+                    handleToggleRequisition(req.id, !isSelected);
+                  }
+                };
 
                 return (
                   <tr
                     key={req.id}
-                    title={hasRfq && linkedRfq ? "Click to view linked RFQ" : "Work order part demand"}
-                    onClick={(e) =>
-                      onInteractiveRowClick(e, () => {
-                        if (hasRfq && linkedRfq && onNavigateToRfq) {
-                          onNavigateToRfq(linkedRfq.id);
-                        }
-                      })
+                    tabIndex={0}
+                    role="button"
+                    title={
+                      hasRfq && linkedRfq
+                        ? "Click to view linked RFQ"
+                        : "Click to select requisition for RFQ"
                     }
+                    onClick={(e) => onInteractiveRowClick(e, handleRowAction)}
+                    onKeyDown={(e) => onInteractiveRowKeyDown(e, handleRowAction)}
                     className={cn(
-                      "hover:bg-[#0A4D66]/20 transition-colors",
-                      hasRfq && linkedRfq && "cursor-pointer",
+                      "cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                       isSelected && (isDark ? "bg-[#0A4D66]/25" : "bg-sky-50"),
                     )}
                   >

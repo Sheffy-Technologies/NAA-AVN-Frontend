@@ -387,10 +387,13 @@ export const AssetsPage = () => {
       )}
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 w-full">
+        <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300 w-full overflow-x-auto">
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => {
                 setActiveTab(tab.id);
                 setViewMode("table");
@@ -400,16 +403,16 @@ export const AssetsPage = () => {
                 }
               }}
               className={cn(
-                "flex items-center space-x-2 pb-4 text-sm font-medium transition-colors relative",
+                "flex items-center space-x-2 pb-4 text-sm font-medium transition-colors relative !bg-transparent tab-link outline-none !border-0 !shadow-none whitespace-nowrap",
                 activeTab === tab.id
-                  ? "text-[#7FD5FF]"
-                  : "text-gray-400 hover:text-gray-300",
+                  ? "text-sky-700 dark:text-[#7FD5FF] font-bold"
+                  : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200",
               )}
             >
               <Icon icon={tab.icon} className="w-5 h-5" />
               <span>{tab.label}</span>
               {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-700 dark:bg-[#0369A1] shadow-sm dark:shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
               )}
             </button>
           ))}

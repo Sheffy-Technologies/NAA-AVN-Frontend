@@ -1,6 +1,10 @@
 import { useRef, useState } from "react";
+<<<<<<< HEAD
 import { useParams, useNavigate } from "react-router-dom";
 import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
+=======
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+>>>>>>> cb2164bd375d0532459945257f4b54324ff8b964
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
@@ -9,6 +13,7 @@ import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useDeleteOperationMutation,
   useGetOperationByIdQuery,
+  useGetOperationTelemetryQuery,
   useLogOperationFlightHoursMutation,
   useUpdateOperationMutation,
   useUpdateOperationStatusMutation,
@@ -18,6 +23,8 @@ import {
 import { OperationLocationPicker } from "../components/OperationLocationPicker";
 import { WeatherBriefingCard } from "../components/WeatherBriefingCard";
 import { MissionPlanningCard } from "../components/MissionPlanningCard";
+import { SatelliteCommsCard } from "../components/SatelliteCommsCard";
+import { AARSignatureTable } from "../components/AARSignatureTable";
 import Modal from "@/shared/ui/modal/Modal";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { BackButton } from "@/shared/ui/button";
@@ -479,6 +486,8 @@ const OperationTab = ({
   navigate,
   onUpdateDateTime,
   isSavingDateTime,
+  telemetryTracks = [],
+  liveAircraftPositions = [],
 }: {
   operation: Operation;
   navigate: (path: string) => void;
@@ -487,6 +496,26 @@ const OperationTab = ({
     end_date_time?: string;
   }) => Promise<void>;
   isSavingDateTime: boolean;
+  telemetryTracks?: Array<{
+    latitude: number;
+    longitude: number;
+    altitude?: number | null;
+    recorded_at?: string;
+  }>;
+  liveAircraftPositions?: Array<{
+    asset_id?: number;
+    asset_name?: string;
+    call_sign?: string;
+    imei?: string;
+    latitude: number;
+    longitude: number;
+    altitude?: number | null;
+    speed?: number | null;
+    course?: number | null;
+    battery_level?: number | null;
+    recorded_at?: string;
+    is_sos?: boolean;
+  }>;
 }) => {
   const [editDates, setEditDates] = useState<DateTimeDraft | null>(null);
 
@@ -816,6 +845,8 @@ const OperationTab = ({
               longitude: waypoint.longitude,
             }))}
           readOnly
+          telemetryTracks={telemetryTracks}
+          liveAircraftPositions={liveAircraftPositions}
           heightClassName="h-120"
         />
       </div>
@@ -836,6 +867,10 @@ const OperationTab = ({
               longitude: w.longitude,
             }))}
             unitId={operation.unit?.id}
+            unitName={operation.unit?.name}
+            operationName={operation.name}
+            operationCode={operation.id ? `OP-${operation.id}` : undefined}
+            operationDate={operation.start_date_time ? operation.start_date_time.slice(0, 10) : undefined}
             aircraftCount={operation.assets?.length || 1}
             isEditable={false}
           />
@@ -920,8 +955,23 @@ const AARTab = ({
             value={<span className="capitalize">{report.mission}</span>}
           />
           <InfoRow label="Task No." value={report.task_no || "-"} />
+          <InfoRow label="Date" value={report.report_date || (report as unknown as { created_at?: string })?.created_at?.slice(0, 10) || "-"} />
+          <InfoRow
+            label="Aircraft"
+            value={
+              report.aircraft_formation === "formation"
+                ? "Formation"
+                : report.aircraft_formation === "single_ship"
+                ? "Single Ship"
+                : report.aircraft_formation === "none"
+                ? "None"
+                : report.aircraft_formation || "-"
+            }
+          />
+          <InfoRow label="Unit / Formation" value={report.unit_formation || "-"} />
           <InfoRow label="Infantry No" value={report.infantry_no ?? "-"} />
-          <InfoRow label="Vehicle No." value={totalContactVehicles} />
+          <InfoRow label="Vehicle No." value={report.vehicles_no ?? totalContactVehicles} />
+          <InfoRow label="Ammo Spent" value={report.ammo_spent || "-"} />
           <InfoRow label="Activities" value={report.activities || "-"} />
         </div>
       </div>
@@ -947,7 +997,6 @@ const AARTab = ({
                   }
                 />
                 <InfoRow label="Location" value={contact.location || "-"} />
-                <InfoRow label="Date" value={contact.date_of_contact || "-"} />
                 <InfoRow
                   label="Time of Contact"
                   value={contact.time_of_contact || "-"}
@@ -1029,16 +1078,29 @@ const AARTab = ({
           </div>
         )}
       </div>
+
+      {/* AAR Signature & Endorsement Table */}
+      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-4">
+        <AARSignatureTable
+          report={report}
+          operationId={operation.id}
+          operationName={operation.name}
+        />
+      </div>
     </div>
   );
 };
 
 export const OperationDetailsPage = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const queryTab = searchParams.get("tab");
+  const initialTab =
+    queryTab === "aar" ? "aar" : queryTab === "satcom" ? "satcom" : "operation";
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"operation" | "aar">("operation");
+  const [activeTab, setActiveTab] = useState<"operation" | "satcom" | "aar">(initialTab);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [deleteOperation, { isLoading: isDeleting }] =
@@ -1052,6 +1114,11 @@ export const OperationDetailsPage = () => {
 
   const { data: operation, isLoading, refetch } = useGetOperationByIdQuery(id || "", {
     skip: !id,
+  });
+
+  const { data: telemetryData } = useGetOperationTelemetryQuery(id || "", {
+    skip: !id,
+    pollingInterval: 8000,
   });
 
   if (isLoading) {
@@ -1249,9 +1316,10 @@ export const OperationDetailsPage = () => {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300">
-          <AppTabs<"operation" | "aar">
+          <AppTabs<"operation" | "satcom" | "aar">
             tabs={[
-              { id: "operation", label: "Operation", icon: "mdi:database" },
+              { id: "operation", label: "Operation Details", icon: "mdi:database" },
+              { id: "satcom", label: "Satellite Comms & Tracking (inReach)", icon: "mdi:satellite-variant" },
               { id: "aar", label: "After Action Report", icon: "mdi:file-document-outline" },
             ]}
             activeTab={activeTab}
@@ -1283,6 +1351,16 @@ export const OperationDetailsPage = () => {
             navigate={navigate}
             onUpdateDateTime={handleUpdateDateTime}
             isSavingDateTime={isSavingDateTime}
+            telemetryTracks={telemetryData?.tracks}
+            liveAircraftPositions={telemetryData?.latest_positions}
+          />
+        ) : activeTab === "satcom" ? (
+          <SatelliteCommsCard
+            operationId={operation.id}
+            operationName={operation.name}
+            assets={operation.assets}
+            latestPositions={telemetryData?.latest_positions}
+            telemetryTracks={telemetryData?.tracks}
           />
         ) : (
           <AARTab

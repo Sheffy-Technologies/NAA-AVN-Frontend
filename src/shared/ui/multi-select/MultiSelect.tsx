@@ -19,6 +19,7 @@ interface MultiSelectProps {
   disabled?: boolean;
   searchable?: boolean;
   searchPlaceholder?: string;
+  allowCustom?: boolean;
 }
 
 export const MultiSelect = ({
@@ -31,6 +32,7 @@ export const MultiSelect = ({
   disabled,
   searchable = false,
   searchPlaceholder = "Search...",
+  allowCustom = false,
 }: MultiSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -93,8 +95,17 @@ export const MultiSelect = ({
     }
   };
 
+  const handleAddCustom = (customVal: string) => {
+    const trimmed = customVal.trim();
+    if (!trimmed) return;
+    if (!selectedValues.includes(trimmed)) {
+      onChange([...selectedValues, trimmed]);
+    }
+    setSearchTerm("");
+  };
+
   const selectedLabels = selectedValues
-    .map((v) => options.find((o) => o.value === v)?.label)
+    .map((v) => options.find((o) => o.value === v)?.label || String(v))
     .filter(Boolean)
     .join(", ");
 
@@ -125,26 +136,37 @@ export const MultiSelect = ({
 
         {isOpen && !disabled && (
           <div className={cn("absolute z-50 mt-1 w-full border rounded-md shadow-xl max-h-60 overflow-hidden animate-in fade-in zoom-in-95 duration-100 flex flex-col", dropdownCls)}>
-            {searchable && (
+            {(searchable || allowCustom) && (
               <div className={cn("p-2 border-b sticky top-0", searchWrapCls)}>
                 <input
                   type="text"
                   autoFocus
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={searchPlaceholder}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && allowCustom && searchTerm.trim()) {
+                      e.preventDefault();
+                      handleAddCustom(searchTerm);
+                    }
+                  }}
+                  placeholder={allowCustom ? "Search or type custom name..." : searchPlaceholder}
                   className={cn("w-full border rounded px-2 py-1.5 text-sm focus:outline-none", searchInputCls)}
                 />
               </div>
             )}
             <div className="overflow-y-auto">
             {(() => {
-              const filtered = searchable && searchTerm.trim()
+              const trimmedSearch = searchTerm.trim().toLowerCase();
+              const filtered = (searchable || allowCustom) && trimmedSearch
                 ? options.filter((o) =>
-                    o.label.toLowerCase().includes(searchTerm.trim().toLowerCase()),
+                    o.label.toLowerCase().includes(trimmedSearch),
                   )
                 : options;
-              if (filtered.length === 0) {
+              const hasExactMatch = options.some(
+                (o) => o.label.toLowerCase() === trimmedSearch,
+              ) || selectedValues.some((v) => String(v).toLowerCase() === trimmedSearch);
+
+              if (filtered.length === 0 && (!allowCustom || !searchTerm.trim())) {
                 return (
                   <div className={cn("px-3 py-2 text-sm text-center", emptyTextCls)}>
                     {searchTerm ? "No matches" : "No options available"}
@@ -152,7 +174,7 @@ export const MultiSelect = ({
                 );
               }
               const filteredValues = filtered.map((o) => o.value);
-              const allSelected = filteredValues.every((v) =>
+              const allSelected = filteredValues.length > 0 && filteredValues.every((v) =>
                 selectedValues.includes(v),
               );
               const handleToggleAll = () => {
@@ -171,26 +193,39 @@ export const MultiSelect = ({
               };
               return (
                 <>
-                  <div
-                    className={cn("flex items-center px-3 py-2 border-b cursor-pointer group transition-colors", selectAllRowCls)}
-                    onClick={handleToggleAll}
-                  >
+                  {allowCustom && searchTerm.trim() && !hasExactMatch && (
                     <div
                       className={cn(
-                        "w-4 h-4 border rounded mr-3 flex items-center justify-center transition-all duration-200",
-                        allSelected ? checkboxSelectedCls : checkboxBaseCls,
+                        "flex items-center px-3 py-2 border-b cursor-pointer transition-colors bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300 text-sm font-medium",
                       )}
+                      onClick={() => handleAddCustom(searchTerm)}
                     >
-                      {allSelected && (
-                        <Icon icon="mdi:check" className={cn("w-3 h-3", checkIconCls)} />
-                      )}
+                      <Icon icon="mdi:plus-circle-outline" className="w-4 h-4 mr-2" />
+                      Add custom: &quot;{searchTerm.trim()}&quot;
                     </div>
-                    <span className={cn("text-sm font-medium", selectAllTextCls)}>
-                      {allSelected
-                        ? `Clear all${searchTerm ? " (filtered)" : ""}`
-                        : `Select all${searchTerm ? " (filtered)" : ""}`}
-                    </span>
-                  </div>
+                  )}
+                  {filtered.length > 0 && (
+                    <div
+                      className={cn("flex items-center px-3 py-2 border-b cursor-pointer group transition-colors", selectAllRowCls)}
+                      onClick={handleToggleAll}
+                    >
+                      <div
+                        className={cn(
+                          "w-4 h-4 border rounded mr-3 flex items-center justify-center transition-all duration-200",
+                          allSelected ? checkboxSelectedCls : checkboxBaseCls,
+                        )}
+                      >
+                        {allSelected && (
+                          <Icon icon="mdi:check" className={cn("w-3 h-3", checkIconCls)} />
+                        )}
+                      </div>
+                      <span className={cn("text-sm font-medium", selectAllTextCls)}>
+                        {allSelected
+                          ? `Clear all${searchTerm ? " (filtered)" : ""}`
+                          : `Select all${searchTerm ? " (filtered)" : ""}`}
+                      </span>
+                    </div>
+                  )}
                   {filtered.map((option) => {
                 const isSelected = selectedValues.includes(option.value);
                 return (

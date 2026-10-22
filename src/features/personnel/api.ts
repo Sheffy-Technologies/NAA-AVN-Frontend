@@ -32,12 +32,17 @@ export type PersonnelRatingAssignment = {
   name: string;
   pivot?: {
     expiry_date?: string | null;
+    is_lifetime?: boolean | null;
+    issue_date?: string | null;
   };
 };
 
 export type PersonnelFlightExperience = {
   asset_id: number | null;
   flight_hours: number;
+  operational_hours?: number;
+  training_hours?: number;
+  platform_name?: string;
   notes?: string | null;
 };
 
@@ -88,6 +93,7 @@ export type Personnel = {
   rating_type: string;
   status: string;
   image: string | null;
+  date_taken?: string | null;
   // Pass fields
   last_pass_date: string | null;
   pass_duration: number;
@@ -156,11 +162,16 @@ export type CreatePersonnelRequest = {
   ratings?: {
     rating_id: number;
     expiry_date: string | null;
+    is_lifetime?: boolean;
+    issue_date?: string | null;
   }[];
   flight_experiences?: {
-    asset_id: number;
+    asset_id?: number | null;
     flight_hours: number;
-    notes: string;
+    operational_hours?: number;
+    training_hours?: number;
+    platform_name?: string;
+    notes?: string;
   }[];
   deployments?: {
     from_unit_id?: string | number | null;

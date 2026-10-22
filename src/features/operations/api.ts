@@ -217,7 +217,7 @@ export type Contact = {
   engagement: "visuals_only" | "attack" | "base_support" | "returned_fire";
   location: string;
   time_of_contact: string;
-  date_of_contact: string;
+  date_of_contact?: string;
   enemy_resources_description: string;
   enemy_infantry_no: number;
   enemy_vehicle_no: number;
@@ -249,10 +249,42 @@ export type CreateAfterActionReportRequest = {
   operation_id: number;
   mission: "logistics" | "recon" | "attack" | "base_support";
   task_no: string;
+  report_date?: string;
   infantry_no: number;
+  vehicles_no?: number;
+  ammo_spent?: string;
+  unit_formation?: string;
+  aircraft_formation?: "formation" | "single_ship" | "none" | string;
   activities: string;
   contacts: Contact[];
   resource_utilizations: ResourceUtilization[];
+  co_name?: string | null;
+  co_service_number?: string | null;
+  co_rank?: string | null;
+  co_user_id?: number | null;
+  co_signature?: string | null;
+  co_signed_at?: string | null;
+  pic_name?: string | null;
+  pic_service_number?: string | null;
+  pic_rank?: string | null;
+  pic_personnel_id?: number | null;
+  pic_signature?: string | null;
+  pic_signed_at?: string | null;
+  copilot_name?: string | null;
+  copilot_service_number?: string | null;
+  copilot_rank?: string | null;
+  copilot_personnel_id?: number | null;
+  copilot_signature?: string | null;
+  copilot_signed_at?: string | null;
+  status?: string | null;
+};
+
+export type CommandingOfficerOption = {
+  user_id: number;
+  name: string;
+  service_number: string;
+  rank: string;
+  role: string;
 };
 
 export type AfterActionReport = CreateAfterActionReportRequest & {
@@ -260,6 +292,27 @@ export type AfterActionReport = CreateAfterActionReportRequest & {
   created_at: string;
   updated_at: string;
   vehicles?: AfterActionReportVehicle[];
+  commandingOfficerUser?: {
+    id: number;
+    firstname?: string | null;
+    lastname?: string | null;
+    username?: string | null;
+    email?: string | null;
+  } | null;
+  pilotPersonnel?: {
+    id: number;
+    firstname?: string | null;
+    lastname?: string | null;
+    service_number?: string | null;
+    rank?: { name?: string | null } | null;
+  } | null;
+  copilotPersonnel?: {
+    id: number;
+    firstname?: string | null;
+    lastname?: string | null;
+    service_number?: string | null;
+    rank?: { name?: string | null } | null;
+  } | null;
 };
 
 export type Operation = {
@@ -346,7 +399,14 @@ const getOperationLocation = (operation: Operation) => {
 export const operationsApi = createApi({
   reducerPath: "operationsApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Operations", "OperationTypes", "OperationCategories", "OperationDetails"],
+  tagTypes: [
+    "Operations",
+    "OperationTypes",
+    "OperationCategories",
+    "OperationDetails",
+    "OperationTelemetry",
+    "OperationMessages",
+  ],
   endpoints: (builder) => ({
     getOperations: builder.query<Operation[], GetOperationsParams | void>({
       query: (params) => ({
@@ -494,6 +554,34 @@ export const operationsApi = createApi({
         "Operations",
       ],
     }),
+    signAfterActionReport: builder.mutation<
+      AfterActionReport,
+      {
+        id: number;
+        operation_id: number;
+        role: "commanding_officer" | "pilot_in_command" | "co_pilot";
+        signature: string;
+        name?: string;
+        service_number?: string;
+        rank?: string;
+      }
+    >({
+      query: ({ id, operation_id: _opId, ...body }) => ({
+        url: `/after-action-reports/${id}/sign`,
+        method: "POST",
+        data: body,
+      }),
+      invalidatesTags: (_result, _error, { operation_id }) => [
+        { type: "OperationDetails", id: operation_id },
+        "Operations",
+      ],
+    }),
+    getCommandingOfficers: builder.query<CommandingOfficerOption[], void>({
+      query: () => ({
+        url: "/after-action-reports/commanding-officers",
+        method: "GET",
+      }),
+    }),
     logOperationFlightHours: builder.mutation<
       LogOperationFlightHoursResponse,
       LogOperationFlightHoursRequest
@@ -527,8 +615,135 @@ export const operationsApi = createApi({
         params: params || undefined,
       }),
     }),
+    getOperationTelemetry: builder.query<OperationTelemetryResponse, number | string>({
+      query: (operationId) => ({
+        url: `/operations/${operationId}/telemetry`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, operationId) => [
+        { type: "OperationTelemetry", id: operationId },
+      ],
+    }),
+    getOperationSatelliteMessages: builder.query<SatelliteMessage[], number | string>({
+      query: (operationId) => ({
+        url: `/operations/${operationId}/satellite-messages`,
+        method: "GET",
+      }),
+      providesTags: (_result, _error, operationId) => [
+        { type: "OperationMessages", id: operationId },
+      ],
+    }),
+    sendSatelliteMessage: builder.mutation<
+      { message: SatelliteMessage; dispatch: Record<string, unknown> },
+      SendSatelliteMessageRequest
+    >({
+      query: ({ operation_id, ...data }) => ({
+        url: `/operations/${operation_id}/satellite-messages`,
+        method: "POST",
+        data,
+      }),
+      invalidatesTags: (_result, _error, { operation_id }) => [
+        { type: "OperationMessages", id: operation_id },
+      ],
+    }),
+    simulateGarminPing: builder.mutation<
+      {
+        status: string;
+        simulated: boolean;
+        telemetry: TelemetryPoint;
+        satellite_message?: SatelliteMessage | null;
+      },
+      SimulateTelemetryRequest
+    >({
+      query: (data) => ({
+        url: "/telemetry/garmin/simulate",
+        method: "POST",
+        data,
+      }),
+      invalidatesTags: (_result, _error, { operation_id }) => [
+        { type: "OperationTelemetry", id: operation_id },
+        { type: "OperationMessages", id: operation_id },
+      ],
+    }),
   }),
 });
+
+export type TelemetryPoint = {
+  id: number;
+  operation_id?: number | null;
+  asset_id?: number | null;
+  device_id?: number | null;
+  imei: string;
+  latitude: number;
+  longitude: number;
+  altitude?: number | null;
+  speed?: number | null;
+  course?: number | null;
+  message_code: number;
+  recorded_at: string;
+};
+
+export type LiveAircraftPosition = {
+  asset_id?: number;
+  asset_name?: string;
+  asset_model?: string;
+  call_sign?: string;
+  imei: string;
+  latitude: number;
+  longitude: number;
+  altitude?: number | null;
+  speed?: number | null;
+  course?: number | null;
+  battery_level?: number | null;
+  recorded_at: string;
+};
+
+export type OperationTelemetryResponse = {
+  operation_id: number;
+  tracks: TelemetryPoint[];
+  latest_positions: LiveAircraftPosition[];
+  device_count: number;
+};
+
+export type SatelliteMessage = {
+  id: number;
+  operation_id?: number | null;
+  asset_id?: number | null;
+  device_id?: number | null;
+  imei: string;
+  direction: "inbound" | "outbound";
+  message_code: number;
+  sender?: string | null;
+  recipient?: string | null;
+  message_text: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  altitude?: number | null;
+  is_sos: boolean;
+  status: string;
+  sent_at: string;
+};
+
+export type SendSatelliteMessageRequest = {
+  operation_id: number | string;
+  message_text: string;
+  asset_id?: number | null;
+  imei?: string | null;
+  recipient?: string | null;
+};
+
+export type SimulateTelemetryRequest = {
+  operation_id: number;
+  asset_id?: number | null;
+  latitude: number;
+  longitude: number;
+  altitude?: number | null;
+  speed?: number | null;
+  course?: number | null;
+  message_text?: string | null;
+  is_sos?: boolean;
+  imei?: string | null;
+};
 
 export type WeatherStationData = {
   icao: string;
@@ -613,6 +828,12 @@ export const {
   useUpdateOperationStatusMutation,
   useDeleteOperationMutation,
   useCreateAfterActionReportMutation,
+  useSignAfterActionReportMutation,
+  useGetCommandingOfficersQuery,
   useLogOperationFlightHoursMutation,
   useGetWeatherBriefingQuery,
+  useGetOperationTelemetryQuery,
+  useGetOperationSatelliteMessagesQuery,
+  useSendSatelliteMessageMutation,
+  useSimulateGarminPingMutation,
 } = operationsApi;

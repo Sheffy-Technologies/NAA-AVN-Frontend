@@ -30,6 +30,9 @@ type PersonnelDetail = {
   ratings: {
     name: string;
     expiryDate: string | null;
+    isLifetime?: boolean;
+    issueDate?: string | null;
+    derivedExperience?: string | null;
   }[];
   image: string | null;
   currentDeploymentDate: string;
@@ -47,11 +50,17 @@ type PersonnelDetail = {
   dialogue: string;
   aircraftRatedOn: string;
   totalFlightTimeHours: number;
+  totalOperationalHours: number;
+  totalTrainingHours: number;
   aircraftHours: {
     name: string;
     hours: number;
+    operationalHours?: number;
+    trainingHours?: number;
   }[];
   isPilot: boolean;
+  isEngineer: boolean;
+  yearsOfExperience?: string;
   lastFlightDate: string | null;
   nextFlightDueDate: string | null;
   flightStatus: "no_flights" | "current" | "due_for_flight" | "overdue" | null;
@@ -273,14 +282,54 @@ export const PersonnelDetailPage = () => {
       });
     };
 
+    const isEngineerRole =
+      (apiPerson.specialty?.name || "").toLowerCase().includes("engineer") ||
+      (apiPerson.specialty?.name || "").toLowerCase().includes("technician") ||
+      (apiPerson.specialty?.name || "").toLowerCase().includes("maintenance") ||
+      (apiPerson.specialty?.name || "").toLowerCase().includes("avionics") ||
+      (apiPerson.specialty?.name || "").toLowerCase().includes("airframe") ||
+      (apiPerson.specialty?.name || "").toLowerCase().includes("powerplant");
+
+    const calculateExperienceFromDate = (dateStr?: string | null) => {
+      if (!dateStr) return null;
+      const issue = new Date(dateStr);
+      if (isNaN(issue.getTime())) return null;
+      const now = new Date();
+      let years = now.getFullYear() - issue.getFullYear();
+      let months = now.getMonth() - issue.getMonth();
+      if (now.getDate() < issue.getDate()) {
+        months--;
+      }
+      if (months < 0) {
+        years--;
+        months += 12;
+      }
+      if (years < 0) return "0 Months";
+      const parts: string[] = [];
+      if (years > 0) parts.push(`${years} Year${years > 1 ? "s" : ""}`);
+      if (months > 0 || parts.length === 0)
+        parts.push(`${months} Month${months !== 1 ? "s" : ""}`);
+      return parts.join(", ");
+    };
+
     const mappedRatings = Array.isArray(apiPerson.ratings)
       ? apiPerson.ratings
           .filter((rating) => typeof rating.name === "string" && rating.name.trim().length > 0)
           .map((rating) => ({
             name: rating.name,
-            expiryDate: rating.pivot?.expiry_date
+            expiryDate: rating.pivot?.is_lifetime
+              ? "Lifetime"
+              : rating.pivot?.expiry_date
               ? formatDate(rating.pivot.expiry_date)
               : null,
+            isLifetime: Boolean(
+              rating.pivot?.is_lifetime ||
+                (!rating.pivot?.expiry_date && rating.pivot?.issue_date),
+            ),
+            issueDate: rating.pivot?.issue_date
+              ? formatDate(rating.pivot.issue_date)
+              : null,
+            derivedExperience: calculateExperienceFromDate(rating.pivot?.issue_date),
           }))
       : [];
 
@@ -292,12 +341,114 @@ export const PersonnelDetailPage = () => {
           .map((name) => ({ name, expiryDate: null }))
       : [];
 
+    // Parse baseline platform flight experiences
+    const parsedPlatforms: {
+      name: string;
+      hours: number;
+      operationalHours: number;
+      trainingHours: number;
+    }[] = [];
+
+    let baselineOperational = 0;
+    let baselineTraining = 0;
+
+    if (Array.isArray(apiPerson.flight_experiences)) {
+      apiPerson.flight_experiences.forEach((exp) => {
+        let opVal = 0;
+        let trVal = 0;
+        let platformName = exp.platform_name || "";
+
+        if (exp.notes && exp.notes.startsWith("{")) {
+          try {
+            const parsed = JSON.parse(exp.notes);
+            if (parsed.operational_hours !== undefined)
+              opVal = Number(parsed.operational_hours) || 0;
+            if (parsed.training_hours !== undefined)
+              trVal = Number(parsed.training_hours) || 0;
+            if (parsed.platform) platformName = parsed.platform;
+          } catch {
+            // ignore JSON error
+          }
+        }
+        if (!opVal && !trVal) {
+          opVal = Number(exp.operational_hours ?? exp.flight_hours ?? 0) || 0;
+          trVal = Number(exp.training_hours ?? 0) || 0;
+        }
+
+        const platform = platformName || (exp.asset_id ? `Asset #${exp.asset_id}` : "Fleet Aircraft");
+        baselineOperational += opVal;
+        baselineTraining += trVal;
+
+        parsedPlatforms.push({
+          name: platform,
+          hours: Number((opVal + trVal).toFixed(1)),
+          operationalHours: Number(opVal.toFixed(1)),
+          trainingHours: Number(trVal.toFixed(1)),
+        });
+      });
+    }
+
+    const baselineTotal = baselineOperational + baselineTraining;
+    const totalFlightTimeHours = Number(apiPerson.total_flight_hours ?? baselineTotal) || 0;
+    const loggedOperationsDifference = Math.max(0, totalFlightTimeHours - baselineTotal);
+
+    const totalOperationalHours = Number((baselineOperational + loggedOperationsDifference).toFixed(1));
+    const totalTrainingHours = Number(baselineTraining.toFixed(1));
+
     const sortedDeployments = [...apiPerson.deployments].sort(
       (a, b) =>
         new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
     );
     const lastDeployment =
       sortedDeployments.length > 0 ? sortedDeployments[0] : null;
+
+    const branchName = (apiPerson.branch?.name || "").toLowerCase();
+    const specName = (apiPerson.specialty?.name || "").toLowerCase();
+
+    const isExplicitNonPilot =
+      isEngineerRole ||
+      branchName.includes("engineer") ||
+      branchName.includes("technician") ||
+      branchName.includes("maintenance") ||
+      branchName.includes("admin") ||
+      branchName.includes("logistics") ||
+      branchName.includes("medical") ||
+      branchName.includes("supply") ||
+      specName.includes("engineer") ||
+      specName.includes("technician") ||
+      specName.includes("maintenance");
+
+    const hasPilotIndicator =
+      apiPerson.is_pilot === true ||
+      branchName.includes("pilot") ||
+      branchName.includes("flight") ||
+      branchName.includes("aircrew") ||
+      branchName.includes("flying") ||
+      specName.includes("pilot");
+
+    const isPilot = hasPilotIndicator && !isExplicitNonPilot;
+
+    // Derive overall years of experience for non-pilot personnel
+    let earliestDate: string | null = null;
+    if (Array.isArray(apiPerson.ratings)) {
+      const validDates = apiPerson.ratings
+        .map((r) => r.pivot?.issue_date)
+        .filter((d): d is string => Boolean(d && !isNaN(new Date(d).getTime())));
+      if (validDates.length > 0) {
+        validDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        earliestDate = validDates[0];
+      }
+    }
+
+    if (!earliestDate && apiPerson.date_taken) {
+      earliestDate = apiPerson.date_taken;
+    }
+
+    if (!earliestDate && apiPerson.created_at) {
+      earliestDate = apiPerson.created_at;
+    }
+
+    const yearsOfExperience = calculateExperienceFromDate(earliestDate) || "Active Service";
 
     return {
       id: String(apiPerson.id),
@@ -329,9 +480,19 @@ export const PersonnelDetailPage = () => {
       address: apiPerson.address,
       dialogue: "",
       aircraftRatedOn: apiPerson.rating_type || "N/A",
+<<<<<<< HEAD
       totalFlightTimeHours: apiPerson.total_flight_hours ?? 0,
       aircraftHours: [],
       isPilot: apiPerson.is_pilot,
+=======
+      totalFlightTimeHours,
+      totalOperationalHours,
+      totalTrainingHours,
+      aircraftHours: parsedPlatforms,
+      isPilot,
+      isEngineer: isEngineerRole,
+      yearsOfExperience,
+>>>>>>> cb2164bd375d0532459945257f4b54324ff8b964
       lastFlightDate: apiPerson.last_flight_date,
       nextFlightDueDate: apiPerson.next_flight_due_date,
       flightStatus: apiPerson.flight_status,
@@ -550,7 +711,11 @@ export const PersonnelDetailPage = () => {
                               className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-0.5 text-[11px] text-[#B7E6FF]"
                             >
                               {rating.name}
-                              {rating.expiryDate ? ` (${rating.expiryDate})` : ""}
+                              {rating.isLifetime
+                                ? " (Lifetime)"
+                                : rating.expiryDate
+                                ? ` (${rating.expiryDate})`
+                                : ""}
                             </span>
                           ))}
                         </span>
@@ -654,12 +819,14 @@ export const PersonnelDetailPage = () => {
                     )}
                   </div>
 
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="text-[11px] uppercase text-gray-400 mb-2">
-                      Type Rating (Platform)
+                  {person.isPilot && (
+                    <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
+                      <div className="text-[11px] uppercase text-gray-400 mb-2">
+                        Type Rating (Platform)
+                      </div>
+                      <p className="text-white font-medium">{person.aircraftRatedOn}</p>
                     </div>
-                    <p className="text-white font-medium">{person.aircraftRatedOn}</p>
-                  </div>
+                  )}
 
                   <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
                     <div className="text-[11px] uppercase text-gray-400 mb-2">
@@ -767,32 +934,164 @@ export const PersonnelDetailPage = () => {
                     </div>
                   </div>
 
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-[11px] uppercase text-gray-400">
-                        Total Flight Time
-                      </div>
-                      <div className="text-sm font-semibold text-white">
-                        {person.totalFlightTimeHours} HRS
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      {person.aircraftHours.map((aircraft) => (
-                        <div
-                          key={aircraft.name}
-                          className="flex items-center justify-between"
-                        >
-                          <button
-                            type="button"
-                            className="text-xs text-[#7FD5FF] hover:text-[#B7E6FF]"
-                          >
-                            {aircraft.name}
-                          </button>
-                          <span>{aircraft.hours} HRS</span>
+                  {/* Pilot Flight Hours Breakdown Card - Rendered ONLY if personnel is a Pilot */}
+                  {person.isPilot && (
+                    <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200 space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                        <div className="text-[11px] uppercase text-gray-400 font-semibold">
+                          Total Flight Hours
                         </div>
-                      ))}
+                        <div className="text-base font-bold text-white tracking-wide">
+                          {person.totalFlightTimeHours} <span className="text-xs text-cyan-400 font-normal">HRS</span>
+                        </div>
+                      </div>
+
+                      {/* Operational vs Training Dual Breakdown */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded bg-[#001219]/70 border border-cyan-500/20 p-2.5">
+                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
+                            Operational Hours
+                          </span>
+                          <span className="text-sm font-semibold text-cyan-300 mt-0.5 block">
+                            {person.totalOperationalHours} <span className="text-[10px] text-gray-400">HRS</span>
+                          </span>
+                        </div>
+                        <div className="rounded bg-[#001219]/70 border border-cyan-500/20 p-2.5">
+                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
+                            Training Hours
+                          </span>
+                          <span className="text-sm font-semibold text-cyan-300 mt-0.5 block">
+                            {person.totalTrainingHours} <span className="text-[10px] text-gray-400">HRS</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Platform Flight Experience List */}
+                      {person.aircraftHours.length > 0 && (
+                        <div className="pt-2 border-t border-white/5 space-y-1.5">
+                          <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">
+                            Platform Hours Breakdown
+                          </div>
+                          {person.aircraftHours.map((aircraft) => (
+                            <div
+                              key={aircraft.name}
+                              className="flex items-center justify-between py-1 border-b border-white/5 last:border-0 text-xs"
+                            >
+                              <span className="text-[#7FD5FF] font-medium truncate max-w-[140px]">
+                                {aircraft.name}
+                              </span>
+                              <div className="flex items-center gap-2.5 text-[11px]">
+                                <span className="text-gray-400">
+                                  Op: <span className="text-gray-200 font-medium">{aircraft.operationalHours ?? aircraft.hours}h</span>
+                                </span>
+                                <span className="text-gray-400">
+                                  Tr: <span className="text-gray-200 font-medium">{aircraft.trainingHours ?? 0}h</span>
+                                </span>
+                                <span className="font-semibold text-white pl-1">
+                                  {aircraft.hours}h
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  </div>
+                  )}
+
+                  {/* Career Experience & Credentials Card (Non-Pilot Personnel: Engineers, Technicians, Logistics, Admin) */}
+                  {!person.isPilot && (
+                    <div className="bg-[#001825] border border-emerald-500/30 rounded-lg p-4 text-xs sm:text-sm text-gray-200 space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                        <div className="text-[11px] uppercase text-emerald-400 font-semibold flex items-center gap-1.5">
+                          <Icon
+                            icon={person.isEngineer ? "mdi:wrench-clock" : "mdi:briefcase-clock-outline"}
+                            className="w-4 h-4 text-emerald-400"
+                          />
+                          <span>
+                            {person.isEngineer
+                              ? "Years of Engineering Experience"
+                              : "Years of Professional Experience"}
+                          </span>
+                        </div>
+                        <div className="text-base font-bold text-white tracking-wide">
+                          {person.yearsOfExperience || "Active Duty"}
+                        </div>
+                      </div>
+
+                      {/* Discipline & Verified Credentials Dual Summary */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded bg-[#001219]/70 border border-emerald-500/20 p-2.5">
+                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
+                            Specialty Track
+                          </span>
+                          <span className="text-xs font-semibold text-emerald-300 mt-0.5 block truncate" title={person.specialty}>
+                            {person.specialty || person.branch || "General Service"}
+                          </span>
+                        </div>
+                        <div className="rounded bg-[#001219]/70 border border-emerald-500/20 p-2.5">
+                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
+                            Active Credentials
+                          </span>
+                          <span className="text-xs font-semibold text-emerald-300 mt-0.5 block">
+                            {person.ratings.length} {person.ratings.length === 1 ? "Certification" : "Certifications"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Credentials & Licensure Breakdown */}
+                      <div className="pt-2 border-t border-white/5 space-y-2">
+                        <div className="text-[10px] uppercase text-gray-400 font-semibold flex items-center justify-between">
+                          <span>Certifications &amp; Licenses</span>
+                          {person.ratings.length > 0 && (
+                            <span className="text-[10px] text-emerald-400 font-mono">
+                              {person.ratings.length} on file
+                            </span>
+                          )}
+                        </div>
+
+                        {person.ratings.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {person.ratings.map((rating) => (
+                              <div
+                                key={rating.name}
+                                className="rounded bg-[#001219]/70 border border-emerald-500/20 p-2 text-xs space-y-1"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-medium text-white text-xs truncate max-w-[180px]" title={rating.name}>
+                                    {rating.name}
+                                  </span>
+                                  {rating.isLifetime ? (
+                                    <span className="text-[9px] font-semibold text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                                      Lifetime
+                                    </span>
+                                  ) : rating.expiryDate ? (
+                                    <span className="text-[10px] text-gray-400">
+                                      Exp: {rating.expiryDate}
+                                    </span>
+                                  ) : null}
+                                </div>
+
+                                {rating.issueDate && (
+                                  <div className="text-[10px] text-gray-400 flex items-center justify-between pt-0.5">
+                                    <span>Issued: {rating.issueDate}</span>
+                                    {rating.derivedExperience && (
+                                      <span className="text-emerald-300 font-medium">
+                                        {rating.derivedExperience} Exp
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-400 text-xs italic">
+                            No specialized licenses logged. Service duration recorded from enlistment.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {person.isPilot && (
                     <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">

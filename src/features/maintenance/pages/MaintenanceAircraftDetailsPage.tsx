@@ -873,9 +873,23 @@ export const MaintenanceAircraftDetailsPage = () => {
                       {flightLogs.map((log, index) => (
                         <tr
                           key={log.id}
+                          tabIndex={log.operation_id ? 0 : undefined}
+                          role={log.operation_id ? "button" : undefined}
+                          title={log.operation_id ? "Click to view flight operation details" : undefined}
+                          onClick={(e) => {
+                            if (log.operation_id) {
+                              onInteractiveRowClick(e, () => navigate(`/dashboard/operations/${log.operation_id}`));
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (log.operation_id) {
+                              onInteractiveRowKeyDown(e, () => navigate(`/dashboard/operations/${log.operation_id}`));
+                            }
+                          }}
                           className={cn(
                             "border-t border-[#0A4D66]/40 transition-colors",
                             index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                            log.operation_id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:bg-[#0A4D66]/30",
                           )}
                         >
                           <td className="px-4 py-3 text-white font-medium whitespace-nowrap">
@@ -1306,7 +1320,7 @@ export const MaintenanceAircraftDetailsPage = () => {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 text-xs">
                           <div className="p-3 bg-[#001219] rounded border border-[#0A4D66]/20">
                             <span className="text-gray-400 block mb-1">Mission</span>
                             <span className="text-white font-medium capitalize">
@@ -1318,9 +1332,33 @@ export const MaintenanceAircraftDetailsPage = () => {
                             <span className="text-white font-medium">{report.task_no || "-"}</span>
                           </div>
                           <div className="p-3 bg-[#001219] rounded border border-[#0A4D66]/20">
+                            <span className="text-gray-400 block mb-1">Date</span>
+                            <span className="text-white font-medium">
+                              {report.report_date || op.start_date_time?.slice(0, 10) || "-"}
+                            </span>
+                          </div>
+                          <div className="p-3 bg-[#001219] rounded border border-[#0A4D66]/20">
+                            <span className="text-gray-400 block mb-1">Unit / Formation</span>
+                            <span className="text-white font-medium truncate block">
+                              {report.unit_formation || "-"}
+                            </span>
+                          </div>
+                          <div className="p-3 bg-[#001219] rounded border border-[#0A4D66]/20">
                             <span className="text-gray-400 block mb-1">Infantry No</span>
                             <span className="text-white font-medium">
                               {report.infantry_no || "-"}
+                            </span>
+                          </div>
+                          <div className="p-3 bg-[#001219] rounded border border-[#0A4D66]/20">
+                            <span className="text-gray-400 block mb-1">Vehicles No</span>
+                            <span className="text-white font-medium">
+                              {report.vehicles_no || "-"}
+                            </span>
+                          </div>
+                          <div className="p-3 bg-[#001219] rounded border border-[#0A4D66]/20 col-span-2">
+                            <span className="text-gray-400 block mb-1">Ammo Spent</span>
+                            <span className="text-white font-medium truncate block">
+                              {report.ammo_spent || "-"}
                             </span>
                           </div>
                         </div>
@@ -1352,7 +1390,7 @@ export const MaintenanceAircraftDetailsPage = () => {
                                       {contact.engagement.replace(/_/g, " ")}
                                     </span>
                                     <span className="text-gray-400">
-                                      {contact.date_of_contact} {contact.time_of_contact}
+                                      {contact.time_of_contact || "-"}
                                     </span>
                                   </div>
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-gray-300">
