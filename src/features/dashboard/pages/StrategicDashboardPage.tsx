@@ -36,6 +36,36 @@ const matchesView = (status: StrategicOperationStatus, view: MapView) => {
   return status === "completed" || status === "aborted";
 };
 
+/** A readiness count that opens the filtered list of the people behind it. */
+const ReadinessChip = ({
+  to,
+  className,
+  children,
+}: {
+  to: string;
+  className: string;
+  children: React.ReactNode;
+}) => {
+  const navigate = useNavigate();
+
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        navigate(to, {
+          state: { from: "/dashboard/strategic", fromLabel: "Strategic Dashboard" },
+        })
+      }
+      className={cn(
+        "rounded-full px-2 py-0.5 underline-offset-2 transition hover:underline hover:brightness-125",
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+};
+
 const formatDateTime = (value: string | null) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -467,35 +497,35 @@ export const StrategicDashboardPage = () => {
             <div className="mt-4">
               <div className="mb-1.5 text-[11px] uppercase tracking-wide text-gray-400">Pilot Flight Currency</div>
               <div className="flex flex-wrap gap-2 text-[11px]">
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
+                <ReadinessChip className="bg-emerald-500/10 text-emerald-400" to="/dashboard/personnel?flight_status=current">
                   Current: {data.personnel_readiness.flight_currency.current}
-                </span>
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-300">
+                </ReadinessChip>
+                <ReadinessChip className="bg-amber-500/10 text-amber-300" to="/dashboard/personnel?flight_status=due_for_flight">
                   Due: {data.personnel_readiness.flight_currency.due_for_flight}
-                </span>
-                <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-red-400">
+                </ReadinessChip>
+                <ReadinessChip className="bg-red-500/10 text-red-400" to="/dashboard/personnel?flight_status=overdue">
                   Overdue: {data.personnel_readiness.flight_currency.overdue}
-                </span>
-                <span className="rounded-full bg-gray-500/10 px-2 py-0.5 text-gray-400">
+                </ReadinessChip>
+                <ReadinessChip className="bg-gray-500/10 text-gray-400" to="/dashboard/personnel?flight_status=no_flights">
                   No flights: {data.personnel_readiness.flight_currency.no_flights}
-                </span>
+                </ReadinessChip>
               </div>
             </div>
             <div className="mt-3">
               <div className="mb-1.5 text-[11px] uppercase tracking-wide text-gray-400">Pass &amp; Leave</div>
               <div className="flex flex-wrap gap-2 text-[11px]">
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-400">
+                <ReadinessChip className="bg-emerald-500/10 text-emerald-400" to="/dashboard/personnel/pass?pass_status=on_pass">
                   On pass: {data.personnel_readiness.pass_status.on_pass}
-                </span>
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-amber-300">
+                </ReadinessChip>
+                <ReadinessChip className="bg-amber-500/10 text-amber-300" to="/dashboard/personnel/pass?pass_status=due_for_pass">
                   Due: {data.personnel_readiness.pass_status.due_for_pass}
-                </span>
-                <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-purple-300">
+                </ReadinessChip>
+                <ReadinessChip className="bg-purple-500/10 text-purple-300" to="/dashboard/personnel/pass?pass_status=pending_approval">
                   Pending: {data.personnel_readiness.pass_status.pending_approval}
-                </span>
-                <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-red-400">
+                </ReadinessChip>
+                <ReadinessChip className="bg-red-500/10 text-red-400" to="/dashboard/personnel/pass?pass_status=overdue">
                   Overdue: {data.personnel_readiness.pass_status.overdue}
-                </span>
+                </ReadinessChip>
               </div>
             </div>
           </Panel>

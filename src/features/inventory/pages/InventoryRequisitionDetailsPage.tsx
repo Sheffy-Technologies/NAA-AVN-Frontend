@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
@@ -69,6 +70,7 @@ export const InventoryRequisitionDetailsPage = () => {
     data: detail,
     isLoading,
     isError,
+    refetch,
   } = useGetInventoryRequisitionByIdQuery(id ?? "", { skip: !id });
 
   const { data: suppliers = [] } = useGetSuppliersQuery();
@@ -435,6 +437,9 @@ export const InventoryRequisitionDetailsPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Approval: only the approval workflow can approve a requisition while one is active. */}
+      {id && <ApprovalPanel module="inventory-requisitions" recordId={Number(id)} onChanged={refetch} className="mb-4 sm:mb-6" />}
 
       <section
         ref={contentRef}

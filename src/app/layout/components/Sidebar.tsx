@@ -5,6 +5,7 @@ import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { AUTH_STORAGE_KEY, logout } from "@/features/auth/authSlice";
 import { useTheme } from "@/context/ThemeContext";
+import { useGetPendingApprovalCountQuery } from "@/features/approvals/api";
 
 type NavItem = {
   name: string;
@@ -12,6 +13,8 @@ type NavItem = {
   icon: string;
   /** If set, the item is only shown to users who have at least one of these permissions. */
   requiredPermissions?: string[];
+  /** Shows the number of approval requests awaiting the user's signature. */
+  showApprovalCount?: boolean;
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -60,6 +63,34 @@ const NAV_ITEMS: NavItem[] = [
       "dashboard.maintenance.view",
       "work-orders.viewAny",
       "maintenance-programs.viewAny",
+    ],
+  },
+  {
+    name: "Approvals",
+    path: "/dashboard/approvals",
+    icon: "mdi:file-sign",
+    requiredPermissions: ["approvals.viewAny", "approval-workflows.viewAny"],
+    showApprovalCount: true,
+  },
+  {
+    name: "Safety & Quality",
+    path: "/dashboard/safety-quality",
+    icon: "mdi:shield-check-outline",
+    requiredPermissions: [
+      "safety-quality.dashboard.view",
+      "safety-reports.viewAny",
+      "safety-risks.viewAny",
+      "safety-investigations.viewAny",
+      "quality-audits.viewAny",
+      "quality-findings.viewAny",
+      "corrective-actions.viewAny",
+      "compliance-requirements.viewAny",
+      "controlled-documents.viewAny",
+      "personnel-qualifications.viewAny",
+      "safety-quality.pilot-currency.view",
+      "safety-quality.training.view",
+      "safety-quality.unit-oversight.view",
+      "safety-quality.reports.view",
     ],
   },
   {
@@ -133,6 +164,11 @@ export const Sidebar = () => {
   };
 
   const visibleNavItems = NAV_ITEMS.filter(canAccess);
+  const { data: approvalCountData } = useGetPendingApprovalCountQuery(undefined, {
+    skip: !userPermissions.includes("approvals.viewAny"),
+    pollingInterval: 60_000,
+  });
+  const approvalCount = approvalCountData?.count ?? 0;
   const visibleMessagingItems = MESSAGING_ITEMS.filter(canAccess);
   const visibleBottomItems = BOTTOM_ITEMS.filter(canAccess);
 
@@ -310,6 +346,11 @@ export const Sidebar = () => {
                 >
                   {item.name}
                 </span>
+                {item.showApprovalCount && approvalCount > 0 && (
+                  <span className="ml-auto px-1.5 min-w-[1.25rem] text-center rounded-full text-[10px] font-bold bg-amber-500 text-white">
+                    {approvalCount}
+                  </span>
+                )}
               </>
             )}
           </NavLink>

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
 import { cn } from "@/shared/utils/cn";
@@ -134,9 +134,27 @@ export const PersonnelPage = () => {
     all: true,
     selected: [],
   });
+  // ?flight_status=due_for_flight,overdue (e.g. from the Strategic Dashboard)
+  // narrows the list to pilots with those flight currency statuses.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const flightStatusFilter = useMemo(
+    () =>
+      (searchParams.get("flight_status") ?? "")
+        .split(",")
+        .filter(
+          (status): status is NonNullable<FlightStatus> => status in FLIGHT_STATUS_LABELS,
+        ),
+    [searchParams],
+  );
+  const setFlightStatusFilter = (statuses: NonNullable<FlightStatus>[]) => {
+    const next = new URLSearchParams(searchParams);
+    if (statuses.length) next.set("flight_status", statuses.join(","));
+    else next.delete("flight_status");
+    setSearchParams(next, { replace: true, state: location.state });
+  };
   const [expatriateFilter, setExpatriateFilter] = useState<
     "all" | "true" | "false"
-  >("false");
+  >(() => (flightStatusFilter.length ? "all" : "false"));
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: units = [] } = useGetUnitsQuery();
@@ -342,9 +360,17 @@ export const PersonnelPage = () => {
 
   const filteredPersonnel = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return displayedPersonnel;
+    const byFlightStatus = flightStatusFilter.length
+      ? displayedPersonnel.filter(
+          (person) =>
+            person.isPilot &&
+            person.flightStatus !== null &&
+            flightStatusFilter.includes(person.flightStatus),
+        )
+      : displayedPersonnel;
+    if (!query) return byFlightStatus;
 
-    return displayedPersonnel.filter((person) =>
+    return byFlightStatus.filter((person) =>
       [
         person.serviceNo,
         person.name,
@@ -355,7 +381,7 @@ export const PersonnelPage = () => {
         person.specialty,
       ].some((value) => value.toLowerCase().includes(query)),
     );
-  }, [displayedPersonnel, searchQuery]);
+  }, [displayedPersonnel, flightStatusFilter, searchQuery]);
 
   const stats = useMemo(() => {
     return filteredPersonnel.reduce(
@@ -379,6 +405,7 @@ export const PersonnelPage = () => {
     setSpecialtyFilter({ all: true, selected: [] });
     setStatusFilter({ all: true, selected: [] });
     setExpatriateFilter("false");
+    setFlightStatusFilter([]);
     setOpenFilterMenu(null);
   };
   useClickOutside(
@@ -916,11 +943,34 @@ export const PersonnelPage = () => {
             <span className="text-gray-300">Medical:</span>
             <span className="font-bold text-white">{stats.medical}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              setFlightStatusFilter(
+                flightStatusFilter.length ? [] : ["due_for_flight", "overdue"],
+              )
+            }
+            title={flightStatusFilter.length ? "Show all personnel" : "Show only pilots due or overdue for flight"}
+            className={cn(
+              "flex items-center gap-2 rounded px-1.5 -mx-1.5 hover:bg-[#0A4D66]/30",
+              flightStatusFilter.length > 0 && "ring-1 ring-amber-400/60",
+            )}
+          >
             <span className="w-2 h-2 rounded-full bg-amber-400" />
             <span className="text-gray-300">Due for Flight:</span>
             <span className="font-bold text-white">{stats.dueForFlight}</span>
-          </div>
+          </button>
+          {flightStatusFilter.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFlightStatusFilter([])}
+              className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] text-amber-300 hover:bg-amber-500/20"
+            >
+              Showing pilots{" "}
+              {flightStatusFilter.map((status) => FLIGHT_STATUS_LABELS[status]).join(" / ")}
+              <Icon icon="mdi:close" className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         {viewMode === "table" && (

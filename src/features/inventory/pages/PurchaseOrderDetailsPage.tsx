@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
@@ -316,6 +317,9 @@ export default function PurchaseOrderDetailsPage() {
           )}
         </div>
       </div>
+
+      {/* Approval: a PO must be approved before it can be sent to the supplier (when a workflow is active). */}
+      <ApprovalPanel module="purchase-orders" recordId={order.id} onChanged={refetch} />
 
       {/* GRN Form */}
       {grnFormOpen && (

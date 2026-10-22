@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
@@ -23,6 +23,8 @@ import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { useGetActiveApprovalModulesQuery } from "@/features/approvals/api";
+import { ApprovalDialog } from "@/features/approvals/components/ApprovalPanel";
 
 type PassTab = "personnel" | "history";
 
@@ -86,7 +88,11 @@ export const PassPage = () => {
   // Filters – Personnel tab
   const [unitFilter, setUnitFilter] = useState<number | "">("");
   const [rankFilter, setRankFilter] = useState<number | "">("");
-  const [statusFilter, setStatusFilter] = useState<PassStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<PassStatus | "">(() => {
+    // ?pass_status= (e.g. from the Strategic Dashboard) pre-filters the list.
+    const status = new URLSearchParams(window.location.search).get("pass_status");
+    return status && status in PASS_STATUS_LABELS ? (status as PassStatus) : "";
+  });
   const [passSearch, setPassSearch] = useState("");
 
   // Filters – History tab
@@ -105,6 +111,14 @@ export const PassPage = () => {
 
   const authUser = useAppSelector((state) => state.auth.user);
   const currentUserId = authUser?.id ? Number(authUser.id) : null;
+  // When a pass approval workflow is active, passes are approved only through
+  // signed approval (the server refuses the direct approve/decline).
+  const canViewApprovals = (authUser?.permissions ?? []).includes("approvals.viewAny");
+  const { data: activeApprovalModules = [] } = useGetActiveApprovalModulesQuery(undefined, { skip: !canViewApprovals });
+  const passesNeedApproval = activeApprovalModules.includes("passes");
+  // ?pass=ID (from the approvals inbox) opens that pass's approval.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [approvalPassId, setApprovalPassId] = useState<number | null>(() => Number(searchParams.get("pass")) || null);
 
   const { data: units = [] } = useGetUnitsQuery();
   const { data: ranks = [] } = useGetPersonnelRanksQuery();
@@ -425,6 +439,18 @@ export const PassPage = () => {
                               View
                             </button>
                             {p.pass_status === "pending_approval" &&
+                            p.pending_pass &&
+                            passesNeedApproval ? (
+                              <button
+                                type="button"
+                                onClick={() => setApprovalPassId(p.pending_pass!.id)}
+                                title="Submit, approve or decline with signature"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded border border-amber-500/60 text-[10px] text-amber-300 hover:bg-amber-500/20"
+                              >
+                                <Icon icon="mdi:file-sign" className="w-3 h-3" />
+                                Approval
+                              </button>
+                            ) : p.pass_status === "pending_approval" &&
                             p.pending_pass ? (
                               <>
                                 <button
@@ -721,6 +747,20 @@ export const PassPage = () => {
       />
 
       <EditPassModal pass={editingPass} onClose={() => setEditingPass(null)} />
+      {approvalPassId && (
+        <ApprovalDialog
+          module="passes"
+          recordId={approvalPassId}
+          title="Pass approval"
+          onClose={() => {
+            setApprovalPassId(null);
+            if (searchParams.has("pass")) {
+              searchParams.delete("pass");
+              setSearchParams(searchParams, { replace: true });
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

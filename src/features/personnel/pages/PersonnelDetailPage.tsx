@@ -14,6 +14,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { BackButton } from "@/shared/ui/button/BackButton";
+import { LinkedAccountCard } from "../components/LinkedAccountCard";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -327,13 +328,8 @@ export const PersonnelDetailPage = () => {
       phone: apiPerson.phone_number,
       address: apiPerson.address,
       dialogue: "",
-<<<<<<< HEAD
-      aircraftRatedOn: "",
-      totalFlightTimeHours: apiPerson.total_flight_hours ?? 0,
-=======
       aircraftRatedOn: apiPerson.rating_type || "N/A",
-      totalFlightTimeHours: 0,
->>>>>>> d1a1b2e716b92d8b5daf74817195ffac2b5432d1
+      totalFlightTimeHours: apiPerson.total_flight_hours ?? 0,
       aircraftHours: [],
       isPilot: apiPerson.is_pilot,
       lastFlightDate: apiPerson.last_flight_date,
@@ -481,6 +477,7 @@ export const PersonnelDetailPage = () => {
           </div>
         </div>
 
+        {activeTab === "bio" && apiPerson && <LinkedAccountCard personnelId={apiPerson.id} user={apiPerson.user} />}
         {activeTab === "bio" && (
           <div ref={contentRef} className="p-4 sm:p-6">
             {isPersonLoading ? (

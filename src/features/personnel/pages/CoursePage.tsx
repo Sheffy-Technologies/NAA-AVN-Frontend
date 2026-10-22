@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
@@ -18,6 +18,9 @@ import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
+import { useAppSelector } from "@/app/store";
+import { useGetActiveApprovalModulesQuery } from "@/features/approvals/api";
+import { ApprovalDialog } from "@/features/approvals/components/ApprovalPanel";
 
 const STATUS_COLORS: Record<CourseStatus, string> = {
   scheduled: "text-blue-400",
@@ -47,6 +50,12 @@ export const CoursePage = () => {
   const [search, setSearch] = useState("");
 
   const [openActionId, setOpenActionId] = useState<number | null>(null);
+  // ?course=ID (from the approvals inbox) opens that course's approval.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [approvalCourseId, setApprovalCourseId] = useState<number | null>(() => Number(searchParams.get("course")) || null);
+  const canViewApprovals = useAppSelector((s) => (s.auth.user?.permissions ?? []).includes("approvals.viewAny"));
+  const { data: activeApprovalModules = [] } = useGetActiveApprovalModulesQuery(undefined, { skip: !canViewApprovals });
+  const coursesNeedApproval = activeApprovalModules.includes("courses");
   const actionMenuRef = useRef<HTMLTableCellElement>(null);
   useClickOutside(actionMenuRef, () => setOpenActionId(null), openActionId !== null);
 
@@ -265,6 +274,19 @@ export const CoursePage = () => {
                               <Icon icon="mdi:account-outline" className="w-4 h-4" />
                               View Personnel
                             </button>
+                            {coursesNeedApproval && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setApprovalCourseId(course.id);
+                                  setOpenActionId(null);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+                              >
+                                <Icon icon="mdi:file-sign" className="w-4 h-4" />
+                                Approval
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
@@ -298,6 +320,21 @@ export const CoursePage = () => {
           </table>
         </div>
       </section>
+
+      {approvalCourseId && (
+        <ApprovalDialog
+          module="courses"
+          recordId={approvalCourseId}
+          title="Course approval"
+          onClose={() => {
+            setApprovalCourseId(null);
+            if (searchParams.has("course")) {
+              searchParams.delete("course");
+              setSearchParams(searchParams, { replace: true });
+            }
+          }}
+        />
+      )}
 
       <RegisterCourseModal
         open={showRegisterModal}

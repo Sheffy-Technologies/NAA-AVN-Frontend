@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
 import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
@@ -1049,7 +1050,7 @@ export const OperationDetailsPage = () => {
 
   const statusOptions = ["planned", "completed", "ongoing", "aborted"] as const;
 
-  const { data: operation, isLoading } = useGetOperationByIdQuery(id || "", {
+  const { data: operation, isLoading, refetch } = useGetOperationByIdQuery(id || "", {
     skip: !id,
   });
 
@@ -1270,6 +1271,9 @@ export const OperationDetailsPage = () => {
           )}
         </div>
       </div>
+
+      {/* Approval: while active, a planned operation needs approval before it can go ongoing/completed. */}
+      {id && <ApprovalPanel module="operations" recordId={Number(id)} onChanged={refetch} />}
 
       {/* Content */}
       <div ref={contentRef} className="flex-1">
