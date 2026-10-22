@@ -12,6 +12,7 @@ import { ProcurementPurchaseOrdersTab } from "./ProcurementPurchaseOrdersTab";
 import { ProcurementStockReceivedTab } from "./ProcurementStockReceivedTab";
 import { ProcurementStockIssuedTab } from "./ProcurementStockIssuedTab";
 import { ProcurementPipelineKanbanTab } from "./ProcurementPipelineKanbanTab";
+import { ProcurementShipmentsTab } from "./ProcurementShipmentsTab";
 
 export { type ProcurementSubTabKey };
 
@@ -40,6 +41,11 @@ export const PROCUREMENT_SUB_TABS = [
     id: "purchase-orders" as const,
     label: "Purchase Orders",
     icon: "mdi:cart-outline",
+  },
+  {
+    id: "shipments" as const,
+    label: "Shipments",
+    icon: "mdi:truck-fast-outline",
   },
   {
     id: "stock-received" as const,
@@ -135,6 +141,8 @@ export const ProcurementSection: React.FC<ProcurementSectionProps> = ({
       {activeSubTab === "quotations" && <ProcurementQuotationsTab />}
 
       {activeSubTab === "purchase-orders" && <ProcurementPurchaseOrdersTab />}
+
+      {activeSubTab === "shipments" && <ProcurementShipmentsTab />}
 
       {activeSubTab === "stock-received" && <ProcurementStockReceivedTab />}
 

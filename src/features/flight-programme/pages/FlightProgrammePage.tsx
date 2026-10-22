@@ -1,6 +1,8 @@
 import { useMemo, useState, type ChangeEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import {
   useGetAircraftQuery,
   type FinanceAircraft,
@@ -73,6 +75,7 @@ const formatProgrammeLabel = (program: DashboardHomeFlightProgram) => {
 };
 
 export const FlightProgrammePage = () => {
+  const navigate = useNavigate();
   const { data: aircraftData, isLoading: isAircraftLoading } =
     useGetAircraftQuery();
   const { data: flightProgramsData, isLoading: isProgramsLoading } =
@@ -340,7 +343,27 @@ export const FlightProgrammePage = () => {
                 </div>
               )}
               {resources.map((res) => (
-                <div key={res.id} className="px-4 py-3 flex items-center gap-3">
+                <div
+                  key={res.id}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to view aircraft asset details"
+                  onClick={(e) =>
+                    onInteractiveRowClick(e, () =>
+                      navigate(`/dashboard/assets/${res.id}`, {
+                        state: { from: "/dashboard/flight-programme", fromLabel: "Flight Programme" },
+                      }),
+                    )
+                  }
+                  onKeyDown={(e) =>
+                    onInteractiveRowKeyDown(e, () =>
+                      navigate(`/dashboard/assets/${res.id}`, {
+                        state: { from: "/dashboard/flight-programme", fromLabel: "Flight Programme" },
+                      }),
+                    )
+                  }
+                  className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30"
+                >
                   <div className="w-10 h-10 rounded bg-[#001219] flex items-center justify-center">
                     <Icon
                       icon="mdi:airplane"

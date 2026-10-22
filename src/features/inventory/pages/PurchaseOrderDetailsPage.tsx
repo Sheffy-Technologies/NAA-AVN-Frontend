@@ -10,12 +10,17 @@ import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
 import {
   useCreateGoodsReceivedNoteMutation,
   useGetPurchaseOrderByIdQuery,
+  useGetPurchaseOrderShipmentsQuery,
   useGetSupplierQuotationsQuery,
   useSendPurchaseOrderMutation,
   useUpdatePurchaseOrderMutation,
+  type Shipment,
 } from "../api";
 import { BackButton } from "@/shared/ui/button";
 import { PurchaseOrderPrintDocument } from "../components/PurchaseOrderPrintDocument";
+import { ShipmentTrackerStepper } from "../components/ShipmentTrackerStepper";
+import { CreateShipmentModal } from "../components/CreateShipmentModal";
+import { UpdateShipmentStatusModal } from "../components/UpdateShipmentStatusModal";
 import { buildPurchaseOrderDocument, personName } from "../procurementDocuments";
 
 const formatDate = (value?: string | null) => {
@@ -52,6 +57,15 @@ export default function PurchaseOrderDetailsPage() {
     isError,
     refetch,
   } = useGetPurchaseOrderByIdQuery(id || "", { skip: !id });
+
+  const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
+  const [isUpdateShipmentOpen, setIsUpdateShipmentOpen] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+
+  const {
+    data: shipments = [],
+    refetch: refetchShipments,
+  } = useGetPurchaseOrderShipmentsQuery(id || "", { skip: !id });
 
   // The PO form's "QUOTE NO." comes from the supplier's quotation on the linked RFQ.
   const { data: rfqQuotations = [] } = useGetSupplierQuotationsQuery(
@@ -298,6 +312,14 @@ export default function PurchaseOrderDetailsPage() {
               {isSendingToVendor ? "Sending..." : "Send to Vendor"}
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => setIsCreateShipmentOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20 font-semibold text-xs transition-colors shadow-sm"
+          >
+            <Icon icon="mdi:truck-fast-outline" className="w-4 h-4 text-sky-400" />
+            <span>{shipments.length > 0 ? "+ Add Consignment" : "Track Shipment"}</span>
+          </button>
           {order.status !== "received" && (
             <button
               type="button"
@@ -477,6 +499,69 @@ export default function PurchaseOrderDetailsPage() {
           </div>
         </div>
 
+        {/* Shipment Status & Milestones Tracking Section */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Icon icon="mdi:truck-fast-outline" className="w-5 h-5 text-sky-400" />
+              <h2 className="text-sm font-bold text-[#7FD5FF] uppercase tracking-wider">
+                Consignment & Shipment Status
+              </h2>
+            </div>
+            {shipments.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setIsCreateShipmentOpen(true)}
+                className="text-xs text-sky-400 hover:text-sky-300 font-semibold inline-flex items-center gap-1"
+              >
+                <Icon icon="mdi:plus" className="w-4 h-4" />
+                <span>Add Another Consignment</span>
+              </button>
+            )}
+          </div>
+
+          {shipments.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-[#0A4D66]/50 bg-[#001219]/60 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">
+                  <Icon icon="mdi:truck-delivery-outline" className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-white">
+                    No Shipment Tracking Attached
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Track the 4 procurement stages (Picked up &rarr; Customs clearance &rarr; In transit &rarr; Delivered) by entering an AWB or tracking number.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreateShipmentOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 text-xs font-bold border border-sky-500/40 transition-colors whitespace-nowrap self-start sm:self-auto"
+              >
+                <Icon icon="mdi:plus" className="w-4 h-4" />
+                <span>Attach Tracking / AWB</span>
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {shipments.map((shipment) => (
+                <ShipmentTrackerStepper
+                  key={shipment.id}
+                  shipment={shipment}
+                  onOpenUpdateModal={() => {
+                    setSelectedShipment(shipment);
+                    setIsUpdateShipmentOpen(true);
+                  }}
+                  onOpenGrnModal={handleOpenGrnForm}
+                  canReceiveStock={order.status !== "received"}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
           <h2 className="text-sm font-bold text-[#7FD5FF] uppercase mb-3">Items</h2>
           {order.items?.length ? (
@@ -592,6 +677,31 @@ export default function PurchaseOrderDetailsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Register Consignment Tracking Modal */}
+      {order && (
+        <CreateShipmentModal
+          isOpen={isCreateShipmentOpen}
+          onClose={() => setIsCreateShipmentOpen(false)}
+          purchaseOrderId={order.id}
+          poName={order.name || undefined}
+          defaultExpectedDate={order.expected_date_of_delivery}
+          onSuccess={() => refetchShipments()}
+        />
+      )}
+
+      {/* Manual Status Milestone Update Modal */}
+      {selectedShipment && (
+        <UpdateShipmentStatusModal
+          isOpen={isUpdateShipmentOpen}
+          onClose={() => {
+            setIsUpdateShipmentOpen(false);
+            setSelectedShipment(null);
+          }}
+          shipment={selectedShipment}
+          onSuccess={() => refetchShipments()}
+        />
       )}
     </div>
   );

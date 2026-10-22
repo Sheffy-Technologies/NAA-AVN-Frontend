@@ -1,8 +1,10 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { useGetBudgetStatementQuery } from "@/features/finance/api";
 import { BackButton } from "@/shared/ui/button/BackButton";
+import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 
 const formatDate = (value: string | null | undefined) => {
   if (!value) return "-";
@@ -17,6 +19,7 @@ const formatDate = (value: string | null | undefined) => {
 
 export const BudgetStatementPage = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const {
     data: statement,
@@ -205,11 +208,29 @@ export const BudgetStatementPage = () => {
                   incomes.map((inc, idx) => (
                     <tr
                       key={inc.id}
-                      className={
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view income details"
+                      onClick={(e) =>
+                        onInteractiveRowClick(e, () =>
+                          navigate("/dashboard/finance", {
+                            state: { activeTab: "incomes", incomeId: inc.id },
+                          }),
+                        )
+                      }
+                      onKeyDown={(e) =>
+                        onInteractiveRowKeyDown(e, () =>
+                          navigate("/dashboard/finance", {
+                            state: { activeTab: "incomes", incomeId: inc.id },
+                          }),
+                        )
+                      }
+                      className={cn(
+                        "cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                         idx % 2 === 0
                           ? "bg-[#001219] print:bg-white"
-                          : "bg-[#001825] print:bg-gray-50"
-                      }
+                          : "bg-[#001825] print:bg-gray-50",
+                      )}
                     >
                       <td className="px-3 py-2 text-gray-200 print:text-black">
                         {formatDate(inc.received_at)}
@@ -278,11 +299,29 @@ export const BudgetStatementPage = () => {
                   expenses.map((exp, idx) => (
                     <tr
                       key={exp.id}
-                      className={
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view expense details"
+                      onClick={(e) =>
+                        onInteractiveRowClick(e, () =>
+                          navigate("/dashboard/finance", {
+                            state: { activeTab: "expenses", expenseId: exp.id },
+                          }),
+                        )
+                      }
+                      onKeyDown={(e) =>
+                        onInteractiveRowKeyDown(e, () =>
+                          navigate("/dashboard/finance", {
+                            state: { activeTab: "expenses", expenseId: exp.id },
+                          }),
+                        )
+                      }
+                      className={cn(
+                        "cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                         idx % 2 === 0
                           ? "bg-[#001219] print:bg-white"
-                          : "bg-[#001825] print:bg-gray-50"
-                      }
+                          : "bg-[#001825] print:bg-gray-50",
+                      )}
                     >
                       <td className="px-3 py-2 text-gray-200 print:text-black">
                         {formatDate(exp.created_at)}

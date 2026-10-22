@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -22,6 +22,8 @@ import {
 } from "@/shared/ui/multi-select/MultiSelect";
 import { useGetAssetsQuery } from "@/features/assets/api";
 import { BackButton, CancelButton } from "@/shared/ui/button";
+import Modal from "@/shared/ui/modal/Modal";
+import { extractAircraftPlatformName } from "../personnelUtils";
 
 interface ApiError {
   data?: {
@@ -101,12 +103,40 @@ export const AddPersonnelPage = () => {
 
   // Additional State for Ratings & Flight Hours
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-  const [platformFlightHours, setPlatformFlightHours] = useState<
-    Record<string, string>
+  const [platformHours, setPlatformHours] = useState<
+    Record<string, { operational: string; training: string }>
   >({});
+  const [customPlatforms, setCustomPlatforms] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("naa_custom_aircraft_platforms");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isAddAircraftModalOpen, setIsAddAircraftModalOpen] = useState(false);
+  const [newAircraftName, setNewAircraftName] = useState("");
+  const [aircraftModalError, setAircraftModalError] = useState("");
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "naa_custom_aircraft_platforms",
+        JSON.stringify(customPlatforms),
+      );
+    } catch {
+      // ignore
+    }
+  }, [customPlatforms]);
 
   const [selectedRatings, setSelectedRatings] = useState<number[]>([]);
   const [ratingExpiryDates, setRatingExpiryDates] = useState<
+    Record<number, string>
+  >({});
+  const [ratingLifetime, setRatingLifetime] = useState<
+    Record<number, boolean>
+  >({});
+  const [ratingIssueDates, setRatingIssueDates] = useState<
     Record<number, string>
   >({});
 
@@ -144,6 +174,101 @@ export const AddPersonnelPage = () => {
     createEmptyDeployment(),
   ]);
 
+  const selectedBranch = useMemo(() => {
+    return (branches ?? []).find(
+      (b) => b.id === Number(formData.branch_id),
+    );
+  }, [branches, formData.branch_id]);
+
+  const selectedSpecialty = useMemo(() => {
+    return (specialties ?? []).find(
+      (s) => s.id === Number(formData.specialty_id),
+    );
+  }, [specialties, formData.specialty_id]);
+
+  const isPilot = useMemo(() => {
+    const branchName = (selectedBranch?.name || "").toLowerCase();
+    const specName = (selectedSpecialty?.name || "").toLowerCase();
+
+    // If branch is explicitly engineering/technical/maintenance, not a pilot
+    if (
+      branchName.includes("engineer") ||
+      branchName.includes("tech") ||
+      branchName.includes("maintenance")
+    ) {
+      return false;
+    }
+
+    if (
+      branchName.includes("pilot") ||
+      branchName.includes("flight") ||
+      branchName.includes("aircrew") ||
+      branchName.includes("flying")
+    ) {
+      return true;
+    }
+
+    // If no branch is explicitly selected, fall back to specialty
+    if (!branchName) {
+      return specName.includes("pilot");
+    }
+
+    return false;
+  }, [selectedBranch, selectedSpecialty]);
+
+  const isEngineer = useMemo(() => {
+    const branchName = (selectedBranch?.name || "").toLowerCase();
+    const specName = (selectedSpecialty?.name || "").toLowerCase();
+
+    if (
+      branchName.includes("engineer") ||
+      branchName.includes("tech") ||
+      branchName.includes("maintenance")
+    ) {
+      return true;
+    }
+
+    if (
+      branchName.includes("pilot") ||
+      branchName.includes("flight") ||
+      branchName.includes("aircrew") ||
+      branchName.includes("flying")
+    ) {
+      return false;
+    }
+
+    return (
+      specName.includes("engineer") ||
+      specName.includes("technician") ||
+      specName.includes("maintenance") ||
+      specName.includes("avionics") ||
+      specName.includes("airframe") ||
+      specName.includes("powerplant")
+    );
+  }, [selectedBranch, selectedSpecialty]);
+
+  const calculateExperience = (issueDateStr?: string) => {
+    if (!issueDateStr) return null;
+    const issue = new Date(issueDateStr);
+    if (isNaN(issue.getTime())) return null;
+    const now = new Date();
+    let years = now.getFullYear() - issue.getFullYear();
+    let months = now.getMonth() - issue.getMonth();
+    if (now.getDate() < issue.getDate()) {
+      months--;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+    if (years < 0) return "0 Months";
+    const parts: string[] = [];
+    if (years > 0) parts.push(`${years} Year${years > 1 ? "s" : ""}`);
+    if (months > 0 || parts.length === 0)
+      parts.push(`${months} Month${months !== 1 ? "s" : ""}`);
+    return parts.join(", ");
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -168,11 +293,17 @@ export const AddPersonnelPage = () => {
   };
 
   const handleTypeRatingChange = (selected: (string | number)[]) => {
-    const platforms = selected.map(String);
+    const platforms = Array.from(
+      new Set(
+        selected
+          .map((item) => extractAircraftPlatformName(String(item)))
+          .filter(Boolean),
+      ),
+    );
     setSelectedPlatforms(platforms);
 
     // Clean up flight hours for deselected platforms
-    setPlatformFlightHours((prev) => {
+    setPlatformHours((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((key) => {
         if (!platforms.includes(key)) {
@@ -183,10 +314,21 @@ export const AddPersonnelPage = () => {
     });
   };
 
-  const handlePlatformFlightHourChange = (platform: string, value: string) => {
-    setPlatformFlightHours((prev) => ({
+  const handlePlatformHourChange = (
+    platform: string,
+    field: "operational" | "training",
+    value: string,
+  ) => {
+    setPlatformHours((prev) => ({
       ...prev,
-      [platform]: value,
+      [platform]: {
+        operational:
+          field === "operational"
+            ? value
+            : prev[platform]?.operational || "",
+        training:
+          field === "training" ? value : prev[platform]?.training || "",
+      },
     }));
   };
 
@@ -204,10 +346,46 @@ export const AddPersonnelPage = () => {
       });
       return next;
     });
+
+    setRatingLifetime((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        const ratingId = Number(key);
+        if (!ratings.includes(ratingId)) {
+          delete next[ratingId];
+        }
+      });
+      return next;
+    });
+
+    setRatingIssueDates((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        const ratingId = Number(key);
+        if (!ratings.includes(ratingId)) {
+          delete next[ratingId];
+        }
+      });
+      return next;
+    });
   };
 
   const handleRatingExpiryChange = (ratingId: number, value: string) => {
     setRatingExpiryDates((prev) => ({
+      ...prev,
+      [ratingId]: value,
+    }));
+  };
+
+  const handleRatingLifetimeToggle = (ratingId: number, isLifetime: boolean) => {
+    setRatingLifetime((prev) => ({
+      ...prev,
+      [ratingId]: isLifetime,
+    }));
+  };
+
+  const handleRatingIssueDateChange = (ratingId: number, value: string) => {
+    setRatingIssueDates((prev) => ({
       ...prev,
       [ratingId]: value,
     }));
@@ -261,19 +439,31 @@ export const AddPersonnelPage = () => {
         .map((platform) => {
           const matchingAsset = aircraftAssets.find(
             (a) =>
+              extractAircraftPlatformName(a) === platform ||
               a.asset_type?.name === platform ||
               (platform.includes("Bell") &&
                 (a.name?.includes("Bell") || a.model?.includes("UH-1H"))) ||
               (platform.includes("Magnus") &&
                 (a.name?.includes("Magnus") || a.model?.includes("212"))),
           );
+          const opHours = Number(platformHours[platform]?.operational || 0);
+          const trHours = Number(platformHours[platform]?.training || 0);
+          const totalHours = Number((opHours + trHours).toFixed(2));
+
           return {
             asset_id: matchingAsset?.id ?? 0,
-            flight_hours: Number(platformFlightHours[platform] || 0),
-            notes: `Platform: ${platform}`,
+            flight_hours: totalHours,
+            operational_hours: opHours,
+            training_hours: trHours,
+            platform_name: platform,
+            notes: JSON.stringify({
+              platform,
+              operational_hours: opHours,
+              training_hours: trHours,
+              total_hours: totalHours,
+            }),
           };
-        })
-        .filter((exp) => exp.asset_id > 0);
+        });
 
       const payload: CreatePersonnelRequest = {
         ...formData,
@@ -286,7 +476,11 @@ export const AddPersonnelPage = () => {
         image: imageUrl || undefined,
         ratings: selectedRatings.map((ratingId) => ({
           rating_id: ratingId,
-          expiry_date: ratingExpiryDates[ratingId] || "",
+          expiry_date: ratingLifetime[ratingId]
+            ? null
+            : ratingExpiryDates[ratingId] || null,
+          is_lifetime: Boolean(ratingLifetime[ratingId]),
+          issue_date: ratingIssueDates[ratingId] || null,
         })),
         flight_experiences: flightExperiencesPayload,
         deployments: normalizedDeployments.length
@@ -317,11 +511,85 @@ export const AddPersonnelPage = () => {
   };
 
   const typeRatingPlatformOptions: MultiSelectOption[] = useMemo(() => {
-    return [
-      { label: "Bell UH-1H Helicopter", value: "Bell UH-1H Helicopter" },
-      { label: "Magnus Fusion 212", value: "Magnus Fusion 212" },
+    const rawPlatforms = [
+      "Bell UH-1H Helicopter",
+      "Magnus Fusion 212",
+      ...aircraftAssets.map((a) => extractAircraftPlatformName(a)),
+      ...customPlatforms.map((c) => extractAircraftPlatformName(c)),
+      ...selectedPlatforms.map((s) => extractAircraftPlatformName(s)),
     ];
-  }, []);
+    const uniquePlatforms = Array.from(
+      new Set(rawPlatforms.map((p) => p?.trim()).filter(Boolean)),
+    ).sort((a, b) => a.localeCompare(b));
+
+    return uniquePlatforms.map((name) => ({
+      label: name,
+      value: name,
+    }));
+  }, [aircraftAssets, customPlatforms, selectedPlatforms]);
+
+  const handleOpenAddAircraftModal = () => {
+    setNewAircraftName("");
+    setAircraftModalError("");
+    setIsAddAircraftModalOpen(true);
+  };
+
+  const handleSaveCustomAircraft = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const raw = newAircraftName.trim();
+    if (!raw) {
+      setAircraftModalError("Please enter an aircraft name or model");
+      return;
+    }
+
+    const cleaned = extractAircraftPlatformName(raw);
+    if (!cleaned) {
+      setAircraftModalError("Please enter a valid aircraft model or platform name");
+      return;
+    }
+
+    if (!customPlatforms.includes(cleaned)) {
+      setCustomPlatforms((prev) => [...prev, cleaned]);
+    }
+
+    if (!selectedPlatforms.includes(cleaned)) {
+      setSelectedPlatforms((prev) => [...prev, cleaned]);
+    }
+
+    if (!platformHours[cleaned]) {
+      setPlatformHours((prev) => ({
+        ...prev,
+        [cleaned]: { operational: "", training: "" },
+      }));
+    }
+
+    setIsAddAircraftModalOpen(false);
+    setNewAircraftName("");
+    dispatch(
+      showToast({
+        message: `Added "${cleaned}" to aircraft platforms`,
+        type: "success",
+      }),
+    );
+  };
+
+  const handleRemovePlatform = (platformToRemove: string) => {
+    setSelectedPlatforms((prev) => prev.filter((p) => p !== platformToRemove));
+    setPlatformHours((prev) => {
+      const next = { ...prev };
+      delete next[platformToRemove];
+      return next;
+    });
+    if (customPlatforms.includes(platformToRemove)) {
+      setCustomPlatforms((prev) => prev.filter((p) => p !== platformToRemove));
+    }
+    dispatch(
+      showToast({
+        message: `Removed "${platformToRemove}" from platform operational experience`,
+        type: "info",
+      }),
+    );
+  };
 
   const ratingOptions: MultiSelectOption[] = useMemo(
     () =>
@@ -489,75 +757,7 @@ export const AddPersonnelPage = () => {
               /> */}
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <MultiSelect
-              label="Type of License"
-              placeholder="Select Type of License"
-              options={ratingOptions}
-              selectedValues={selectedRatings}
-              onChange={handleRatingChange}
-              disabled={isLoadingRatings}
-            />
-            <MultiSelect
-              label="Type Rating"
-              placeholder="Select Type Rating"
-              options={typeRatingPlatformOptions}
-              selectedValues={selectedPlatforms}
-              onChange={handleTypeRatingChange}
-            />
-          </div>
         </div>
-
-        {/* Aircraft Ratings Validity Section */}
-        {selectedRatings.length > 0 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <h2 className="text-lg font-medium text-cyan-400 border-b border-white/10 pb-2 uppercase">
-              Aircraft Ratings Validity
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedRatings.map((rating) => (
-                <InputField
-                  key={rating}
-                  label={`${ratingLabelById.get(rating) || "Rating"} Expiry Date`}
-                  type="date"
-                  value={ratingExpiryDates[rating] || ""}
-                  onChange={(e) =>
-                    handleRatingExpiryChange(rating, e.target.value)
-                  }
-                  placeholder="00/00/0000"
-                  required
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Aircraft Platform Operational Experience Section */}
-        {selectedPlatforms.length > 0 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
-            <h2 className="text-lg font-medium text-cyan-400 border-b border-white/10 pb-2 uppercase">
-              Platform Operational Experience
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {selectedPlatforms.map((platform) => (
-                <InputField
-                  key={platform}
-                  label={`${platform} Total Flight Hours`}
-                  type="number"
-                  value={platformFlightHours[platform] || ""}
-                  onChange={(e) =>
-                    handlePlatformFlightHourChange(platform, e.target.value)
-                  }
-                  placeholder="Enter Total Flight Hours"
-                  min="0"
-                  step="0.1"
-                  required
-                />
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Service Details Section */}
         <div className="space-y-4">
@@ -625,6 +825,241 @@ export const AddPersonnelPage = () => {
               onChange={(value) => handleSelectChange("corp_id", value)}
             />
           </div>
+        </div>
+
+        {/* Professional Credentials & Qualifications (Determined by Specialty) */}
+        <div className="space-y-4">
+          <div className="border-b border-white/10 pb-2 flex items-center justify-between">
+            <h2 className="text-lg font-medium text-cyan-400 uppercase">
+              Professional Credentials & Experience
+            </h2>
+            {isPilot ? (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-cyan-950/70 text-cyan-300 border border-cyan-500/30">
+                Pilot Track
+              </span>
+            ) : (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-950/70 text-emerald-300 border border-emerald-500/30">
+                {isEngineer ? "Engineer Track" : "Credentials & Experience Track"}
+              </span>
+            )}
+          </div>
+
+          <div className={cn("grid gap-4", isPilot ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
+            <MultiSelect
+              label={isPilot ? "Type of License" : "Type of License / Certification"}
+              placeholder="Select Type of License"
+              options={ratingOptions}
+              selectedValues={selectedRatings}
+              onChange={handleRatingChange}
+              disabled={isLoadingRatings}
+              searchable
+            />
+            {isPilot && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between pb-0.5">
+                  <span className="text-sm font-medium text-gray-300">
+                    Type Rating (Aircraft Platforms)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddAircraftModal}
+                    className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 transition-colors font-medium cursor-pointer"
+                  >
+                    <Icon icon="mdi:airplane-plus" className="w-3.5 h-3.5" />
+                    <span>+ Add Aircraft Manually</span>
+                  </button>
+                </div>
+                <MultiSelect
+                  label=""
+                  placeholder="Select or type aircraft platform..."
+                  options={typeRatingPlatformOptions}
+                  selectedValues={selectedPlatforms}
+                  onChange={handleTypeRatingChange}
+                  allowCustom
+                  searchable
+                />
+              </div>
+            )}
+          </div>
+
+          {/* License Validity & Experience Derivation */}
+          {selectedRatings.length > 0 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
+                {!isPilot ? "License Dates & Career Experience" : "Aircraft Ratings Validity"}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedRatings.map((rating) => {
+                  const ratingLabel = ratingLabelById.get(rating) || `License #${rating}`;
+                  const isLifetime = Boolean(ratingLifetime[rating]);
+                  const derivedExp = !isPilot ? calculateExperience(ratingIssueDates[rating]) : null;
+
+                  return (
+                    <div
+                      key={rating}
+                      className="rounded-lg border border-[#0A4D66]/50 bg-[#001825]/60 p-4 space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <span className="text-sm font-medium text-white">
+                          {ratingLabel}
+                        </span>
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-cyan-300 hover:text-cyan-200">
+                          <input
+                            type="checkbox"
+                            checked={isLifetime}
+                            onChange={(e) =>
+                              handleRatingLifetimeToggle(rating, e.target.checked)
+                            }
+                            className="rounded border-gray-600 text-cyan-500 focus:ring-cyan-400 h-4 w-4 bg-[#001219]"
+                          />
+                          <span>Lifetime / No Expiry</span>
+                        </label>
+                      </div>
+
+                      <div className={cn("grid gap-3", !isPilot ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1")}>
+                        {!isPilot && (
+                          <InputField
+                            label="License Issue Date"
+                            type="date"
+                            value={ratingIssueDates[rating] || ""}
+                            onChange={(e) =>
+                              handleRatingIssueDateChange(rating, e.target.value)
+                            }
+                            placeholder="00/00/0000"
+                            required
+                          />
+                        )}
+
+                        <div>
+                          <InputField
+                            label="Expiry Date"
+                            type="date"
+                            value={isLifetime ? "" : ratingExpiryDates[rating] || ""}
+                            onChange={(e) =>
+                              handleRatingExpiryChange(rating, e.target.value)
+                            }
+                            placeholder="00/00/0000"
+                            disabled={isLifetime}
+                            required={!isLifetime}
+                          />
+                          {isLifetime && (
+                            <p className="text-[11px] text-emerald-400 mt-1 flex items-center gap-1">
+                              <Icon icon="mdi:check-decagram" className="w-3.5 h-3.5" />
+                              This license is permanent (no expiration date).
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {!isPilot && (
+                        <div className="rounded bg-[#001219] border border-emerald-500/20 px-3 py-2 flex items-center justify-between text-xs">
+                          <span className="text-gray-400">Total Derived Experience:</span>
+                          <span className="font-semibold text-emerald-300">
+                            {derivedExp || "Set issue date to compute"}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Aircraft Platform Operational Experience (Baseline Flight Hours) - Visible only for Pilot track */}
+          {isPilot && selectedPlatforms.length > 0 && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide flex items-center gap-2">
+                    <span>Platform Operational Experience (Baseline Flight Hours)</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
+                      {selectedPlatforms.length} {selectedPlatforms.length === 1 ? "Platform" : "Platforms"}
+                    </span>
+                  </h3>
+                  <span className="text-xs text-gray-400">
+                    Base flight experience recorded per platform and linked to operational logs
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {selectedPlatforms.map((platform) => {
+                  const op = Number(platformHours[platform]?.operational) || 0;
+                  const tr = Number(platformHours[platform]?.training) || 0;
+                  const total = (op + tr).toFixed(1);
+                  const isCustom = customPlatforms.includes(platform);
+
+                  return (
+                    <div
+                      key={platform}
+                      className="rounded-lg border border-[#0A4D66]/50 bg-[#001825]/60 p-4 space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                        <div className="flex items-center gap-2">
+                          <Icon icon="mdi:airplane" className="w-4 h-4 text-cyan-400" />
+                          <span className="text-sm font-semibold text-white">
+                            {platform}
+                          </span>
+                          {isCustom && (
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                              Non-Inventory
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded bg-cyan-950/80 border border-cyan-500/30 px-2 py-0.5 text-xs font-semibold text-cyan-300">
+                            Total: {total} HRS
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePlatform(platform)}
+                            title={`Remove ${platform} from baseline experience`}
+                            className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-2 py-1 rounded transition-colors cursor-pointer"
+                          >
+                            <Icon icon="mdi:trash-can-outline" className="w-3.5 h-3.5" />
+                            <span>Remove</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <InputField
+                          label="Operational Flight Hours"
+                          type="number"
+                          value={platformHours[platform]?.operational || ""}
+                          onChange={(e) =>
+                            handlePlatformHourChange(
+                              platform,
+                              "operational",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="e.g. 150.0"
+                          min="0"
+                          step="0.1"
+                        />
+                        <InputField
+                          label="Training Flight Hours"
+                          type="number"
+                          value={platformHours[platform]?.training || ""}
+                          onChange={(e) =>
+                            handlePlatformHourChange(
+                              platform,
+                              "training",
+                              e.target.value,
+                            )
+                          }
+                          placeholder="e.g. 50.0"
+                          min="0"
+                          step="0.1"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Deployment Section */}
@@ -769,6 +1204,56 @@ export const AddPersonnelPage = () => {
           </button>
         </div>
       </form>
+
+      {/* Modal: Add Aircraft Manually */}
+      <Modal
+        open={isAddAircraftModalOpen}
+        onClose={() => setIsAddAircraftModalOpen(false)}
+        title="Add Aircraft Manually"
+      >
+        <form onSubmit={handleSaveCustomAircraft} className="space-y-4">
+          <p className="text-xs text-gray-400">
+            Add an external, training, or legacy aircraft platform not present in the current inventory fleet for historical flight hour record-keeping.
+          </p>
+
+          <div className="space-y-1">
+            <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wide">
+              Aircraft Platform Name / Model <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={newAircraftName}
+              onChange={(e) => {
+                setNewAircraftName(e.target.value);
+                if (aircraftModalError) setAircraftModalError("");
+              }}
+              placeholder="e.g. Cessna 172 Skyhawk, Diamond DA42, Mi-17..."
+              className="w-full rounded-md border border-gray-700 bg-[#001219] px-3 py-2.5 text-sm text-white placeholder-gray-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+            />
+            {aircraftModalError && (
+              <p className="text-xs text-red-400 mt-1">{aircraftModalError}</p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => setIsAddAircraftModalOpen(false)}
+              className="px-4 py-2 text-xs font-medium text-gray-300 hover:text-white rounded-md border border-gray-700 hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-xs font-semibold text-white bg-cyan-600 hover:bg-cyan-500 rounded-md transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
+            >
+              <Icon icon="mdi:check" className="w-4 h-4" />
+              <span>Add Aircraft</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

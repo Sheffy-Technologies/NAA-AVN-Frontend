@@ -9,6 +9,7 @@ import {
   useGetInventoriesQuery,
   useGetPurchaseOrdersQuery,
   useGetRfqsQuery,
+  useGetShipmentsQuery,
   useGetStockMovementsQuery,
   useGetSupplierQuotationsQuery,
   useGetSuppliersQuery,
@@ -21,6 +22,7 @@ export type ProcurementSubTabKey =
   | "part-requisitions"
   | "quotations"
   | "purchase-orders"
+  | "shipments"
   | "stock-received"
   | "stock-issued";
 
@@ -46,8 +48,13 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
     useGetPurchaseOrdersQuery();
   const { data: goodsReceivedNotes = [], isLoading: isGrnLoading } =
     useGetGoodsReceivedNotesQuery();
+  const { data: shipments = [] } = useGetShipmentsQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
   const { data: suppliers = [] } = useGetSuppliersQuery();
+
+  const activeShipments = useMemo(() => {
+    return shipments.filter((s) => s.status !== "delivered");
+  }, [shipments]);
 
   // Metric Calculations
   const partRequisitions = useMemo(() => {
@@ -197,7 +204,7 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
       </div>
 
       {/* Primary Procurement Metric Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         <MetricCard
           id="metric-part-demands"
           label="Part Demands"
@@ -243,6 +250,18 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
           subtext={`${receivedPurchaseOrders.length} received`}
           icon="mdi:cart-outline"
           onClick={() => onNavigateSubTab("purchase-orders")}
+          className="cursor-pointer hover:border-[var(--theme-accent)] transition-all"
+        />
+
+        <MetricCard
+          id="metric-shipments"
+          label="Shipments"
+          value={shipments.length}
+          badge={`${activeShipments.length} active`}
+          badgeColor={activeShipments.length > 0 ? "sky" : "neutral"}
+          subtext="TrackingMore & AWB"
+          icon="mdi:truck-fast-outline"
+          onClick={() => onNavigateSubTab("shipments")}
           className="cursor-pointer hover:border-[var(--theme-accent)] transition-all"
         />
 
@@ -547,6 +566,98 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      {/* Inbound Consignments Live Tracking Radar */}
+      <div
+        className={cn(
+          "rounded-xl border p-4 sm:p-5 flex flex-col shadow-sm",
+          isDark ? "bg-[#001219] border-[#0A4D66]/40" : "bg-white border-slate-200",
+        )}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-[#0A4D66]/20">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-sky-500/10 text-sky-400 border border-sky-500/30">
+              <Icon icon="mdi:truck-fast-outline" className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#0A4D66] dark:text-[#7FD5FF]">
+                Inbound Consignments Live Tracking Radar
+              </h3>
+              <p className="text-xs text-[var(--theme-text-muted)] mt-0.5">
+                4-Stage Milestones: 1. Picked up &rarr; 2. Customs clearance &rarr; 3. In transit &rarr; 4. Delivered
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateSubTab("shipments")}
+            className="text-xs text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1 self-start sm:self-auto"
+          >
+            <span>View All Shipments ({shipments.length})</span>
+            <Icon icon="mdi:arrow-right" className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="mt-4">
+          {shipments.length === 0 ? (
+            <div className="py-8 text-center text-gray-400">
+              <Icon icon="mdi:truck-outline" className="w-8 h-8 mx-auto mb-2 opacity-40" />
+              <p className="text-xs font-semibold">No active shipments currently registered.</p>
+              <p className="text-[11px] text-[var(--theme-text-muted)] mt-0.5">
+                Open any Purchase Order to attach tracking numbers or Air Waybills (AWBs).
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {shipments.slice(0, 6).map((shipment) => {
+                const stageColors = {
+                  picked_up: "bg-sky-500/15 text-sky-400 border-sky-500/30",
+                  customs_clearance: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+                  in_transit: "bg-indigo-500/15 text-indigo-400 border-indigo-500/30",
+                  delivered: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+                };
+
+                return (
+                  <div
+                    key={shipment.id}
+                    onClick={() => navigate(`/dashboard/inventory/purchase-orders/${shipment.purchase_order_id}`)}
+                    className={cn(
+                      "p-3.5 rounded-lg border cursor-pointer hover:border-[#7FD5FF]/60 transition-all flex flex-col justify-between",
+                      isDark ? "bg-[#001825] border-[#0A4D66]/30" : "bg-slate-50 border-slate-200",
+                    )}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between pb-2 border-b border-[#0A4D66]/20">
+                        <span className="font-mono text-xs font-bold text-sky-400">
+                          {shipment.tracking_number}
+                        </span>
+                        <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border", stageColors[shipment.status])}>
+                          {shipment.status.replace("_", " ")}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-[var(--theme-text-primary)] mt-2">
+                        PO #{shipment.purchase_order_id} • {shipment.carrier_name || "Air Freight"}
+                      </p>
+                      <p className="text-[11px] text-[var(--theme-text-muted)] mt-0.5 truncate">
+                        {shipment.origin || "Origin"} &rarr; {shipment.destination || "Base"}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-[#0A4D66]/20 flex items-center justify-between text-[11px]">
+                      <span className="text-gray-400">
+                        {shipment.estimated_delivery_date ? `Est: ${shipment.estimated_delivery_date}` : "In Transit"}
+                      </span>
+                      <span className="text-sky-400 font-medium inline-flex items-center gap-0.5">
+                        Track <Icon icon="mdi:chevron-right" className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>

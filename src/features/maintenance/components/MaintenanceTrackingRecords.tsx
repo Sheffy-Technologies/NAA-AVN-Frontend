@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { SearchableSelect, type SearchableSelectOption } from "@/shared/ui/select/SearchableSelect";
 import {
   useGetMaintenanceDueItemsQuery,
@@ -215,7 +216,26 @@ export const MaintenanceTrackingRecords = () => {
               {rows.map((row) => {
                 const status = STATUS_STYLES[row.status] ?? STATUS_STYLES.not_tracked;
                 return (
-                  <tr key={rowKey(row)} className="border-b border-[#0A4D66]/20 text-gray-200">
+                  <tr
+                    key={rowKey(row)}
+                    tabIndex={row.asset_id ? 0 : undefined}
+                    role={row.asset_id ? "button" : undefined}
+                    title={row.asset_id ? "Click to view asset details" : undefined}
+                    onClick={(e) => {
+                      if (row.asset_id) {
+                        onInteractiveRowClick(e, () => navigate(`/dashboard/assets/${row.asset_id}`));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (row.asset_id) {
+                        onInteractiveRowKeyDown(e, () => navigate(`/dashboard/assets/${row.asset_id}`));
+                      }
+                    }}
+                    className={cn(
+                      "border-b border-[#0A4D66]/20 text-gray-200 transition-colors",
+                      row.asset_id && "cursor-pointer hover:bg-[#0A4D66]/20 focus:outline-none focus:bg-[#0A4D66]/30"
+                    )}
+                  >
                     <td className="py-2 pr-3 capitalize">{row.part_type}</td>
                     <td className="py-2 pr-3 text-white">{row.part_label}</td>
                     <td className="py-2 pr-3">{row.part_serial_number || "-"}</td>

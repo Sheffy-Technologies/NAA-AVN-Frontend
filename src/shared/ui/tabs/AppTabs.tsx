@@ -117,9 +117,11 @@ export const AppTabs = <T extends string>({
             <button
               key={tab.id}
               type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => onChange(tab.id)}
               className={cn(
-                "flex items-center space-x-2 text-sm transition-all relative outline-none rounded-t-lg whitespace-nowrap",
+                "flex items-center space-x-2 text-sm transition-all relative outline-none rounded-t-lg whitespace-nowrap bg-transparent tab-link",
                 size === "sm" ? "px-3 py-2 text-xs" : "px-4 py-3 text-sm",
                 isActive
                   ? isDark

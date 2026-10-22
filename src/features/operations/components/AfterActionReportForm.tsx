@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Icon } from "@iconify/react";
+import { SearchableSelect, type SearchableSelectOption } from "@/shared/ui/select/SearchableSelect";
 import {
   useCreateAfterActionReportMutation,
   useGetOperationByIdQuery,
   useUpdateOperationMutation,
+  useGetCommandingOfficersQuery,
   type CreateAfterActionReportRequest,
   type Contact,
   type OperationAssignedAsset,
   type ResourceUtilization,
   type Operation,
 } from "../api";
+import { AARSignatureTable } from "./AARSignatureTable";
 import { useGetInventoriesQuery } from "@/features/inventory/api";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
@@ -59,6 +62,28 @@ export const AfterActionReportForm = ({
   const operation = initialOperation || fetchedOperation;
   const { data: inventories = [] } = useGetInventoriesQuery();
   const { data: assets = [] } = useGetAssetsQuery();
+  const { data: commandingOfficers = [] } = useGetCommandingOfficersQuery();
+
+  const [signers, setSigners] = useState<{
+    co: { name: string; serviceNumber: string; rank: string; userId: number | null; signature: string | null };
+    pic: { name: string; serviceNumber: string; rank: string; personnelId: number | null; signature: string | null };
+    copilot: { name: string; serviceNumber: string; rank: string; personnelId: number | null; signature: string | null };
+  }>({
+    co: { name: "", serviceNumber: "", rank: "", userId: null, signature: null },
+    pic: { name: "", serviceNumber: "", rank: "", personnelId: null, signature: null },
+    copilot: { name: "", serviceNumber: "", rank: "", personnelId: null, signature: null },
+  });
+
+  const rawUnitName = (operation as { unit?: { name?: string } })?.unit?.name || "";
+  const isHqUnit = /HQ|HEADQUARTERS|COMMAND/i.test(rawUnitName);
+  const initialUnit = isHqUnit ? "" : rawUnitName;
+  const initialAssetCount = operation?.assets?.length ?? 0;
+  const initialFormation =
+    initialAssetCount > 1
+      ? "formation"
+      : initialAssetCount === 1
+      ? "single_ship"
+      : "none";
 
   const [formData, setFormData] = useState<
     Omit<
@@ -68,9 +93,99 @@ export const AfterActionReportForm = ({
   >({
     mission: "logistics",
     task_no: "",
+    report_date: new Date().toISOString().split("T")[0],
     infantry_no: 0,
+    vehicles_no: 0,
+    ammo_spent: "",
+    unit_formation: initialUnit,
+    aircraft_formation: initialFormation,
     activities: "",
   });
+
+  useEffect(() => {
+    if (operation) {
+      const uName = (operation as { unit?: { name?: string } })?.unit?.name || "";
+      const isHq = /HQ|HEADQUARTERS|COMMAND/i.test(uName);
+      const assetCount = operation.assets?.length ?? 0;
+      const computedFormation =
+        assetCount > 1 ? "formation" : assetCount === 1 ? "single_ship" : "none";
+
+      setFormData((prev) => ({
+        ...prev,
+        unit_formation: prev.unit_formation ? prev.unit_formation : isHq ? "" : uName,
+        aircraft_formation: prev.aircraft_formation ?? computedFormation,
+      }));
+
+      // Pre-fill PIC and Co-Pilot from operation assets
+      const firstAsset = operation.assets?.[0];
+      const pilotDetails =
+        (firstAsset as unknown as { pilot_details?: Record<string, unknown> })?.pilot_details ||
+        (firstAsset as unknown as { pilot?: Record<string, unknown> })?.pilot;
+      const coPilotDetails =
+        (firstAsset as unknown as { co_pilot_details?: Record<string, unknown> })?.co_pilot_details ||
+        (firstAsset as unknown as { co_pilot?: Record<string, unknown> })?.co_pilot;
+
+      const pRank =
+        pilotDetails && typeof pilotDetails.rank === "object"
+          ? (pilotDetails.rank as { name?: string })?.name || ""
+          : (pilotDetails?.rank as string) || "";
+      const pFirst = (pilotDetails?.firstname as string) || "";
+      const pLast = (pilotDetails?.lastname as string) || "";
+      const pSvc = (pilotDetails?.service_number as string) || "";
+      const pId =
+        (firstAsset?.pilot_id as number) ||
+        (firstAsset?.pivot?.pilot_id as number) ||
+        (pilotDetails?.id as number) ||
+        null;
+
+      const cpRank =
+        coPilotDetails && typeof coPilotDetails.rank === "object"
+          ? (coPilotDetails.rank as { name?: string })?.name || ""
+          : (coPilotDetails?.rank as string) || "";
+      const cpFirst = (coPilotDetails?.firstname as string) || "";
+      const cpLast = (coPilotDetails?.lastname as string) || "";
+      const cpSvc = (coPilotDetails?.service_number as string) || "";
+      const cpId =
+        (firstAsset?.co_pilot_id as number) ||
+        (firstAsset?.pivot?.co_pilot_id as number) ||
+        (coPilotDetails?.id as number) ||
+        null;
+
+      setSigners((prev) => ({
+        ...prev,
+        pic: {
+          name: prev.pic.name || `${pFirst} ${pLast}`.trim(),
+          serviceNumber: prev.pic.serviceNumber || pSvc,
+          rank: prev.pic.rank || pRank,
+          personnelId: prev.pic.personnelId || pId,
+          signature: prev.pic.signature,
+        },
+        copilot: {
+          name: prev.copilot.name || `${cpFirst} ${cpLast}`.trim(),
+          serviceNumber: prev.copilot.serviceNumber || cpSvc,
+          rank: prev.copilot.rank || cpRank,
+          personnelId: prev.copilot.personnelId || cpId,
+          signature: prev.copilot.signature,
+        },
+      }));
+    }
+  }, [operation]);
+
+  useEffect(() => {
+    if (commandingOfficers.length > 0) {
+      const primaryCo = commandingOfficers[0];
+      setSigners((prev) => ({
+        ...prev,
+        co: {
+          name: prev.co.name || primaryCo.name || "",
+          serviceNumber: prev.co.serviceNumber || primaryCo.service_number || "",
+          rank: prev.co.rank || primaryCo.rank || "",
+          userId: prev.co.userId || primaryCo.user_id || null,
+          signature: prev.co.signature,
+        },
+      }));
+    }
+  }, [commandingOfficers]);
 
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [resources, setResources] = useState<ResourceUtilization[]>([]);
@@ -81,6 +196,54 @@ export const AfterActionReportForm = ({
     return_takeoff: string;
     return_landing: string;
   }>>({});
+
+  const inventoryOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      inventories.map((inv) => {
+        const desc = (inv.description || "").trim();
+        const partName = (inv.part_name || "").trim();
+        const partNo = (inv.part_number || "").trim();
+        const label =
+          desc ||
+          partName ||
+          (partNo ? `Part No. ${partNo}` : "") ||
+          `Inventory #${inv.id}`;
+
+        const details: string[] = [];
+        if (partNo && desc && !desc.toLowerCase().includes(partNo.toLowerCase())) {
+          details.push(`P/N: ${partNo}`);
+        }
+        if (inv.current_stock !== undefined && inv.current_stock !== null) {
+          details.push(`Stock: ${inv.current_stock} ${inv.measurement_unit || "units"}`.trim());
+        }
+        if (inv.store) {
+          details.push(`Store: ${inv.store}`);
+        }
+
+        return {
+          value: inv.id,
+          label,
+          description: details.join(" • ") || undefined,
+        };
+      }),
+    [inventories],
+  );
+
+  const assetOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      assets.map((asset) => {
+        const details: string[] = [];
+        if (asset.tail_number) details.push(`Tail: ${asset.tail_number}`);
+        if (asset.type) details.push(asset.type);
+
+        return {
+          value: asset.id,
+          label: asset.name || asset.tail_number || `Asset #${asset.id}`,
+          description: details.join(" • ") || undefined,
+        };
+      }),
+    [assets],
+  );
 
   const calculateDurationMinutes = (takeoff: string, landing: string): number => {
     if (!takeoff || !landing) return 0;
@@ -229,7 +392,7 @@ export const AfterActionReportForm = ({
         engagement: "visuals_only",
         location: "",
         time_of_contact: "00:00",
-        date_of_contact: "",
+        date_of_contact: formData.report_date || "",
         enemy_resources_description: "",
         enemy_infantry_no: 0,
         enemy_vehicle_no: 0,
@@ -315,11 +478,31 @@ export const AfterActionReportForm = ({
         }).unwrap();
       }
 
+      const contactsPayload = contacts.map((c) => ({
+        ...c,
+        date_of_contact: formData.report_date || c.date_of_contact || new Date().toISOString().split("T")[0],
+      }));
+
       await createReport({
         operation_id: operationId,
         ...formData,
-        contacts,
+        contacts: contactsPayload,
         resource_utilizations: resources,
+        co_name: signers.co.name || null,
+        co_service_number: signers.co.serviceNumber || null,
+        co_rank: signers.co.rank || null,
+        co_user_id: signers.co.userId || null,
+        co_signature: signers.co.signature || null,
+        pic_name: signers.pic.name || null,
+        pic_service_number: signers.pic.serviceNumber || null,
+        pic_rank: signers.pic.rank || null,
+        pic_personnel_id: signers.pic.personnelId || null,
+        pic_signature: signers.pic.signature || null,
+        copilot_name: signers.copilot.name || null,
+        copilot_service_number: signers.copilot.serviceNumber || null,
+        copilot_rank: signers.copilot.rank || null,
+        copilot_personnel_id: signers.copilot.personnelId || null,
+        copilot_signature: signers.copilot.signature || null,
       }).unwrap();
       if (onSuccess) onSuccess();
     } catch (error) {
@@ -371,7 +554,7 @@ export const AfterActionReportForm = ({
       </section>
 
       {/* Task Details */}
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-400 font-medium">Task No.</label>
           <input
@@ -384,13 +567,67 @@ export const AfterActionReportForm = ({
             className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
           />
         </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-400 font-medium">Date</label>
+          <div className="relative">
+            <Icon
+              icon="mdi:calendar"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+            />
+            <input
+              type="date"
+              title="Report Date"
+              value={formData.report_date || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, report_date: e.target.value })
+              }
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-400 font-medium">Aircraft</label>
+          <div className="relative">
+            <select
+              value={formData.aircraft_formation || "none"}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  aircraft_formation: e.target.value as "none" | "single_ship" | "formation",
+                })
+              }
+              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark cursor-pointer"
+            >
+              <option value="none" className="bg-[#001825] text-white">None</option>
+              <option value="single_ship" className="bg-[#001825] text-white">Single Ship</option>
+              <option value="formation" className="bg-[#001825] text-white">Formation</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-400 font-medium">Unit / Formation</label>
+          <input
+            type="text"
+            placeholder="Enter Battalion / Formation (e.g. 212 Battalion)"
+            value={formData.unit_formation || ""}
+            onChange={(e) =>
+              setFormData({ ...formData, unit_formation: e.target.value })
+            }
+            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+          />
+        </div>
+
         <div className="flex flex-col gap-2">
           <label className="text-xs text-gray-400 font-medium">
             Infantry No.
           </label>
           <input
             type="number"
-            placeholder="Enter Number"
+            min="0"
+            placeholder="Enter Infantry Count"
             value={formData.infantry_no || ""}
             onChange={(e) =>
               setFormData({ ...formData, infantry_no: Number(e.target.value) })
@@ -398,7 +635,39 @@ export const AfterActionReportForm = ({
             className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
           />
         </div>
-        <div className="col-span-1 md:col-span-3 flex flex-col gap-2">
+
+        <div className="flex flex-col gap-2">
+          <label className="text-xs text-gray-400 font-medium">
+            Vehicles
+          </label>
+          <input
+            type="number"
+            min="0"
+            placeholder="Enter Vehicles Count"
+            value={formData.vehicles_no || ""}
+            onChange={(e) =>
+              setFormData({ ...formData, vehicles_no: Number(e.target.value) })
+            }
+            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+          />
+        </div>
+
+        <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col gap-2">
+          <label className="text-xs text-gray-400 font-medium">
+            Ammo Spent
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. 500x 7.62mm, 4x Rockets"
+            value={formData.ammo_spent || ""}
+            onChange={(e) =>
+              setFormData({ ...formData, ammo_spent: e.target.value })
+            }
+            className="bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+          />
+        </div>
+
+        <div className="col-span-1 md:col-span-2 lg:col-span-3 flex flex-col gap-2">
           <label className="text-xs text-gray-400 font-medium">
             Activities
           </label>
@@ -666,11 +935,11 @@ export const AfterActionReportForm = ({
                   <div className="relative">
                     <Icon
                       icon="mdi:map-marker"
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
                     />
                     <input
                       type="text"
-                      placeholder="Select Location"
+                      placeholder="Enter Location"
                       value={contact.location}
                       onChange={(e) =>
                         handleContactChange(index, "location", e.target.value)
@@ -679,56 +948,30 @@ export const AfterActionReportForm = ({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-400 font-medium">
-                      Time Of Contact
-                    </label>
-                    <div className="relative">
-                      <Icon
-                        icon="mdi:clock-outline"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                      <input
-                        type="time"
-                        title="Time of contact"
-                        placeholder="Time of contact"
-                        value={contact.time_of_contact}
-                        onChange={(e) =>
-                          handleContactChange(
-                            index,
-                            "time_of_contact",
-                            e.target.value,
-                          )
-                        }
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs text-gray-400 font-medium">
-                      Date
-                    </label>
-                    <div className="relative">
-                      <Icon
-                        icon="mdi:calendar"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                      <input
-                        type="date"
-                        title="Date of contact"
-                        placeholder="Date of contact"
-                        value={contact.date_of_contact}
-                        onChange={(e) =>
-                          handleContactChange(
-                            index,
-                            "date_of_contact",
-                            e.target.value,
-                          )
-                        }
-                        className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
-                      />
-                    </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs text-gray-400 font-medium">
+                    Time Of Contact
+                  </label>
+                  <div className="relative">
+                    <Icon
+                      icon="mdi:clock-outline"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                    />
+                    <input
+                      type="time"
+                      title="Time of contact"
+                      placeholder="Time of contact"
+                      value={contact.time_of_contact}
+                      onChange={(e) =>
+                        handleContactChange(
+                          index,
+                          "time_of_contact",
+                          e.target.value,
+                        )
+                      }
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 pl-10 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                    />
                   </div>
                 </div>
               </div>
@@ -975,41 +1218,31 @@ export const AfterActionReportForm = ({
                   <label className="text-xs text-gray-400 font-medium">
                     Item Description
                   </label>
-                  <div className="relative">
-                    <select
-                      title="Resource inventory item"
-                      aria-label="Resource inventory item"
-                      value={res.inventory_id}
-                      onChange={(e) => {
-                        const selectedId = Number(e.target.value);
-                        const selectedItem = inventories.find(
-                          (inv) => inv.id === selectedId,
-                        );
-                        const newResources = [...resources];
-                        newResources[index] = {
-                          ...newResources[index],
-                          inventory_id: selectedId,
-                          item_description:
-                            selectedItem?.description ??
-                            selectedItem?.part_name ??
-                            "",
-                        };
-                        setResources(newResources);
-                      }}
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                    >
-                      <option value={0}>Select Item</option>
-                      {inventories.map((inv) => (
-                        <option key={inv.id} value={inv.id}>
-                          {inv.description}
-                        </option>
-                      ))}
-                    </select>
-                    <Icon
-                      icon="mdi:chevron-down"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                    />
-                  </div>
+                  <SearchableSelect
+                    placeholder="Select Item"
+                    searchPlaceholder="Search by part number, name..."
+                    options={inventoryOptions}
+                    value={res.inventory_id && res.inventory_id > 0 ? res.inventory_id : null}
+                    onChange={(val) => {
+                      const selectedId = val ? Number(val) : 0;
+                      const selectedItem = inventories.find(
+                        (inv) => inv.id === selectedId,
+                      );
+                      const newResources = [...resources];
+                      newResources[index] = {
+                        ...newResources[index],
+                        inventory_id: selectedId,
+                        item_description:
+                          selectedItem?.description ||
+                          selectedItem?.part_name ||
+                          selectedItem?.part_number ||
+                          "",
+                      };
+                      setResources(newResources);
+                    }}
+                    size="md"
+                    className="w-full"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -1028,7 +1261,7 @@ export const AfterActionReportForm = ({
                           Number(e.target.value),
                         )
                       }
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
                     />
                   </div>
                 </div>
@@ -1037,37 +1270,45 @@ export const AfterActionReportForm = ({
                   <label className="text-xs text-gray-400 font-medium">
                     Asset Assignment
                   </label>
-                  <div className="relative">
-                    <select
-                      title="Resource asset assignment"
-                      aria-label="Resource asset assignment"
-                      value={res.asset_id}
-                      onChange={(e) =>
-                        handleResourceChange(
-                          index,
-                          "asset_id",
-                          Number(e.target.value),
-                        )
-                      }
-                      className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
-                    >
-                      <option value={0}>Select Asset</option>
-                      {assets.map((asset) => (
-                        <option key={asset.id} value={asset.id}>
-                          {asset.name || `Asset #${asset.id}`}
-                        </option>
-                      ))}
-                    </select>
-                    <Icon
-                      icon="mdi:chevron-down"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                    />
-                  </div>
+                  <SearchableSelect
+                    placeholder="Select Asset"
+                    searchPlaceholder="Search aircraft, vehicle..."
+                    options={assetOptions}
+                    value={res.asset_id && res.asset_id > 0 ? res.asset_id : null}
+                    onChange={(val) => {
+                      handleResourceChange(
+                        index,
+                        "asset_id",
+                        val ? Number(val) : 0,
+                      );
+                    }}
+                    size="md"
+                    className="w-full"
+                  />
                 </div>
               </div>
             </div>
           ))}
         </div>
+      </section>
+
+      {/* AAR Authentication & Signatures Section */}
+      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
+        <AARSignatureTable
+          operationId={operationId}
+          operationName={operation?.name}
+          isFormMode={true}
+          prefilledSigners={signers}
+          onUpdateSigner={(role, field, value) => {
+            setSigners((prev) => ({
+              ...prev,
+              [role]: {
+                ...prev[role],
+                [field]: value,
+              },
+            }));
+          }}
+        />
       </section>
 
       {/* Save Button */}

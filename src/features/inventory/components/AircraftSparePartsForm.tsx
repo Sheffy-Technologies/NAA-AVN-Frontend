@@ -12,7 +12,7 @@ import type {
 import type { Unit } from "@/shared/api/units";
 import type { Store, AtaChapter, ProcurementCurrency, InventorySupplier } from "@/features/inventory/api";
 import type { AssetType } from "@/features/assets/api";
-import { formatCategoryName } from "@/features/inventory/inventoryUtils";
+import { formatCategoryName, formatAtaChapter } from "@/features/inventory/inventoryUtils";
 
 export const SPECIAL_STORAGE_OPTIONS = [
   { value: "standard", label: "Standard Warehouse Storage" },
@@ -600,7 +600,11 @@ export const AircraftSparePartsForm = ({
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
               <span className="text-slate-400 block text-[10px] uppercase font-semibold">ATA Chapter</span>
               <span className="text-slate-800 dark:text-gray-200 font-medium">
-                {selectedAta ? `${selectedAta.code} - ${selectedAta.name}` : values.ata_chapter || "Not Assigned"}
+                {selectedAta
+                  ? `${selectedAta.code} - ${selectedAta.name}`
+                  : formatAtaChapter(values.ata_chapter) !== "-"
+                  ? formatAtaChapter(values.ata_chapter)
+                  : "Not Assigned"}
               </span>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
@@ -764,7 +768,7 @@ export const AircraftSparePartsForm = ({
                           </td>
                           <td className="p-2.5 font-sans">
                             <span className={cn(isAtaDiff ? "text-amber-600 dark:text-amber-400 font-bold" : "text-slate-600 dark:text-gray-400")}>
-                              {u.ata_chapter || values.ata_chapter || "-"}
+                              {formatAtaChapter(u.ata_chapter || values.ata_chapter)}
                               {isAtaDiff && " (Custom)"}
                             </span>
                           </td>
@@ -1900,8 +1904,8 @@ export const AircraftSparePartsForm = ({
       {/* ========================================================================= */}
       {/* 3. SHELF LIFE & LIFE LIMIT TRACKING SECTION */}
       {/* ========================================================================= */}
-      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm relative z-30">
-        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex flex-wrap items-center justify-between gap-2">
+      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl shadow-sm relative z-30">
+        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex flex-wrap items-center justify-between gap-2 rounded-t-xl">
           <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
             <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
             <span>3. SHELF LIFE &amp; LIFE LIMIT TRACKING</span>

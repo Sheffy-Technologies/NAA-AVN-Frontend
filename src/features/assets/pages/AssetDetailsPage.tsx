@@ -2203,21 +2203,24 @@ export const AssetDetailsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 mb-6 overflow-x-auto">
+      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300 mb-6 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
+              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap bg-transparent tab-link outline-none border-0 shadow-none",
               activeTab === tab.id
-                ? "text-[#7FD5FF]"
-                : "text-gray-400 hover:text-gray-300",
+                ? "text-sky-700 dark:text-[#7FD5FF] font-bold"
+                : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200",
             )}
           >
             {tab.label}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-700 dark:bg-[#0369A1] shadow-sm dark:shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
             )}
           </button>
         ))}
@@ -4836,8 +4839,36 @@ export const AssetDetailsPage = () => {
                           <span className="text-white text-sm font-medium">{report.task_no}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Date:</span>
+                          <span className="text-white text-sm font-medium">{report.report_date || (report as unknown as { created_at?: string })?.created_at?.slice(0, 10) || "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Aircraft:</span>
+                          <span className="text-white text-sm font-medium">
+                            {report.aircraft_formation === "formation"
+                              ? "Formation"
+                              : report.aircraft_formation === "single_ship"
+                              ? "Single Ship"
+                              : report.aircraft_formation === "none"
+                              ? "None"
+                              : report.aircraft_formation || "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Unit / Formation:</span>
+                          <span className="text-white text-sm font-medium">{report.unit_formation || "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
                           <span className="text-[#7FD5FF] text-sm">Infantry No:</span>
-                          <span className="text-white text-sm font-medium">{report.infantry_no}</span>
+                          <span className="text-white text-sm font-medium">{report.infantry_no ?? "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Vehicles:</span>
+                          <span className="text-white text-sm font-medium">{report.vehicles_no ?? "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Ammo Spent:</span>
+                          <span className="text-white text-sm font-medium">{report.ammo_spent || "—"}</span>
                         </div>
                       </div>
 
@@ -4864,7 +4895,6 @@ export const AssetDetailsPage = () => {
                                     {contact.engagement.replace(/_/g, " ")}
                                   </span>
                                   <div className="flex gap-4 text-gray-400 text-xs">
-                                    <span>{contact.date_of_contact}</span>
                                     <span>{contact.time_of_contact}</span>
                                   </div>
                                 </div>
