@@ -4,6 +4,7 @@ import { cn } from "@/shared/utils/cn";
 import { BackButton, CancelButton } from "@/shared/ui/button";
 import Modal from "@/shared/ui/modal/Modal";
 import { SearchableSelect, type SearchableSelectOption } from "@/shared/ui/select/SearchableSelect";
+import { MultiSelect, type MultiSelectOption } from "@/shared/ui/multi-select/MultiSelect";
 import type {
   InventoryFormValues,
   FormSerializedUnit,
@@ -11,7 +12,26 @@ import type {
 import type { Unit } from "@/shared/api/units";
 import type { Store, AtaChapter, ProcurementCurrency, InventorySupplier } from "@/features/inventory/api";
 import type { AssetType } from "@/features/assets/api";
-import { formatCategoryName } from "@/features/inventory/inventoryUtils";
+import { formatCategoryName, formatAtaChapter } from "@/features/inventory/inventoryUtils";
+
+export const SPECIAL_STORAGE_OPTIONS = [
+  { value: "standard", label: "Standard Warehouse Storage" },
+  { value: "bonded", label: "Bonded Store (Customs Controlled)" },
+  { value: "quarantine", label: "Quarantine / Inspection Hold" },
+  { value: "flammable", label: "Flammable Liquid / Combustible Locker" },
+  { value: "cold_storage", label: "Cold Storage / Refrigerated" },
+  { value: "esd_sensitive", label: "ESD Sensitive (Electrostatic Discharge)" },
+  { value: "hazmat", label: "Hazardous Materials (HAZMAT)" },
+  { value: "rubber", label: "Rubber & Elastomer Controlled Environment" },
+  { value: "high_security", label: "High Security / Armory Vault" },
+  { value: "others", label: "Other Specialized Storage" },
+];
+
+export const METRIC_OPTIONS: MultiSelectOption[] = [
+  { value: "hours", label: "Hours (Flight / Operating)" },
+  { value: "cycles", label: "Cycles (Takeoff / Landing)" },
+  { value: "calendar", label: "Calendar (Date / Duration)" },
+];
 
 interface AircraftSparePartsFormProps {
   mode: "create" | "edit";
@@ -104,9 +124,6 @@ export const AircraftSparePartsForm = ({
   // Bulk Paste Modal State
   const [isBulkPasteOpen, setIsBulkPasteOpen] = useState(false);
   const [bulkSerialsText, setBulkSerialsText] = useState("");
-
-  // Collapsible Technical Specs State
-  const [showTechnicalSpecs, setShowTechnicalSpecs] = useState(false);
 
   // Quick Batch Overrides bar state
   const [batchOverrideField, setBatchOverrideField] = useState<
@@ -573,9 +590,21 @@ export const AircraftSparePartsForm = ({
               <span className="text-sky-600 dark:text-sky-400 font-mono font-bold text-sm">{values.part_number || "-"}</span>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Alternate Part Number (Alt P/N)</span>
+              <span className="text-slate-800 dark:text-gray-200 font-mono font-medium">{values.alternate_support_part_no || "None"}</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Manufacturer (MFR)</span>
+              <span className="text-slate-800 dark:text-gray-200 font-medium">{values.manufacturer || "Unspecified"}</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
               <span className="text-slate-400 block text-[10px] uppercase font-semibold">ATA Chapter</span>
               <span className="text-slate-800 dark:text-gray-200 font-medium">
-                {selectedAta ? `${selectedAta.code} - ${selectedAta.name}` : values.ata_chapter || "Not Assigned"}
+                {selectedAta
+                  ? `${selectedAta.code} - ${selectedAta.name}`
+                  : formatAtaChapter(values.ata_chapter) !== "-"
+                  ? formatAtaChapter(values.ata_chapter)
+                  : "Not Assigned"}
               </span>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
@@ -587,8 +616,24 @@ export const AircraftSparePartsForm = ({
               <span className="text-slate-800 dark:text-gray-200 font-mono">{values.cage_code || "Not Assigned"}</span>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
-              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Aircraft Fleet Applicability</span>
-              <span className="text-slate-800 dark:text-gray-200 font-medium">{selectedAsset?.name || "General Fleet Applicability"}</span>
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Storage Environment</span>
+              <span className="text-slate-800 dark:text-gray-200 font-medium">
+                {SPECIAL_STORAGE_OPTIONS.find((s) => s.value === values.special_storage)?.label || values.special_storage || "Standard Warehouse Storage"}
+              </span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Order Threshold Level</span>
+              <span className="text-slate-800 dark:text-gray-200 font-medium">{values.re_order_level || "1"} Units</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Procurement Lead Time</span>
+              <span className="text-slate-800 dark:text-gray-200 font-medium">
+                {values.lead_time_days ? `${values.lead_time_days} ${values.lead_time_unit}` : "Not Specified"}
+              </span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20 sm:col-span-2">
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Internal Remarks / Notes</span>
+              <span className="text-slate-800 dark:text-gray-200 font-medium">{values.remark || "None"}</span>
             </div>
           </div>
         </div>
@@ -625,6 +670,10 @@ export const AircraftSparePartsForm = ({
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
               <span className="text-slate-400 block text-[10px] uppercase font-semibold">Assigned Store</span>
               <span className="text-slate-800 dark:text-gray-200 font-medium">{selectedStore?.name || "General Store"}</span>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Aircraft Applicability</span>
+              <span className="text-slate-800 dark:text-gray-200 font-medium">{selectedAsset?.name || "General Fleet Applicability"}</span>
             </div>
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20">
               <span className="text-slate-400 block text-[10px] uppercase font-semibold">Assigned Unit</span>
@@ -719,7 +768,7 @@ export const AircraftSparePartsForm = ({
                           </td>
                           <td className="p-2.5 font-sans">
                             <span className={cn(isAtaDiff ? "text-amber-600 dark:text-amber-400 font-bold" : "text-slate-600 dark:text-gray-400")}>
-                              {u.ata_chapter || values.ata_chapter || "-"}
+                              {formatAtaChapter(u.ata_chapter || values.ata_chapter)}
                               {isAtaDiff && " (Custom)"}
                             </span>
                           </td>
@@ -734,6 +783,90 @@ export const AircraftSparePartsForm = ({
                 ✓ Non-serialized inventory. Quantity of {qty} units will be recorded under part number <strong>{values.part_number}</strong> without individual unit records.
               </div>
             )}
+          </div>
+        </div>
+
+        {/* 4. SHELF LIFE & LIFE LIMIT PARAMETERS Panel */}
+        <div className="rounded-xl border border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#0A4D66]/30 pb-3">
+            <div className="flex items-center gap-2">
+              <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-white">
+                4. Shelf Life &amp; Life Limit Tracking
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400">Airworthiness Life Limits</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            {/* Shelf Life */}
+            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Shelf Life (Storage)</span>
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                  values.shelf_life_types.length > 0
+                    ? "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                )}>
+                  {values.shelf_life_types.length > 0 ? "Tracked" : "Unlimited"}
+                </span>
+              </div>
+              {values.shelf_life_types.length > 0 ? (
+                <div className="space-y-1 text-slate-800 dark:text-gray-200">
+                  <div className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                    Dimensions: {values.shelf_life_types.join(", ").toUpperCase()}
+                  </div>
+                  {values.shelf_life_types.includes("hours") && values.shelf_life_hours && (
+                    <div>Hours Limit: <span className="font-bold">{values.shelf_life_hours} hrs</span></div>
+                  )}
+                  {values.shelf_life_types.includes("cycles") && values.shelf_life_cycles && (
+                    <div>Cycles Limit: <span className="font-bold">{values.shelf_life_cycles} cycles</span></div>
+                  )}
+                  {values.shelf_life_types.includes("calendar") && values.shelf_life_calendar_value && (
+                    <div>Calendar Duration: <span className="font-bold">{values.shelf_life_calendar_value} {values.shelf_life_calendar_interval}</span></div>
+                  )}
+                  <div className="text-[10px] text-slate-400 pt-1">
+                    Clock start date: {values.date_received || new Date().toISOString().split("T")[0]}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-slate-500 italic text-[11px]">No shelf life restrictions configured.</p>
+              )}
+            </div>
+
+            {/* Life Limit */}
+            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#001825] border border-slate-200/60 dark:border-[#0A4D66]/20 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Life Limit (In-Service Hard Time)</span>
+                <span className={cn(
+                  "px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                  values.life_limit_types.length > 0
+                    ? "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-800"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                )}>
+                  {values.life_limit_types.length > 0 ? "Hard Time Limit" : "On-Condition (CM)"}
+                </span>
+              </div>
+              {values.life_limit_types.length > 0 ? (
+                <div className="space-y-1 text-slate-800 dark:text-gray-200">
+                  <div className="text-[11px] font-semibold text-sky-600 dark:text-sky-400">
+                    Dimensions: {values.life_limit_types.join(", ").toUpperCase()}
+                  </div>
+                  {values.life_limit_types.includes("hours") && values.life_limit_hours && (
+                    <div>Operating Hours Limit: <span className="font-bold">{values.life_limit_hours} hrs</span></div>
+                  )}
+                  {values.life_limit_types.includes("cycles") && values.life_limit_cycles && (
+                    <div>Flight Cycles Limit: <span className="font-bold">{values.life_limit_cycles} cycles</span></div>
+                  )}
+                  {values.life_limit_types.includes("calendar") && values.life_limit_calendar_value && (
+                    <div>Calendar Duration: <span className="font-bold">{values.life_limit_calendar_value} {values.life_limit_calendar_interval}</span></div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-slate-500 italic text-[11px]">Component is On-Condition / Condition Monitored.</p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -939,7 +1072,7 @@ export const AircraftSparePartsForm = ({
       <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm">
         <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex items-center justify-between">
           <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
-            <span>COMMON PART INFORMATION</span>
+            <span>1. COMMON PART INFORMATION</span>
             <span className="rounded bg-[#0A4D66]/30 px-2 py-0.5 text-[10px] font-semibold text-[#7FD5FF]">
               Shared Specifications
             </span>
@@ -998,7 +1131,46 @@ export const AircraftSparePartsForm = ({
               )}
             </div>
 
-            {/* 3. ATA Chapter (Searchable dropdown) */}
+            {/* 3. Alternate Part Number (Alt P/N) */}
+            <div className="space-y-1">
+              <label className={labelClasses}>
+                Alternate Part Number (Alt P/N)
+              </label>
+              <input
+                type="text"
+                value={values.alternate_support_part_no}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setValues((prev) => ({
+                    ...prev,
+                    alternate_support_part_no: val,
+                    units: prev.units.map((u) => ({
+                      ...u,
+                      alternate_support_part_no:
+                        u.alternate_support_part_no && u.alternate_support_part_no !== prev.alternate_support_part_no
+                          ? u.alternate_support_part_no
+                          : val,
+                    })),
+                  }));
+                }}
+                className={cn(inputClasses, "font-mono")}
+                placeholder="e.g. ALT-109-88 / 10-60750-2"
+              />
+            </div>
+
+            {/* 4. Manufacturer (MFR) */}
+            <div className="space-y-1">
+              <label className={labelClasses}>Manufacturer (MFR)</label>
+              <input
+                type="text"
+                value={values.manufacturer}
+                onChange={handleChange("manufacturer")}
+                className={inputClasses}
+                placeholder="e.g. Leonardo, Honeywell, Safran, Boeing"
+              />
+            </div>
+
+            {/* 5. ATA Chapter (Searchable dropdown) */}
             <div className="space-y-1">
               <label className={labelClasses}>ATA Chapter</label>
               <SearchableSelect
@@ -1025,7 +1197,7 @@ export const AircraftSparePartsForm = ({
               />
             </div>
 
-            {/* 4. NSN */}
+            {/* 6. NATO Stock Number (NSN) */}
             <div className="space-y-1">
               <label className={labelClasses}>
                 NATO Stock Number (NSN) <span className="text-slate-400 font-normal">(Optional)</span>
@@ -1049,7 +1221,7 @@ export const AircraftSparePartsForm = ({
               />
             </div>
 
-            {/* 5. CAGE Code */}
+            {/* 7. CAGE Code */}
             <div className="space-y-1">
               <label className={labelClasses}>
                 CAGE Code <span className="text-slate-400 font-normal">(Optional)</span>
@@ -1074,7 +1246,77 @@ export const AircraftSparePartsForm = ({
               />
             </div>
 
-            {/* 6. Quantity Received */}
+            {/* 8. Storage Environment */}
+            <div className="space-y-1">
+              <label className={labelClasses}>Storage Environment</label>
+              <div className="relative">
+                <select
+                  value={values.special_storage}
+                  onChange={handleChange("special_storage")}
+                  className={selectClasses}
+                >
+                  {SPECIAL_STORAGE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <Icon
+                  icon="mdi:chevron-down"
+                  className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                />
+              </div>
+            </div>
+
+            {/* 9. Order Threshold (Re-Order Level) */}
+            <div className="space-y-1">
+              <label className={labelClasses}>Order Threshold (Re-Order Level)</label>
+              <input
+                type="number"
+                min="0"
+                value={values.re_order_level}
+                onChange={handleChange("re_order_level")}
+                className={inputClasses}
+                placeholder="e.g. 1"
+              />
+            </div>
+
+            {/* 10. Procurement Lead Time */}
+            <div className="space-y-1">
+              <label className={labelClasses}>Procurement Lead Time</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={values.lead_time_days}
+                  onChange={handleChange("lead_time_days")}
+                  className={inputClasses}
+                  placeholder="e.g. 14"
+                />
+                <div className="relative w-28 shrink-0">
+                  <select
+                    value={values.lead_time_unit}
+                    onChange={(e) =>
+                      setValues((prev) => ({
+                        ...prev,
+                        lead_time_unit: e.target.value as "days" | "weeks" | "months",
+                      }))
+                    }
+                    className={selectClasses}
+                  >
+                    <option value="days">Days</option>
+                    <option value="weeks">Weeks</option>
+                    <option value="months">Months</option>
+                  </select>
+                  <Icon
+                    icon="mdi:chevron-down"
+                    className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 11. Quantity Received */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className={labelClasses}>
@@ -1105,7 +1347,7 @@ export const AircraftSparePartsForm = ({
               )}
             </div>
 
-            {/* 7. Unit Cost */}
+            {/* 12. Unit Cost */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <label className={labelClasses}>Unit Cost</label>
@@ -1141,7 +1383,7 @@ export const AircraftSparePartsForm = ({
               </div>
             </div>
 
-            {/* 8. Supplier */}
+            {/* 13. Supplier */}
             <div className="space-y-1">
               <label className={labelClasses}>Supplier</label>
               <div className="relative">
@@ -1167,7 +1409,7 @@ export const AircraftSparePartsForm = ({
               </div>
             </div>
 
-            {/* 9. Date Received */}
+            {/* 14. Date Received */}
             <div className="space-y-1">
               <label className={labelClasses}>Date Received</label>
               <input
@@ -1175,6 +1417,18 @@ export const AircraftSparePartsForm = ({
                 value={values.date_received || new Date().toISOString().split("T")[0]}
                 onChange={handleChange("date_received")}
                 className={inputClasses}
+              />
+            </div>
+
+            {/* 15. Internal Remarks / Traceability Notes */}
+            <div className="space-y-1 sm:col-span-2 lg:col-span-3">
+              <label className={labelClasses}>Internal Remarks / Traceability Notes</label>
+              <input
+                type="text"
+                value={values.remark}
+                onChange={handleChange("remark")}
+                className={inputClasses}
+                placeholder="e.g. Received under Certificate of Conformance (CoC), batch inspection remarks, airworthiness tags"
               />
             </div>
           </div>
@@ -1187,7 +1441,7 @@ export const AircraftSparePartsForm = ({
       <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm">
         <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex flex-wrap items-center justify-between gap-2">
           <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
-            <span>ITEM IDENTIFICATION</span>
+            <span>2. ITEM IDENTIFICATION</span>
             {requiresSerialTracking === true && (
               <span className="rounded bg-indigo-100 dark:bg-indigo-950 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
                 {qtyNumeric} Serialized Units Required
@@ -1241,9 +1495,182 @@ export const AircraftSparePartsForm = ({
             )}
           </div>
 
-          {/* WHEN USER SELECTS YES: Individual Unit Identification Rows */}
+          {/* WHEN USER SELECTS YES: Individual Unit Identification Rows & Variations */}
           {requiresSerialTracking === true && (
-            <div className="space-y-4 pt-1">
+            <div className="space-y-6 pt-1">
+              {/* Identifier Variations Config */}
+              <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
+                    Do any units have different identification details?
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">
+                    Checking an option reveals its corresponding override field on each unit row below. Units with blank overrides automatically inherit the common part details.
+                  </p>
+                </div>
+
+                {/* Checkbox Group */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  {/* Checkbox A: Different Part Numbers */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentPartNumbers
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentPartNumbers}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentPartNumbers: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different Part Numbers</span>
+                  </label>
+
+                  {/* Checkbox B: Different NSNs */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentNsns
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentNsns}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentNsns: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different NSNs</span>
+                  </label>
+
+                  {/* Checkbox C: Different CAGE Codes */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentCageCodes
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentCageCodes}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentCageCodes: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different CAGE Codes</span>
+                  </label>
+
+                  {/* Checkbox D: Different ATA Chapters */}
+                  <label
+                    className={cn(
+                      "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
+                      identifierVariations.differentAtaChapters
+                        ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
+                        : "bg-white dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={identifierVariations.differentAtaChapters}
+                      onChange={(e) =>
+                        setIdentifierVariations((prev) => ({
+                          ...prev,
+                          differentAtaChapters: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
+                    />
+                    <span>Different ATA Chapters</span>
+                  </label>
+                </div>
+
+                {/* Quick Batch Assign Bar (if any variation is active) */}
+                {(identifierVariations.differentPartNumbers ||
+                  identifierVariations.differentNsns ||
+                  identifierVariations.differentCageCodes ||
+                  identifierVariations.differentAtaChapters) && (
+                  <div className="p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/10 border border-amber-500/30 flex flex-wrap items-center gap-3 text-xs">
+                    <span className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
+                      <Icon icon="mdi:flash-outline" className="w-4 h-4" />
+                      Quick Batch Override:
+                    </span>
+
+                    <select
+                      value={batchOverrideField}
+                      onChange={(e) => setBatchOverrideField(e.target.value as any)}
+                      className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
+                    >
+                      <option value="">-- Choose Field to Apply --</option>
+                      {identifierVariations.differentPartNumbers && (
+                        <option value="part_number">Part Number</option>
+                      )}
+                      {identifierVariations.differentNsns && (
+                        <option value="nsn">NSN</option>
+                      )}
+                      {identifierVariations.differentCageCodes && (
+                        <option value="cage_code">CAGE Code</option>
+                      )}
+                      {identifierVariations.differentAtaChapters && (
+                        <option value="ata_chapter">ATA Chapter</option>
+                      )}
+                    </select>
+
+                    {batchOverrideField === "ata_chapter" ? (
+                      <select
+                        value={batchOverrideAtaId}
+                        onChange={(e) => setBatchOverrideAtaId(e.target.value ? Number(e.target.value) : "")}
+                        className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
+                      >
+                        <option value="">-- Select ATA Chapter --</option>
+                        {ataChapters.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.code} - {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : batchOverrideField ? (
+                      <input
+                        type="text"
+                        value={batchOverrideValue}
+                        onChange={(e) => setBatchOverrideValue(e.target.value)}
+                        placeholder={`Enter value for all units...`}
+                        className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2.5 py-1 text-xs text-slate-800 dark:text-white font-mono"
+                      />
+                    ) : null}
+
+                    {batchOverrideField && (
+                      <button
+                        type="button"
+                        onClick={handleApplyBatchOverride}
+                        className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors"
+                      >
+                        Apply to All Units
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Toolbar */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-[#0A4D66]/30 pb-3">
                 <div className="flex items-center gap-2">
@@ -1475,320 +1902,244 @@ export const AircraftSparePartsForm = ({
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. IDENTIFIER VARIATIONS SECTION */}
+      {/* 3. SHELF LIFE & LIFE LIMIT TRACKING SECTION */}
       {/* ========================================================================= */}
-      {requiresSerialTracking === true && (
-        <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm">
-          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex items-center justify-between">
-            <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
-              <span>IDENTIFIER VARIATIONS</span>
-            </div>
-            <span className="text-[11px] text-slate-400">
-              Only select if specific units differ from the common part specifications
-            </span>
+      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl shadow-sm relative z-30">
+        <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex flex-wrap items-center justify-between gap-2 rounded-t-xl">
+          <div className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white flex items-center gap-2">
+            <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
+            <span>3. SHELF LIFE &amp; LIFE LIMIT TRACKING</span>
           </div>
+          <span className="text-[11px] text-amber-600 dark:text-amber-400 font-semibold">
+            Shelf life clock initializes upon inventory receipt ({values.date_received || new Date().toISOString().split("T")[0]})
+          </span>
+        </div>
 
-          <div className="p-4 sm:p-6 space-y-4">
-            <div className="space-y-2">
-              <p className="text-xs sm:text-sm font-semibold text-slate-900 dark:text-white">
-                Do any units have different identification details?
-              </p>
-              <p className="text-xs text-slate-500 dark:text-gray-400">
-                Checking an option reveals its corresponding override field on each unit row above. Units with blank overrides automatically inherit the common part details.
-              </p>
-            </div>
-
-            {/* Checkbox Group */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-              {/* Checkbox A: Different Part Numbers */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentPartNumbers
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentPartNumbers}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentPartNumbers: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different Part Numbers</span>
-              </label>
-
-              {/* Checkbox B: Different NSNs */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentNsns
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentNsns}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentNsns: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different NSNs</span>
-              </label>
-
-              {/* Checkbox C: Different CAGE Codes */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentCageCodes
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentCageCodes}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentCageCodes: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different CAGE Codes</span>
-              </label>
-
-              {/* Checkbox D: Different ATA Chapters */}
-              <label
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-xs font-medium",
-                  identifierVariations.differentAtaChapters
-                    ? "bg-amber-50 dark:bg-amber-950/20 border-amber-500/60 text-amber-800 dark:text-amber-300"
-                    : "bg-slate-50 dark:bg-[#001825] border-slate-200 dark:border-[#0A4D66]/30 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#002233]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={identifierVariations.differentAtaChapters}
-                  onChange={(e) =>
-                    setIdentifierVariations((prev) => ({
-                      ...prev,
-                      differentAtaChapters: e.target.checked,
-                    }))
-                  }
-                  className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500"
-                />
-                <span>Different ATA Chapters</span>
-              </label>
-            </div>
-
-            {/* Quick Batch Assign Bar (if any variation is active) */}
-            {(identifierVariations.differentPartNumbers ||
-              identifierVariations.differentNsns ||
-              identifierVariations.differentCageCodes ||
-              identifierVariations.differentAtaChapters) && (
-              <div className="p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/10 border border-amber-500/30 flex flex-wrap items-center gap-3 text-xs">
-                <span className="font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1">
-                  <Icon icon="mdi:flash-outline" className="w-4 h-4" />
-                  Quick Batch Override:
-                </span>
-
-                <select
-                  value={batchOverrideField}
-                  onChange={(e) => setBatchOverrideField(e.target.value as any)}
-                  className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
-                >
-                  <option value="">-- Choose Field to Apply --</option>
-                  {identifierVariations.differentPartNumbers && (
-                    <option value="part_number">Part Number</option>
-                  )}
-                  {identifierVariations.differentNsns && (
-                    <option value="nsn">NSN</option>
-                  )}
-                  {identifierVariations.differentCageCodes && (
-                    <option value="cage_code">CAGE Code</option>
-                  )}
-                  {identifierVariations.differentAtaChapters && (
-                    <option value="ata_chapter">ATA Chapter</option>
-                  )}
-                </select>
-
-                {batchOverrideField === "ata_chapter" ? (
-                  <select
-                    value={batchOverrideAtaId}
-                    onChange={(e) => setBatchOverrideAtaId(e.target.value ? Number(e.target.value) : "")}
-                    className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2 py-1 text-xs text-slate-800 dark:text-white"
-                  >
-                    <option value="">-- Select ATA Chapter --</option>
-                    {ataChapters.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code} - {a.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : batchOverrideField ? (
-                  <input
-                    type="text"
-                    value={batchOverrideValue}
-                    onChange={(e) => setBatchOverrideValue(e.target.value)}
-                    placeholder={`Enter value for all units...`}
-                    className="rounded border border-amber-400 dark:border-amber-600/50 bg-white dark:bg-[#001219] px-2.5 py-1 text-xs text-slate-800 dark:text-white font-mono"
-                  />
-                ) : null}
-
-                {batchOverrideField && (
-                  <button
-                    type="button"
-                    onClick={handleApplyBatchOverride}
-                    className="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold transition-colors"
-                  >
-                    Apply to All Units
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* ========================================================================= */}
-      {/* 4. OPTIONAL TECHNICAL SPECIFICATIONS & LIFE LIMITS (Collapsible) */}
-      {/* ========================================================================= */}
-      <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-sm">
-        <button
-          type="button"
-          onClick={() => setShowTechnicalSpecs((prev) => !prev)}
-          className="w-full px-4 sm:px-6 py-3.5 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001825]/80 flex items-center justify-between text-left hover:bg-slate-100 dark:hover:bg-[#002233] transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Icon icon="mdi:cog-outline" className="w-4 h-4 text-sky-500" />
-            <span className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white">
-              Optional Technical Specifications &amp; Life Limits
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span>{showTechnicalSpecs ? "Hide" : "Expand"}</span>
-            <Icon
-              icon={showTechnicalSpecs ? "mdi:chevron-up" : "mdi:chevron-down"}
-              className="w-4 h-4"
-            />
-          </div>
-        </button>
-
-        {showTechnicalSpecs && (
-          <div className="p-4 sm:p-6 space-y-4 text-xs">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Manufacturer */}
-              <div className="space-y-1">
-                <label className={labelClasses}>Manufacturer (MFR)</label>
-                <input
-                  type="text"
-                  value={values.manufacturer}
-                  onChange={handleChange("manufacturer")}
-                  className={inputClasses}
-                  placeholder="e.g. Leonardo, Honeywell, Safran"
-                />
-              </div>
-
-              {/* Alt Support P/N */}
-              <div className="space-y-1">
-                <label className={labelClasses}>Alt Support P/N</label>
-                <input
-                  type="text"
-                  value={values.alternate_support_part_no}
-                  onChange={handleChange("alternate_support_part_no")}
-                  className={cn(inputClasses, "font-mono")}
-                  placeholder="e.g. ALT-109-88"
-                />
-              </div>
-
-              {/* Special Storage */}
-              <div className="space-y-1 sm:col-span-2">
-                <label className={labelClasses}>Storage Environment</label>
-                <select
-                  value={values.special_storage}
-                  onChange={handleChange("special_storage")}
-                  className={selectClasses}
-                >
-                  <option value="standard">Standard Warehouse Storage</option>
-                  <option value="bonded">Bonded Store (Customs Controlled)</option>
-                  <option value="quarantine">Quarantine / Inspection Hold</option>
-                  <option value="flammable">Flammable Liquid / Combustible Locker</option>
-                  <option value="cold_storage">Cold Storage / Refrigerated</option>
-                  <option value="esd_sensitive">ESD Sensitive (Electrostatic)</option>
-                  <option value="hazmat">Hazardous Materials (HAZMAT)</option>
-                  <option value="rubber">Rubber &amp; Elastomer Controlled Environment</option>
-                  <option value="others">Other Specialized Storage</option>
-                </select>
-              </div>
-
-              {/* Re-Order Level */}
-              <div className="space-y-1">
-                <label className={labelClasses}>Re-Order Threshold Level</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={values.re_order_level}
-                  onChange={handleChange("re_order_level")}
-                  className={inputClasses}
-                  placeholder="1"
-                />
-              </div>
-
-              {/* Lead Time */}
-              <div className="space-y-1">
-                <label className={labelClasses}>Procurement Lead Time</label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    value={values.lead_time_days}
-                    onChange={handleChange("lead_time_days")}
-                    className={inputClasses}
-                    placeholder="14"
-                  />
-                  <select
-                    value={values.lead_time_unit}
-                    onChange={(e) =>
-                      setValues((prev) => ({
-                        ...prev,
-                        lead_time_unit: e.target.value as any,
-                      }))
-                    }
-                    className={cn(selectClasses, "w-28")}
-                  >
-                    <option value="days">Days</option>
-                    <option value="weeks">Weeks</option>
-                    <option value="months">Months</option>
-                  </select>
+        <div className="p-4 sm:p-6 space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* CARD 1: SHELF LIFE (STORAGE) */}
+            <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4 relative z-20">
+              <div className="pb-2 border-b border-slate-200 dark:border-[#0A4D66]/30 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Icon icon="mdi:archive-clock-outline" className="w-4 h-4 text-sky-500" />
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-gray-200">
+                    Shelf Life Specifications (Storage)
+                  </h3>
                 </div>
+                <span className="text-[10px] text-slate-400 font-medium">Pre-installation validity</span>
               </div>
 
-              {/* Remarks */}
-              <div className="space-y-1 sm:col-span-2">
-                <label className={labelClasses}>Internal Remarks / Traceability Notes</label>
-                <input
-                  type="text"
-                  value={values.remark}
-                  onChange={handleChange("remark")}
-                  className={inputClasses}
-                  placeholder="e.g. Received under Certificate of Conformance (CoC) 2026-X"
+              <div>
+                <MultiSelect
+                  label="Select Shelf Life Tracking Dimensions"
+                  placeholder="Select Hours, Cycles, Calendar..."
+                  options={METRIC_OPTIONS}
+                  selectedValues={values.shelf_life_types}
+                  onChange={(selected) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      shelf_life_types: selected.map(String),
+                    }))
+                  }
                 />
               </div>
+
+              {/* Conditional Inputs */}
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                {values.shelf_life_types.includes("hours") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Shelf Life Limit (Hours)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.shelf_life_hours}
+                      onChange={handleChange("shelf_life_hours")}
+                      className={inputClasses}
+                      placeholder="e.g. 500"
+                    />
+                  </div>
+                )}
+
+                {values.shelf_life_types.includes("cycles") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Shelf Life Limit (Cycles)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.shelf_life_cycles}
+                      onChange={handleChange("shelf_life_cycles")}
+                      className={inputClasses}
+                      placeholder="e.g. 200"
+                    />
+                  </div>
+                )}
+
+                {values.shelf_life_types.includes("calendar") && (
+                  <>
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Calendar Interval</label>
+                      <div className="relative">
+                        <select
+                          value={values.shelf_life_calendar_interval}
+                          onChange={(e) =>
+                            setValues((prev) => ({
+                              ...prev,
+                              shelf_life_calendar_interval: e.target.value as "daily" | "monthly" | "yearly",
+                            }))
+                          }
+                          className={selectClasses}
+                        >
+                          <option value="daily">Days</option>
+                          <option value="monthly">Months</option>
+                          <option value="yearly">Years</option>
+                        </select>
+                        <Icon
+                          icon="mdi:chevron-down"
+                          className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Duration Value</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={values.shelf_life_calendar_value}
+                        onChange={handleChange("shelf_life_calendar_value")}
+                        className={inputClasses}
+                        placeholder={
+                          values.shelf_life_calendar_interval === "daily"
+                            ? "e.g. 365"
+                            : values.shelf_life_calendar_interval === "monthly"
+                            ? "e.g. 24"
+                            : "e.g. 2"
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {values.shelf_life_types.length === 0 && (
+                <p className="text-[11px] text-slate-400 italic">
+                  No shelf life limits selected. Component considered to have unlimited shelf life / on-condition preservation.
+                </p>
+              )}
+            </div>
+
+            {/* CARD 2: LIFE LIMIT (IN-SERVICE HARD TIME) */}
+            <div className="rounded-lg border border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/50 dark:bg-[#001825]/40 p-4 space-y-4 relative z-10">
+              <div className="pb-2 border-b border-slate-200 dark:border-[#0A4D66]/30 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Icon icon="mdi:timer-sand-complete" className="w-4 h-4 text-red-500" />
+                  <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800 dark:text-gray-200">
+                    Life Limit Specifications (In-Service Hard Time)
+                  </h3>
+                </div>
+                <span className="text-[10px] text-slate-400 font-medium">Overhaul / Discard limit</span>
+              </div>
+
+              <div>
+                <MultiSelect
+                  label="Select Life Limit Tracking Dimensions"
+                  placeholder="Select Hours, Cycles, Calendar..."
+                  options={METRIC_OPTIONS}
+                  selectedValues={values.life_limit_types}
+                  onChange={(selected) =>
+                    setValues((prev) => ({
+                      ...prev,
+                      life_limit_types: selected.map(String),
+                    }))
+                  }
+                />
+              </div>
+
+              {/* Conditional Inputs */}
+              <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                {values.life_limit_types.includes("hours") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Operating Hours Limit (TBO/LL)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.life_limit_hours}
+                      onChange={handleChange("life_limit_hours")}
+                      className={inputClasses}
+                      placeholder="e.g. 3000"
+                    />
+                  </div>
+                )}
+
+                {values.life_limit_types.includes("cycles") && (
+                  <div className="space-y-1">
+                    <label className={labelClasses}>Flight Cycles Limit (LL)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={values.life_limit_cycles}
+                      onChange={handleChange("life_limit_cycles")}
+                      className={inputClasses}
+                      placeholder="e.g. 1500"
+                    />
+                  </div>
+                )}
+
+                {values.life_limit_types.includes("calendar") && (
+                  <>
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Calendar Interval</label>
+                      <div className="relative">
+                        <select
+                          value={values.life_limit_calendar_interval}
+                          onChange={(e) =>
+                            setValues((prev) => ({
+                              ...prev,
+                              life_limit_calendar_interval: e.target.value as "daily" | "monthly" | "yearly",
+                            }))
+                          }
+                          className={selectClasses}
+                        >
+                          <option value="daily">Days</option>
+                          <option value="monthly">Months</option>
+                          <option value="yearly">Years</option>
+                        </select>
+                        <Icon
+                          icon="mdi:chevron-down"
+                          className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className={labelClasses}>Duration Value</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={values.life_limit_calendar_value}
+                        onChange={handleChange("life_limit_calendar_value")}
+                        className={inputClasses}
+                        placeholder={
+                          values.life_limit_calendar_interval === "daily"
+                            ? "e.g. 1825"
+                            : values.life_limit_calendar_interval === "monthly"
+                            ? "e.g. 60"
+                            : "e.g. 5"
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {values.life_limit_types.length === 0 && (
+                <p className="text-[11px] text-slate-400 italic">
+                  No life limits selected. Component is On-Condition / Condition Monitored (CM).
+                </p>
+              )}
             </div>
           </div>
-        )}
+        </div>
       </section>
 
       {/* Persistent Form Footer with Review & Save */}

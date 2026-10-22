@@ -69,29 +69,29 @@ html.light {
   --theme-border:         #E5E7EB;
   --theme-border-em:      #D1D5DB;
   --theme-divider:        #E5E7EB;
-  --theme-accent:         #0369A1;
-  --theme-accent-dark:    #1D4ED8;
+  --theme-accent:         #0A4D66;
+  --theme-accent-dark:    #052c3c;
 
   /* Button semantic tokens — Light Mode */
-  --btn-primary-bg:           #0369A1;
+  --btn-primary-bg:           #0A4D66;
   --btn-primary-text:         #ffffff;
-  --btn-primary-hover:        #025381;
+  --btn-primary-hover:        #083c50;
   --btn-secondary-bg:         #ffffff;
   --btn-secondary-border:     #cbd5e1;
   --btn-secondary-text:       #334155;
   --btn-secondary-hover-bg:   #f1f5f9;
   --btn-secondary-hover-text: #0f172a;
-  --btn-ghost-text:           #0369A1;
+  --btn-ghost-text:           #0A4D66;
   --btn-ghost-hover-bg:       #f0f9ff;
-  --btn-ghost-hover-text:     #0c4a6e;
+  --btn-ghost-hover-text:     #052c3c;
   --btn-danger-bg:            #dc2626;
   --btn-danger-text:          #ffffff;
   --btn-danger-hover:         #b91c1c;
 
   /* Tab semantic tokens — Light Mode */
-  --tab-active-text:          #0369A1;
-  --tab-active-indicator:     #0369A1;
-  --tab-active-bg:            #f0f9ff;
+  --tab-active-text:          #0A4D66;
+  --tab-active-indicator:     #0A4D66;
+  --tab-active-bg:            #e0f2fe;
   --tab-inactive-text:        #64748b;
   --tab-inactive-hover-text:  #0f172a;
 

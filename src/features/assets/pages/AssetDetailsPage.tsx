@@ -1,5 +1,4 @@
-
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useAppDispatch, useAppSelector } from "@/app/store";
@@ -19,9 +18,11 @@ import {
   useGetAssetTypesQuery,
   useGetAvionicCategoriesQuery,
   useGetComponentTypesQuery,
+  useCreateComponentTypeMutation,
   useGetEngineCategoriesQuery,
   useGetEnginePositionsQuery,
   useUpdateAssetMutation,
+  useCreateAtaChapterMutation,
   useGetFlightLogsQuery,
   useDeleteFlightLogMutation,
   type Avionics,
@@ -931,33 +932,120 @@ export const AssetDetailsPage = () => {
     setIsEditingAvionics(true);
   };
 
+  const [createComponentType] = useCreateComponentTypeMutation();
+  const [createAtaChapter] = useCreateAtaChapterMutation();
+  const componentTypeCacheRef = useRef<Map<string, number>>(new Map());
+  const ataChapterCacheRef = useRef<Map<string, number>>(new Map());
+
   const [isImportOpen, setIsImportOpen] = useState(false);
 
-  const matchAtaChapter = (chapters: typeof ataChapters, value: string) => {
-    const needle = value.trim().toLowerCase();
-    return chapters.find(
-      (chapter) =>
-        (chapter.chapter_number || "").trim().toLowerCase() === needle ||
-        (chapter.chapter_name || "").trim().toLowerCase() === needle ||
-        (chapter.name || "").trim().toLowerCase() === needle,
-    );
+  const matchAtaChapter = (chapters: typeof ataChapters, value?: string) => {
+    if (!value) return undefined;
+    const clean = value.trim();
+    if (!clean) return undefined;
+    const needle = clean.toLowerCase();
+    const noPrefix = needle.replace(/^ata[\s-_]*/i, "").trim();
+
+    const findInList = (list: typeof ataChapters) =>
+      list.find((chapter: any) => {
+        const cCode = (chapter.code || "").toString().trim().toLowerCase();
+        const cCodeNoPrefix = cCode.replace(/^ata[\s-_]*/i, "").trim();
+        const cNum = (chapter.chapter_number || "").toString().trim().toLowerCase();
+        const cNumNoPrefix = cNum.replace(/^ata[\s-_]*/i, "").trim();
+        const cName = (chapter.name || "").toString().trim().toLowerCase();
+        const cChName = (chapter.chapter_name || "").toString().trim().toLowerCase();
+
+        return (
+          cCode === needle ||
+          (noPrefix && cCodeNoPrefix === noPrefix) ||
+          cNum === needle ||
+          (noPrefix && cNumNoPrefix === noPrefix) ||
+          cName === needle ||
+          cChName === needle ||
+          (needle.length > 2 && (cName.includes(needle) || needle.includes(cName)))
+        );
+      });
+
+    let match = findInList(chapters);
+    if (!match && ataChapters && ataChapters !== chapters) {
+      match = findInList(ataChapters);
+    }
+    return match;
   };
 
   const INTERVAL_UNITS = ["hours", "months", "cycle"];
   const MAINTENANCE_STRATEGIES = ["hard-time", "on-condition", "condition"];
 
   const handleImportComponentRow = async (row: Record<string, string>) => {
-    const componentTypeMatch = componentTypes.find(
-      (t) =>
-        t.name.trim().toLowerCase() === row.component_type.trim().toLowerCase(),
-    );
-    if (!componentTypeMatch) {
-      throw new Error(`Component type "${row.component_type}" not found`);
+    const rawTypeName = (row.component_type || "").trim();
+    if (!rawTypeName) {
+      throw new Error("Component type is required");
     }
 
-    const ataMatch = matchAtaChapter(componentAtaChapters, row.ata_chapter);
-    if (!ataMatch) {
-      throw new Error(`ATA chapter "${row.ata_chapter}" not found`);
+    let componentTypeId: number | undefined = componentTypes.find(
+      (t) => t.name.trim().toLowerCase() === rawTypeName.toLowerCase(),
+    )?.id;
+
+    if (!componentTypeId) {
+      const cachedId = componentTypeCacheRef.current.get(rawTypeName.toLowerCase());
+      if (cachedId) {
+        componentTypeId = cachedId;
+      } else {
+        try {
+          const created = await createComponentType({ name: rawTypeName }).unwrap();
+          componentTypeCacheRef.current.set(rawTypeName.toLowerCase(), created.id);
+          componentTypeId = created.id;
+        } catch (err: any) {
+          const refound = componentTypes.find(
+            (t) => t.name.trim().toLowerCase() === rawTypeName.toLowerCase(),
+          );
+          if (refound) {
+            componentTypeId = refound.id;
+          } else {
+            throw new Error(
+              `Component type "${rawTypeName}" could not be created: ${err?.data?.message || err?.message || "Unknown error"}`,
+            );
+          }
+        }
+      }
+    }
+
+    let ataChapterId: number | undefined = matchAtaChapter(componentAtaChapters, row.ata_chapter)?.id;
+    if (!ataChapterId) {
+      const ataCode = (row.ata_chapter || "").trim();
+      if (!ataCode) {
+        if (componentAtaChapters.length > 0) {
+          ataChapterId = componentAtaChapters[0].id;
+        } else if (ataChapters.length > 0) {
+          ataChapterId = ataChapters[0].id;
+        } else {
+          throw new Error("ATA chapter is required");
+        }
+      } else {
+        const cachedAtaId = ataChapterCacheRef.current.get(ataCode.toLowerCase());
+        if (cachedAtaId) {
+          ataChapterId = cachedAtaId;
+        } else {
+          try {
+            const formattedCode = /^ata\b/i.test(ataCode) ? ataCode : `ATA ${ataCode}`;
+            const createdAta = await createAtaChapter({
+              code: formattedCode,
+              name: ataCode,
+              maintenance_category: "components",
+            }).unwrap();
+            ataChapterCacheRef.current.set(ataCode.toLowerCase(), createdAta.id);
+            ataChapterId = createdAta.id;
+          } catch {
+            if (componentAtaChapters.length > 0) {
+              ataChapterId = componentAtaChapters[0].id;
+            } else if (ataChapters.length > 0) {
+              ataChapterId = ataChapters[0].id;
+            } else {
+              throw new Error(`ATA chapter "${row.ata_chapter}" not found`);
+            }
+          }
+        }
+      }
     }
 
     const intervalUnit = row.inspection_interval_unit?.trim().toLowerCase() || "hours";
@@ -975,8 +1063,8 @@ export const AssetDetailsPage = () => {
     }
 
     const newComponent: Component = {
-      component_type_id: componentTypeMatch.id,
-      ata_chapter_id: ataMatch.id,
+      component_type_id: componentTypeId,
+      ata_chapter_id: ataChapterId,
       part_number: row.part_number,
       serial_number: row.serial_number,
       time_since_new: row.time_since_new || "",
@@ -2115,21 +2203,24 @@ export const AssetDetailsPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 mb-6 overflow-x-auto">
+      <div className="flex items-center space-x-8 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300 mb-6 overflow-x-auto">
         {TABS.map((tab) => (
           <button
             key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap",
+              "pb-4 text-sm font-medium transition-colors relative whitespace-nowrap bg-transparent tab-link outline-none border-0 shadow-none",
               activeTab === tab.id
-                ? "text-[#7FD5FF]"
-                : "text-gray-400 hover:text-gray-300",
+                ? "text-sky-700 dark:text-[#7FD5FF] font-bold"
+                : "text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200",
             )}
           >
             {tab.label}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1] shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-700 dark:bg-[#0369A1] shadow-sm dark:shadow-[0_0_8px_rgba(127,213,255,0.5)]" />
             )}
           </button>
         ))}
@@ -4748,8 +4839,36 @@ export const AssetDetailsPage = () => {
                           <span className="text-white text-sm font-medium">{report.task_no}</span>
                         </div>
                         <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Date:</span>
+                          <span className="text-white text-sm font-medium">{report.report_date || (report as unknown as { created_at?: string })?.created_at?.slice(0, 10) || "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Aircraft:</span>
+                          <span className="text-white text-sm font-medium">
+                            {report.aircraft_formation === "formation"
+                              ? "Formation"
+                              : report.aircraft_formation === "single_ship"
+                              ? "Single Ship"
+                              : report.aircraft_formation === "none"
+                              ? "None"
+                              : report.aircraft_formation || "—"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Unit / Formation:</span>
+                          <span className="text-white text-sm font-medium">{report.unit_formation || "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
                           <span className="text-[#7FD5FF] text-sm">Infantry No:</span>
-                          <span className="text-white text-sm font-medium">{report.infantry_no}</span>
+                          <span className="text-white text-sm font-medium">{report.infantry_no ?? "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Vehicles:</span>
+                          <span className="text-white text-sm font-medium">{report.vehicles_no ?? "—"}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-b border-[#0A4D66]/20 pb-2">
+                          <span className="text-[#7FD5FF] text-sm">Ammo Spent:</span>
+                          <span className="text-white text-sm font-medium">{report.ammo_spent || "—"}</span>
                         </div>
                       </div>
 
@@ -4776,7 +4895,6 @@ export const AssetDetailsPage = () => {
                                     {contact.engagement.replace(/_/g, " ")}
                                   </span>
                                   <div className="flex gap-4 text-gray-400 text-xs">
-                                    <span>{contact.date_of_contact}</span>
                                     <span>{contact.time_of_contact}</span>
                                   </div>
                                 </div>

@@ -132,11 +132,144 @@ html.light main :not(button):not(a):not(button *):not(a *)[class*="text-white"]:
   color: #111827 !important;
 }
 
-/* Light cyan brand accent → darker readable blue in light mode */
-html.light main :not(button):not(a):not(button *):not(a *)[class*="text-[#7FD5FF]"],
-html.light main :not(button):not(a):not(button *):not(a *)[class*="text-[#B7E6FF]"],
-html.light main :not(button):not(a):not(button *):not(a *)[class*="group-hover:text-[#B7E6FF]"] {
-  color: #0369A1 !important;
+/* ============================================================
+   LIGHT MODE: CONVERT ALL LIGHT BLUE / CYAN TO DARK BLUE ACROSS BOARD
+   In dark mode, light blue/cyan accents (#7FD5FF, cyan-300/400) are preserved.
+   In light mode, all cyan, light sky, and light-blue elements become Dark Blue (#0A4D66).
+   ============================================================ */
+
+/* 1. All text, headings, labels, and spans with light blue / cyan / sky */
+html.light [class*="text-cyan-"],
+html.light [class*="text-sky-200"],
+html.light [class*="text-sky-300"],
+html.light [class*="text-sky-400"],
+html.light [class*="text-sky-500"],
+html.light [class*="text-[#7FD5FF]"],
+html.light [class*="text-[#B7E6FF]"],
+html.light [class*="text-[#5dbced]"] {
+  color: #0A4D66 !important;
+}
+
+/* 2. Nested icons, SVGs, and spans within cyan/light-sky elements */
+html.light [class*="text-cyan-"] svg,
+html.light [class*="text-cyan-"] .iconify,
+html.light [class*="text-cyan-"] span,
+html.light [class*="text-sky-200"] svg,
+html.light [class*="text-sky-300"] svg,
+html.light [class*="text-sky-400"] svg,
+html.light [class*="text-sky-500"] svg,
+html.light [class*="text-sky-200"] .iconify,
+html.light [class*="text-sky-300"] .iconify,
+html.light [class*="text-sky-400"] .iconify,
+html.light [class*="text-sky-500"] .iconify,
+html.light [class*="text-sky-200"] span,
+html.light [class*="text-sky-300"] span,
+html.light [class*="text-sky-400"] span,
+html.light [class*="text-sky-500"] span,
+html.light [class*="text-[#7FD5FF]"] svg,
+html.light [class*="text-[#7FD5FF]"] .iconify,
+html.light [class*="text-[#7FD5FF]"] span,
+html.light [class*="text-[#B7E6FF]"] svg,
+html.light [class*="text-[#B7E6FF]"] .iconify,
+html.light [class*="text-[#B7E6FF]"] span {
+  color: #0A4D66 !important;
+}
+
+/* 3. Hover states for interactive text, links, and buttons */
+html.light [class*="hover:text-cyan-"]:hover,
+html.light [class*="hover:text-cyan-"]:hover span,
+html.light [class*="hover:text-cyan-"]:hover svg,
+html.light [class*="hover:text-cyan-"]:hover .iconify,
+html.light [class*="hover:text-sky-200"]:hover,
+html.light [class*="hover:text-sky-300"]:hover,
+html.light [class*="hover:text-sky-400"]:hover,
+html.light [class*="hover:text-sky-500"]:hover,
+html.light [class*="group-hover:text-[#B7E6FF]"]:hover,
+html.light .group:hover [class*="group-hover:text-[#B7E6FF]"],
+html.light .group:hover [class*="group-hover:text-cyan-"],
+html.light .group:hover [class*="group-hover:text-sky-"] {
+  color: #052c3c !important;
+}
+
+/* 4. Borders (dashed/solid/pills) with cyan or light-sky */
+html.light [class*="border-cyan-"],
+html.light [class*="border-sky-200"],
+html.light [class*="border-sky-300"],
+html.light [class*="border-sky-400"],
+html.light [class*="border-sky-500"],
+html.light [class*="border-[#7FD5FF]"],
+html.light [class*="border-[#5dbced]"] {
+  border-color: #0A4D66 !important;
+}
+
+html.light [class*="hover:border-cyan-"]:hover,
+html.light .group:hover [class*="group-hover:border-cyan-"],
+html.light [class*="hover:border-sky-"]:hover,
+html.light .group:hover [class*="group-hover:border-sky-"] {
+  border-color: #052c3c !important;
+}
+
+/* 5. Badges, tags, and pills with dark cyan / dark sky backgrounds */
+html.light [class*="bg-cyan-950"],
+html.light [class*="bg-cyan-900"],
+html.light [class*="bg-sky-950"],
+html.light [class*="bg-sky-900"] {
+  background-color: #e0f2fe !important;
+  color: #0A4D66 !important;
+  border-color: #0A4D66 !important;
+}
+
+html.light [class*="bg-cyan-950"] span,
+html.light [class*="bg-cyan-900"] span,
+html.light [class*="bg-sky-950"] span,
+html.light [class*="bg-sky-900"] span,
+html.light [class*="bg-cyan-950"] svg,
+html.light [class*="bg-cyan-900"] svg,
+html.light [class*="bg-sky-950"] svg,
+html.light [class*="bg-sky-900"] svg {
+  color: #0A4D66 !important;
+}
+
+/* 6. Subtle cyan/sky backgrounds and hover tints */
+html.light [class*="bg-cyan-500/10"],
+html.light [class*="bg-cyan-500/15"],
+html.light [class*="bg-cyan-500/20"],
+html.light [class*="bg-cyan-500/30"],
+html.light [class*="bg-cyan-500/40"],
+html.light [class*="bg-cyan-400/10"],
+html.light [class*="bg-cyan-400/20"],
+html.light [class*="bg-sky-500/10"],
+html.light [class*="bg-sky-500/15"],
+html.light [class*="bg-sky-500/20"],
+html.light [class*="bg-sky-500/30"] {
+  background-color: #f0f9ff !important;
+}
+
+html.light [class*="hover:bg-cyan-"]:hover,
+html.light [class*="hover:bg-sky-500/"]:hover,
+html.light .group:hover [class*="group-hover:bg-cyan-"],
+html.light .group:hover [class*="group-hover:bg-sky-"] {
+  background-color: #e0f2fe !important;
+}
+
+/* 7. Checkboxes and form focus rings */
+html.light input[type="checkbox"][class*="text-cyan-"],
+html.light input[type="checkbox"][class*="text-sky-"] {
+  color: #0A4D66 !important;
+}
+
+html.light [class*="focus:border-cyan-"]:focus,
+html.light [class*="focus:ring-cyan-"]:focus,
+html.light [class*="focus:border-sky-"]:focus,
+html.light [class*="focus:ring-sky-"]:focus {
+  border-color: #0A4D66 !important;
+  --tw-ring-color: rgba(10, 77, 102, 0.25) !important;
+}
+
+/* 8. Light mode divider lines under section headers */
+html.light main [class*="border-white/10"],
+html.light main [class*="border-white/5"] {
+  border-color: #E5E7EB !important;
 }
 
 /* Too-light gray text gets bumped up for readability */
@@ -283,41 +416,115 @@ html.light main a[class*="hover:text-white"]:not([class*="bg-[#0A4D66]"]):not([c
 }
 
 /* 2. Secondary, outlined, and cancel buttons in light mode (universal across pages, modals, popups) */
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
-html.light button[class*="text-gray-300"],
-html.light button[class*="text-gray-200"],
-html.light button[class*="text-gray-400"],
-html.light a[class*="text-gray-300"],
-html.light a[class*="text-gray-200"] {
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]),
+html.light button[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-transparent"]),
+html.light button[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-transparent"]),
+html.light button[class*="text-gray-400"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-transparent"]),
+html.light a[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-transparent"]),
+html.light a[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-transparent"]) {
   border-color: #cbd5e1 !important;
   color: #334155 !important;
   background-color: #ffffff !important;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
-html.light button[class*="text-gray-300"] svg,
-html.light button[class*="text-gray-300"] .iconify,
-html.light button[class*="text-gray-200"] svg,
-html.light button[class*="text-gray-200"] .iconify {
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) svg,
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) .iconify,
+html.light button[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]) svg,
+html.light button[class*="text-gray-300"]:not([role="tab"]):not([class*="tab-link"]) .iconify,
+html.light button[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]) svg,
+html.light button[class*="text-gray-200"]:not([role="tab"]):not([class*="tab-link"]) .iconify {
   color: #475569 !important;
 }
 
-html.light button[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
-html.light a[class*="border"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
-html.light button[class*="text-slate-700"],
-html.light button[class*="text-slate-800"],
-html.light a[class*="text-slate-700"],
-html.light a[class*="text-slate-800"],
-html.light button[class*="text-slate-700"] span,
-html.light button[class*="text-slate-800"] span,
-html.light a[class*="text-slate-700"] span,
-html.light a[class*="text-slate-800"] span {
+html.light button[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
+html.light a[class*="border"]:not([role="tab"]):not([class*="tab-link"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="border-red"]):not([class*="text-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]):not([class*="bg-rose"]):not([class*="bg-amber"]):not([class*="bg-teal"]):not([class*="bg-indigo"]):not([class*="bg-purple"]):not([class*="bg-slate-900"]):not([class*="bg-slate-800"]) span:not([class*="text-"]):not([class*="bg-"]),
+html.light button[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]),
+html.light button[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]),
+html.light a[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]),
+html.light a[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]),
+html.light button[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]) span,
+html.light button[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]) span,
+html.light a[class*="text-slate-700"]:not([role="tab"]):not([class*="tab-link"]) span,
+html.light a[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"]) span {
   color: #1e293b !important;
+}
+
+/* ── 3.4 Module & Navigation Tab Styling (Personnel, Pass, Course, Attendance) ──────── */
+html.light a[role="tab"],
+html.light a.tab-link {
+  box-shadow: none !important;
+  border-top-color: transparent !important;
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
+}
+
+html.light a[role="tab"]:not(.active),
+html.light a.tab-link:not(.active) {
+  background-color: transparent !important;
+  border-bottom-color: transparent !important;
+  color: #64748b !important;
+}
+
+html.light a[role="tab"]:not(.active) svg,
+html.light a[role="tab"]:not(.active) .iconify,
+html.light a[role="tab"]:not(.active) span,
+html.light a.tab-link:not(.active) svg,
+html.light a.tab-link:not(.active) .iconify,
+html.light a.tab-link:not(.active) span {
+  color: #64748b !important;
+}
+
+html.light a[role="tab"]:not(.active):hover,
+html.light a.tab-link:not(.active):hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html.light a[role="tab"]:not(.active):hover svg,
+html.light a[role="tab"]:not(.active):hover .iconify,
+html.light a[role="tab"]:not(.active):hover span,
+html.light a.tab-link:not(.active):hover svg,
+html.light a.tab-link:not(.active):hover .iconify,
+html.light a.tab-link:not(.active):hover span {
+  color: #0f172a !important;
+}
+
+html.light a[role="tab"].active,
+html.light a.tab-link.active {
+  background-color: #e0f2fe !important;
+  border-bottom-color: #0369a1 !important;
+  color: #0369a1 !important;
+  font-weight: 700 !important;
+}
+
+html.light a[role="tab"].active svg,
+html.light a[role="tab"].active .iconify,
+html.light a[role="tab"].active span,
+html.light a.tab-link.active svg,
+html.light a.tab-link.active .iconify,
+html.light a.tab-link.active span {
+  color: #0369a1 !important;
+}
+
+html.dark a[role="tab"].active,
+html.dark a.tab-link.active {
+  background-color: rgba(10, 77, 102, 0.35) !important;
+  border-bottom-color: #7fd5ff !important;
+  color: #7fd5ff !important;
+  font-weight: 700 !important;
+}
+
+html.dark a[role="tab"].active svg,
+html.dark a[role="tab"].active .iconify,
+html.dark a[role="tab"].active span,
+html.dark a.tab-link.active svg,
+html.dark a.tab-link.active .iconify,
+html.dark a.tab-link.active span {
+  color: #7fd5ff !important;
 }
 
 html.light button[class*="text-slate-700"] svg,
@@ -385,20 +592,39 @@ html.light a[class*="border-red"]:hover span {
   color: #b91c1c !important;
 }
 
-/* 3. Ghost and text buttons with cyan accent (#7FD5FF) in light mode */
-html.light button[class*="text-[#7FD5FF]"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
-html.light a[class*="text-[#7FD5FF]"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]) {
-  color: #0369A1 !important;
+/* 3. Ghost and text buttons with light blue / cyan accents in light mode → Dark Blue (#0A4D66) */
+html.light button[class*="text-[#7FD5FF]"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
+html.light a[class*="text-[#7FD5FF]"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
+html.light button[class*="text-cyan-"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
+html.light a[class*="text-cyan-"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
+html.light button[class*="text-sky-300"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
+html.light a[class*="text-sky-300"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
+html.light button[class*="text-sky-400"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
+html.light a[class*="text-sky-400"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]) {
+  color: #0A4D66 !important;
 }
 
-html.light button[class*="text-[#7FD5FF]"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]) svg,
-html.light button[class*="text-[#7FD5FF]"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]) .iconify,
-html.light a[class*="text-[#7FD5FF]"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]) svg,
-html.light a[class*="text-[#7FD5FF]"]:not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]) .iconify {
-  color: #0369A1 !important;
+html.light button[class*="text-[#7FD5FF]"] svg,
+html.light button[class*="text-[#7FD5FF]"] .iconify,
+html.light a[class*="text-[#7FD5FF]"] svg,
+html.light a[class*="text-[#7FD5FF]"] .iconify,
+html.light button[class*="text-cyan-"] svg,
+html.light button[class*="text-cyan-"] .iconify,
+html.light a[class*="text-cyan-"] svg,
+html.light a[class*="text-cyan-"] .iconify,
+html.light button[class*="text-sky-300"] svg,
+html.light button[class*="text-sky-300"] .iconify,
+html.light a[class*="text-sky-300"] svg,
+html.light a[class*="text-sky-300"] .iconify,
+html.light button[class*="text-sky-400"] svg,
+html.light button[class*="text-sky-400"] .iconify,
+html.light a[class*="text-sky-400"] svg,
+html.light a[class*="text-sky-400"] .iconify {
+  color: #0A4D66 !important;
 }
-html.light main a[class*="text-[#7FD5FF]"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-[#001825]"]):not([class*="bg-[#001219]"]) .iconify {
-  color: #0369A1 !important;
+html.light main a[class*="text-[#7FD5FF]"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-[#001825]"]):not([class*="bg-[#001219]"]) .iconify,
+html.light main a[class*="text-cyan-"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-[#001825]"]):not([class*="bg-[#001219]"]) .iconify {
+  color: #0A4D66 !important;
 }
 
 /* 4. Table action icons (3-dots, eye, view, edit) in light mode */

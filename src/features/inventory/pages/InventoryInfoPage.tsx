@@ -11,7 +11,7 @@ import {
   type InventoryItem,
 } from "@/features/inventory/api";
 import { BackButton } from "@/shared/ui/button";
-import { formatCategoryName } from "../inventoryUtils";
+import { formatCategoryName, formatAtaChapter } from "../inventoryUtils";
 
 type UpdateStockAdjustmentType = "add" | "remove" | "audit";
 
@@ -380,7 +380,7 @@ export const InventoryInfoPage = () => {
       ["Part Number", inventory.part_number || "-"],
       ["Serial Number", inventory.serial_number || "-"],
       ["NSN", inventory.nsn || inventory.nsn_number || "-"],
-      ["ATA Chapter", inventory.ata_chapter || "-"],
+      ["ATA Chapter", formatAtaChapter(inventory.ata_chapter || inventory.ata_chapter_rel)],
       ["Description", inventory.description || inventory.part_name || "-"],
       ["Category", formatCategoryName(inventory.expense_category?.name || (inventory as { category?: string })?.category)],
       ["Stock Type", inventory.store || "-"],
@@ -554,7 +554,7 @@ export const InventoryInfoPage = () => {
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-slate-500 dark:text-gray-400">ATA Chapter:</span>
                     <span className="font-semibold text-slate-900 dark:text-white">
-                      {inventory.ata_chapter || "-"}
+                      {formatAtaChapter(inventory.ata_chapter || inventory.ata_chapter_rel)}
                     </span>
                   </div>
                 </div>

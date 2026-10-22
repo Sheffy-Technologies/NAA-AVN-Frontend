@@ -26,6 +26,7 @@ import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 
 type SecurityTab = "activity" | "device" | "user" | "rbac" | "system";
 
@@ -879,7 +880,7 @@ export const SecurityPage = () => {
                     <tr
                       key={row.id}
                       className={cn(
-                        "border-b border-[#0A4D66]/20 text-white",
+                        "border-b border-[#0A4D66]/20 text-white hover:bg-[#0A4D66]/20 transition-colors",
                         index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
                       )}
                     >
@@ -1002,9 +1003,23 @@ export const SecurityPage = () => {
                   filteredDeviceRows.map((row, index) => (
                     <tr
                       key={row.id}
+                      tabIndex={0}
+                      role="button"
+                      title="Click to view device actions"
+                      onClick={(e) =>
+                        onInteractiveRowClick(e, () =>
+                          setOpenDeviceActionId((current) => (current === row.id ? null : row.id)),
+                        )
+                      }
+                      onKeyDown={(e) =>
+                        onInteractiveRowKeyDown(e, () =>
+                          setOpenDeviceActionId((current) => (current === row.id ? null : row.id)),
+                        )
+                      }
                       className={cn(
-                        "border-b border-[#0A4D66]/20 text-white",
+                        "border-b border-[#0A4D66]/20 text-white cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                         index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
+                        openDeviceActionId === row.id && "bg-[#0A4D66]/25",
                       )}
                     >
                       <td className="px-6 py-4">{row.name}</td>
@@ -1079,14 +1094,26 @@ export const SecurityPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredUserRows.map((row, index) => (
-                    <tr
-                      key={row.id}
-                      className={cn(
-                        "border-b border-[#0A4D66]/20 text-white",
-                        index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
-                      )}
-                    >
+                  filteredUserRows.map((row, index) => {
+                    const handleRowClick = () => {
+                      if (isSuperAdmin) {
+                        openEditUserModal(row.id);
+                      } else {
+                        openAssignRolesModal(row.id, row.roles);
+                      }
+                    };
+                    return (
+                      <tr
+                        key={row.id}
+                        tabIndex={0}
+                        role="button"
+                        onClick={(e) => onInteractiveRowClick(e, handleRowClick)}
+                        onKeyDown={(e) => onInteractiveRowKeyDown(e, handleRowClick)}
+                        className={cn(
+                          "border-b border-[#0A4D66]/20 text-white cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
+                          index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
+                        )}
+                      >
                       <td className="px-6 py-4">{row.name}</td>
                       <td className="px-6 py-4">{row.email}</td>
                       <td className="px-6 py-4">{row.phone}</td>
@@ -1157,7 +1184,8 @@ export const SecurityPage = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>

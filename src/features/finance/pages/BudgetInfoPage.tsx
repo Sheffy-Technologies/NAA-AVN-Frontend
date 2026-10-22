@@ -15,6 +15,7 @@ import {
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { BackButton } from "@/shared/ui/button/BackButton";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 
 type BudgetInfoTabKey = "info" | "expenses" | "incomes";
 type BudgetExpenseViewMode = "table" | "grid";
@@ -654,8 +655,35 @@ export const BudgetInfoPage = () => {
                       filteredRelatedExpenses.map((expense, index) => (
                         <tr
                           key={expense.id}
+                          tabIndex={0}
+                          role="button"
+                          title="Click to view expense details"
+                          onClick={(e) =>
+                            onInteractiveRowClick(e, () =>
+                              navigate("/dashboard/finance", {
+                                state: {
+                                  from: `/dashboard/finance/budgets/${id}`,
+                                  fromLabel: "Budget",
+                                  activeTab: "expenses",
+                                  expenseId: expense.id,
+                                },
+                              }),
+                            )
+                          }
+                          onKeyDown={(e) =>
+                            onInteractiveRowKeyDown(e, () =>
+                              navigate("/dashboard/finance", {
+                                state: {
+                                  from: `/dashboard/finance/budgets/${id}`,
+                                  fromLabel: "Budget",
+                                  activeTab: "expenses",
+                                  expenseId: expense.id,
+                                },
+                              }),
+                            )
+                          }
                           className={cn(
-                            "border-t border-[#0A4D66]/40",
+                            "border-t border-[#0A4D66]/40 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
                             index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                           )}
                         >
@@ -739,7 +767,34 @@ export const BudgetInfoPage = () => {
                   : filteredRelatedExpenses.map((expense) => (
                       <div
                         key={expense.id}
-                        className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200"
+                        tabIndex={0}
+                        role="button"
+                        title="Click to view expense details"
+                        onClick={(e) =>
+                          onInteractiveRowClick(e, () =>
+                            navigate("/dashboard/finance", {
+                              state: {
+                                from: `/dashboard/finance/budgets/${id}`,
+                                fromLabel: "Budget",
+                                activeTab: "expenses",
+                                expenseId: expense.id,
+                              },
+                            }),
+                          )
+                        }
+                        onKeyDown={(e) =>
+                          onInteractiveRowKeyDown(e, () =>
+                            navigate("/dashboard/finance", {
+                              state: {
+                                from: `/dashboard/finance/budgets/${id}`,
+                                fromLabel: "Budget",
+                                activeTab: "expenses",
+                                expenseId: expense.id,
+                              },
+                            }),
+                          )
+                        }
+                        className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-2 text-xs sm:text-sm text-gray-200 cursor-pointer hover:border-[#7FD5FF]/50 transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div>
@@ -936,7 +991,34 @@ export const BudgetInfoPage = () => {
                       (incomesData ?? []).map((row) => (
                         <tr
                           key={row.id}
-                          className="border-t border-[#0A4D66]/30 text-gray-200"
+                          tabIndex={0}
+                          role="button"
+                          title="Click to view income details"
+                          onClick={(e) =>
+                            onInteractiveRowClick(e, () =>
+                              navigate("/dashboard/finance", {
+                                state: {
+                                  from: `/dashboard/finance/budgets/${id}`,
+                                  fromLabel: "Budget",
+                                  activeTab: "incomes",
+                                  incomeId: row.id,
+                                },
+                              }),
+                            )
+                          }
+                          onKeyDown={(e) =>
+                            onInteractiveRowKeyDown(e, () =>
+                              navigate("/dashboard/finance", {
+                                state: {
+                                  from: `/dashboard/finance/budgets/${id}`,
+                                  fromLabel: "Budget",
+                                  activeTab: "incomes",
+                                  incomeId: row.id,
+                                },
+                              }),
+                            )
+                          }
+                          className="border-t border-[#0A4D66]/30 text-gray-200 cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30"
                         >
                           <td className="px-3 py-2 whitespace-nowrap">
                             {row.received_at

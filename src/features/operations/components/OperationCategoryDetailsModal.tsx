@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Modal from "@/shared/ui/modal/Modal";
 import { useGetOperationCategoryByIdQuery } from "../api";
 import { cn } from "@/shared/utils/cn";
+import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 
 interface OperationCategoryDetailsModalProps {
   open: boolean;
@@ -168,7 +169,22 @@ export const OperationCategoryDetailsModal: React.FC<OperationCategoryDetailsMod
                         return (
                           <tr
                             key={mission.id}
-                            className="hover:bg-[#0A4D66]/15 transition-colors"
+                            tabIndex={0}
+                            role="button"
+                            title="Click to view mission details"
+                            onClick={(e) =>
+                              onInteractiveRowClick(e, () => {
+                                onClose();
+                                navigate(`/dashboard/operations/${mission.id}`);
+                              })
+                            }
+                            onKeyDown={(e) =>
+                              onInteractiveRowKeyDown(e, () => {
+                                onClose();
+                                navigate(`/dashboard/operations/${mission.id}`);
+                              })
+                            }
+                            className="hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30"
                           >
                             <td className="px-4 py-2.5 whitespace-nowrap text-gray-300">
                               {dateFormatted}

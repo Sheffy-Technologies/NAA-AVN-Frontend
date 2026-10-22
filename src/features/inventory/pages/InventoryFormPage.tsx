@@ -17,7 +17,7 @@ import {
 } from "@/features/inventory/api";
 import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import { useGetAssetTypesQuery } from "@/features/assets/api";
-import { formatCategoryName } from "@/features/inventory/inventoryUtils";
+import { formatCategoryName, extractAtaCode } from "@/features/inventory/inventoryUtils";
 import { AircraftSparePartsForm } from "../components/AircraftSparePartsForm";
 
 const DEFAULT_EXPENSE_CATEGORIES = [
@@ -194,6 +194,13 @@ const emptyFormValues: InventoryFormValues = {
 };
 
 const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => {
+  const itemAtaCode = extractAtaCode(item.ata_chapter || item.ata_chapter_rel);
+  const itemAtaId =
+    item.ata_chapter_id ??
+    (typeof item.ata_chapter === "object" && item.ata_chapter !== null
+      ? (item.ata_chapter as { id?: number }).id ?? ""
+      : "");
+
   const parsedUnits: FormSerializedUnit[] =
     item.units && item.units.length > 0
       ? item.units.map((u, idx) => ({
@@ -207,8 +214,8 @@ const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => {
             u.alternate_support_part_no ||
             item.alternate_support_part_no ||
             "",
-          ata_chapter: (u as { ata_chapter?: string }).ata_chapter || item.ata_chapter || "",
-          ata_chapter_id: (u as { ata_chapter_id?: number | "" }).ata_chapter_id ?? item.ata_chapter_id ?? "",
+          ata_chapter: extractAtaCode((u as { ata_chapter?: unknown }).ata_chapter) || itemAtaCode,
+          ata_chapter_id: (u as { ata_chapter_id?: number | "" }).ata_chapter_id ?? itemAtaId,
         }))
       : [
           {
@@ -218,8 +225,8 @@ const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => {
             part_number: item.part_number || "",
             nsn: item.nsn || item.nsn_number || "",
             alternate_support_part_no: item.alternate_support_part_no || "",
-            ata_chapter: item.ata_chapter || "",
-            ata_chapter_id: item.ata_chapter_id ?? "",
+            ata_chapter: itemAtaCode,
+            ata_chapter_id: itemAtaId,
           },
         ];
 
@@ -248,8 +255,8 @@ const mapItemToFormValues = (item: InventoryItem): InventoryFormValues => {
     calibration_interval_days: item.calibration_interval_days
       ? String(item.calibration_interval_days)
       : "",
-    ata_chapter: item.ata_chapter ?? "",
-    ata_chapter_id: item.ata_chapter_id ?? "",
+    ata_chapter: itemAtaCode,
+    ata_chapter_id: itemAtaId,
     current_stock: String(item.current_stock ?? parsedUnits.length ?? "1"),
     re_order_level: String(item.re_order_level ?? "1"),
     unit_cost: String(item.unit_cost ?? ""),
