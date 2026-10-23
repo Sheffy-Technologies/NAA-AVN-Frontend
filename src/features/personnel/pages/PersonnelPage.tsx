@@ -308,9 +308,15 @@ export const PersonnelPage = () => {
   >(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const filterBarRef = useRef<HTMLDivElement>(null);
-  const actionMenuRef = useRef<HTMLTableCellElement>(null);
-
-  const displayedPersonnel = mappedPersonnel;
+  const displayedPersonnel = useMemo(() => {
+    let result = mappedPersonnel;
+    if (!unitFilter.all && unitFilter.selected.length > 0) {
+      result = result.filter(
+        (p) => p.unitId != null && unitFilter.selected.includes(p.unitId),
+      );
+    }
+    return result;
+  }, [mappedPersonnel, unitFilter]);
 
   const handleToggleAll =
     <T,>(setState: React.Dispatch<React.SetStateAction<MultiFilterState<T>>>) =>

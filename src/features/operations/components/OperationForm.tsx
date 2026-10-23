@@ -325,6 +325,32 @@ export const OperationForm = ({
     return [...personnel, ...extras] as typeof personnel;
   }, [personnel, quickAddedPersonnel]);
 
+  const selectedUnit = useMemo(() => {
+    return units.find((u) => String(u.id) === formData.unit_id) ?? null;
+  }, [units, formData.unit_id]);
+
+  const handleUnitChange = (unitIdStr: string) => {
+    const unitMatch = units.find((u) => String(u.id) === unitIdStr);
+    setFormData((prev) => {
+      const next = { ...prev, unit_id: unitIdStr };
+      if (
+        unitMatch &&
+        unitMatch.latitude != null &&
+        unitMatch.longitude != null &&
+        (!prev.departure_latitude || !prev.departure_longitude)
+      ) {
+        const latStr = Number(unitMatch.latitude).toFixed(6);
+        const lngStr = Number(unitMatch.longitude).toFixed(6);
+        next.departure_latitude = latStr;
+        next.departure_longitude = lngStr;
+        next.departure_mgrs = latLonToMgrs(latStr, lngStr);
+        next.departure_dms_lat = decimalToDms(Number(latStr), true);
+        next.departure_dms_lng = decimalToDms(Number(lngStr), false);
+      }
+      return next;
+    });
+  };
+
   // Synchronized Coordinate Updates
   const setTargetFromLatLon = (
     target: CoordinateTarget,
@@ -1018,9 +1044,7 @@ export const OperationForm = ({
                 <div className="relative">
                   <select
                     value={formData.unit_id}
-                    onChange={(e) =>
-                      setFormData({ ...formData, unit_id: e.target.value })
-                    }
+                    onChange={(e) => handleUnitChange(e.target.value)}
                     title="Unit"
                     className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
                     required
@@ -1272,7 +1296,22 @@ export const OperationForm = ({
                     Mode: {coordinateInputMode.toUpperCase()}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedUnit && selectedUnit.latitude != null && selectedUnit.longitude != null && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const latStr = Number(selectedUnit.latitude).toFixed(6);
+                        const lngStr = Number(selectedUnit.longitude).toFixed(6);
+                        setTargetFromLatLon("departure", latStr, lngStr);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded bg-amber-500/20 border border-amber-500/50 px-2.5 py-1 text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition-colors"
+                      title={`Set Departure to ${selectedUnit.name} Base Coordinates`}
+                    >
+                      <Icon icon="mdi:map-marker-radius" className="w-3.5 h-3.5" />
+                      <span>{selectedUnit.name} Base (Take-off)</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setAeroModalTarget("departure")}

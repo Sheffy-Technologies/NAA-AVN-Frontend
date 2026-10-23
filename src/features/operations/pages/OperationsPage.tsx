@@ -382,7 +382,7 @@ export const OperationsPage = () => {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`${op.id}/edit`, {
+                        navigate(`/dashboard/operations/${op.id}/edit`, {
                           state: { from: "/dashboard/operations", fromLabel: "Operations" },
                         });
                       }}
@@ -513,7 +513,7 @@ export const OperationsPage = () => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`${op.id}/edit`);
+                  navigate(`/dashboard/operations/${op.id}/edit`);
                 }}
                 className="text-gray-400 hover:text-[#7FD5FF] transition-colors p-1"
                 aria-label="Edit operation"

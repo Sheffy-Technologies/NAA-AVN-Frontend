@@ -667,7 +667,7 @@ export const AssetDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const authToken = useAppSelector((state) => state.auth.token);
-  const { data: asset, isLoading, refetch: refetchAsset } = useGetAssetByIdQuery(id || "");
+  const { data: asset, isLoading, refetch: refetchAsset } = useGetAssetByIdQuery(id || "", { skip: !id });
   const { data: units = [] } = useGetUnitsQuery();
   const { data: assetTypes = [] } = useGetAssetTypesQuery();
   const { data: enginePositions = [] } = useGetEnginePositionsQuery();

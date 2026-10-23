@@ -57,6 +57,7 @@ type InventoryRow = {
   nsn: string;
   ataChapter: string;
   unit: string;
+  unitId?: number | null;
   stockLevel: InventoryStatusLevel;
   currentStock: number;
   reorderLevel: number;
@@ -652,6 +653,10 @@ export const InventoryPage = () => {
   const apiFilters = useMemo(() => {
     return {
       units: unitFilter.all ? undefined : unitFilter.selected,
+      unit_id:
+        !unitFilter.all && unitFilter.selected.length === 1
+          ? unitFilter.selected[0]
+          : undefined,
     };
   }, [unitFilter]);
 
@@ -805,6 +810,7 @@ export const InventoryPage = () => {
         nsn: item.nsn || item.nsn_number || "-",
         ataChapter: formatAtaChapter(item.ata_chapter || item.ata_chapter_rel),
         unit: item.unit?.name || "N/A",
+        unitId: item.unit_id ?? item.unit?.id ?? null,
         stockLevel: mapStockLevel(item.stock_level),
         currentStock: item.current_stock,
         reorderLevel: item.re_order_level,
@@ -868,6 +874,13 @@ export const InventoryPage = () => {
   const categorySearchFilteredRows = useMemo(() => {
     let base = inventoryRows;
 
+    // Filter by unit
+    if (!unitFilter.all && unitFilter.selected.length > 0) {
+      base = base.filter(
+        (row) => row.unitId != null && unitFilter.selected.includes(row.unitId),
+      );
+    }
+
     // Filter by store (defaulting to General Store to differentiate from Maintenance Hub)
     if (storeFilterId !== "all") {
       base = base.filter((row) => row.storeId === storeFilterId);
@@ -897,7 +910,7 @@ export const InventoryPage = () => {
         row.storeCode,
       ].some((field) => field?.toLowerCase().includes(query)),
     );
-  }, [inventoryRows, activeSubTab, stockSearchQuery, storeFilterId]);
+  }, [inventoryRows, activeSubTab, stockSearchQuery, storeFilterId, unitFilter]);
 
   const filteredInventoryRows = useMemo(() => {
     switch (stockStatFilter) {
@@ -984,6 +997,16 @@ export const InventoryPage = () => {
     },
   ];
 
+  const filteredRequisitions = useMemo(() => {
+    if (!requisitionsData) return [];
+    if (requisitionUnitId === "") return requisitionsData;
+    return requisitionsData.filter(
+      (r) =>
+        r.requesting_unit_id === requisitionUnitId ||
+        r.requesting_unit?.id === requisitionUnitId,
+    );
+  }, [requisitionsData, requisitionUnitId]);
+
   const requisitionStats = useMemo(() => {
     const initial = {
       total: 0,
@@ -993,9 +1016,9 @@ export const InventoryPage = () => {
       received: 0,
     };
 
-    if (!requisitionsData) return initial;
+    if (!filteredRequisitions || filteredRequisitions.length === 0) return initial;
 
-    return requisitionsData.reduce((acc, requisition) => {
+    return filteredRequisitions.reduce((acc, requisition) => {
       acc.total++;
       const statusLabel = normalizeRequisitionStatus(requisition.status);
       if (statusLabel === "Approved") acc.approved++;
@@ -1004,7 +1027,7 @@ export const InventoryPage = () => {
       else if (statusLabel === "Received") acc.received++;
       return acc;
     }, initial);
-  }, [requisitionsData]);
+  }, [filteredRequisitions]);
 
   const selectedFilterCount =
     (unitFilter.all ? 0 : unitFilter.selected.length) +
@@ -2075,7 +2098,7 @@ export const InventoryPage = () => {
                           Loading requisitions...
                         </td>
                       </tr>
-                    ) : (requisitionsData?.length ?? 0) === 0 ? (
+                    ) : (filteredRequisitions.length ?? 0) === 0 ? (
                       <tr>
                         <td
                           colSpan={6}
@@ -2085,7 +2108,7 @@ export const InventoryPage = () => {
                         </td>
                       </tr>
                     ) : (
-                      requisitionsData?.map((requisition, idx) => {
+                      filteredRequisitions.map((requisition, idx) => {
                         const statusLabel = normalizeRequisitionStatus(
                           requisition.status,
                         );
