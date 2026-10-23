@@ -59,12 +59,13 @@ Env vars (see `.env.example`): `VITE_API_BASE_URL`, `VITE_REVERB_APP_KEY`, `VITE
 
 ## Domain architecture
 
-Two developers work on this codebase in parallel (PR #13, branch `feature/maintenance-hub-fleet-updates`). A merge has already dropped imports, hooks and buttons silently (commit `9c1d231`). After any merge, run `npm run build`, then check that each conflicted page still has the features both sides had, not just that it compiles. Change history: `NAA_Aviation_Comprehensive_Update_Report_Oct16_Oct19.md` and `NAA_Aviation_Update_Report_Oct21.md` in the repo root.
+Two developers work on this codebase in parallel (PR #13, branch `feature/maintenance-hub-fleet-updates`). Merges have repeatedly gone wrong: `9c1d231` silently dropped imports, hooks and buttons, and `401b372` and `27a5a83`/`6cd84c2` were committed with `<<<<<<<` conflict markers still in the source. After any merge, run `git diff --check` (flags leftover markers) and `npm run build`, then check that each conflicted page still has the features both sides had, not just that it compiles. Change history: `NAA_Aviation_Comprehensive_Update_Report_Oct16_Oct19.md` and `NAA_Aviation_Update_Report_Oct21.md` in the repo root.
 
 **Maintenance Hub vs Assets**: there are two separate aircraft views that share only basic airframe attributes (registration, model, manufacturer, unit).
 - `/dashboard/assets/:id` (`features/assets/pages/AssetDetailsPage.tsx`) is the flight-operations view.
 - `/dashboard/maintenance/aircraft/:id` (`features/maintenance/pages/MaintenanceAircraftDetailsPage.tsx`) is the engineering view: components, engines and avionics editing; an independent flight ledger (`/flight-logs`, via `features/assets/components/FlightLogModal.tsx`); read-only operation history with a "Log Duration in Flight" action; defects; tracking.
 - Maintenance Hub tables link to the engineering route, never to the asset page.
+- **Serviceability**: assets have two status fields. `serviceability_status` (serviceable / under_maintenance / grounded) is the authoritative one; `operation_status` is free text the backend never maintains. The asset details page, the assets list (status column, counts, filter) and the Maintenance Hub overview's "Serviceable" count all read `serviceability_status`, falling back to `operation_status` only when it is missing. Don't reintroduce `operation_status` as a primary source. `WorkOrderDetailsPage` still shows `operation_status` in its asset panel.
 
 **Pilot type rating vs airframe**:
 - A pilot's qualification belongs to the aircraft *platform* (backend `AssetType`, e.g. "Bell UH-1H Helicopter"). It is stored on `personnel.rating_type` and never as a tail number.
@@ -96,15 +97,24 @@ Two developers work on this codebase in parallel (PR #13, branch `feature/mainte
 - The backend wraps broadcasts in try/catch, so an offline Reverb server no longer turns mission saves into 500 errors.
 - Operation asset rows come back as the asset itself (`id` = asset id), with crew and flight times under `pivot`. Read `asset_id ?? asset.id` and `pilot_id ?? pivot.pilot_id`, as `OperationForm` and `AfterActionReportForm` do.
 
+**Personnel**:
+- API fields typed as `string` (`call_sign`, `service_number`, `firstname`, `lastname`) can come back `null`. Default them (`?? ""`) when mapping, and make search filters null-safe.
+- Filtered lists can be opened from links: `/dashboard/personnel?flight_status=due_for_flight,overdue` (values: `current`, `due_for_flight`, `overdue`, `no_flights`; the chip above the table clears it) and `/dashboard/personnel/pass?pass_status=on_pass` (any pass status). The Strategic Dashboard's Personnel Readiness counts link to these.
+
+**Safety & Quality** (`features/safety`, routes `/dashboard/safety-quality/:section`):
+- The sidebar item and route are gated by any one of the Safety & Quality permissions (`SAFETY_QUALITY_ROUTE_PERMISSIONS` in `routes.tsx`, matching list in `Sidebar.tsx`). These permissions are defined in the backend's `ApiPermissionRegistry` and only exist once `php artisan db:seed --class=ApiPermissionSeeder` has run. That seeder grants them to `super-admin` only; other roles get them via Security → Roles. If the menu item is missing, check the user's permissions first, not the frontend.
+- Section tables use `SqTable` (`components/sqUi.tsx`), whose `onRowClick` ignores clicks on buttons. On Ratings & Qualifications, a row click opens the person's personnel page and editing is a separate Edit button; profile-sourced type ratings (`id === null`) are edited on the personnel profile instead.
+
 **Attendance**: personnel clock in and out themselves from the header (`features/personnel/components/ClockInModal.tsx` → `/attendance/clock-in` / `clock-out`, with geolocation for the unit geofence). This needs the user account linked to a personnel record. `AttendancePage` is view, export and delete only; no screen creates or edits attendance manually.
 
 ## UI conventions
 
 - **Clickable table rows**: use `onInteractiveRowClick` / `onInteractiveRowKeyDown` from `src/shared/utils/onInteractiveRowClick.ts`, with `tabIndex={0}` on the row. They ignore clicks that start on buttons, menus, checkboxes, inputs, links or text selections.
 - **Back navigation**: use `BackButton` (`src/shared/ui/button`) instead of `navigate(-1)`. It resolves the destination via `src/shared/utils/navigationContext.ts`: router state `from`/`fromLabel` first, then `?returnTo=` / `?from=`, then `fallbackUrl`, validated to same-origin paths only. Pass `isDirty` to get the unsaved-changes prompt. When linking to a detail page, pass `state={{ from, fromLabel }}` so the button reads "Back to …".
+- **`MultiSelect`** (`src/shared/ui/multi-select`) has a built-in search: pass `searchable` (and `searchPlaceholder`) for long option lists, as the role-permission pickers in `SecurityPage` do. "Select all" then applies to the filtered options only.
 - **`SearchableSelect`** (`src/shared/ui/select`) matches the selected value with `===`. Pass `value` with the same type as the option values (numbers vs strings); a mismatch silently shows the placeholder.
 - Show the API's `error.data.message` in toasts and error states rather than a generic "Failed to …".
 
 ## Backend deploy notes
 
-New migrations must be run (`php artisan migrate`) on staging/production before the matching frontend ships: stores, `inventory_units` (+ ATA columns), inventory specification/batch/GSE fields, `personnel.rating_type`, work-order `status`, inventory `nsn`/`ata_chapter`, and the platform/airframe seed migration (`2026_10_21_000002`). The deployed API is `https://avn-api.claimify.ng/api`; local `.env` points at it, so local backend data may not match what the app shows.
+New migrations must be run (`php artisan migrate`) on staging/production before the matching frontend ships: stores, `inventory_units` (+ ATA columns), inventory specification/batch/GSE fields, `personnel.rating_type`, work-order `status`, the Safety & Quality tables, inventory `nsn`/`ata_chapter`, and the platform/airframe seed migration (`2026_10_21_000002`). The deployed API is `https://avn-api.claimify.ng/api`; local `.env` points at it, so local backend data may not match what the app shows. After deploying new permissions to `ApiPermissionRegistry`, run `php artisan db:seed --class=ApiPermissionSeeder`; the app re-reads the user's permissions from `/auth/me` on each load.
