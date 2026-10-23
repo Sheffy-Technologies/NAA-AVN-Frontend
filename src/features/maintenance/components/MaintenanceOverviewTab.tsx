@@ -163,12 +163,8 @@ export const MaintenanceOverviewTab = ({
   // Fleet Readiness Calculation
   const totalAircraft = aircraftData?.length ?? 0;
   const serviceableAircraft = useMemo(() => {
-    return (aircraftData ?? []).filter(
-      (a) =>
-        a.serviceability_status === "serviceable" ||
-        a.operation_status === "operational" ||
-        a.operation_status === "serviceable",
-    ).length;
+    // Same field as "Serviceability Status" on the asset details page.
+    return (aircraftData ?? []).filter((a) => a.serviceability_status === "serviceable").length;
   }, [aircraftData]);
 
   // 8 Core Metrics

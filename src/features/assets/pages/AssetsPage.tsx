@@ -298,8 +298,10 @@ export const AssetsPage = () => {
             ?.filter((asset) => asset.type === activeTab)
             .map((asset) => ({
               ...asset,
+              // Serviceability (what the asset details page shows) drives the
+              // list status; the free-text operation_status is only a fallback.
               operation_status: normalizeOperationStatus(
-                asset.operation_status ?? asset.serviceability_status,
+                asset.serviceability_status ?? asset.operation_status,
               ),
             })) || [];
 
@@ -528,8 +530,8 @@ export const AssetsPage = () => {
                     onChange={(e) => setSelectedOperationStatus(e.target.value)}
                     className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
                   >
-                    <option value="all">All Operation Status</option>
-                    <option value="operational">Operational</option>
+                    <option value="all">All Serviceability</option>
+                    <option value="operational">Serviceable</option>
                     <option value="under_maintenance">Under Maintenance</option>
                     <option value="grounded">Grounded</option>
                   </select>
@@ -583,7 +585,7 @@ export const AssetsPage = () => {
             </div>
             <div className="flex items-center space-x-2 whitespace-nowrap">
               <div className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="text-gray-400">Operational:</span>
+              <span className="text-gray-400">Serviceable:</span>
               <span className="text-white font-bold">{serviceable}</span>
             </div>
             <div className="flex items-center space-x-2 whitespace-nowrap">
@@ -844,7 +846,7 @@ export const AssetsPage = () => {
                                     : "bg-red-500",
                               )}
                             />
-                            {formatStatus(asset.operation_status)}
+                            {formatStatus(asset.serviceability_status)}
                           </span>
                         </td>
                         <td
@@ -1087,9 +1089,9 @@ export const AssetsPage = () => {
                         </span>
                       </div>
                       <div>
-                        <span className="text-gray-500 block mb-1">Operation</span>
+                        <span className="text-gray-500 block mb-1">Serviceability</span>
                         <span className="text-white font-medium">
-                          {formatStatus(asset.operation_status)}
+                          {formatStatus(asset.serviceability_status)}
                         </span>
                       </div>
                       <div>
