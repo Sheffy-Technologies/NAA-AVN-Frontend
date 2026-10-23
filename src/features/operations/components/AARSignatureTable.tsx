@@ -208,25 +208,25 @@ export const AARSignatureTable = ({
         {report && (
           <div className="flex items-center gap-2 text-xs">
             <span className="text-gray-400">Approval Status:</span>
-            <span
-              className={`px-2.5 py-1 rounded-full font-semibold uppercase text-[10px] tracking-wide border ${
-                report.status === "approved" || Boolean(report.co_signature)
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                  : report.status === "partially_signed" ||
-                    Boolean(report.pic_signature) ||
-                    Boolean(report.copilot_signature)
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                  : "bg-blue-500/10 text-[#7FD5FF] border-[#7FD5FF]/30"
-              }`}
-            >
-              {report.status === "approved" || Boolean(report.co_signature)
-                ? "Fully Approved (CO Signed)"
-                : report.status === "partially_signed" ||
-                  Boolean(report.pic_signature) ||
-                  Boolean(report.copilot_signature)
-                ? "Partially Signed"
-                : "Awaiting Signatures"}
-            </span>
+            {(() => {
+              // "signed" = all signatures in, awaiting the approval workflow;
+              // without a workflow the CO's signature approves directly.
+              const state =
+                report.status === "approved"
+                  ? { label: "Fully Approved", cls: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" }
+                  : report.status === "rejected"
+                    ? { label: "Rejected", cls: "bg-red-500/10 text-red-400 border-red-500/30" }
+                    : report.status === "signed"
+                      ? { label: "Signed · Awaiting Approval", cls: "bg-amber-500/10 text-amber-400 border-amber-500/30" }
+                      : report.status === "partially_signed" || Boolean(report.pic_signature) || Boolean(report.copilot_signature)
+                        ? { label: "Partially Signed", cls: "bg-amber-500/10 text-amber-400 border-amber-500/30" }
+                        : { label: "Awaiting Signatures", cls: "bg-blue-500/10 text-[#7FD5FF] border-[#7FD5FF]/30" };
+              return (
+                <span className={`px-2.5 py-1 rounded-full font-semibold uppercase text-[10px] tracking-wide border ${state.cls}`}>
+                  {state.label}
+                </span>
+              );
+            })()}
           </div>
         )}
       </div>

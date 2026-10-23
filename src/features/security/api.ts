@@ -143,6 +143,8 @@ export type MeResponse = {
   roles: Array<{ id?: number; name: string; guard_name?: string }>;
   role_names: string[];
   permissions: string[];
+  /** The personnel record linked to this login, if an admin has linked one. */
+  personnel_id?: number | null;
 };
 
 export type ActivityLogFilters = {

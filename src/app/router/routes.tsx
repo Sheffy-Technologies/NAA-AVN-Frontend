@@ -295,6 +295,41 @@ const WorkOrderDetailsPage = lazy(() =>
     default: module.WorkOrderDetailsPage,
   })),
 );
+const MyPersonnelPage = lazy(() =>
+  import("@/features/personnel/pages/MyPersonnelPage").then((module) => ({
+    default: module.MyPersonnelPage,
+  })),
+);
+const AfterActionReportRedirect = lazy(() =>
+  import("@/features/operations/pages/AfterActionReportRedirect").then((module) => ({
+    default: module.AfterActionReportRedirect,
+  })),
+);
+const GeneratorDetailsPage = lazy(() =>
+  import("@/features/generators/pages/GeneratorDetailsPage").then((module) => ({
+    default: module.GeneratorDetailsPage,
+  })),
+);
+const ApprovalsPage = lazy(() =>
+  import("@/features/approvals/pages/ApprovalsPage").then((module) => ({
+    default: module.ApprovalsPage,
+  })),
+);
+const StockIssueFormPage = lazy(() =>
+  import("@/features/stock-issues/pages/StockIssueFormPage").then((module) => ({
+    default: module.StockIssueFormPage,
+  })),
+);
+const StockIssueDetailsPage = lazy(() =>
+  import("@/features/stock-issues/pages/StockIssueDetailsPage").then((module) => ({
+    default: module.StockIssueDetailsPage,
+  })),
+);
+const SafetyQualityPage = lazy(() =>
+  import("@/features/safety/pages/SafetyQualityPage").then((module) => ({
+    default: module.SafetyQualityPage,
+  })),
+);
 const MaintenanceAircraftRedirect = () => {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -333,7 +368,8 @@ const loadingElement = (
 );
 
 const UNITS_ROUTE_PERMISSIONS = ["units.viewAny"];
-const ASSETS_ROUTE_PERMISSIONS = ["assets.viewAny", "dashboard.home.view"];
+// accommodation-categories.viewAny alone opens the page on its Accommodation tab.
+const ASSETS_ROUTE_PERMISSIONS = ["assets.viewAny", "dashboard.home.view", "accommodation-categories.viewAny"];
 const OPERATIONS_ROUTE_PERMISSIONS = ["dashboard.operations.view", "operations.viewAny"];
 const PERSONNEL_ROUTE_PERMISSIONS = ["dashboard.personnel.view", "personnel.viewAny"];
 const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.viewAny"];
@@ -344,6 +380,26 @@ const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "dev
 const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
 // Open to any authenticated user regardless of role, same as messages.
 const DOCUMENTS_ROUTE_PERMISSIONS: string[] = [];
+// Any one Safety & Quality section permission opens the hub; the page itself
+// only shows the sections the user can access (SECTIONS in SafetyQualityPage).
+const SAFETY_QUALITY_ROUTE_PERMISSIONS = [
+  "safety-quality.dashboard.view",
+  "safety-reports.viewAny",
+  "safety-risks.viewAny",
+  "safety-investigations.viewAny",
+  "quality-audits.viewAny",
+  "quality-findings.viewAny",
+  "corrective-actions.viewAny",
+  "compliance-requirements.viewAny",
+  "controlled-documents.viewAny",
+  "personnel-qualifications.viewAny",
+  "safety-quality.pilot-currency.view",
+  "safety-quality.training.view",
+  "safety-quality.unit-oversight.view",
+  "safety-quality.reports.view",
+];
+const APPROVALS_ROUTE_PERMISSIONS = ["approvals.viewAny", "approval-workflows.viewAny"];
+const STOCK_ISSUES_ROUTE_PERMISSIONS = ["stock-issues.viewAny"];
 const MAINTENANCE_ROUTE_PERMISSIONS = ["dashboard.maintenance.view", "work-orders.viewAny", "maintenance-programs.viewAny"];
 
 const guardWithPermissions = (
@@ -488,6 +544,22 @@ export const router = createBrowserRouter([
             <AddFacilityPage />
           </Suspense>
         ), ASSETS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "after-action-reports/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <AfterActionReportRedirect />
+          </Suspense>
+        ), OPERATIONS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "assets/generators/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <GeneratorDetailsPage />
+          </Suspense>
+        ), ["generators.viewAny"]),
       },
       {
         path: "assets/:id",
@@ -914,6 +986,63 @@ export const router = createBrowserRouter([
         ), MAINTENANCE_ROUTE_PERMISSIONS),
       },
       {
+        path: "approvals",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <ApprovalsPage />
+          </Suspense>
+        ), APPROVALS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "inventory/issues/new",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <StockIssueFormPage />
+          </Suspense>
+        ), STOCK_ISSUES_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "inventory/issues/:id/edit",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <StockIssueFormPage />
+          </Suspense>
+        ), STOCK_ISSUES_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "inventory/issues/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <StockIssueDetailsPage />
+          </Suspense>
+        ), STOCK_ISSUES_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "safety-quality",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <SafetyQualityPage />
+          </Suspense>
+        ), SAFETY_QUALITY_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "safety-quality/:section",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <SafetyQualityPage />
+          </Suspense>
+        ), SAFETY_QUALITY_ROUTE_PERMISSIONS),
+      },
+      {
+        // A single register record: details page with PDF export.
+        path: "safety-quality/:section/:recordId",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <SafetyQualityPage />
+          </Suspense>
+        ), SAFETY_QUALITY_ROUTE_PERMISSIONS),
+      },
+      {
         path: "maintenance/inventory",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
@@ -926,6 +1055,15 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={loadingElement}>
             <UserDetailsPage />
+          </Suspense>
+        ),
+      },
+      {
+        // Self-service: any logged-in user with a linked personnel record.
+        path: "users/my-personnel",
+        element: (
+          <Suspense fallback={loadingElement}>
+            <MyPersonnelPage />
           </Suspense>
         ),
       },

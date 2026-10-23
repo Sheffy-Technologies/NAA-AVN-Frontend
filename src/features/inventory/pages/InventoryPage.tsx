@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, type ChangeEvent, useRef } from "react";
+import { StockIssuesTab } from "@/features/stock-issues/components/StockIssuesTab";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
@@ -82,6 +83,11 @@ const INVENTORY_TABS = [
     id: "Requisitions",
     label: "Requisitions",
     icon: "mdi:file-document-outline",
+  },
+  {
+    id: "Issues",
+    label: "Issues",
+    icon: "mdi:truck-delivery-outline",
   },
   {
     id: "Procurement",
@@ -498,6 +504,7 @@ export const InventoryPage = () => {
       return "Procurement";
     if (tabParam === "suppliers" || tabParam === "supplier") return "Suppliers";
     if (tabParam === "stores" || tabParam === "store") return "Stores";
+    if (tabParam === "issues" || tabParam === "issue") return "Issues";
     return "Stock";
   }, [location.state, location.search]);
 
@@ -2594,6 +2601,8 @@ export const InventoryPage = () => {
               </div>
             )}
           </>
+        ) : activeTab === "Issues" ? (
+          <StockIssuesTab />
         ) : activeTab === "Stores" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">

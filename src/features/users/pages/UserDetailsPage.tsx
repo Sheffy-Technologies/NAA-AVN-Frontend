@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Icon } from "@iconify/react";
+import { Link } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
 import { useGetMeQuery } from "@/features/security/api";
@@ -30,7 +31,8 @@ const emptyValues: FormValues = {
 export const UserDetailsPage = () => {
   const dispatch = useAppDispatch();
   const authUser = useAppSelector((state) => state.auth.user);
-  const { data: me, isLoading } = useGetMeQuery();
+  // Refetch on open so a newly linked personnel record shows without a re-login.
+  const { data: me, isLoading } = useGetMeQuery(undefined, { refetchOnMountOrArgChange: true });
   const [updateMe, { isLoading: isUpdating }] = useUpdateMeMutation();
 
   const [values, setValues] = useState<FormValues>(emptyValues);
@@ -262,6 +264,31 @@ export const UserDetailsPage = () => {
             </div>
           )}
         </div>
+      </section>
+
+      {/* Self-service link to the personnel record an admin has linked to this login. */}
+      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl px-4 sm:px-6 py-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <Icon icon="mdi:card-account-details-outline" className="w-6 h-6 text-[#7FD5FF] shrink-0 mt-0.5" />
+          <div>
+            <h2 className="text-sm font-semibold text-white uppercase tracking-wide">My personnel record</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {me?.personnel_id
+                ? "View your service record and keep your contact and personal details up to date."
+                : "Your login isn't linked to a personnel record yet. Ask an administrator to link it from your personnel details page."}
+            </p>
+          </div>
+        </div>
+        {me?.personnel_id ? (
+          <Link
+            to="/dashboard/users/my-personnel"
+            state={{ from: "/dashboard/users", fromLabel: "User settings" }}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold bg-[#0A4D66] text-white hover:bg-[#083c50] whitespace-nowrap"
+          >
+            <Icon icon="mdi:account-edit-outline" className="w-4 h-4" />
+            Update my personnel record
+          </Link>
+        ) : null}
       </section>
     </div>
   );
