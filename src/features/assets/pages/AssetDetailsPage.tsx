@@ -29,6 +29,7 @@ import {
   type Component,
   type Engine,
   type MaintenanceDueItem,
+  type ServiceAction,
 } from "../api";
 import { cn } from "@/shared/utils/cn";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
@@ -330,6 +331,8 @@ const cloneEngine = (engine: Engine): Engine => ({
       ? (engine.inspection_interval ?? null)
       : null),
   maintenance_strategy: toMaintenanceStrategy(engine.maintenance_strategy),
+  service_action: engine.service_action ?? "",
+  asset_hours_at_installation: engine.asset_hours_at_installation ?? "",
 });
 
 const cloneComponent = (component: Component): Component => ({
@@ -353,6 +356,8 @@ const cloneComponent = (component: Component): Component => ({
       ? (component.inspection_interval ?? null)
       : null),
   maintenance_strategy: toMaintenanceStrategy(component.maintenance_strategy),
+  service_action: component.service_action ?? "",
+  asset_hours_at_installation: component.asset_hours_at_installation ?? "",
   installed_at: toDateOnly(component.installed_at),
   removed_at: toDateOnly(component.removed_at),
 });
@@ -370,6 +375,8 @@ const cloneAvionic = (avionic: Avionics): Avionics => ({
   inspection_interval_unit: toIntervalUnit(avionic.inspection_interval_unit),
   inspection_interval: avionic.inspection_interval ?? "",
   maintenance_strategy: toMaintenanceStrategy(avionic.maintenance_strategy),
+  service_action: avionic.service_action ?? "",
+  asset_hours_at_installation: avionic.asset_hours_at_installation ?? "",
   removed_at: toDateOnly(avionic.removed_at),
 });
 
@@ -638,6 +645,8 @@ const buildComponentPayload = (component: Component) => {
     inspection_interval_hours: intervalHours,
     inspection_interval_cycles: intervalCycles,
     maintenance_strategy: toMaintenanceStrategy(component.maintenance_strategy),
+    service_action: component.service_action || null,
+    asset_hours_at_installation: toNullableNumber(component.asset_hours_at_installation),
     installed_at: toDateOnly(component.installed_at),
     removed_at: toDateOnly(component.removed_at) || null,
   };
@@ -1254,6 +1263,8 @@ export const AssetDetailsPage = () => {
           inspection_interval_hours: intervalHours,
           inspection_interval_cycles: intervalCycles,
           maintenance_strategy: toMaintenanceStrategy(engine.maintenance_strategy),
+          service_action: engine.service_action || null,
+          asset_hours_at_installation: toNullableNumber(engine.asset_hours_at_installation),
         };
       });
 
@@ -1315,6 +1326,8 @@ export const AssetDetailsPage = () => {
         inspection_interval_unit: toIntervalUnit(avionic.inspection_interval_unit),
         inspection_interval: toNullableNumber(avionic.inspection_interval),
         maintenance_strategy: toMaintenanceStrategy(avionic.maintenance_strategy),
+        service_action: avionic.service_action || null,
+        asset_hours_at_installation: toNullableNumber(avionic.asset_hours_at_installation),
         installed_at: toDateOnly(avionic.installed_at),
         removed_at: toDateOnly(avionic.removed_at) || null,
       }))
@@ -2642,7 +2655,7 @@ export const AssetDetailsPage = () => {
                             <>
                               <div className="space-y-1">
                                 <label className="text-xs text-gray-400">
-                                  Total Service Hrs
+                                  Hrs at Installation (TSN/TSO)
                                 </label>
                                 <input
                                   type="number"
@@ -2865,6 +2878,34 @@ export const AssetDetailsPage = () => {
                               <option value="on-condition">On Condition</option>
                               <option value="condition">Condition</option>
                             </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Service Action</label>
+                            <select
+                              title="What happens when the limit is reached"
+                              className={inputClass}
+                              value={component.service_action || ""}
+                              onChange={(e) => updateComponent({ service_action: e.target.value as ServiceAction | "" })}
+                            >
+                              <option value="">Not set</option>
+                              <option value="retire">Retire (RET)</option>
+                              <option value="overhaul">Overhaul (OH)</option>
+                              <option value="inspect">Inspect (INSP)</option>
+                              <option value="replace">Replace (REP)</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Airframe Hrs at Installation</label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              title="Aircraft total hours when this part was fitted"
+                              className={inputClass}
+                              placeholder="e.g. 5883.2"
+                              value={String(component.asset_hours_at_installation ?? "")}
+                              onChange={(e) => updateComponent({ asset_hours_at_installation: e.target.value })}
+                            />
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs text-gray-400">Removed Date</label>
@@ -3168,6 +3209,34 @@ export const AssetDetailsPage = () => {
                               <option value="on-condition">On Condition</option>
                               <option value="condition">Condition</option>
                             </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Service Action</label>
+                            <select
+                              title="What happens when the limit is reached"
+                              className={inputClass}
+                              value={engine.service_action || ""}
+                              onChange={(e) => updateEngine({ service_action: e.target.value as ServiceAction | "" })}
+                            >
+                              <option value="">Not set</option>
+                              <option value="retire">Retire (RET)</option>
+                              <option value="overhaul">Overhaul (OH)</option>
+                              <option value="inspect">Inspect (INSP)</option>
+                              <option value="replace">Replace (REP)</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs text-gray-400">Airframe Hrs at Installation</label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              title="Aircraft total hours when this part was fitted"
+                              className={inputClass}
+                              placeholder="e.g. 5883.2"
+                              value={String(engine.asset_hours_at_installation ?? "")}
+                              onChange={(e) => updateEngine({ asset_hours_at_installation: e.target.value })}
+                            />
                           </div>
                         </div>
 
@@ -4054,6 +4123,34 @@ export const AssetDetailsPage = () => {
                             <option value="on-condition">On Condition</option>
                             <option value="condition">Condition</option>
                           </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">Service Action</label>
+                          <select
+                            title="What happens when the limit is reached"
+                            className={inputClass}
+                            value={avionic.service_action || ""}
+                            onChange={(e) => updateAvionic({ service_action: e.target.value as ServiceAction | "" })}
+                          >
+                            <option value="">Not set</option>
+                            <option value="retire">Retire (RET)</option>
+                            <option value="overhaul">Overhaul (OH)</option>
+                            <option value="inspect">Inspect (INSP)</option>
+                            <option value="replace">Replace (REP)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs text-gray-400">Airframe Hrs at Installation</label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.1"
+                            title="Aircraft total hours when this part was fitted"
+                            className={inputClass}
+                            placeholder="e.g. 5883.2"
+                            value={String(avionic.asset_hours_at_installation ?? "")}
+                            onChange={(e) => updateAvionic({ asset_hours_at_installation: e.target.value })}
+                          />
                         </div>
                       </div>
 
@@ -5233,7 +5330,7 @@ const HoursTrackingGrid = ({
   return (
     <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
       <div className="space-y-1">
-        <label className="text-xs text-gray-400">Total Service Hrs</label>
+        <label className="text-xs text-gray-400">Hrs at Installation (TSN/TSO)</label>
         <input
           type="number"
           className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"

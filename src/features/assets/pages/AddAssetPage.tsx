@@ -1993,7 +1993,7 @@ export const AddAssetPage = () => {
                           <>
                             <div className="space-y-1">
                               <label className="text-xs text-gray-400">
-                                Total Service Hrs
+                                Hrs at Installation (TSN/TSO)
                               </label>
                               <input
                                 type="number"
@@ -2626,7 +2626,7 @@ export const AddAssetPage = () => {
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Total Service Hrs
+                          Hrs at Installation (TSN/TSO)
                         </label>
                         <input
                           type="number"
@@ -3297,7 +3297,7 @@ export const AddAssetPage = () => {
                               <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
                                 <div className="space-y-1">
                                   <label className="text-xs text-gray-400">
-                                    Total Service Hrs
+                                    Hrs at Installation (TSN/TSO)
                                   </label>
                                   <input
                                     type="number"
@@ -4091,7 +4091,7 @@ export const AddAssetPage = () => {
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-6 gap-4">
                       <div className="space-y-1">
                         <label className="text-xs text-gray-400">
-                          Total Service Hrs
+                          Hrs at Installation (TSN/TSO)
                         </label>
                         <input
                           type="number"

@@ -61,9 +61,19 @@ export type Deployment = {
   to_unit: PersonnelBasicEntity | null;
 };
 
+export type LinkedUser = {
+  id: number;
+  firstname: string | null;
+  lastname: string | null;
+  username: string | null;
+  email: string | null;
+};
+
 export type Personnel = {
   id: number;
   user_id: number | null;
+  /** The login account linked to this record (personnel.user_id), on the details endpoint. */
+  user?: LinkedUser | null;
   rank_id: number;
   unit_id: number;
   branch_id: number;
@@ -179,7 +189,7 @@ export type UploadImageResponse = {
 export const personnelApi = createApi({
   reducerPath: "personnelApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Personnel"],
+  tagTypes: ["Personnel", "MyPersonnel"],
   endpoints: (builder) => ({
     getPersonnel: builder.query<Personnel[], PersonnelFilters>({
       query: (filters) => ({
@@ -226,6 +236,28 @@ export const personnelApi = createApi({
         { type: "Personnel", id },
         { type: "Personnel", id: "LIST" },
       ],
+    }),
+    /** Admin: link (or unlink with null) the login account for a personnel record. */
+    linkPersonnelUser: builder.mutation<Personnel, { id: number; user_id: number | null }>({
+      query: ({ id, user_id }) => ({ url: `/personnel/${id}/user`, method: "PUT", data: { user_id } }),
+      invalidatesTags: (_result, _error, { id }) => [{ type: "Personnel", id }, { type: "Personnel", id: "LIST" }, "MyPersonnel"],
+    }),
+    /** Self-service: the logged-in user's own linked record. */
+    getMyPersonnel: builder.query<MyPersonnelResponse, void>({
+      query: () => ({ url: "/auth/me/personnel", method: "GET" }),
+      providesTags: ["MyPersonnel"],
+    }),
+    updateMyPersonnel: builder.mutation<MyPersonnelResponse, Partial<Record<MyPersonnelField, string | null>>>({
+      query: (data) => ({ url: "/auth/me/personnel", method: "PUT", data }),
+      invalidatesTags: ["MyPersonnel", { type: "Personnel", id: "LIST" }],
+    }),
+    uploadMyPersonnelImage: builder.mutation<MyPersonnelResponse, File>({
+      query: (file) => {
+        const data = new FormData();
+        data.append("image", file);
+        return { url: "/auth/me/personnel/image", method: "POST", data };
+      },
+      invalidatesTags: ["MyPersonnel"],
     }),
     getPersonnelById: builder.query<Personnel, string | number>({
       query: (id) => ({
@@ -283,7 +315,26 @@ export const personnelApi = createApi({
   }),
 });
 
+/** Fields a user may edit on their own record (MyPersonnelController::EDITABLE_FIELDS). */
+export type MyPersonnelField = "othernames" | "dob" | "email" | "phone_number" | "address" | "blood_group" | "qualifications";
+
+export type MyPersonnelResponse = {
+  personnel: Personnel & {
+    rank?: { id: number; name: string } | null;
+    unit?: { id: number; name: string } | null;
+    branch?: { id: number; name: string } | null;
+    corp?: { id: number; name: string } | null;
+    specialty?: { id: number; name: string } | null;
+    qualifications?: string | null;
+  };
+  editable_fields: string[];
+};
+
 export const {
+  useLinkPersonnelUserMutation,
+  useGetMyPersonnelQuery,
+  useUpdateMyPersonnelMutation,
+  useUploadMyPersonnelImageMutation,
   useGetPersonnelQuery,
   useGetPersonnelByIdQuery,
   useGetPersonnelRanksQuery,

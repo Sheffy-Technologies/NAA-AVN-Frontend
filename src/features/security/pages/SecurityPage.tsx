@@ -1264,6 +1264,8 @@ export const SecurityPage = () => {
                       setRoleForm((current) => ({ ...current, permissions: selected as string[] }))
                     }
                     disabled={isPermissionsLoading}
+                    searchable
+                    searchPlaceholder="Search permissions..."
                   />
 
                   <button
@@ -1355,6 +1357,8 @@ export const SecurityPage = () => {
                     selectedValues={selectedRolePermissions}
                     onChange={(selected) => setSelectedRolePermissions(selected as string[])}
                     disabled={!selectedRole || isPermissionsLoading}
+                    searchable
+                    searchPlaceholder="Search permissions..."
                   />
 
                   <button
