@@ -1,3 +1,5 @@
+import type { GeneratorMaintenance } from "./api";
+
 export const GENERATOR_STATUS_LABEL: Record<string, string> = {
   operational: "Operational",
   under_maintenance: "Under maintenance",
@@ -32,4 +34,28 @@ export const previewHours = (timeOn: string, timeOff: string): number | null => 
 export const apiError = (error: unknown, fallback = "Something went wrong.") => {
   const data = (error as { data?: { message?: string; errors?: Record<string, string[]> } })?.data;
   return (data?.errors && Object.values(data.errors)[0]?.[0]) || data?.message || fallback;
+};
+
+export const MAINTENANCE_TYPE_LABEL: Record<string, string> = {
+  routine_service: "Routine service",
+  oil_change: "Oil change",
+  filter_change: "Filter change",
+  repair: "Repair",
+  overhaul: "Overhaul",
+  inspection: "Inspection",
+  other: "Other",
+};
+
+/** Headline for the service countdown (GeneratorUsageService::maintenance()). */
+export const serviceCountdown = (m?: GeneratorMaintenance | null): { text: string; tone: "sky" | "amber" | "red" | "emerald"; badge: string; label: string } => {
+  if (!m || m.status === "not_set" || m.hours_remaining === null) {
+    return { text: "No interval set", tone: "sky", badge: "general", label: "Not set" };
+  }
+  if (m.status === "overdue") {
+    return { text: `Overdue by ${num(Math.abs(m.hours_remaining))} hrs`, tone: "red", badge: "overdue", label: "Service overdue" };
+  }
+  if (m.status === "due_soon") {
+    return { text: `${num(m.hours_remaining)} hrs left`, tone: "amber", badge: "medium", label: "Service due soon" };
+  }
+  return { text: `${num(m.hours_remaining)} hrs left`, tone: "emerald", badge: "on_track", label: "OK" };
 };

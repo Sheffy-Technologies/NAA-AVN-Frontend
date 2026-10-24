@@ -33,11 +33,12 @@ const FIELDS: Array<keyof GeneratorPayload> = [
   "location",
   "opening_hours",
   "service_interval_hours",
+  "hours_at_last_service",
   "status",
   "image",
   "notes",
 ];
-const NUMERIC = new Set(["capacity_kva", "fuel_tank_capacity_litres", "purchase_cost", "opening_hours", "service_interval_hours", "unit_id"]);
+const NUMERIC = new Set(["capacity_kva", "fuel_tank_capacity_litres", "purchase_cost", "opening_hours", "service_interval_hours", "hours_at_last_service", "unit_id"]);
 
 const toValues = (g: Generator | null): Values =>
   Object.fromEntries(
@@ -179,6 +180,18 @@ export const GeneratorFormModal = ({ generator, onClose, onSaved }: { generator:
               <span className="block mt-1 opacity-60">Cumulative hours count on from this.</span>
             </label>
             {input("service_interval_hours", "Service interval (hrs)", { type: "number", min: 0, step: "1" })}
+            <label className="block">
+              <span className="block text-xs font-semibold mb-1">Hour-meter at last service</span>
+              <input
+                type="number"
+                min={0}
+                step="0.1"
+                value={values.hours_at_last_service}
+                onChange={(e) => set("hours_at_last_service", e.target.value)}
+                className={fieldClass}
+              />
+              <span className="block mt-1 opacity-60">Where the service countdown starts until maintenance is logged. Blank: the opening reading.</span>
+            </label>
           </div>
           <label className="block">
             <span className="block text-xs font-semibold mb-1">Notes</span>

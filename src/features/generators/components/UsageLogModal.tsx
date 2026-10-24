@@ -48,9 +48,9 @@ export const UsageLogModal = ({ generator, log, onClose }: { generator: Generato
           usage_date: log.usage_date.slice(0, 10),
           time_on: log.time_on,
           time_off: log.time_off,
-          fuel_opening_litres: String(log.fuel_opening_litres),
+          fuel_opening_litres: log.fuel_opening_litres === null ? "" : String(log.fuel_opening_litres),
           fuel_received_litres: log.fuel_received_litres ? String(log.fuel_received_litres) : "",
-          fuel_closing_litres: String(log.fuel_closing_litres),
+          fuel_closing_litres: log.fuel_closing_litres === null ? "" : String(log.fuel_closing_litres),
           operator_personnel_id: log.operator_personnel_id ? String(log.operator_personnel_id) : "",
           operator_name: log.operator_personnel_id ? "" : log.operator_name,
           remarks: log.remarks ?? "",
@@ -59,7 +59,8 @@ export const UsageLogModal = ({ generator, log, onClose }: { generator: Generato
           usage_date: today(),
           time_on: "",
           time_off: "",
-          fuel_opening_litres: String(generator.summary.next_entry_defaults.fuel_opening_litres ?? 0),
+          fuel_opening_litres:
+            generator.summary.next_entry_defaults.fuel_opening_litres === null ? "" : String(generator.summary.next_entry_defaults.fuel_opening_litres),
           fuel_received_litres: "",
           fuel_closing_litres: "",
           operator_personnel_id: "",
@@ -71,16 +72,18 @@ export const UsageLogModal = ({ generator, log, onClose }: { generator: Generato
 
   // Live preview of what the server will calculate.
   const hours = previewHours(values.time_on, values.time_off);
-  const opening = Number(values.fuel_opening_litres || 0);
+  // Opening and closing are optional: with several runs a day the operator
+  // may only know the day's closing balance, recorded from the daily fuel table.
+  const opening = values.fuel_opening_litres === "" ? null : Number(values.fuel_opening_litres);
   const received = Number(values.fuel_received_litres || 0);
-  const available = opening + received;
+  const available = opening === null ? null : opening + received;
   const closing = values.fuel_closing_litres === "" ? null : Number(values.fuel_closing_litres);
-  const consumed = closing === null ? null : available - closing;
-  const closingTooHigh = closing !== null && closing > available;
+  const consumed = closing === null || available === null ? null : available - closing;
+  const closingTooHigh = closing !== null && available !== null && closing > available;
   const crossesMidnight = hours !== null && values.time_off < values.time_on;
-  const tankOverflow = generator.fuel_tank_capacity_litres ? available > generator.fuel_tank_capacity_litres : false;
+  const tankOverflow = generator.fuel_tank_capacity_litres && available !== null ? available > generator.fuel_tank_capacity_litres : false;
   const previousClosing = generator.summary.next_entry_defaults.fuel_opening_litres;
-  const openingDiffers = !log && generator.summary.total_runs > 0 && opening !== previousClosing;
+  const openingDiffers = !log && previousClosing !== null && opening !== null && opening !== previousClosing;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +103,7 @@ export const UsageLogModal = ({ generator, log, onClose }: { generator: Generato
       time_off: values.time_off,
       fuel_opening_litres: opening,
       fuel_received_litres: values.fuel_received_litres === "" ? null : received,
-      fuel_closing_litres: Number(values.fuel_closing_litres),
+      fuel_closing_litres: closing,
       operator_personnel_id: values.operator_personnel_id ? Number(values.operator_personnel_id) : null,
       operator_name: values.operator_personnel_id ? null : values.operator_name.trim(),
       signature,
@@ -167,10 +170,8 @@ export const UsageLogModal = ({ generator, log, onClose }: { generator: Generato
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <label className="block">
-              <span className="block font-semibold mb-1">
-                Opening balance (L) <span className="text-red-500">*</span>
-              </span>
-              <input type="number" required min={0} step="0.1" value={values.fuel_opening_litres} onChange={(e) => set("fuel_opening_litres", e.target.value)} className={fieldClass} />
+              <span className="block font-semibold mb-1">Opening balance (L)</span>
+              <input type="number" min={0} step="0.1" placeholder="If known" value={values.fuel_opening_litres} onChange={(e) => set("fuel_opening_litres", e.target.value)} className={fieldClass} />
               {openingDiffers && <span className="block mt-1 text-amber-600 dark:text-amber-300">Last closing balance was {num(previousClosing)} L.</span>}
             </label>
             <label className="block">
@@ -178,19 +179,21 @@ export const UsageLogModal = ({ generator, log, onClose }: { generator: Generato
               <input type="number" min={0} step="0.1" placeholder="0" value={values.fuel_received_litres} onChange={(e) => set("fuel_received_litres", e.target.value)} className={fieldClass} />
             </label>
             <label className="block">
-              <span className="block font-semibold mb-1">
-                Closing balance (L) <span className="text-red-500">*</span>
-              </span>
-              <input type="number" required min={0} step="0.1" value={values.fuel_closing_litres} onChange={(e) => set("fuel_closing_litres", e.target.value)} className={fieldClass} />
+              <span className="block font-semibold mb-1">Closing balance after this run (L)</span>
+              <input type="number" min={0} step="0.1" placeholder="If known" value={values.fuel_closing_litres} onChange={(e) => set("fuel_closing_litres", e.target.value)} className={fieldClass} />
             </label>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {stat("Hours worked", hours === null ? "–" : `${num(hours, 2)} h${crossesMidnight ? " ↻" : ""}`)}
-            {stat("Total available", `${num(available)} L`, tankOverflow)}
+            {stat("Total available", available === null ? "–" : `${num(available)} L`, tankOverflow)}
             {stat("Fuel used", consumed === null ? "–" : `${num(consumed)} L`, closingTooHigh)}
             {stat("Litres / hour", hours && consumed !== null && consumed >= 0 ? num(consumed / hours, 2) : "–")}
           </div>
+          <p className="opacity-70">
+            Don't know this run's balances? Leave them blank and record the day's closing balance from the Daily fuel table once the generator is off for
+            the day.
+          </p>
           {crossesMidnight && <p className="opacity-70">↻ Time off is earlier than time on, so the run is counted as continuing past midnight.</p>}
           {closingTooHigh && <p className="text-red-500">Closing balance can't be more than the total available.</p>}
           {tankOverflow && <p className="text-amber-600 dark:text-amber-300">Total available is more than the tank capacity ({num(generator.fuel_tank_capacity_litres)} L). Check the figures.</p>}

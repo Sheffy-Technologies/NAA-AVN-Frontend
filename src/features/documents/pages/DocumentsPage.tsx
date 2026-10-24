@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { BackButton } from "@/shared/ui/button/BackButton";
@@ -17,6 +17,7 @@ import {
 } from "@/features/documents/api";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import { useAppDispatch } from "@/app/store";
+import { MemosTab } from "@/features/memos/components/MemosTab";
 import { showToast } from "@/shared/store/toastSlice";
 
 type DocumentsViewMode = "table" | "grid";
@@ -459,12 +460,14 @@ const CreateDocumentModal = ({ onClose }: CreateDocumentModalProps) => {
 export const DocumentsPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = searchParams.get("tab") === "memos" ? "memos" : "documents";
   const [viewMode, setViewMode] = useState<DocumentsViewMode>("table");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [classFilter, setClassFilter] = useState<"" | "classified" | "open">("");
 
-  const { data: documentsData, isLoading, isError, refetch } = useGetDocumentsQuery();
+  const { data: documentsData, isLoading, isError, refetch } = useGetDocumentsQuery(undefined, { skip: tab !== "documents" });
 
   const documents = useMemo(() => {
     let list = documentsData ?? [];
@@ -489,6 +492,31 @@ export const DocumentsPage = () => {
           <BackButton fallbackUrl="/dashboard" />
         </div>
       )}
+      <div className="flex items-center gap-6 border-b border-[#0A4D66]/40">
+        {([
+          { key: "documents", label: "Documents", icon: "mdi:file-document-multiple-outline" },
+          { key: "memos", label: "Memos", icon: "mdi:email-newsletter" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setSearchParams(t.key === "memos" ? { tab: "memos" } : {}, { replace: true })}
+            className={cn(
+              "relative inline-flex items-center gap-1.5 pb-2.5 text-xs font-semibold uppercase tracking-wide transition-colors",
+              tab === t.key ? "text-[#7FD5FF]" : "text-gray-400 hover:text-gray-200",
+            )}
+          >
+            <Icon icon={t.icon} className="w-4 h-4" />
+            {t.label}
+            {tab === t.key && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#0369A1]" />}
+          </button>
+        ))}
+      </div>
+      {tab === "memos" ? (
+        <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-90">
+          <MemosTab />
+        </section>
+      ) : (
       <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden min-h-90">
         {/* Header bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40">
@@ -764,6 +792,7 @@ export const DocumentsPage = () => {
           )}
         </div>
       </section>
+      )}
 
       {isCreateModalOpen && (
         <CreateDocumentModal

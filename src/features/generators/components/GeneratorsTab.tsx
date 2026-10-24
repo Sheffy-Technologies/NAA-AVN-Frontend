@@ -7,7 +7,7 @@ import { downloadCsvFile } from "@/shared/utils/csv";
 import { PrimaryButton, SecondaryButton, SqPanel, SqStatus, SqTable, StatTile } from "@/features/safety/components/sqUi";
 import { useFieldClass, useSqPermissions } from "@/features/safety/components/sqHelpers";
 import { useGetGeneratorsQuery, type Generator } from "../api";
-import { GENERATOR_STATUS_LABEL, GENERATOR_STATUS_TONE, fmtDate, num } from "../generatorHelpers";
+import { GENERATOR_STATUS_LABEL, GENERATOR_STATUS_TONE, fmtDate, num, serviceCountdown } from "../generatorHelpers";
 import { GeneratorFormModal } from "./GeneratorFormModal";
 
 /** "Generators" tab of the Assets page. */
@@ -26,7 +26,7 @@ export const GeneratorsTab = () => {
 
   const exportCsv = () =>
     downloadCsvFile(`generators-${new Date().toISOString().slice(0, 10)}.csv`, [
-      ["Name", "Manufacturer", "Model", "Serial", "Capacity (kVA)", "Fuel", "Unit", "Location", "Date purchased", "Cumulative hours", "Fuel balance (L)", "Last run", "Status"],
+      ["Name", "Manufacturer", "Model", "Serial", "Capacity (kVA)", "Fuel", "Unit", "Location", "Date purchased", "Cumulative hours", "Fuel balance (L)", "Last run", "Next service", "Status"],
       ...generators.map((g) => [
         g.name,
         g.manufacturer ?? "",
@@ -40,6 +40,7 @@ export const GeneratorsTab = () => {
         String(g.cumulative_hours ?? g.opening_hours),
         g.fuel_balance_litres != null ? String(g.fuel_balance_litres) : "",
         g.last_run_date ?? "",
+        serviceCountdown(g.maintenance).text,
         GENERATOR_STATUS_LABEL[g.status],
       ]),
     ]);
@@ -131,6 +132,20 @@ export const GeneratorsTab = () => {
               { key: "hours", label: "Cumulative hrs", render: (g) => num(g.cumulative_hours ?? g.opening_hours) },
               { key: "fuel", label: "Fuel balance", render: (g) => (g.fuel_balance_litres != null ? `${num(g.fuel_balance_litres)} L` : "–") },
               { key: "last", label: "Last run", render: (g) => fmtDate(g.last_run_date) },
+              {
+                key: "service",
+                label: "Next service",
+                render: (g) => {
+                  const service = serviceCountdown(g.maintenance);
+                  return g.maintenance?.status === "not_set" ? (
+                    <span className="opacity-60">–</span>
+                  ) : (
+                    <span className={cn("whitespace-nowrap font-semibold", service.tone === "red" && "text-red-500", service.tone === "amber" && "text-amber-600 dark:text-amber-300")}>
+                      {service.text}
+                    </span>
+                  );
+                },
+              },
               { key: "status", label: "Status", align: "right", render: (g) => <SqStatus value={GENERATOR_STATUS_TONE[g.status]} label={GENERATOR_STATUS_LABEL[g.status]} /> },
             ]}
           />
@@ -159,6 +174,12 @@ export const GeneratorsTab = () => {
                     <span>{num(g.cumulative_hours ?? g.opening_hours)} hrs</span>
                     <span>{g.fuel_balance_litres != null ? `${num(g.fuel_balance_litres)} L fuel` : "No runs yet"}</span>
                   </div>
+                  {g.maintenance && g.maintenance.status !== "not_set" && (
+                    <div className={cn("flex items-center gap-1", g.maintenance.status === "overdue" ? "text-red-500" : g.maintenance.status === "due_soon" ? "text-amber-600 dark:text-amber-300" : "opacity-70")}>
+                      <Icon icon="mdi:wrench-clock" className="w-3.5 h-3.5" />
+                      Service: {serviceCountdown(g.maintenance).text}
+                    </div>
+                  )}
                 </div>
               </button>
             ))}

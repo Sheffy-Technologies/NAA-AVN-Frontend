@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
+import { personName } from "@/features/inventory/procurementDocuments";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
@@ -161,12 +162,18 @@ export const InventoryRequisitionDetailsPage = () => {
         ? `User #${detail.user_id}`
         : "-";
     const status = normalizeStatus(detail?.status);
+    const approvedByName = personName(detail?.approved_by) || null;
+    const approvedAt = detail?.approved_at
+      ? new Date(detail.approved_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+      : null;
 
     return {
       requestingLocation,
       requestingUnitDescription,
       requestedByName,
       lastUpdatedBy,
+      approvedByName,
+      approvedAt,
       status,
     };
   }, [detail]);
@@ -434,6 +441,12 @@ export const InventoryRequisitionDetailsPage = () => {
               <span>Origin: {header.requestingLocation}</span>
               <span>•</span>
               <span>Requested by {header.requestedByName}</span>
+              {header.approvedByName && (
+                <>
+                  <span>•</span>
+                  <span>Approved by {header.approvedByName}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -529,6 +542,12 @@ export const InventoryRequisitionDetailsPage = () => {
           <div className="mt-2 text-base font-bold text-slate-900 dark:text-white truncate">
             {header.requestedByName}
           </div>
+          {header.approvedByName && (
+            <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 truncate">
+              Approved by {header.approvedByName}
+              {header.approvedAt && ` · ${header.approvedAt}`}
+            </p>
+          )}
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
             Updated by {header.lastUpdatedBy}
           </p>

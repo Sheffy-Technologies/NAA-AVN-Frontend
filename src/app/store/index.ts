@@ -23,6 +23,7 @@ import { stockIssuesApi } from "@/features/stock-issues/api";
 import { generatorsApi } from "@/features/generators/api";
 import { accommodationApi } from "@/features/accommodation/api";
 import { documentsApi } from "@/features/documents/api";
+import { memosApi } from "@/features/memos/api";
 import { reportsApi } from "@/features/reports/api";
 import { messagesApi } from "@/features/messages/api";
 import messageComposeReducer from "@/features/messages/composeSlice";
@@ -78,6 +79,7 @@ export const store = configureStore({
     [generatorsApi.reducerPath]: generatorsApi.reducer,
     [accommodationApi.reducerPath]: accommodationApi.reducer,
     [documentsApi.reducerPath]: documentsApi.reducer,
+    [memosApi.reducerPath]: memosApi.reducer,
     [messagesApi.reducerPath]: messagesApi.reducer,
     [callsApi.reducerPath]: callsApi.reducer,
     [reportsApi.reducerPath]: reportsApi.reducer,
@@ -105,6 +107,7 @@ export const store = configureStore({
       generatorsApi.middleware,
       accommodationApi.middleware,
       documentsApi.middleware,
+      memosApi.middleware,
       messagesApi.middleware,
       callsApi.middleware,
       reportsApi.middleware,

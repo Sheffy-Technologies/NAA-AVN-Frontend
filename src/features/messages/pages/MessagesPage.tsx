@@ -92,6 +92,8 @@ const getAttachablePath = (
       return `/dashboard/inventory/${id}`;
     case "document":
       return `/dashboard/documents/${id}`;
+    case "memo":
+      return `/dashboard/documents/memos/${id}`;
     default:
       return null;
   }

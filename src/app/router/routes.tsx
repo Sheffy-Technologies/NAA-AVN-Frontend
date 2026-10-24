@@ -136,6 +136,16 @@ const DocumentsPage = lazy(() =>
     default: module.DocumentsPage,
   })),
 );
+const MemoFormPage = lazy(() =>
+  import("@/features/memos/pages/MemoFormPage").then((module) => ({
+    default: module.MemoFormPage,
+  })),
+);
+const MemoDetailsPage = lazy(() =>
+  import("@/features/memos/pages/MemoDetailsPage").then((module) => ({
+    default: module.MemoDetailsPage,
+  })),
+);
 const DocumentCorrespondencePage = lazy(() =>
   import("@/features/documents/pages/DocumentCorrespondencePage").then((module) => ({
     default: module.DocumentCorrespondencePage,
@@ -822,6 +832,30 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <DocumentsPage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "documents/memos/new",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MemoFormPage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "documents/memos/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MemoDetailsPage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "documents/memos/:id/edit",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MemoFormPage />
           </Suspense>
         ), DOCUMENTS_ROUTE_PERMISSIONS),
       },
