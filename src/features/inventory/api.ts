@@ -530,6 +530,15 @@ export type CreateGoodsReceivedNotePayload = {
 
 export type ShipmentStatus = "picked_up" | "customs_clearance" | "in_transit" | "delivered";
 
+export type ShipmentPurpose =
+  | "procurement"
+  | "repair_overhaul"
+  | "inter_base_transfer"
+  | "aog_emergency"
+  | "exchange_loan"
+  | "direct_consignment"
+  | "return_to_vendor";
+
 export type ShipmentCheckpoint = {
   id: number;
   shipment_id: number;
@@ -546,7 +555,15 @@ export type ShipmentCheckpoint = {
 
 export type Shipment = {
   id: number;
-  purchase_order_id: number;
+  purchase_order_id?: number | null;
+  purpose?: ShipmentPurpose;
+  title?: string | null;
+  supplier_id?: number | null;
+  vendor_name?: string | null;
+  origin_unit_id?: number | null;
+  destination_unit_id?: number | null;
+  asset_id?: number | null;
+  reference_numbers?: string | null;
   tracking_number: string;
   carrier_code?: string | null;
   carrier_name?: string | null;
@@ -569,11 +586,23 @@ export type Shipment = {
   updated_at?: string;
   checkpoints?: ShipmentCheckpoint[];
   purchase_order?: PurchaseOrder;
+  supplier?: InventorySupplier;
+  origin_unit?: { id: number; name: string };
+  destination_unit?: { id: number; name: string };
+  asset?: { id: number; name: string; tail_number?: string };
   created_by?: { id: number; name: string; email?: string } | null;
 };
 
 export type CreateShipmentPayload = {
-  purchase_order_id: number;
+  purchase_order_id?: number | null;
+  purpose?: ShipmentPurpose;
+  title?: string;
+  supplier_id?: number | null;
+  vendor_name?: string;
+  origin_unit_id?: number | null;
+  destination_unit_id?: number | null;
+  asset_id?: number | null;
+  reference_numbers?: string;
   tracking_number: string;
   carrier_code?: string;
   carrier_name?: string;
@@ -896,7 +925,7 @@ export const inventoryApi = createApi({
     }),
     getShipments: builder.query<
       Shipment[],
-      { purchase_order_id?: number | string; status?: string; search?: string } | void
+      { purchase_order_id?: number | string; purpose?: string; status?: string; search?: string } | void
     >({
       query: (params) => ({
         url: "/shipments",

@@ -325,6 +325,32 @@ export const OperationForm = ({
     return [...personnel, ...extras] as typeof personnel;
   }, [personnel, quickAddedPersonnel]);
 
+  const selectedUnit = useMemo(() => {
+    return units.find((u) => String(u.id) === formData.unit_id) ?? null;
+  }, [units, formData.unit_id]);
+
+  const handleUnitChange = (unitIdStr: string) => {
+    const unitMatch = units.find((u) => String(u.id) === unitIdStr);
+    setFormData((prev) => {
+      const next = { ...prev, unit_id: unitIdStr };
+      if (
+        unitMatch &&
+        unitMatch.latitude != null &&
+        unitMatch.longitude != null &&
+        (!prev.departure_latitude || !prev.departure_longitude)
+      ) {
+        const latStr = Number(unitMatch.latitude).toFixed(6);
+        const lngStr = Number(unitMatch.longitude).toFixed(6);
+        next.departure_latitude = latStr;
+        next.departure_longitude = lngStr;
+        next.departure_mgrs = latLonToMgrs(latStr, lngStr);
+        next.departure_dms_lat = decimalToDms(Number(latStr), true);
+        next.departure_dms_lng = decimalToDms(Number(lngStr), false);
+      }
+      return next;
+    });
+  };
+
   // Synchronized Coordinate Updates
   const setTargetFromLatLon = (
     target: CoordinateTarget,
@@ -485,15 +511,20 @@ export const OperationForm = ({
           dms_lng: dmsLng,
         },
       ]);
+
+      // If destination is not yet selected, naturally advance to arrival/destination next
+      if (!formData.arrival_latitude || !formData.arrival_longitude) {
+        setActiveMapTarget("arrival");
+      }
       return;
     }
 
     setTargetFromLatLon(target, latStr, lngStr);
 
+    // If departure was just selected, naturally advance to arrival/destination next
     if (
       target === "departure" &&
-      !formData.arrival_latitude &&
-      !formData.arrival_longitude
+      (!formData.arrival_latitude || !formData.arrival_longitude)
     ) {
       setActiveMapTarget("arrival");
     }
@@ -1018,9 +1049,7 @@ export const OperationForm = ({
                 <div className="relative">
                   <select
                     value={formData.unit_id}
-                    onChange={(e) =>
-                      setFormData({ ...formData, unit_id: e.target.value })
-                    }
+                    onChange={(e) => handleUnitChange(e.target.value)}
                     title="Unit"
                     className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded p-3 text-sm text-white focus:outline-none focus:border-[#7FD5FF] appearance-none"
                     required
@@ -1197,9 +1226,9 @@ export const OperationForm = ({
                 <button
                   type="button"
                   onClick={() => setActiveMapTarget("departure")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
                     activeMapTarget === "departure"
-                      ? "bg-[#0369A1] text-white"
+                      ? "bg-emerald-600 text-white shadow-[0_0_8px_rgba(16,185,129,0.5)] ring-1 ring-white/20"
                       : "bg-[#001825] text-gray-300 hover:bg-[#0A4D66]/40"
                   }`}
                 >
@@ -1208,9 +1237,9 @@ export const OperationForm = ({
                 <button
                   type="button"
                   onClick={() => setActiveMapTarget("waypoint")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
                     activeMapTarget === "waypoint"
-                      ? "bg-[#F59E0B] text-white"
+                      ? "bg-amber-600 text-white shadow-[0_0_8px_rgba(245,158,11,0.5)] ring-1 ring-white/20"
                       : "bg-[#001825] text-gray-300 hover:bg-[#0A4D66]/40"
                   }`}
                 >
@@ -1219,9 +1248,9 @@ export const OperationForm = ({
                 <button
                   type="button"
                   onClick={() => setActiveMapTarget("arrival")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                  className={`rounded-md px-3 py-1.5 text-xs font-bold transition-all ${
                     activeMapTarget === "arrival"
-                      ? "bg-[#0369A1] text-white"
+                      ? "bg-red-600 text-white shadow-[0_0_8px_rgba(239,68,68,0.5)] ring-1 ring-white/20"
                       : "bg-[#001825] text-gray-300 hover:bg-[#0A4D66]/40"
                   }`}
                 >
@@ -1240,6 +1269,7 @@ export const OperationForm = ({
             {/* Interactive Leaflet Map */}
             <OperationLocationPicker
               activeTarget={activeMapTarget}
+              onTargetChange={setActiveMapTarget}
               departure={{
                 latitude: formData.departure_latitude,
                 longitude: formData.departure_longitude,
@@ -1272,21 +1302,38 @@ export const OperationForm = ({
                     Mode: {coordinateInputMode.toUpperCase()}
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedUnit && selectedUnit.latitude != null && selectedUnit.longitude != null && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const latStr = Number(selectedUnit.latitude).toFixed(6);
+                        const lngStr = Number(selectedUnit.longitude).toFixed(6);
+                        setTargetFromLatLon("departure", latStr, lngStr);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-amber-500/70 bg-transparent hover:bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-300 hover:text-white hover:border-amber-400 transition-all cursor-pointer shadow-sm"
+                      title={`Set Departure to ${selectedUnit.name} Base Coordinates`}
+                    >
+                      <Icon icon="mdi:map-marker-radius" className="w-4 h-4 text-amber-400" />
+                      <span>{selectedUnit.name} Base (Take-off)</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setAeroModalTarget("departure")}
-                    className="inline-flex items-center gap-1.5 rounded bg-[#0A4D66]/60 border border-[#0A4D66] px-2.5 py-1 text-xs font-semibold text-[#7FD5FF] hover:bg-[#0369A1] hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[#0284C7] bg-transparent hover:bg-[#0284C7]/15 px-3 py-1.5 text-xs font-medium text-[#38BDF8] hover:text-white hover:border-[#38BDF8] transition-all cursor-pointer shadow-sm"
+                    title="Select Departure Aerodrome from Database"
                   >
-                    <Icon icon="mdi:airplane-takeoff" className="w-3.5 h-3.5" />
+                    <Icon icon="mdi:airplane-takeoff" className="w-4 h-4 text-[#38BDF8]" />
                     <span>DEP Database Fix</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setAeroModalTarget("arrival")}
-                    className="inline-flex items-center gap-1.5 rounded bg-[#0A4D66]/60 border border-[#0A4D66] px-2.5 py-1 text-xs font-semibold text-emerald-400 hover:bg-[#0369A1] hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-emerald-500/70 bg-transparent hover:bg-emerald-500/15 px-3 py-1.5 text-xs font-medium text-emerald-400 hover:text-white hover:border-emerald-400 transition-all cursor-pointer shadow-sm"
+                    title="Select Arrival Aerodrome from Database"
                   >
-                    <Icon icon="mdi:airplane-landing" className="w-3.5 h-3.5" />
+                    <Icon icon="mdi:airplane-landing" className="w-4 h-4 text-emerald-400" />
                     <span>ARR Database Fix</span>
                   </button>
                 </div>

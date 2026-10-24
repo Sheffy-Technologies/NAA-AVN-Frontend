@@ -310,6 +310,119 @@ const getHoursTrackingMetrics = (value: {
   };
 };
 
+export type ComponentDueLevel =
+  | "optimal"
+  | "caution"
+  | "due_soon"
+  | "overdue"
+  | "on_condition";
+
+export interface ComponentDueStatus {
+  dueLevel: ComponentDueLevel;
+  label: string;
+  percentUsed: number | null;
+  hoursRemaining: number | null;
+  currentHours: number;
+  lifeLimit: number | null;
+  barColor: string;
+  badgeClass: string;
+  dotColor: string;
+  icon: string;
+}
+
+const getComponentDueStatus = (component: Component): ComponentDueStatus => {
+  const currentHours = getCurrentServiceHours(component) ?? 0;
+  const lifeLimit = toNumeric(component.service_life_limit_hours);
+  const strategy = (component.maintenance_strategy || "hard-time").toLowerCase();
+
+  const hasLimit =
+    lifeLimit !== null && lifeLimit > 0 && strategy !== "on-condition";
+
+  if (!hasLimit) {
+    return {
+      dueLevel: "on_condition",
+      label: strategy === "on-condition" ? "On Condition" : "No Hard Limit",
+      percentUsed: null,
+      hoursRemaining: null,
+      currentHours,
+      lifeLimit: null,
+      barColor: "bg-slate-400 dark:bg-slate-500",
+      badgeClass:
+        "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700",
+      dotColor: "bg-slate-400",
+      icon: "mdi:shield-check-outline",
+    };
+  }
+
+  const hoursRemaining = lifeLimit - currentHours;
+  const percentUsed = Math.min(100, Math.max(0, (currentHours / lifeLimit) * 100));
+
+  if (hoursRemaining <= 0 || currentHours >= lifeLimit) {
+    return {
+      dueLevel: "overdue",
+      label:
+        hoursRemaining < 0
+          ? `Overdue (${formatNumber(Math.abs(Math.round(hoursRemaining)))} hrs)`
+          : "Limit Reached",
+      percentUsed: 100,
+      hoursRemaining,
+      currentHours,
+      lifeLimit,
+      barColor: "bg-gradient-to-r from-red-500 to-rose-600",
+      badgeClass:
+        "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800 font-semibold shadow-xs",
+      dotColor: "bg-rose-500 animate-pulse",
+      icon: "mdi:alert-octagon-outline",
+    };
+  }
+
+  if (percentUsed >= 85 || hoursRemaining <= 50) {
+    return {
+      dueLevel: "due_soon",
+      label: `Due Soon (${formatNumber(Math.round(hoursRemaining))} hrs left)`,
+      percentUsed,
+      hoursRemaining,
+      currentHours,
+      lifeLimit,
+      barColor: "bg-gradient-to-r from-amber-400 to-amber-500",
+      badgeClass:
+        "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800 font-semibold shadow-xs",
+      dotColor: "bg-amber-500",
+      icon: "mdi:clock-alert-outline",
+    };
+  }
+
+  if (percentUsed >= 70) {
+    return {
+      dueLevel: "caution",
+      label: `Caution (${formatNumber(Math.round(hoursRemaining))} hrs left)`,
+      percentUsed,
+      hoursRemaining,
+      currentHours,
+      lifeLimit,
+      barColor: "bg-gradient-to-r from-sky-400 to-sky-500",
+      badgeClass:
+        "bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800 shadow-xs",
+      dotColor: "bg-sky-500",
+      icon: "mdi:information-outline",
+    };
+  }
+
+  return {
+    dueLevel: "optimal",
+    label: `Optimal (${formatNumber(Math.round(hoursRemaining))} hrs left)`,
+    percentUsed,
+    hoursRemaining,
+    currentHours,
+    lifeLimit,
+    barColor: "bg-gradient-to-r from-emerald-400 to-emerald-500",
+    badgeClass:
+      "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800 shadow-xs",
+    dotColor: "bg-emerald-500",
+    icon: "mdi:check-circle-outline",
+  };
+};
+
 const cloneEngine = (engine: Engine): Engine => ({
   ...engine,
   position_id: Number(engine.position_id) || 1,
@@ -676,7 +789,7 @@ export const AssetDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const authToken = useAppSelector((state) => state.auth.token);
-  const { data: asset, isLoading, refetch: refetchAsset } = useGetAssetByIdQuery(id || "");
+  const { data: asset, isLoading, refetch: refetchAsset } = useGetAssetByIdQuery(id || "", { skip: !id });
   const { data: units = [] } = useGetUnitsQuery();
   const { data: assetTypes = [] } = useGetAssetTypesQuery();
   const { data: enginePositions = [] } = useGetEnginePositionsQuery();
@@ -758,6 +871,34 @@ export const AssetDetailsPage = () => {
   const [activeEngineIndex, setActiveEngineIndex] = useState(0);
   const [engineComponentsDraft, setEngineComponentsDraft] = useState<Component[][]>([]);
   const [engineComponentExtras, setEngineComponentExtras] = useState<TrackingExtras[][]>([]);
+
+  // State for space-saving Component Tracking view
+  const [componentSearch, setComponentSearch] = useState("");
+  const [componentDueFilter, setComponentDueFilter] = useState<
+    "all" | "optimal" | "caution" | "due_soon" | "overdue" | "on_condition"
+  >("all");
+  const [expandedComponentKeys, setExpandedComponentKeys] = useState<Set<string>>(new Set());
+  const [componentViewMode, setComponentViewMode] = useState<"list" | "grid">("list");
+
+  const toggleExpandComponent = (key: string) => {
+    setExpandedComponentKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleExpandAllComponents = () => {
+    if (expandedComponentKeys.size > 0) {
+      setExpandedComponentKeys(new Set());
+    } else {
+      const allKeys = componentsDraft.map((c, i) =>
+        String(c.id ?? `${c.part_number}-${i}`),
+      );
+      setExpandedComponentKeys(new Set(allKeys));
+    }
+  };
 
   const isAtaApplicableTo = (
     chapter: {
@@ -2402,14 +2543,50 @@ export const AssetDetailsPage = () => {
             </div>
           </div>
         )}
-
         {activeTab === "components" && (
           <div className="space-y-6">
             <div className="bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
-              <div className="mb-6 flex items-center justify-between gap-3">
-                <h3 className="text-[#7FD5FF] text-sm font-bold uppercase">
-                  Components
-                </h3>
+              <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-[#7FD5FF] text-sm font-bold uppercase tracking-wide">
+                    Components
+                  </h3>
+                  <span className="rounded-full bg-slate-200 dark:bg-[#0A4D66]/50 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:text-[#7FD5FF]">
+                    {componentsDraft.length}
+                  </span>
+                  {!isEditingComponents && componentsDraft.length > 0 && (
+                    <div className="hidden sm:flex items-center rounded-lg border border-slate-300 dark:border-[#0A4D66]/50 p-0.5 bg-slate-100 dark:bg-[#001825]">
+                      <button
+                        type="button"
+                        onClick={() => setComponentViewMode("list")}
+                        className={cn(
+                          "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                          componentViewMode === "list"
+                            ? "bg-white dark:bg-[#0A4D66] text-slate-900 dark:text-[#7FD5FF] shadow-xs"
+                            : "text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white",
+                        )}
+                        title="Compact List View"
+                      >
+                        <Icon icon="mdi:format-list-bulleted" className="w-3.5 h-3.5" />
+                        <span>List</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setComponentViewMode("grid")}
+                        className={cn(
+                          "flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
+                          componentViewMode === "grid"
+                            ? "bg-white dark:bg-[#0A4D66] text-slate-900 dark:text-[#7FD5FF] shadow-xs"
+                            : "text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white",
+                        )}
+                        title="Cards View"
+                      >
+                        <Icon icon="mdi:view-grid-outline" className="w-3.5 h-3.5" />
+                        <span>Cards</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-2">
                   {isEditingComponents ? (
                     <>
@@ -2462,11 +2639,244 @@ export const AssetDetailsPage = () => {
                         className="rounded border border-[#7FD5FF]/50 px-3 py-1.5 text-xs text-[#7FD5FF] hover:bg-[#0A4D66]/20 transition-colors"
                       >
                         Edit Components
-                    </button>
+                      </button>
                     </>
                   )}
                 </div>
               </div>
+
+              {!isEditingComponents && componentsDraft.length > 0 && (() => {
+                const componentStats = {
+                  total: componentsDraft.length,
+                  optimal: componentsDraft.filter(
+                    (c) => getComponentDueStatus(c).dueLevel === "optimal",
+                  ).length,
+                  caution: componentsDraft.filter(
+                    (c) => getComponentDueStatus(c).dueLevel === "caution",
+                  ).length,
+                  due_soon: componentsDraft.filter(
+                    (c) => getComponentDueStatus(c).dueLevel === "due_soon",
+                  ).length,
+                  overdue: componentsDraft.filter(
+                    (c) => getComponentDueStatus(c).dueLevel === "overdue",
+                  ).length,
+                  on_condition: componentsDraft.filter(
+                    (c) => getComponentDueStatus(c).dueLevel === "on_condition",
+                  ).length,
+                };
+
+                return (
+                  <div className="mb-5 space-y-3">
+                    {/* Health Status Summary Strip */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setComponentDueFilter("all")}
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border p-2 text-left transition-all",
+                          componentDueFilter === "all"
+                            ? "border-[#0284C7] bg-[#0284C7]/10 ring-1 ring-[#0284C7]"
+                            : "border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001825] hover:border-slate-300 dark:hover:border-[#0A4D66]",
+                        )}
+                      >
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase text-slate-500 dark:text-gray-400">
+                            All Items
+                          </div>
+                          <div className="text-base font-bold text-slate-900 dark:text-white">
+                            {componentStats.total}
+                          </div>
+                        </div>
+                        <Icon icon="mdi:layers-outline" className="w-4 h-4 text-slate-400" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setComponentDueFilter(
+                            componentDueFilter === "optimal" ? "all" : "optimal",
+                          )
+                        }
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border p-2 text-left transition-all",
+                          componentDueFilter === "optimal"
+                            ? "border-emerald-500 bg-emerald-500/10 ring-1 ring-emerald-500"
+                            : "border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001825] hover:border-emerald-500/50",
+                        )}
+                      >
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase text-emerald-600 dark:text-emerald-400">
+                            Optimal (&lt;70%)
+                          </div>
+                          <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                            {componentStats.optimal}
+                          </div>
+                        </div>
+                        <Icon icon="mdi:check-circle-outline" className="w-4 h-4 text-emerald-500" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setComponentDueFilter(
+                            componentDueFilter === "caution" ? "all" : "caution",
+                          )
+                        }
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border p-2 text-left transition-all",
+                          componentDueFilter === "caution"
+                            ? "border-sky-500 bg-sky-500/10 ring-1 ring-sky-500"
+                            : "border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001825] hover:border-sky-500/50",
+                        )}
+                      >
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase text-sky-600 dark:text-sky-400">
+                            Caution (70-85%)
+                          </div>
+                          <div className="text-base font-bold text-sky-600 dark:text-sky-400">
+                            {componentStats.caution}
+                          </div>
+                        </div>
+                        <Icon icon="mdi:information-outline" className="w-4 h-4 text-sky-500" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setComponentDueFilter(
+                            componentDueFilter === "due_soon" ? "all" : "due_soon",
+                          )
+                        }
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border p-2 text-left transition-all",
+                          componentDueFilter === "due_soon"
+                            ? "border-amber-500 bg-amber-500/10 ring-1 ring-amber-500"
+                            : "border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001825] hover:border-amber-500/50",
+                        )}
+                      >
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase text-amber-600 dark:text-amber-400">
+                            Due Soon (&gt;85%)
+                          </div>
+                          <div className="text-base font-bold text-amber-600 dark:text-amber-400">
+                            {componentStats.due_soon}
+                          </div>
+                        </div>
+                        <Icon icon="mdi:clock-alert-outline" className="w-4 h-4 text-amber-500" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setComponentDueFilter(
+                            componentDueFilter === "overdue" ? "all" : "overdue",
+                          )
+                        }
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border p-2 text-left transition-all",
+                          componentDueFilter === "overdue"
+                            ? "border-rose-500 bg-rose-500/10 ring-1 ring-rose-500"
+                            : "border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001825] hover:border-rose-500/50",
+                        )}
+                      >
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase text-rose-600 dark:text-rose-400">
+                            Overdue (Limit)
+                          </div>
+                          <div className="text-base font-bold text-rose-600 dark:text-rose-400">
+                            {componentStats.overdue}
+                          </div>
+                        </div>
+                        <Icon icon="mdi:alert-octagon-outline" className="w-4 h-4 text-rose-500" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setComponentDueFilter(
+                            componentDueFilter === "on_condition" ? "all" : "on_condition",
+                          )
+                        }
+                        className={cn(
+                          "flex items-center justify-between rounded-lg border p-2 text-left transition-all",
+                          componentDueFilter === "on_condition"
+                            ? "border-slate-400 bg-slate-400/10 ring-1 ring-slate-400"
+                            : "border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001825] hover:border-slate-400",
+                        )}
+                      >
+                        <div>
+                          <div className="text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400">
+                            On-Condition
+                          </div>
+                          <div className="text-base font-bold text-slate-600 dark:text-slate-300">
+                            {componentStats.on_condition}
+                          </div>
+                        </div>
+                        <Icon icon="mdi:shield-check-outline" className="w-4 h-4 text-slate-400" />
+                      </button>
+                    </div>
+
+                    {/* Search and Expand All controls */}
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="relative flex-1 min-w-[240px] max-w-md">
+                        <Icon
+                          icon="mdi:magnify"
+                          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Search by part #, serial #, ATA, or name..."
+                          value={componentSearch}
+                          onChange={(e) => setComponentSearch(e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 dark:border-[#0A4D66]/50 bg-white dark:bg-[#001825] pl-9 pr-8 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+                        />
+                        {componentSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setComponentSearch("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            title="Clear search"
+                          >
+                            <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {componentDueFilter !== "all" && (
+                          <button
+                            type="button"
+                            onClick={() => setComponentDueFilter("all")}
+                            className="inline-flex items-center gap-1 rounded px-2.5 py-1 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white"
+                          >
+                            <Icon icon="mdi:close-circle" className="w-3.5 h-3.5" />
+                            Clear status filter
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={toggleExpandAllComponents}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-[#0A4D66]/50 bg-white dark:bg-[#001825] px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-[#0A4D66]/20 transition-colors shadow-xs"
+                        >
+                          <Icon
+                            icon={
+                              expandedComponentKeys.size > 0
+                                ? "mdi:collapse-all-outline"
+                                : "mdi:expand-all-outline"
+                            }
+                            className="w-3.5 h-3.5"
+                          />
+                          <span>
+                            {expandedComponentKeys.size > 0
+                              ? "Collapse Details"
+                              : "Expand All Details"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               {componentsDraft.length === 0 ? (
                 <EmptyState message="No components found." />
               ) : isEditingComponents ? (
@@ -2937,79 +3347,618 @@ export const AssetDetailsPage = () => {
                   })}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  {componentsDraft.map((component, index) => (
-                    <div
-                      key={component.id ?? `${component.part_number}-${index}`}
-                      className="rounded-xl border border-[#0A4D66]/30 bg-[#001825] p-5"
-                    >
-                      <div className="mb-4 flex items-center justify-between">
-                        <div className="text-sm font-bold text-[#7FD5FF] uppercase">
-                          {componentTypeMap.get(
-                            component.component_type_id ?? 0,
-                          ) ?? `Component ${index + 1}`}
+                (() => {
+                  const filteredComponents = componentsDraft
+                    .map((comp, originalIndex) => ({ comp, originalIndex }))
+                    .filter(({ comp }) => {
+                      const typeName = (
+                        componentTypeMap.get(comp.component_type_id ?? 0) ?? ""
+                      ).toLowerCase();
+                      const ataChapter = (
+                        ataChapterMap.get(comp.ata_chapter_id ?? 0) ?? ""
+                      ).toLowerCase();
+                      const partNumber = (comp.part_number || "").toLowerCase();
+                      const serialNumber = (comp.serial_number || "").toLowerCase();
+                      const searchNeedle = componentSearch.trim().toLowerCase();
+
+                      const matchesSearch =
+                        !searchNeedle ||
+                        typeName.includes(searchNeedle) ||
+                        ataChapter.includes(searchNeedle) ||
+                        partNumber.includes(searchNeedle) ||
+                        serialNumber.includes(searchNeedle);
+
+                      if (!matchesSearch) return false;
+
+                      if (componentDueFilter === "all") return true;
+                      const dueInfo = getComponentDueStatus(comp);
+                      return dueInfo.dueLevel === componentDueFilter;
+                    });
+
+                  if (filteredComponents.length === 0) {
+                    return (
+                      <div className="rounded-xl border border-dashed border-slate-300 dark:border-[#0A4D66]/40 p-8 text-center bg-slate-50 dark:bg-[#001825]/50">
+                        <Icon
+                          icon="mdi:filter-remove-outline"
+                          className="w-8 h-8 mx-auto text-slate-400 mb-2"
+                        />
+                        <div className="text-sm font-semibold text-slate-800 dark:text-gray-200">
+                          No components match your search or filter
                         </div>
-                        <div className="text-xs text-gray-400">
-                          Installed {formatDate(component.installed_at)}
-                        </div>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                          Try resetting the due level filter or clearing the search text.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setComponentSearch("");
+                            setComponentDueFilter("all");
+                          }}
+                          className="mt-3 inline-flex items-center gap-1 rounded bg-[#0284C7] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0284C7]/90"
+                        >
+                          <Icon icon="mdi:refresh" className="w-3.5 h-3.5" />
+                          Reset Filters
+                        </button>
                       </div>
-                      <div className="space-y-3">
-                        <DetailRow
-                          label="Part Number"
-                          value={component.part_number || "-"}
-                        />
-                        <DetailRow
-                          label="Serial Number"
-                          value={component.serial_number || "-"}
-                        />
-                        <DetailRow
-                          label="Baseline Hours"
-                          value={formatHours(component.time_since_new)}
-                        />
-                        <DetailRow
-                          label="Operation Flight Hours"
-                          value={formatHours(getOperationFlightHours(component))}
-                        />
-                        <DetailRow
-                          label="Current Service Hours"
-                          value={formatHours(getCurrentServiceHours(component))}
-                        />
-                        <DetailRow
-                          label="Service Life Limit"
-                          value={formatHours(
-                            component.service_life_limit_hours,
-                          )}
-                        />
-                        <DetailRow
-                          label="ATA Chapter"
-                          value={
-                            ataChapterMap.get(component.ata_chapter_id ?? 0) ??
-                            "-"
-                          }
-                        />
-                        <DetailRow
-                          label="Inspection Interval"
-                          value={formatInspectionInterval(
-                            component.inspection_interval,
-                            component.inspection_interval_unit,
-                          )}
-                        />
-                        <DetailRow
-                          label="Inspection Interval Unit"
-                          value={formatStatus(component.inspection_interval_unit)}
-                        />
-                        <DetailRow
-                          label="Maintenance Strategy"
-                          value={formatStatus(component.maintenance_strategy)}
-                        />
-                        <DetailRow
-                          label="Removed At"
-                          value={formatDate(component.removed_at)}
-                        />
+                    );
+                  }
+
+                  if (componentViewMode === "list") {
+                    return (
+                      <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-[#0A4D66]/40 shadow-xs">
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-slate-100 dark:bg-[#001825] text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-gray-300 border-b border-slate-200 dark:border-[#0A4D66]/40">
+                            <tr>
+                              <th className="py-3 px-4">Component & Identifiers</th>
+                              <th className="py-3 px-4">Maintenance Strategy</th>
+                              <th className="py-3 px-4">Hours (Current / Limit)</th>
+                              <th className="py-3 px-4 min-w-[240px]">Life Tracking Bar</th>
+                              <th className="py-3 px-4">Due Status</th>
+                              <th className="py-3 px-4 text-right">Details</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 dark:divide-[#0A4D66]/20 bg-white dark:bg-[#001219]">
+                            {filteredComponents.map(({ comp, originalIndex }) => {
+                              const componentKey = String(
+                                comp.id ?? `${comp.part_number}-${originalIndex}`,
+                              );
+                              const isExpanded = expandedComponentKeys.has(componentKey);
+                              const dueInfo = getComponentDueStatus(comp);
+                              const typeName =
+                                componentTypeMap.get(comp.component_type_id ?? 0) ??
+                                `Component ${originalIndex + 1}`;
+                              const ataChapter = ataChapterMap.get(comp.ata_chapter_id ?? 0);
+
+                              return (
+                                <tr
+                                  key={componentKey}
+                                  className={cn(
+                                    "transition-colors",
+                                    originalIndex % 2 === 0
+                                      ? "bg-white dark:bg-[#001219]"
+                                      : "bg-slate-50/60 dark:bg-[#001825]/50",
+                                    isExpanded && "bg-slate-100/70 dark:bg-[#0A4D66]/15",
+                                  )}
+                                >
+                                  {/* Col 1: Identity */}
+                                  <td className="py-3 px-4 align-top">
+                                    <div className="flex items-start gap-2.5">
+                                      <div
+                                        className={cn(
+                                          "mt-0.5 p-1.5 rounded-lg flex items-center justify-center shrink-0",
+                                          dueInfo.dueLevel === "overdue"
+                                            ? "bg-rose-500/10 text-rose-500"
+                                            : dueInfo.dueLevel === "due_soon"
+                                              ? "bg-amber-500/10 text-amber-500"
+                                              : dueInfo.dueLevel === "caution"
+                                                ? "bg-sky-500/10 text-sky-500"
+                                                : dueInfo.dueLevel === "optimal"
+                                                  ? "bg-emerald-500/10 text-emerald-500"
+                                                  : "bg-slate-500/10 text-slate-400",
+                                        )}
+                                      >
+                                        <Icon icon="mdi:cog-outline" className="w-4 h-4" />
+                                      </div>
+                                      <div>
+                                        <div className="font-bold text-slate-900 dark:text-white uppercase flex items-center gap-1.5 flex-wrap">
+                                          <span>{typeName}</span>
+                                          {ataChapter && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-[#0A4D66]/50 text-slate-700 dark:text-[#7FD5FF]">
+                                              {ataChapter}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5 flex flex-wrap gap-x-2">
+                                          <span>
+                                            P/N:{" "}
+                                            <strong className="font-mono text-slate-700 dark:text-gray-200">
+                                              {comp.part_number || "-"}
+                                            </strong>
+                                          </span>
+                                          <span>•</span>
+                                          <span>
+                                            S/N:{" "}
+                                            <strong className="font-mono text-slate-700 dark:text-gray-200">
+                                              {comp.serial_number || "-"}
+                                            </strong>
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Col 2: Strategy */}
+                                  <td className="py-3 px-4 align-top">
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium capitalize",
+                                        comp.maintenance_strategy === "on-condition"
+                                          ? "bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800"
+                                          : "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800",
+                                      )}
+                                    >
+                                      <Icon
+                                        icon={
+                                          comp.maintenance_strategy === "on-condition"
+                                            ? "mdi:tune-vertical"
+                                            : "mdi:timer-sand"
+                                        }
+                                        className="w-3 h-3"
+                                      />
+                                      {formatStatus(comp.maintenance_strategy || "hard-time")}
+                                    </span>
+                                    {comp.installed_at && (
+                                      <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-1">
+                                        Installed {formatDate(comp.installed_at)}
+                                      </div>
+                                    )}
+                                  </td>
+
+                                  {/* Col 3: Hours */}
+                                  <td className="py-3 px-4 align-top">
+                                    <div className="font-bold text-slate-900 dark:text-white">
+                                      {formatHours(dueInfo.currentHours)}
+                                      {dueInfo.lifeLimit ? (
+                                        <span className="text-xs font-normal text-slate-500 dark:text-gray-400">
+                                          {" "}
+                                          / {formatHours(dueInfo.lifeLimit)}
+                                        </span>
+                                      ) : (
+                                        <span className="text-xs font-normal text-slate-500 dark:text-gray-400">
+                                          {" "}
+                                          (No limit)
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">
+                                      Baseline: {formatHours(comp.time_since_new)} • Ops:{" "}
+                                      {formatHours(getOperationFlightHours(comp))}
+                                    </div>
+                                  </td>
+
+                                  {/* Col 4: Tracking Bar & Percentage */}
+                                  <td className="py-3 px-4 align-top">
+                                    <div className="space-y-1.5 w-full max-w-[260px]">
+                                      <div className="flex items-center justify-between text-xs">
+                                        <span className="font-bold text-slate-900 dark:text-white">
+                                          {dueInfo.percentUsed != null
+                                            ? `${dueInfo.percentUsed.toFixed(1)}%`
+                                            : "N/A"}
+                                          <span className="font-normal text-[10px] text-slate-500 dark:text-gray-400 ml-1">
+                                            used
+                                          </span>
+                                        </span>
+                                        <span
+                                          className={cn(
+                                            "text-[11px] font-semibold",
+                                            dueInfo.dueLevel === "overdue"
+                                              ? "text-rose-600 dark:text-rose-400 font-bold"
+                                              : dueInfo.dueLevel === "due_soon"
+                                                ? "text-amber-600 dark:text-amber-400"
+                                                : "text-slate-600 dark:text-gray-300",
+                                          )}
+                                        >
+                                          {dueInfo.hoursRemaining != null
+                                            ? dueInfo.hoursRemaining <= 0
+                                              ? `${formatNumber(Math.abs(dueInfo.hoursRemaining))} hrs overdue`
+                                              : `${formatNumber(dueInfo.hoursRemaining)} hrs left`
+                                            : "On Condition"}
+                                        </span>
+                                      </div>
+                                      <div className="h-2.5 w-full bg-slate-200 dark:bg-slate-700/60 rounded-full overflow-hidden shadow-inner">
+                                        {dueInfo.percentUsed != null ? (
+                                          <div
+                                            className={cn(
+                                              "h-full rounded-full transition-all duration-300",
+                                              dueInfo.barColor,
+                                            )}
+                                            style={{
+                                              width: `${Math.min(100, Math.max(0, dueInfo.percentUsed))}%`,
+                                            }}
+                                          />
+                                        ) : (
+                                          <div className="h-full bg-slate-400/50 rounded-full w-full" />
+                                        )}
+                                      </div>
+                                      <div className="flex justify-between text-[10px] text-slate-500 dark:text-gray-400">
+                                        <span>0 hrs</span>
+                                        <span>
+                                          {dueInfo.lifeLimit
+                                            ? formatHours(dueInfo.lifeLimit)
+                                            : "No limit"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Col 5: Due Status */}
+                                  <td className="py-3 px-4 align-top">
+                                    <span
+                                      className={cn(
+                                        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap",
+                                        dueInfo.badgeClass,
+                                      )}
+                                    >
+                                      <span
+                                        className={cn(
+                                          "w-2 h-2 rounded-full shrink-0",
+                                          dueInfo.dotColor,
+                                        )}
+                                      />
+                                      <Icon icon={dueInfo.icon} className="w-3.5 h-3.5" />
+                                      <span>{dueInfo.label}</span>
+                                    </span>
+                                  </td>
+
+                                  {/* Col 6: Expand button */}
+                                  <td className="py-3 px-4 align-top text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandComponent(componentKey)}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-slate-300 dark:border-[#0A4D66]/50 text-xs font-medium text-slate-700 dark:text-[#7FD5FF] hover:bg-slate-100 dark:hover:bg-[#0A4D66]/20 transition-colors shadow-xs"
+                                      title={isExpanded ? "Hide details" : "Show all details"}
+                                    >
+                                      <span>{isExpanded ? "Hide" : "Details"}</span>
+                                      <Icon
+                                        icon="mdi:chevron-down"
+                                        className={cn(
+                                          "w-3.5 h-3.5 transition-transform duration-200",
+                                          isExpanded && "rotate-180",
+                                        )}
+                                      />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+
+                        {/* Collapsible details row panel rendered right below each expanded row */}
+                        {filteredComponents.map(({ comp, originalIndex }) => {
+                          const componentKey = String(
+                            comp.id ?? `${comp.part_number}-${originalIndex}`,
+                          );
+                          const isExpanded = expandedComponentKeys.has(componentKey);
+                          if (!isExpanded) return null;
+
+                          const dueInfo = getComponentDueStatus(comp);
+                          const typeName =
+                            componentTypeMap.get(comp.component_type_id ?? 0) ??
+                            `Component ${originalIndex + 1}`;
+
+                          return (
+                            <div
+                              key={`details-${componentKey}`}
+                              className="border-t border-slate-200 dark:border-[#0A4D66]/30 bg-slate-50/90 dark:bg-[#001420]/95 p-4"
+                            >
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-[#7FD5FF] flex items-center gap-2">
+                                  <Icon icon="mdi:card-text-outline" className="w-4 h-4" />
+                                  <span>{typeName} — Full Tracking Specifications</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandComponent(componentKey)}
+                                  className="text-xs text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white"
+                                >
+                                  Close
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-xs">
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Part Number
+                                  </div>
+                                  <div className="font-mono font-bold text-slate-900 dark:text-white mt-0.5">
+                                    {comp.part_number || "-"}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Serial Number
+                                  </div>
+                                  <div className="font-mono font-bold text-slate-900 dark:text-white mt-0.5">
+                                    {comp.serial_number || "-"}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Baseline (TSN)
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatHours(comp.time_since_new)}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Flight Hours (Ops)
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatHours(getOperationFlightHours(comp))}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Current Service Hrs
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatHours(dueInfo.currentHours)}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Service Life Limit
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatHours(comp.service_life_limit_hours)}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    ATA Chapter
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {ataChapterMap.get(comp.ata_chapter_id ?? 0) ?? "-"}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Inspection Interval
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatInspectionInterval(
+                                      comp.inspection_interval,
+                                      comp.inspection_interval_unit,
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Interval Unit
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatStatus(comp.inspection_interval_unit)}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    A/F @ Installation
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {comp.asset_hours_at_installation != null &&
+                                    String(comp.asset_hours_at_installation).trim() !== ""
+                                      ? `${formatNumber(comp.asset_hours_at_installation)} hrs`
+                                      : "-"}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Service Action
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatStatus(comp.service_action) || "Not Set"}
+                                  </div>
+                                </div>
+                                <div className="bg-white dark:bg-[#001825] p-2.5 rounded-lg border border-slate-200 dark:border-[#0A4D66]/30">
+                                  <div className="text-[10px] uppercase font-semibold text-slate-500 dark:text-gray-400">
+                                    Removed Date
+                                  </div>
+                                  <div className="font-semibold text-slate-900 dark:text-white mt-0.5">
+                                    {formatDate(comp.removed_at)}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
+                    );
+                  }
+
+                  // Grid Mode (Compact Cards)
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {filteredComponents.map(({ comp, originalIndex }) => {
+                        const componentKey = String(
+                          comp.id ?? `${comp.part_number}-${originalIndex}`,
+                        );
+                        const isExpanded = expandedComponentKeys.has(componentKey);
+                        const dueInfo = getComponentDueStatus(comp);
+                        const typeName =
+                          componentTypeMap.get(comp.component_type_id ?? 0) ??
+                          `Component ${originalIndex + 1}`;
+                        const ataChapter = ataChapterMap.get(comp.ata_chapter_id ?? 0);
+
+                        return (
+                          <div
+                            key={componentKey}
+                            className="rounded-xl border border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001825] p-4 shadow-xs hover:border-[#0284C7]/50 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-3">
+                              <div>
+                                <div className="font-bold text-sm text-slate-900 dark:text-white uppercase flex items-center gap-1.5 flex-wrap">
+                                  <span>{typeName}</span>
+                                  {ataChapter && (
+                                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-200 dark:bg-[#0A4D66]/50 text-slate-700 dark:text-[#7FD5FF]">
+                                      {ataChapter}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-slate-500 dark:text-gray-400 mt-0.5 flex gap-2 font-mono">
+                                  <span>P/N: {comp.part_number || "-"}</span>
+                                  <span>•</span>
+                                  <span>S/N: {comp.serial_number || "-"}</span>
+                                </div>
+                              </div>
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap",
+                                  dueInfo.badgeClass,
+                                )}
+                              >
+                                <span
+                                  className={cn(
+                                    "w-1.5 h-1.5 rounded-full shrink-0",
+                                    dueInfo.dotColor,
+                                  )}
+                                />
+                                {dueInfo.label}
+                              </span>
+                            </div>
+
+                            {/* Hours breakdown */}
+                            <div className="mb-3 flex items-center justify-between text-xs bg-slate-50 dark:bg-[#001219]/60 p-2.5 rounded-lg border border-slate-100 dark:border-[#0A4D66]/20">
+                              <div>
+                                <span className="text-slate-500 dark:text-gray-400">Current: </span>
+                                <strong className="text-slate-900 dark:text-white">
+                                  {formatHours(dueInfo.currentHours)}
+                                </strong>
+                              </div>
+                              <div>
+                                <span className="text-slate-500 dark:text-gray-400">Limit: </span>
+                                <strong className="text-slate-900 dark:text-white">
+                                  {dueInfo.lifeLimit ? formatHours(dueInfo.lifeLimit) : "Open"}
+                                </strong>
+                              </div>
+                            </div>
+
+                            {/* Life Tracking Bar */}
+                            <div className="space-y-1.5 mb-3">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-bold text-slate-900 dark:text-white">
+                                  {dueInfo.percentUsed != null
+                                    ? `${dueInfo.percentUsed.toFixed(1)}%`
+                                    : "N/A"}{" "}
+                                  <span className="font-normal text-[10px] text-slate-500 dark:text-gray-400">
+                                    consumed
+                                  </span>
+                                </span>
+                                <span
+                                  className={cn(
+                                    "text-[11px] font-semibold",
+                                    dueInfo.dueLevel === "overdue"
+                                      ? "text-rose-600 dark:text-rose-400 font-bold"
+                                      : dueInfo.dueLevel === "due_soon"
+                                        ? "text-amber-600 dark:text-amber-400"
+                                        : "text-slate-600 dark:text-gray-300",
+                                  )}
+                                >
+                                  {dueInfo.hoursRemaining != null
+                                    ? dueInfo.hoursRemaining <= 0
+                                      ? `${formatNumber(Math.abs(dueInfo.hoursRemaining))} hrs overdue`
+                                      : `${formatNumber(dueInfo.hoursRemaining)} hrs remaining`
+                                    : "On-Condition"}
+                                </span>
+                              </div>
+                              <div className="h-2 w-full bg-slate-200 dark:bg-slate-700/60 rounded-full overflow-hidden shadow-inner">
+                                {dueInfo.percentUsed != null ? (
+                                  <div
+                                    className={cn(
+                                      "h-full rounded-full transition-all duration-300",
+                                      dueInfo.barColor,
+                                    )}
+                                    style={{
+                                      width: `${Math.min(100, Math.max(0, dueInfo.percentUsed))}%`,
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="h-full bg-slate-400/50 rounded-full w-full" />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Footer toggle */}
+                            <div className="pt-2 border-t border-slate-100 dark:border-[#0A4D66]/20 flex items-center justify-between text-xs">
+                              <span className="text-[11px] text-slate-500 dark:text-gray-400">
+                                Strategy: {formatStatus(comp.maintenance_strategy || "hard-time")}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandComponent(componentKey)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-700 dark:text-[#7FD5FF] hover:underline"
+                              >
+                                <span>{isExpanded ? "Hide specs" : "View specs"}</span>
+                                <Icon
+                                  icon="mdi:chevron-down"
+                                  className={cn(
+                                    "w-3 h-3 transition-transform",
+                                    isExpanded && "rotate-180",
+                                  )}
+                                />
+                              </button>
+                            </div>
+
+                            {/* Collapsed Specs in Card */}
+                            {isExpanded && (
+                              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-[#0A4D66]/20 space-y-2 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500 dark:text-gray-400">Baseline (TSN):</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">
+                                    {formatHours(comp.time_since_new)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500 dark:text-gray-400">Operation Flight Hrs:</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">
+                                    {formatHours(getOperationFlightHours(comp))}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500 dark:text-gray-400">Inspection Interval:</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">
+                                    {formatInspectionInterval(
+                                      comp.inspection_interval,
+                                      comp.inspection_interval_unit,
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500 dark:text-gray-400">Service Action:</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">
+                                    {formatStatus(comp.service_action) || "-"}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500 dark:text-gray-400">Installed Date:</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">
+                                    {formatDate(comp.installed_at)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500 dark:text-gray-400">Removed Date:</span>
+                                  <span className="font-medium text-slate-900 dark:text-white">
+                                    {formatDate(comp.removed_at)}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()
               )}
             </div>
           </div>

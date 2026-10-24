@@ -58,7 +58,7 @@ export const AfterActionReportForm = ({
   const [createReport, { isLoading }] = useCreateAfterActionReportMutation();
   const [updateOperation] = useUpdateOperationMutation();
   const [uploadImage] = useUploadAssetImageMutation();
-  const { data: fetchedOperation } = useGetOperationByIdQuery(operationId);
+  const { data: fetchedOperation } = useGetOperationByIdQuery(operationId, { skip: !operationId });
   const operation = initialOperation || fetchedOperation;
   const { data: inventories = [] } = useGetInventoriesQuery();
   const { data: assets = [] } = useGetAssetsQuery();

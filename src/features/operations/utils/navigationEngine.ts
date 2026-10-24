@@ -386,7 +386,7 @@ export const NIGERIA_AERONAUTICAL_DATABASE: AeronauticalPoint[] = [
 ];
 
 /**
- * Wind Triangle & Dead-Reckoning calculation (Garmin / Jeppesen E6B flight computer algorithm)
+ * Wind Triangle & Dead-Reckoning calculation (Tactical E6B flight computer algorithm)
  */
 export interface WindTriangleResult {
   windDirectionDeg: number;
@@ -509,7 +509,7 @@ export interface NavLogSummary {
 }
 
 /**
- * AirNav Pro Terrain Safety Grid: Estimate Minimum Safe Altitude (MSA) for Nigerian Sectors
+ * Tactical Terrain Safety Grid: Sector Minimum Safe Altitude (MSA) calculation for Nigerian Theater of Operations
  */
 export function estimateSectorMsa(lat: number, lng: number): number {
   // Northern Highlands / Jos Plateau region (high terrain up to 4500-5800ft)
@@ -535,7 +535,7 @@ export function estimateSectorMsa(lat: number, lng: number): number {
 /**
  * Build Full Flight NavLog with E6B Dead-Reckoning Legs
  */
-export function generateJeppesenNavLog(
+export function generateTacticalNavLog(
   points: RouteFix[],
   trueAirspeedKts: number,
   windDirectionDeg: number,
@@ -795,7 +795,7 @@ export function calculateTacticalCriticalPoints(
 }
 
 /**
- * ICAO Annex 6 & Jeppesen 6-Tier Fuel Hierarchy Model
+ * ICAO Annex 6 & Military Standard 6-Tier Fuel Hierarchy Model
  */
 export interface IcaoFuelHierarchy {
   taxiFuelL: number;

@@ -309,6 +309,12 @@ export type StrategicOperationWaypoint = StrategicOperationPoint & {
 
 export type StrategicOperationStatus = "planned" | "ongoing" | "completed" | "aborted";
 
+export type StrategicOperationAssetDetail = {
+  id: number;
+  name: string;
+  tail_number?: string | null;
+};
+
 export type StrategicOperation = {
   id: number;
   name: string;
@@ -316,14 +322,19 @@ export type StrategicOperation = {
   priority: string | null;
   is_flight: boolean;
   type: string | null;
+  category?: string | null;
   unit: string | null;
   unit_id: number | null;
+  description?: string | null;
   start_date_time: string | null;
   end_date_time: string | null;
+  duration_hours?: number | null;
+  duration_label?: string | null;
   departure: StrategicOperationPoint | null;
   arrival: StrategicOperationPoint | null;
   waypoints: StrategicOperationWaypoint[];
   assets: string[];
+  asset_details?: StrategicOperationAssetDetail[];
 };
 
 export type StrategicGroundedAircraft = {
@@ -334,6 +345,18 @@ export type StrategicGroundedAircraft = {
   reasons: string[];
 };
 
+export type StrategicDueItem = {
+  asset_id: number | null;
+  asset_name: string | null;
+  asset_tail_number: string | null;
+  name: string | null;
+  category?: string | null;
+  status: "overdue" | "due_soon";
+  hours_remaining: number | null;
+  days_remaining: number | null;
+  cycles_remaining: number | null;
+};
+
 export type StrategicFleet = {
   total_aircraft: number;
   airworthy: number;
@@ -342,6 +365,8 @@ export type StrategicFleet = {
   maintenance_due: {
     overdue: number;
     due_soon: number;
+    overdue_items?: StrategicDueItem[];
+    due_soon_items?: StrategicDueItem[];
   };
 };
 

@@ -64,6 +64,18 @@ export const SecurityPage = () => {
 
   const [activeTab, setActiveTab] = useState<SecurityTab>("activity");
   const [openDeviceActionId, setOpenDeviceActionId] = useState<number | null>(null);
+  const [deviceContextMenu, setDeviceContextMenu] = useState<{
+    x: number;
+    y: number;
+    device: {
+      id: number;
+      name: string;
+      code: string;
+      type: string;
+      status: string;
+      lastSeen: string;
+    };
+  } | null>(null);
   const [roleForm, setRoleForm] = useState({ name: "", permissions: [] as string[] });
   const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
   const [selectedRolePermissions, setSelectedRolePermissions] = useState<string[]>([]);
@@ -415,6 +427,25 @@ export const SecurityPage = () => {
       setSelectedUserRoles(selectedUserAssignment.roles || []);
     }
   }, [selectedUserAssignment]);
+
+  useEffect(() => {
+    const handleCloseMenu = () => setDeviceContextMenu(null);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDeviceContextMenu(null);
+    };
+    if (deviceContextMenu) {
+      window.addEventListener("click", handleCloseMenu);
+      window.addEventListener("contextmenu", handleCloseMenu);
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("scroll", handleCloseMenu, true);
+    }
+    return () => {
+      window.removeEventListener("click", handleCloseMenu);
+      window.removeEventListener("contextmenu", handleCloseMenu);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", handleCloseMenu, true);
+    };
+  }, [deviceContextMenu]);
 
   const handleDeviceAction = async (id: number, isActiveValue: 1 | 0) => {
     try {
@@ -975,6 +1006,20 @@ export const SecurityPage = () => {
                 Reset filters
               </button>
             </div>
+
+            {/* Quick-action helper banner */}
+            <div className="flex items-center justify-between border-b border-[#0A4D66]/20 bg-[#001420] px-6 py-2.5 text-xs text-[#7FD5FF]">
+              <div className="flex items-center gap-2">
+                <Icon icon="mdi:mouse-right-click" className="w-4 h-4 text-[#7FD5FF]" />
+                <span>
+                  <strong>Right-Click Action:</strong> Right-click on any device row to quickly <strong>Approve</strong> or <strong>Decline</strong>.
+                </span>
+              </div>
+              <span className="text-gray-400 font-mono text-[11px]">
+                Total Registered: <strong className="text-white">{filteredDeviceRows.length}</strong>
+              </span>
+            </div>
+
             <table className="min-w-275 w-full text-left">
               <thead>
                 <tr className="border-b border-[#0A4D66]/30 text-sm text-gray-400">
@@ -1005,7 +1050,16 @@ export const SecurityPage = () => {
                       key={row.id}
                       tabIndex={0}
                       role="button"
-                      title="Click to view device actions"
+                      title="Right-click row to Approve/Decline or click buttons"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const menuWidth = 240;
+                        const menuHeight = 200;
+                        const x = Math.min(e.clientX, window.innerWidth - menuWidth - 10);
+                        const y = Math.min(e.clientY, window.innerHeight - menuHeight - 10);
+                        setDeviceContextMenu({ x, y, device: row });
+                      }}
                       onClick={(e) =>
                         onInteractiveRowClick(e, () =>
                           setOpenDeviceActionId((current) => (current === row.id ? null : row.id)),
@@ -1017,43 +1071,105 @@ export const SecurityPage = () => {
                         )
                       }
                       className={cn(
-                        "border-b border-[#0A4D66]/20 text-white cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30",
+                        "border-b border-[#0A4D66]/20 text-white cursor-pointer hover:bg-[#0A4D66]/20 transition-colors focus:outline-none focus:bg-[#0A4D66]/30 select-none",
                         index % 2 === 0 ? "bg-[#001825]" : "bg-[#001825]",
                         openDeviceActionId === row.id && "bg-[#0A4D66]/25",
+                        deviceContextMenu?.device.id === row.id && "bg-[#0A4D66]/40 ring-1 ring-[#7FD5FF]/40",
                       )}
                     >
-                      <td className="px-6 py-4">{row.name}</td>
-                      <td className="px-6 py-4">{row.code}</td>
+                      <td className="px-6 py-4 font-semibold">{row.name}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-gray-300">{row.code}</td>
                       <td className="px-6 py-4">{row.type}</td>
-                      <td className="px-6 py-4 capitalize">{row.status}</td>
-                      <td className="px-6 py-4">{row.lastSeen}</td>
+                      <td className="px-6 py-4">
+                        {row.status === "active" ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            <span>Approved (Active)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            <span>Pending (Inactive)</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-400">{row.lastSeen}</td>
                       <td className="relative px-6 py-4 text-right">
-                        <button
-                          onClick={() =>
-                            setOpenDeviceActionId((current) => (current === row.id ? null : row.id))
-                          }
-                          className="text-gray-300 hover:text-white"
-                          aria-label="Device actions"
-                          title="Device actions"
-                        >
-                          <Icon icon="mdi:dots-horizontal" className="h-5 w-5" />
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {row.status !== "active" ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeviceAction(row.id, 1);
+                              }}
+                              disabled={isUpdatingDeviceStatus}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors disabled:opacity-50"
+                              title="Click to approve this device"
+                            >
+                              <Icon icon="mdi:check-bold" className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeviceAction(row.id, 0);
+                              }}
+                              disabled={isUpdatingDeviceStatus}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 transition-colors disabled:opacity-50"
+                              title="Click to decline or inactivate device"
+                            >
+                              <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                              <span>Decline</span>
+                            </button>
+                          )}
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDeviceActionId((current) => (current === row.id ? null : row.id));
+                            }}
+                            className="p-1 rounded-md text-gray-300 hover:text-white hover:bg-white/10"
+                            aria-label="Device actions"
+                            title="More actions"
+                          >
+                            <Icon icon="mdi:dots-horizontal" className="h-5 w-5" />
+                          </button>
+                        </div>
 
                         {openDeviceActionId === row.id ? (
-                          <div className="absolute right-6 top-12 z-50 w-32 overflow-hidden rounded-md border border-[#0A4D66]/50 bg-[#001825] shadow-xl">
+                          <div
+                            className="absolute right-6 top-12 z-50 w-36 overflow-hidden rounded-md border border-[#0A4D66]/60 bg-[#001825] shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               onClick={() => handleDeviceAction(row.id, 1)}
-                              className="w-full px-3 py-2 text-left text-xs text-emerald-300 hover:bg-[#0A4D66]/40 disabled:opacity-50"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-emerald-300 hover:bg-[#0A4D66]/40 disabled:opacity-50"
                               disabled={isUpdatingDeviceStatus}
                             >
-                              Approve
+                              <Icon icon="mdi:check-circle-outline" className="w-3.5 h-3.5" />
+                              <span>Approve</span>
                             </button>
                             <button
                               onClick={() => handleDeviceAction(row.id, 0)}
-                              className="w-full px-3 py-2 text-left text-xs text-red-300 hover:bg-[#0A4D66]/40 disabled:opacity-50"
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-red-300 hover:bg-[#0A4D66]/40 disabled:opacity-50"
                               disabled={isUpdatingDeviceStatus}
                             >
-                              Decline
+                              <Icon icon="mdi:close-circle-outline" className="w-3.5 h-3.5" />
+                              <span>Decline</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard?.writeText(row.code);
+                                dispatch(showToast({ message: "Device code copied", type: "success" }));
+                                setOpenDeviceActionId(null);
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-left text-xs text-gray-300 hover:bg-white/5 border-t border-[#0A4D66]/30"
+                            >
+                              <Icon icon="mdi:content-copy" className="w-3.5 h-3.5" />
+                              <span>Copy Code</span>
                             </button>
                           </div>
                         ) : null}
@@ -1063,6 +1179,76 @@ export const SecurityPage = () => {
                 )}
               </tbody>
             </table>
+
+            {/* Floating Right-Click Context Menu */}
+            {deviceContextMenu && (
+              <div
+                style={{ top: `${deviceContextMenu.y}px`, left: `${deviceContextMenu.x}px` }}
+                className="fixed z-[9999] w-64 rounded-xl border border-[#0A4D66] bg-[#001825] p-2 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="border-b border-[#0A4D66]/50 pb-2 px-2.5 pt-1">
+                  <div className="flex items-center gap-2 text-white font-bold text-xs">
+                    <Icon icon="mdi:cellphone-link" className="w-4 h-4 text-[#7FD5FF]" />
+                    <span className="truncate">{deviceContextMenu.device.name}</span>
+                  </div>
+                  <div className="text-[10px] font-mono text-gray-400 mt-0.5 truncate">
+                    Code: {deviceContextMenu.device.code}
+                  </div>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="text-[10px] text-gray-400">Status:</span>
+                    <span
+                      className={`text-[10px] font-bold uppercase ${
+                        deviceContextMenu.device.status === "active" ? "text-emerald-400" : "text-amber-400"
+                      }`}
+                    >
+                      {deviceContextMenu.device.status === "active" ? "Approved" : "Pending"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-1.5 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeviceAction(deviceContextMenu.device.id, 1);
+                      setDeviceContextMenu(null);
+                    }}
+                    disabled={isUpdatingDeviceStatus}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 transition-colors text-left disabled:opacity-50"
+                  >
+                    <Icon icon="mdi:check-circle" className="w-4 h-4 text-emerald-400" />
+                    <span>Approve Device</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleDeviceAction(deviceContextMenu.device.id, 0);
+                      setDeviceContextMenu(null);
+                    }}
+                    disabled={isUpdatingDeviceStatus}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors text-left disabled:opacity-50"
+                  >
+                    <Icon icon="mdi:close-circle" className="w-4 h-4 text-red-400" />
+                    <span>Decline / Deactivate</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(deviceContextMenu.device.code);
+                      dispatch(showToast({ message: "Device code copied to clipboard", type: "success" }));
+                      setDeviceContextMenu(null);
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-gray-300 hover:bg-white/10 hover:text-white transition-colors text-left border-t border-[#0A4D66]/30 mt-1 pt-1.5"
+                  >
+                    <Icon icon="mdi:content-copy" className="w-4 h-4 text-gray-400" />
+                    <span>Copy Device Code</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : activeTab === "user" ? (
           <div className="overflow-x-auto">

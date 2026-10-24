@@ -13,7 +13,8 @@ import {
   useGetInventoryRequisitionByIdQuery,
   useUpdateInventoryRequisitionMutation,
 } from "@/features/inventory/api";
-import { BackButton, Button } from "@/shared/ui/button";
+import { useTheme } from "@/context/ThemeContext";
+import { BackButton } from "@/shared/ui/button";
 
 type StatusLabel =
   | "Approved"
@@ -64,6 +65,7 @@ export const InventoryRequisitionDetailsPage = () => {
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const { isDark } = useTheme();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const {
@@ -362,225 +364,365 @@ export const InventoryRequisitionDetailsPage = () => {
 
   if (!id) {
     return (
-      <div className="p-6 text-center text-gray-400">Invalid request.</div>
-    );
-  }
-
-  if (isLoading) {
-    return <div className="p-6 text-center text-gray-400">Loading...</div>;
-  }
-
-  if (isError || !detail) {
-    return (
-      <div className="p-6 text-center text-gray-400">
-        Failed to load request details.
+      <div className={cn(
+        "border rounded-2xl p-8 text-center text-sm",
+        isDark ? "bg-[#001219]/70 border-[#0A4D66]/40 text-slate-400" : "bg-white border-slate-200 text-slate-500 shadow-sm"
+      )}>
+        Invalid requisition request identifier.
       </div>
     );
   }
 
-  return (
-    <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-        <div className="flex items-center gap-3">
+  if (isLoading) {
+    return (
+      <div className={cn(
+        "border rounded-2xl p-12 flex flex-col items-center justify-center gap-3",
+        isDark ? "bg-[#001219]/70 border-[#0A4D66]/40 text-slate-400" : "bg-white border-slate-200 text-slate-500 shadow-sm"
+      )}>
+        <Icon icon="mdi:loading" className="w-8 h-8 animate-spin text-sky-500" />
+        <span className="text-sm font-semibold">Loading parts requisition details...</span>
+      </div>
+    );
+  }
+
+  if (isError || !detail) {
+    return (
+      <div className={cn(
+        "border rounded-2xl p-8 text-center",
+        isDark ? "bg-red-500/10 border-red-500/30 text-red-300" : "bg-red-50 border-red-200 text-red-700 shadow-sm"
+      )}>
+        <Icon icon="mdi:alert-circle-outline" className="w-8 h-8 mx-auto mb-2 text-red-500" />
+        <p className="font-semibold text-sm">Failed to load request details.</p>
+        <div className="mt-4">
           <BackButton fallbackUrl="/dashboard/inventory" />
-          <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
-            REQUEST DETAILS
-          </h1>
         </div>
+      </div>
+    );
+  }
+
+  const shortfallCount = requisitionItems.filter((item) => item.requested.qty > item.available.qty).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Modern Executive Header */}
+      <div className={cn(
+        "p-5 rounded-2xl border flex flex-col lg:flex-row lg:items-center justify-between gap-4 transition-colors",
+        isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-sm" : "bg-white border-slate-200 shadow-sm"
+      )}>
+        <div className="flex items-center gap-4">
+          <BackButton fallbackUrl="/dashboard/inventory" />
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                Parts Requisition #{detail.id}
+              </h1>
+              <span className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border",
+                effectiveStatus === "Approved"
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                  : effectiveStatus === "Received"
+                    ? "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30"
+                    : effectiveStatus === "Rejected"
+                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+              )}>
+                <span className={cn("w-1.5 h-1.5 rounded-full", statusDotColor[effectiveStatus])} />
+                {effectiveStatus}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+              <span>Origin: {header.requestingLocation}</span>
+              <span>•</span>
+              <span>Requested by {header.requestedByName}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Action Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={handleDownloadPdf}
             disabled={isDownloadingPdf}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-xs transition-colors shadow-sm disabled:opacity-70"
+            className={cn(
+              "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all shadow-xs disabled:opacity-60",
+              isDark
+                ? "border-[#0A4D66]/60 bg-[#001825] text-slate-200 hover:bg-[#0A4D66]/40"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+            )}
           >
             <Icon
               icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
-              className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+              className={cn("w-4 h-4 text-sky-500", isDownloadingPdf && "animate-spin")}
             />
-            <span>{isDownloadingPdf ? "Downloading..." : "Download"}</span>
+            <span>{isDownloadingPdf ? "Generating..." : "Download PDF"}</span>
           </button>
           {effectiveStatus !== "Approved" && effectiveStatus !== "Received" && (
-            <Button
+            <button
               type="button"
-              variant="secondary"
-              size="sm"
               onClick={() => handleSaveAndExit("Approved")}
-              isLoading={isSaving}
-              className="border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300 font-semibold text-xs shadow-sm"
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 font-semibold text-xs transition-colors shadow-xs"
             >
-              <Icon icon="mdi:check-circle-outline" className="w-4 h-4 mr-1 text-emerald-400" />
+              <Icon icon="mdi:check-circle-outline" className="w-4 h-4 text-emerald-500" />
               <span>Approve Request</span>
-            </Button>
+            </button>
           )}
           {effectiveStatus !== "Received" && (
-            <Button
+            <button
               type="button"
-              variant="secondary"
-              size="sm"
               onClick={() => handleSaveAndExit("Received")}
-              isLoading={isSaving}
-              className="border-sky-500/40 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300 font-semibold text-xs shadow-sm"
+              disabled={isSaving}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 font-semibold text-xs transition-colors shadow-xs"
             >
-              <Icon icon="mdi:package-variant-closed-check" className="w-4 h-4 mr-1 text-sky-400" />
+              <Icon icon="mdi:package-variant-closed-check" className="w-4 h-4 text-sky-500" />
               <span>Mark Received</span>
-            </Button>
+            </button>
           )}
-          <Button
+          <button
             type="button"
-            variant="primary"
-            size="sm"
             onClick={() => handleSaveAndExit()}
-            isLoading={isSaving}
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold shadow-md shadow-sky-600/20 transition-all disabled:opacity-60"
           >
+            {isSaving && <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />}
             Save Changes
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Approval: only the approval workflow can approve a requisition while one is active. */}
-      {id && <ApprovalPanel module="inventory-requisitions" recordId={Number(id)} onChanged={refetch} className="mb-4 sm:mb-6" />}
+      {id && <ApprovalPanel module="inventory-requisitions" recordId={Number(id)} onChanged={refetch} />}
 
+      {/* Modern Executive KPI Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Requesting Unit */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/70 border-[#0A4D66]/40" : "bg-white border-slate-200 shadow-xs"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Requesting Unit</span>
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+              <Icon icon="mdi:map-marker-radius-outline" className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-base font-bold text-slate-900 dark:text-white truncate">
+            {header.requestingLocation}
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+            {header.requestingUnitDescription || "Designated forward operational station"}
+          </p>
+        </div>
+
+        {/* Card 2: Personnel */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/70 border-[#0A4D66]/40" : "bg-white border-slate-200 shadow-xs"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Requisition Personnel</span>
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-500">
+              <Icon icon="mdi:account-badge-outline" className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-base font-bold text-slate-900 dark:text-white truncate">
+            {header.requestedByName}
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+            Updated by {header.lastUpdatedBy}
+          </p>
+        </div>
+
+        {/* Card 3: Status Selector */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/70 border-[#0A4D66]/40" : "bg-white border-slate-200 shadow-xs"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Requisition State</span>
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+              <Icon icon="mdi:tag-outline" className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className={cn("w-2 h-2 rounded-full shrink-0", statusDotColor[effectiveStatus])} />
+            <select
+              title="Requisition Status"
+              aria-label="Requisition Status"
+              value={effectiveStatus}
+              onChange={(e) => setStatusSelection(e.target.value as StatusLabel)}
+              className={cn(
+                "rounded-lg px-2 py-1 text-xs font-bold uppercase transition-colors border focus:outline-none focus:ring-1 focus:ring-sky-500",
+                isDark ? "bg-[#001825] border-[#0A4D66]/60 text-white" : "bg-slate-50 border-slate-300 text-slate-900"
+              )}
+            >
+              <option value="Pending">Pending</option>
+              <option value="Under Review">Under Review</option>
+              <option value="Approved">Approved</option>
+              <option value="Received">Received</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Current stage in replenishment cycle
+          </p>
+        </div>
+
+        {/* Card 4: Inventory Assessment */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/70 border-[#0A4D66]/40" : "bg-white border-slate-200 shadow-xs"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-medium">Inventory Stock</span>
+            <div className={cn("p-2 rounded-xl", shortfallCount > 0 ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-500")}>
+              <Icon icon={shortfallCount > 0 ? "mdi:alert-octagon-outline" : "mdi:check-all"} className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-base font-bold text-slate-900 dark:text-white">
+            {requisitionItems.length} Line Items
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {shortfallCount > 0 ? `${shortfallCount} items require RFQ solicitation` : "All parts in stock and available"}
+          </p>
+        </div>
+      </div>
+
+      {/* Requisition Line Items Table */}
       <section
         ref={contentRef}
-        className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden"
+        className={cn(
+          "rounded-2xl border overflow-hidden transition-colors",
+          isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-sm" : "bg-white border-slate-200 shadow-sm"
+        )}
       >
-        <div className="px-4 sm:px-6 py-3 bg-[#001219] border-b border-[#0A4D66]/40">
-          <div className="flex flex-wrap items-center gap-6 text-xs sm:text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-[#7FD5FF]">Requesting Location:</span>
-              <span className="text-white font-semibold">
-                {header.requestingLocation}
-              </span>
-              {header.requestingUnitDescription && (
-                <span className="text-gray-400">
-                  ({header.requestingUnitDescription})
-                </span>
-              )}
+        <div className="px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+              <Icon icon="mdi:format-list-checks" className="w-4 h-4" />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[#7FD5FF]">Requested By:</span>
-              <span className="text-white font-semibold">
-                {header.requestedByName}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[#7FD5FF]">Last Updated By:</span>
-              <span className="text-white font-semibold">
-                {header.lastUpdatedBy}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[#7FD5FF]">Status:</span>
-              <div className="inline-flex items-center gap-2 bg-[#001825] border border-[#0A4D66]/60 rounded-md px-2.5 py-1">
-                <span
-                  className={cn(
-                    "w-2 h-2 rounded-full shrink-0",
-                    statusDotColor[effectiveStatus],
-                  )}
-                />
-                <select
-                  title="Requisition Status"
-                  aria-label="Requisition Status"
-                  value={effectiveStatus}
-                  onChange={(e) => setStatusSelection(e.target.value as StatusLabel)}
-                  className="bg-transparent text-white font-semibold uppercase text-xs focus:outline-none cursor-pointer pr-1"
-                >
-                  <option value="Pending" className="bg-[#001825] text-white">Pending</option>
-                  <option value="Under Review" className="bg-[#001825] text-white">Under Review</option>
-                  <option value="Approved" className="bg-[#001825] text-white">Approved</option>
-                  <option value="Received" className="bg-[#001825] text-white">Received</option>
-                  <option value="Rejected" className="bg-[#001825] text-white">Rejected</option>
-                </select>
-              </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Requested Inventory Items ({requisitionItems.length})
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Review available hangar stock, assign approved quantities, or raise RFQs for shortfalls.
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="px-4 sm:px-6 py-4">
-          <div className="bg-[#001825] border border-[#0A4D66]/20 rounded-xl overflow-x-auto">
+        <div className="p-6 space-y-6">
+          <div className={cn(
+            "rounded-xl border overflow-x-auto",
+            isDark ? "border-[#0A4D66]/30" : "border-slate-200"
+          )}>
             <table className="w-full text-left border-collapse min-w-[980px]">
               <thead>
-                <tr className="text-xs uppercase text-gray-400 border-b border-[#0A4D66]/30">
-                  <th className="px-4 py-3 font-medium">Item Description</th>
-                  <th className="px-4 py-3 font-medium">Requested</th>
-                  <th className="px-4 py-3 font-medium">Available</th>
-                  <th className="px-4 py-3 font-medium">Approved</th>
-                  <th className="px-4 py-3 font-medium">New Stock Level</th>
-                  <th className="px-4 py-3 font-medium">Action</th>
+                <tr className={cn(
+                  "text-xs uppercase font-semibold border-b",
+                  isDark ? "bg-[#001825] text-slate-400 border-[#0A4D66]/40" : "bg-slate-50 text-slate-600 border-slate-200"
+                )}>
+                  <th className="px-5 py-3.5">Item Description / Part</th>
+                  <th className="px-5 py-3.5">Requested Qty</th>
+                  <th className="px-5 py-3.5">Current Stock</th>
+                  <th className="px-5 py-3.5 w-48">Approved Qty</th>
+                  <th className="px-5 py-3.5">Post-Issue Stock</th>
+                  <th className="px-5 py-3.5 text-right">Procurement Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
-                {requisitionItems.map((row, index) => (
-                  <tr
-                    key={row.id}
-                    className={cn(
-                      index % 2 === 0 ? "bg-[#001825]" : "bg-[#001219]",
-                    )}
-                  >
-                    <td className="px-4 py-3 text-white font-medium">
-                      {row.itemDescription}
-                    </td>
-                    <td className="px-4 py-3 text-gray-200">
-                      <span className="font-semibold text-white">
-                        {row.requested.qty}
-                      </span>{" "}
-                      {row.requested.unit}
-                    </td>
-                    <td className="px-4 py-3 text-gray-200">
-                      <span className="font-semibold text-white">
-                        {row.available.qty}
-                      </span>{" "}
-                      {row.available.unit}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="w-full max-w-[160px]">
-                        <input
-                          type="number"
-                          min={0}
-                          value={row.approved.qty}
-                          onChange={(e) =>
-                            handleChangeApproved(row.id, e.target.value)
-                          }
-                          className="w-full bg-[#001219] border border-[#0A4D66]/40 focus:border-[#7FD5FF] rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none"
-                        />
-                        <div className="mt-1 text-[11px] text-gray-400">
-                          {row.approved.unit}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-200">
-                      <span className="font-semibold text-white">
-                        {row.newStockLevel.qty}
-                      </span>{" "}
-                      {row.newStockLevel.unit}
-                    </td>
-                    <td className="px-4 py-3">
-                      {row.requested.qty > row.available.qty && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRfqModal(row)}
-                          title="Requested quantity exceeds available stock"
-                          className={cn(
-                            "inline-flex items-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[11px] font-medium text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer",
-                          )}
-                        >
-                          <Icon
-                            icon="mdi:email-fast-outline"
-                            className="w-3.5 h-3.5"
-                          />
-                          <span>Request for Quotation</span>
-                        </button>
+              <tbody className={cn("divide-y text-sm", isDark ? "divide-[#0A4D66]/20" : "divide-slate-200")}>
+                {requisitionItems.map((row, index) => {
+                  const hasShortfall = row.requested.qty > row.available.qty;
+
+                  return (
+                    <tr
+                      key={row.id}
+                      className={cn(
+                        "transition-colors",
+                        isDark
+                          ? (index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]/50")
+                          : (index % 2 === 0 ? "bg-white" : "bg-slate-50/60")
                       )}
-                    </td>
-                  </tr>
-                ))}
+                    >
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-slate-900 dark:text-white">
+                          {row.itemDescription}
+                        </div>
+                        <div className="text-xs font-mono text-sky-600 dark:text-sky-400 mt-0.5">
+                          Part #{row.partNumber}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {row.requested.qty}
+                        </span>{" "}
+                        <span className="text-xs text-slate-500">{row.requested.unit}</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={cn(
+                          "inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold",
+                          row.available.qty >= row.requested.qty
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                        )}>
+                          <span className={cn("w-1.5 h-1.5 rounded-full", row.available.qty >= row.requested.qty ? "bg-emerald-500" : "bg-rose-500")} />
+                          {row.available.qty} {row.available.unit}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="w-full max-w-[140px]">
+                          <input
+                            type="number"
+                            min={0}
+                            value={row.approved.qty}
+                            onChange={(e) => handleChangeApproved(row.id, e.target.value)}
+                            className={cn(
+                              "w-full rounded-xl px-3 py-1.5 text-sm font-semibold transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                              isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                            )}
+                          />
+                          <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                            {row.approved.unit}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="font-medium text-slate-700 dark:text-slate-300">
+                          {row.newStockLevel.qty}
+                        </span>{" "}
+                        <span className="text-xs text-slate-500">{row.newStockLevel.unit}</span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        {hasShortfall ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenRfqModal(row)}
+                            title="Requested quantity exceeds available stock"
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-600 dark:text-amber-300 transition-all shadow-xs"
+                          >
+                            <Icon icon="mdi:email-fast-outline" className="w-4 h-4" />
+                            <span>Raise RFQ</span>
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                            <Icon icon="mdi:check" className="w-4 h-4" />
+                            In Stock
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          <div className="mt-6 space-y-2">
-            <div className="text-[11px] text-gray-400">Remark(optional)</div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              Requisition Remark (Optional)
+            </label>
             <input
               type="text"
               value={hasEditedRemark ? remark : (detail.remark ?? "")}
@@ -588,64 +730,92 @@ export const InventoryRequisitionDetailsPage = () => {
                 setHasEditedRemark(true);
                 setRemark(e.target.value);
               }}
-              className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-3 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500 focus:border-[#7FD5FF]"
-              placeholder="Enter Reason"
+              className={cn(
+                "w-full rounded-xl px-4 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white placeholder:text-slate-500" : "border-slate-300 bg-white text-slate-900 placeholder:text-slate-400"
+              )}
+              placeholder="Provide reason for requisition or operational context..."
             />
           </div>
 
           {submitError && (
-            <div className="mt-3 text-[11px] text-red-400">{submitError}</div>
+            <div className="p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-500 flex items-center gap-2">
+              <Icon icon="mdi:alert-circle" className="w-4 h-4 shrink-0" />
+              {submitError}
+            </div>
           )}
         </div>
       </section>
 
       {/* Quick RFQ Solicitation Modal */}
       {isRfqModalOpen && rfqTargetLine && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-[#001219] border border-[#0A4D66] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 text-white">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#0A4D66]/40 bg-[#001825]">
-              <div className="flex items-center gap-2">
-                <Icon icon="mdi:email-fast-outline" className="w-5 h-5 text-sky-400" />
-                <h3 className="font-bold text-sm text-white">
-                  Request for Quotation (RFQ)
-                </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+          <div className={cn(
+            "w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 transition-colors",
+            isDark ? "bg-[#001420] border-[#0A4D66] text-white" : "bg-white border-slate-200 text-slate-900"
+          )}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+                  <Icon icon="mdi:email-fast-outline" className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                    Request for Quotation (RFQ)
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Solicit quotations for shortfall inventory units.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsRfqModalOpen(false)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors"
               >
                 <Icon icon="mdi:close" className="w-5 h-5" />
               </button>
             </div>
 
             <form onSubmit={handleConfirmCreateRfq} className="p-6 space-y-4 text-xs">
-              <div className="bg-[#001825] border border-[#0A4D66]/30 rounded-lg p-3 space-y-1">
-                <div className="text-[11px] uppercase text-gray-400 font-semibold">
-                  Part Details
+              <div className={cn(
+                "rounded-xl p-4 space-y-1 border",
+                isDark ? "bg-[#001825] border-[#0A4D66]/40" : "bg-slate-50 border-slate-200"
+              )}>
+                <div className="text-[11px] uppercase text-slate-500 dark:text-slate-400 font-semibold">
+                  Shortfall Item Specifications
                 </div>
-                <div className="text-sm font-semibold text-white">
+                <div className="text-sm font-bold text-slate-900 dark:text-white">
                   Part #{rfqTargetLine.partNumber} &mdash; {rfqTargetLine.description}
                 </div>
-                <div className="text-xs text-amber-300">
-                  Shortfall to Solicit: <span className="font-bold">{rfqTargetLine.shortfall} units</span>
+                <div className="text-xs text-amber-600 dark:text-amber-300 font-semibold flex items-center gap-1 pt-1">
+                  <Icon icon="mdi:alert-circle-outline" className="w-3.5 h-3.5" />
+                  Shortfall to Solicit: {rfqTargetLine.shortfall} units
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold mb-1.5 text-gray-300">
+                <label className="block font-semibold mb-1.5 text-slate-700 dark:text-slate-300">
                   Select Suppliers to Solicit * ({selectedSupplierIds.length} selected)
                 </label>
-                <div className="max-h-40 overflow-y-auto rounded-lg border border-[#0A4D66]/40 p-2 space-y-1 bg-[#001825]">
+                <div className={cn(
+                  "max-h-40 overflow-y-auto rounded-xl border p-2 space-y-1",
+                  isDark ? "border-[#0A4D66]/40 bg-[#001825]" : "border-slate-200 bg-slate-50/50"
+                )}>
                   {suppliers.length === 0 ? (
-                    <div className="py-3 text-center text-gray-500">No suppliers available</div>
+                    <div className="py-3 text-center text-slate-500">No suppliers available</div>
                   ) : (
                     suppliers.map((s) => {
                       const isChecked = selectedSupplierIds.includes(s.id);
                       return (
                         <label
                           key={s.id}
-                          className="flex items-center gap-2.5 p-2 rounded hover:bg-[#0A4D66]/20 cursor-pointer transition-colors"
+                          className={cn(
+                            "flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors",
+                            isChecked
+                              ? (isDark ? "bg-[#0A4D66]/30 text-white" : "bg-sky-50 text-sky-900")
+                              : (isDark ? "hover:bg-[#0A4D66]/20 text-slate-300" : "hover:bg-slate-100 text-slate-700")
+                          )}
                         >
                           <input
                             type="checkbox"
@@ -657,11 +827,11 @@ export const InventoryRequisitionDetailsPage = () => {
                                   : prev.filter((id) => id !== s.id),
                               );
                             }}
-                            className="rounded border-[#0A4D66] bg-[#001825] text-sky-400 focus:ring-0"
+                            className="rounded border-slate-300 text-sky-600 focus:ring-sky-500"
                           />
-                          <span className="font-medium text-white">{s.name}</span>
+                          <span className="font-semibold">{s.name}</span>
                           {s.contact && (
-                            <span className="text-[10px] text-gray-400">({s.contact})</span>
+                            <span className="text-[10px] text-slate-500">({s.contact})</span>
                           )}
                         </label>
                       );
@@ -669,36 +839,42 @@ export const InventoryRequisitionDetailsPage = () => {
                   )}
                 </div>
                 {selectedSupplierIds.length === 0 && (
-                  <p className="text-[10px] text-red-400 mt-1">Please select at least one supplier.</p>
+                  <p className="text-[10px] text-rose-500 mt-1 font-semibold">Please select at least one supplier.</p>
                 )}
               </div>
 
               <div>
-                <label className="block font-semibold mb-1 text-gray-300">
-                  RFQ Notes &amp; Specifications
+                <label className="block font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                  RFQ Notes &amp; Terms
                 </label>
                 <textarea
                   rows={2}
                   placeholder="Provide delivery requirements, quotation deadline, or terms..."
                   value={rfqNotes}
                   onChange={(e) => setRfqNotes(e.target.value)}
-                  className="w-full rounded-lg px-3 py-2 border border-[#0A4D66]/60 bg-[#001825] text-white focus:outline-none focus:border-sky-400 transition-colors"
+                  className={cn(
+                    "w-full rounded-xl px-3.5 py-2 border text-xs transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500",
+                    isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                  )}
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-3 border-t border-[#0A4D66]/30">
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-200 dark:border-[#0A4D66]/30">
                 <button
                   type="button"
                   disabled={isSubmittingRfq}
                   onClick={() => setIsRfqModalOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-slate-700 text-gray-300 hover:bg-slate-800 transition-colors"
+                  className={cn(
+                    "px-4 py-2 rounded-xl border text-xs font-semibold transition-colors",
+                    isDark ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                  )}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingRfq || selectedSupplierIds.length === 0}
-                  className="px-4 py-2 rounded-lg bg-[#0369A1] hover:bg-[#0369A1]/90 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
                 >
                   {isSubmittingRfq && <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />}
                   <span>{isSubmittingRfq ? "Sending RFQ..." : "Send RFQ"}</span>
