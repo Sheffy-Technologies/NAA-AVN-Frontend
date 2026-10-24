@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { BackButton } from "@/shared/ui/button";
+import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import {
   useCreateInventoryMutation,
   useCreateInventoryRequisitionMutation,
@@ -270,6 +271,10 @@ export const InventoryRequisitionFormPage = () => {
                   : inventories.filter(
                       (inv) => inv.expense_category_id === line.expenseCategoryId,
                     );
+              const inventoryOptions = availableInventories.map((inv) => ({
+                value: inv.id,
+                label: `${(inv.description || inv.part_name || "Item").trim()} (${inv.part_number})`,
+              }));
 
               return (
                 <div key={line.id} className="space-y-3">
@@ -374,41 +379,20 @@ export const InventoryRequisitionFormPage = () => {
                           Add Inventory
                         </button>
                       </div>
-                      <div className="relative">
-                        <select
-                          value={line.inventoryId}
-                          onChange={(e) =>
-                            updateLine(index, {
-                              inventoryId: e.target.value
-                                ? Number(e.target.value)
-                                : "",
-                            })
-                          }
-                          disabled={isInventoriesLoading}
-                          className={cn(
-                            "w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none focus:border-[#7FD5FF] appearance-none",
-                            isInventoriesLoading && "opacity-70 cursor-not-allowed",
-                          )}
-                        >
-                          <option value="">
-                            {isInventoriesLoading ? "Loading..." : "Select"}
-                          </option>
-                          {availableInventories.map((inv) => (
-                            <option key={inv.id} value={inv.id}>
-                              {(
-                                inv.description ||
-                                inv.part_name ||
-                                "Item"
-                              ).trim()}{" "}
-                              ({inv.part_number})
-                            </option>
-                          ))}
-                        </select>
-                        <Icon
-                          icon="mdi:chevron-down"
-                          className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                        />
-                      </div>
+                      <SearchableSelect
+                        placeholder={isInventoriesLoading ? "Loading..." : "Select"}
+                        searchPlaceholder="Search by description or part number..."
+                        options={inventoryOptions}
+                        value={line.inventoryId === "" ? null : line.inventoryId}
+                        onChange={(value) =>
+                          updateLine(index, {
+                            inventoryId: value === null ? "" : Number(value),
+                          })
+                        }
+                        disabled={isInventoriesLoading}
+                        clearable
+                        size="sm"
+                      />
                     </div>
 
                     <div className="space-y-1">

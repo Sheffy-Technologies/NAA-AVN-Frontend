@@ -250,6 +250,8 @@ export const AssetsPage = () => {
           current_total_hours: 0,
           current_total_cycles: 0,
           current_total_landings: 0,
+          current_engine_total_hours: null,
+          current_hobbs_hours: null,
         }))
       : activeTab === "facility"
         ? (facilities ?? []).map((facility: Facility) => ({
@@ -292,6 +294,8 @@ export const AssetsPage = () => {
             current_total_hours: 0,
             current_total_cycles: 0,
             current_total_landings: 0,
+            current_engine_total_hours: null,
+            current_hobbs_hours: null,
           }))
       :
           assets

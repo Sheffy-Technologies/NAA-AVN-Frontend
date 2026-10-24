@@ -372,6 +372,14 @@ export type CreateAssetPayload = {
   next_type_of_inspection: string;
   last_inspection_date: string;
   landings: string;
+  // Tracking-sheet baselines at registration (A/C T.T. is `hours`).
+  hours?: number | null;
+  engine_total_hours?: number | null;
+  engine_starts?: number | null;
+  hobbs_hours?: number | null;
+  hook_cycles?: number | null;
+  hook_hours?: number | null;
+  external_lifts?: number | null;
   operation_status: string;
   engines: Array<{
     position_id: number;
@@ -465,6 +473,12 @@ export type Asset = {
     | "medical";
   tail_number: string;
   hours?: number | string | null;
+  engine_total_hours?: number | string | null;
+  engine_starts?: number | null;
+  hobbs_hours?: number | string | null;
+  hook_cycles?: number | null;
+  hook_hours?: number | string | null;
+  external_lifts?: number | null;
   total_airframe_hours: string;
   service_life_limit: string;
   last_inspection_hours: string;
@@ -494,6 +508,9 @@ export type Asset = {
   current_total_hours: number;
   current_total_cycles: number;
   current_total_landings: number;
+  // Baseline + recorded flight hours; null when no baseline was entered.
+  current_engine_total_hours: number | null;
+  current_hobbs_hours: number | null;
 };
 
 export type AirworthinessReason = {
