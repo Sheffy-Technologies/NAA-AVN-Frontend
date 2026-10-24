@@ -1,10 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
 import { MetricCard } from "@/shared/ui/metric/MetricCard";
 import {
+  type Shipment,
   useGetGoodsReceivedNotesQuery,
   useGetInventoriesQuery,
   useGetPurchaseOrdersQuery,
@@ -15,6 +16,8 @@ import {
   useGetSuppliersQuery,
 } from "../api";
 import { onInteractiveRowClick } from "../inventoryUtils";
+import { CreateShipmentModal } from "./CreateShipmentModal";
+import { ShipmentDetailsModal } from "./ShipmentDetailsModal";
 
 export type ProcurementSubTabKey =
   | "overview"
@@ -37,6 +40,9 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
 }) => {
   const { isDark } = useTheme();
   const navigate = useNavigate();
+
+  const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
+  const [selectedShipmentModal, setSelectedShipmentModal] = useState<Shipment | null>(null);
 
   // Queries
   const { data: stockMovements = [], isLoading: isMovementsLoading } =
@@ -590,14 +596,24 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => onNavigateSubTab("shipments")}
-            className="text-xs text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1 self-start sm:self-auto"
-          >
-            <span>View All Shipments ({shipments.length})</span>
-            <Icon icon="mdi:arrow-right" className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setIsCreateShipmentOpen(true)}
+              className="text-xs px-2.5 py-1 rounded-lg bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30 font-medium inline-flex items-center gap-1 transition-colors"
+            >
+              <Icon icon="mdi:plus" className="w-3.5 h-3.5" />
+              <span>Add Tracking</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigateSubTab("shipments")}
+              className="text-xs text-sky-400 hover:text-sky-300 font-medium inline-flex items-center gap-1"
+            >
+              <span>View All ({shipments.length})</span>
+              <Icon icon="mdi:arrow-right" className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         <div className="mt-4">
@@ -606,8 +622,16 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
               <Icon icon="mdi:truck-outline" className="w-8 h-8 mx-auto mb-2 opacity-40" />
               <p className="text-xs font-semibold">No active shipments currently registered.</p>
               <p className="text-[11px] text-[var(--theme-text-muted)] mt-0.5">
-                Open any Purchase Order to attach tracking numbers or Air Waybills (AWBs).
+                Register live carrier tracking with or without a purchase order (AWB, MRO core repairs, inter-base transfers).
               </p>
+              <button
+                type="button"
+                onClick={() => setIsCreateShipmentOpen(true)}
+                className="mt-3 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white inline-flex items-center gap-1.5 shadow-sm transition-colors"
+              >
+                <Icon icon="mdi:plus" className="w-4 h-4" />
+                <span>Add Standalone Tracking (No PO)</span>
+              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -619,10 +643,18 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
                   delivered: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
                 };
 
+                const isStandalone = !shipment.purchase_order_id;
+
                 return (
                   <div
                     key={shipment.id}
-                    onClick={() => navigate(`/dashboard/inventory/purchase-orders/${shipment.purchase_order_id}`)}
+                    onClick={() => {
+                      if (shipment.purchase_order_id) {
+                        navigate(`/dashboard/inventory/purchase-orders/${shipment.purchase_order_id}`);
+                      } else {
+                        setSelectedShipmentModal(shipment);
+                      }
+                    }}
                     className={cn(
                       "p-3.5 rounded-lg border cursor-pointer hover:border-[#7FD5FF]/60 transition-all flex flex-col justify-between",
                       isDark ? "bg-[#001825] border-[#0A4D66]/30" : "bg-slate-50 border-slate-200",
@@ -630,15 +662,23 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
                   >
                     <div>
                       <div className="flex items-center justify-between pb-2 border-b border-[#0A4D66]/20">
-                        <span className="font-mono text-xs font-bold text-sky-400">
-                          {shipment.tracking_number}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-sky-400">
+                            {shipment.tracking_number}
+                          </span>
+                          {isStandalone && (
+                            <span className="text-[9px] font-semibold uppercase px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              Standalone
+                            </span>
+                          )}
+                        </div>
                         <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border", stageColors[shipment.status])}>
                           {shipment.status.replace("_", " ")}
                         </span>
                       </div>
                       <p className="text-xs font-semibold text-[var(--theme-text-primary)] mt-2">
-                        PO #{shipment.purchase_order_id} • {shipment.carrier_name || "Air Freight"}
+                        {shipment.purchase_order_id ? `PO #${shipment.purchase_order_id} • ` : "Consignment • "}
+                        {shipment.title || shipment.carrier_name || "Air Freight"}
                       </p>
                       <p className="text-[11px] text-[var(--theme-text-muted)] mt-0.5 truncate">
                         {shipment.origin || "Origin"} &rarr; {shipment.destination || "Base"}
@@ -660,6 +700,20 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
           )}
         </div>
       </div>
+
+      {/* Standalone / PO Shipment Creation Modal */}
+      <CreateShipmentModal
+        isOpen={isCreateShipmentOpen}
+        initialStandalone={true}
+        onClose={() => setIsCreateShipmentOpen(false)}
+      />
+
+      {/* Shipment Details & Timeline Modal */}
+      <ShipmentDetailsModal
+        isOpen={!!selectedShipmentModal}
+        shipment={selectedShipmentModal}
+        onClose={() => setSelectedShipmentModal(null)}
+      />
     </div>
   );
 };

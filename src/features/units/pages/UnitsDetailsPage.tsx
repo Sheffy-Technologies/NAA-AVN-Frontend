@@ -271,14 +271,15 @@ export const UnitsDetailsPage = () => {
                 type="button"
                 onClick={handleDownloadPdf}
                 disabled={isDownloadingPdf}
-                className="flex items-center gap-2 px-3 py-1.5 rounded bg-[#001219] text-gray-300 border border-[#0A4D66]/40 hover:bg-[#001825] text-xs disabled:opacity-60"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#001219] text-gray-200 border border-[#0A4D66]/60 hover:bg-[#001825] text-xs disabled:opacity-60 transition-colors"
                 title="Download unit details"
                 aria-label="Download unit details"
               >
                 <Icon
                   icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
-                  className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+                  className={cn("w-4 h-4 text-sky-400", isDownloadingPdf ? "animate-spin" : "")}
                 />
+                <span>{isDownloadingPdf ? "Downloading..." : "Download"}</span>
               </button>
               <button
                 type="button"

@@ -3,10 +3,9 @@ import { StockIssuesTab } from "@/features/stock-issues/components/StockIssuesTa
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
-import {
-  ProcurementSection,
-  type ProcurementSubTabKey,
-} from "@/features/inventory/components/ProcurementSection";
+import { ProcurementSection, type ProcurementSubTabKey } from "@/features/inventory/components/ProcurementSection";
+import { ProcurementShipmentsTab } from "@/features/inventory/components/ProcurementShipmentsTab";
+import { InventoryOverviewTab } from "@/features/inventory/components/InventoryOverviewTab";
 import {
   useGetInventoriesQuery,
   useUpdateInventoryStockMutation,
@@ -79,6 +78,7 @@ type MultiFilterState<T> = {
 };
 
 const INVENTORY_TABS = [
+  { id: "Overview", label: "Overview", icon: "mdi:view-dashboard-outline" },
   { id: "Stock", label: "Stock", icon: "mdi:cube-outline" },
   {
     id: "Requisitions",
@@ -94,6 +94,11 @@ const INVENTORY_TABS = [
     id: "Procurement",
     label: "Procurement",
     icon: "mdi:cart-outline",
+  },
+  {
+    id: "Shipments",
+    label: "Shipments",
+    icon: "mdi:truck-fast-outline",
   },
   {
     id: "Suppliers",
@@ -482,6 +487,7 @@ export const InventoryPage = () => {
     const nextTab = (location.state as { inventoryTab?: unknown } | null)
       ?.inventoryTab;
     if (typeof nextTab === "string") {
+      if (nextTab === "Overview") return "Overview";
       if (nextTab === "Stocks" || nextTab === "Stock" || nextTab === "All") return "Stock";
       if (nextTab === "Requisitions") return "Requisitions";
       if (
@@ -492,9 +498,11 @@ export const InventoryPage = () => {
         return "Procurement";
       if (nextTab === "Suppliers") return "Suppliers";
       if (nextTab === "Stores" || nextTab === "Store") return "Stores";
+      if (nextTab === "Issues" || nextTab === "Issue") return "Issues";
     }
     const params = new URLSearchParams(location.search);
     const tabParam = params.get("tab")?.toLowerCase();
+    if (tabParam === "overview") return "Overview";
     if (tabParam === "stock" || tabParam === "stocks") return "Stock";
     if (tabParam === "requisitions" || tabParam === "requisition") return "Requisitions";
     if (
@@ -506,7 +514,7 @@ export const InventoryPage = () => {
     if (tabParam === "suppliers" || tabParam === "supplier") return "Suppliers";
     if (tabParam === "stores" || tabParam === "store") return "Stores";
     if (tabParam === "issues" || tabParam === "issue") return "Issues";
-    return "Stock";
+    return "Overview";
   }, [location.state, location.search]);
 
   const initialProcurementSubTab = useMemo<ProcurementSubTabKey>(() => {
@@ -540,7 +548,9 @@ export const InventoryPage = () => {
     const nextTab = (location.state as { inventoryTab?: unknown } | null)
       ?.inventoryTab;
     if (typeof nextTab === "string") {
-      if (nextTab === "Stocks" || nextTab === "Stock" || nextTab === "All") {
+      if (nextTab === "Overview") {
+        setActiveTab("Overview");
+      } else if (nextTab === "Stocks" || nextTab === "Stock" || nextTab === "All") {
         setActiveTab("Stock");
       } else if (nextTab === "Requisitions") {
         setActiveTab("Requisitions");
@@ -556,6 +566,8 @@ export const InventoryPage = () => {
         setActiveTab("Suppliers");
       } else if (nextTab === "Stores" || nextTab === "Store") {
         setActiveTab("Stores");
+      } else if (nextTab === "Issues" || nextTab === "Issue") {
+        setActiveTab("Issues");
       }
     }
   }, [location.state]);
@@ -572,6 +584,26 @@ export const InventoryPage = () => {
       params.delete("subtab");
     }
     navigate({ search: params.toString() }, { replace: true });
+  };
+
+  const handleOverviewNavigate = (
+    tabId: (typeof INVENTORY_TABS)[number]["id"],
+    filter?: {
+      stockFilter?: "all" | "inStock" | "low" | "expired" | "critical";
+      storeId?: number | "all";
+      category?: string;
+    },
+  ) => {
+    handleTabChange(tabId);
+    if (filter?.stockFilter) {
+      setStockStatFilter(filter.stockFilter);
+    }
+    if (filter?.storeId !== undefined) {
+      setStoreFilterId(filter.storeId);
+    }
+    if (filter?.category) {
+      setStockSearchQuery(filter.category);
+    }
   };
 
   const handleProcurementSubTabChange = (subTab: ProcurementSubTabKey) => {
@@ -1322,7 +1354,12 @@ export const InventoryPage = () => {
       </div>
 
       <div className="space-y-4">
-        {activeTab === "Stock" ? (
+        {activeTab === "Overview" ? (
+          <InventoryOverviewTab
+            onNavigateTab={handleOverviewNavigate}
+            onOpenCreateRequisition={() => handleTabChange("Requisitions")}
+          />
+        ) : activeTab === "Stock" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">
               {/* Dedicated Top Row: Full Category Navigation Tabs (Where red line indicated) + Create Purchase Order */}
@@ -1644,26 +1681,157 @@ export const InventoryPage = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 border-t border-[#0A4D66]/40 pt-4">
-                {stats.map((stat) => (
-                  <MetricCard
-                    key={stat.id}
-                    label={stat.label}
-                    value={stat.value}
-                    icon={stat.icon}
-                    badge={stat.badge}
-                    badgeColor={stat.badgeColor}
-                    isActive={stat.clickable && stockStatFilter === stat.id}
-                    onClick={
-                      stat.clickable
-                        ? () =>
-                            setStockStatFilter((current) =>
-                              current === stat.id ? "all" : stat.id,
-                            )
-                        : undefined
-                    }
-                  />
-                ))}
+              {/* Compact Stock Stats Indicator Bar (matching Screen 2) */}
+              <div
+                className={cn(
+                  "flex flex-wrap items-center gap-3 sm:gap-6 px-4 py-2.5 rounded-lg border text-xs sm:text-sm border-t border-[#0A4D66]/40",
+                  isDark ? "bg-[#001825]/90 border-[#0A4D66]/40" : "bg-slate-50 border-slate-200",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setStockStatFilter("all")}
+                  title="Show all catalog items"
+                  className={cn(
+                    "flex items-center gap-2 rounded px-2 py-1 transition-all cursor-pointer",
+                    stockStatFilter === "all"
+                      ? isDark
+                        ? "bg-[#0369A1]/20 ring-1 ring-[#0369A1] font-semibold text-white"
+                        : "bg-sky-100 ring-1 ring-sky-400 font-semibold text-sky-900"
+                      : isDark
+                        ? "hover:bg-slate-800/40 text-gray-300"
+                        : "hover:bg-slate-200/50 text-slate-700",
+                  )}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#0369A1]" />
+                  <span className={isDark ? "text-gray-300" : "text-slate-600"}>Total:</span>
+                  <span className={cn("font-bold", isDark ? "text-white" : "text-slate-900")}>
+                    {stats[0].value}
+                  </span>
+                </button>
+
+                <div className="flex items-center gap-2 px-2 py-1">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                  <span className={isDark ? "text-gray-300" : "text-slate-600"}>In Stock:</span>
+                  <span className={cn("font-bold", isDark ? "text-white" : "text-slate-900")}>
+                    {stats[1].value.toLocaleString()}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStockStatFilter((curr) => (curr === "low" ? "all" : "low"))
+                  }
+                  title="Filter low stock items"
+                  className={cn(
+                    "flex items-center gap-2 rounded px-2 py-1 transition-all cursor-pointer",
+                    stockStatFilter === "low"
+                      ? isDark
+                        ? "bg-amber-500/20 ring-1 ring-amber-400 font-semibold text-white"
+                        : "bg-amber-100 ring-1 ring-amber-500 font-semibold text-amber-900"
+                      : isDark
+                        ? "hover:bg-slate-800/40 text-gray-300"
+                        : "hover:bg-slate-200/50 text-slate-700",
+                  )}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                  <span className={isDark ? "text-gray-300" : "text-slate-600"}>Low Stock:</span>
+                  <span
+                    className={cn(
+                      "font-bold",
+                      stats[2].value > 0 ? "text-amber-400" : isDark ? "text-white" : "text-slate-900",
+                    )}
+                  >
+                    {stats[2].value}
+                  </span>
+                  {stats[2].value > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Reorder
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStockStatFilter((curr) => (curr === "expired" ? "all" : "expired"))
+                  }
+                  title="Filter expired items"
+                  className={cn(
+                    "flex items-center gap-2 rounded px-2 py-1 transition-all cursor-pointer",
+                    stockStatFilter === "expired"
+                      ? isDark
+                        ? "bg-red-500/20 ring-1 ring-red-400 font-semibold text-white"
+                        : "bg-red-100 ring-1 ring-red-500 font-semibold text-red-900"
+                      : isDark
+                        ? "hover:bg-slate-800/40 text-gray-300"
+                        : "hover:bg-slate-200/50 text-slate-700",
+                  )}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                  <span className={isDark ? "text-gray-300" : "text-slate-600"}>Expired:</span>
+                  <span
+                    className={cn(
+                      "font-bold",
+                      stats[3].value > 0 ? "text-red-400" : isDark ? "text-white" : "text-slate-900",
+                    )}
+                  >
+                    {stats[3].value}
+                  </span>
+                  {stats[3].value > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/30">
+                      Shelf-Life
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setStockStatFilter((curr) => (curr === "critical" ? "all" : "critical"))
+                  }
+                  title="Filter critical shortages"
+                  className={cn(
+                    "flex items-center gap-2 rounded px-2 py-1 transition-all cursor-pointer",
+                    stockStatFilter === "critical"
+                      ? isDark
+                        ? "bg-rose-500/20 ring-1 ring-rose-500 font-semibold text-white"
+                        : "bg-rose-100 ring-1 ring-rose-500 font-semibold text-rose-900"
+                      : isDark
+                        ? "hover:bg-slate-800/40 text-gray-300"
+                        : "hover:bg-slate-200/50 text-slate-700",
+                  )}
+                >
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                  <span className={isDark ? "text-gray-300" : "text-slate-600"}>Critical:</span>
+                  <span
+                    className={cn(
+                      "font-bold",
+                      stats[4].value > 0 ? "text-rose-400" : isDark ? "text-white" : "text-slate-900",
+                    )}
+                  >
+                    {stats[4].value}
+                  </span>
+                  {stats[4].value > 0 && (
+                    <span className="text-[10px] px-1.5 py-0.2 rounded font-bold uppercase tracking-wider bg-red-600/20 text-red-300 border border-red-600/30">
+                      Shortage
+                    </span>
+                  )}
+                </button>
+
+                {stockStatFilter !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setStockStatFilter("all")}
+                    className={cn(
+                      "text-xs underline ml-auto cursor-pointer",
+                      isDark ? "text-gray-400 hover:text-white" : "text-slate-500 hover:text-slate-800",
+                    )}
+                  >
+                    Clear Filter
+                  </button>
+                )}
               </div>
             </div>
 
@@ -2317,6 +2485,10 @@ export const InventoryPage = () => {
             onSelectSubTab={handleProcurementSubTabChange}
             onNavigateToRfq={handleOpenRfqDetails}
           />
+        ) : activeTab === "Shipments" ? (
+          <div className="space-y-4">
+            <ProcurementShipmentsTab />
+          </div>
         ) : activeTab === "Suppliers" ? (
           <>
             <div className="flex flex-col gap-4 bg-[#001219] p-4 rounded-xl border border-[#0A4D66]/40">

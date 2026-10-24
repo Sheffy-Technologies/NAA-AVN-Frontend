@@ -1,34 +1,17 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
-import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
 import { cn } from "@/shared/utils/cn";
 import { BackButton } from "@/shared/ui/button/BackButton";
 import {
   useGetStrategicDashboardQuery,
   type StrategicGroundedAircraft,
-  type StrategicOperation,
   type StrategicOperationStatus,
+  type StrategicDueItem,
 } from "../api";
-
-const NIGERIA_CENTER: [number, number] = [9.0, 8.0];
-const DEFAULT_ZOOM = 6;
+import { StrategicOperationsMap } from "../components/StrategicOperationsMap";
 
 type MapView = "ongoing" | "planned" | "completed";
-
-const MAP_VIEWS: { id: MapView; label: string; icon: string }[] = [
-  { id: "ongoing", label: "Ongoing", icon: "mdi:airplane" },
-  { id: "planned", label: "Planned", icon: "mdi:calendar-clock-outline" },
-  { id: "completed", label: "Completed", icon: "mdi:check-circle-outline" },
-];
-
-const STATUS_ROUTE_COLOR: Record<StrategicOperationStatus, string> = {
-  ongoing: "#22C55E",
-  planned: "#7FD5FF",
-  completed: "#8B98A9",
-  aborted: "#EF4444",
-};
 
 const matchesView = (status: StrategicOperationStatus, view: MapView) => {
   if (view === "ongoing") return status === "ongoing";
@@ -64,19 +47,6 @@ const ReadinessChip = ({
       {children}
     </button>
   );
-};
-
-const formatDateTime = (value: string | null) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
 };
 
 const formatCurrency = (value: number) =>
@@ -143,10 +113,14 @@ const StatCard = ({
   label,
   value,
   tone = "default",
+  onClick,
+  isActive,
 }: {
   label: string;
   value: string | number;
   tone?: "default" | "danger" | "warning" | "success";
+  onClick?: () => void;
+  isActive?: boolean;
 }) => {
   const toneClass = {
     default: "text-white",
@@ -155,71 +129,31 @@ const StatCard = ({
     success: "text-emerald-400",
   }[tone];
 
+  const Comp = onClick ? "button" : "div";
+
   return (
-    <div className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] px-4 py-3">
-      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+    <Comp
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={cn(
+        "rounded-lg border px-4 py-3 text-left transition-all w-full",
+        isActive
+          ? "border-[#00F0FF] bg-[#0369A1]/30 shadow-[0_0_10px_rgba(0,240,255,0.2)]"
+          : "border-[#0A4D66]/30 bg-[#001825] hover:border-[#0A4D66]/60",
+        onClick && "cursor-pointer"
+      )}
+    >
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 flex items-center justify-between">
+        <span>{label}</span>
+        {onClick && (
+          <Icon
+            icon="mdi:chevron-right"
+            className={cn("w-3.5 h-3.5 text-gray-500 transition-transform", isActive && "rotate-90 text-[#00F0FF]")}
+          />
+        )}
+      </div>
       <div className={cn("mt-1 text-2xl font-bold", toneClass)}>{value}</div>
-    </div>
-  );
-};
-
-const OperationRoute = ({ operation }: { operation: StrategicOperation }) => {
-  const points: [number, number][] = [
-    operation.departure ? ([operation.departure.lat, operation.departure.lng] as [number, number]) : null,
-    ...operation.waypoints.map((w) => [w.lat, w.lng] as [number, number]),
-    operation.arrival ? ([operation.arrival.lat, operation.arrival.lng] as [number, number]) : null,
-  ].filter((point): point is [number, number] => point !== null);
-
-  const color = STATUS_ROUTE_COLOR[operation.status];
-
-  const detail = (
-    <div className="space-y-0.5 text-xs">
-      <div className="font-semibold text-white">{operation.name}</div>
-      <div className="capitalize text-gray-300">
-        {operation.status}
-        {operation.unit ? ` · ${operation.unit}` : ""}
-      </div>
-      <div className="text-gray-400">
-        {formatDateTime(operation.start_date_time)} → {formatDateTime(operation.end_date_time)}
-      </div>
-      {operation.assets.length > 0 && (
-        <div className="text-gray-400">Assets: {operation.assets.join(", ")}</div>
-      )}
-    </div>
-  );
-
-  return (
-    <>
-      {points.length >= 2 && <Polyline positions={points} pathOptions={{ color, weight: 2.5, opacity: 0.85 }} />}
-      {operation.departure && (
-        <CircleMarker
-          center={[operation.departure.lat, operation.departure.lng]}
-          radius={6}
-          pathOptions={{ color: "#22C55E", fillColor: "#22C55E", fillOpacity: 0.9, weight: 1 }}
-        >
-          <Tooltip direction="top">{detail}</Tooltip>
-        </CircleMarker>
-      )}
-      {operation.arrival && (
-        <CircleMarker
-          center={[operation.arrival.lat, operation.arrival.lng]}
-          radius={6}
-          pathOptions={{ color: "#EF4444", fillColor: "#EF4444", fillOpacity: 0.9, weight: 1 }}
-        >
-          <Tooltip direction="top">{detail}</Tooltip>
-        </CircleMarker>
-      )}
-      {operation.waypoints.map((waypoint, index) => (
-        <CircleMarker
-          key={`${operation.id}-wp-${index}`}
-          center={[waypoint.lat, waypoint.lng]}
-          radius={3.5}
-          pathOptions={{ color: "#F59E0B", fillColor: "#F59E0B", fillOpacity: 0.9, weight: 1 }}
-        >
-          <Tooltip direction="top">{waypoint.name || `Waypoint ${index + 1}`}</Tooltip>
-        </CircleMarker>
-      ))}
-    </>
+    </Comp>
   );
 };
 
@@ -229,6 +163,7 @@ export const StrategicDashboardPage = () => {
   const [mapView, setMapView] = useState<MapView>("ongoing");
   const [showUnits, setShowUnits] = useState(true);
   const [expandedGrounded, setExpandedGrounded] = useState(false);
+  const [maintenanceFilter, setMaintenanceFilter] = useState<"none" | "overdue" | "due_soon">("none");
 
   const visibleOperations = useMemo(
     () => (data?.operations ?? []).filter((operation) => matchesView(operation.status, mapView)),
@@ -271,6 +206,13 @@ export const StrategicDashboardPage = () => {
   }
 
   const maxDayCount = Math.max(1, ...data.tempo.flights_by_day.map((d) => d.count));
+
+  const maintenanceDueItems =
+    maintenanceFilter === "overdue"
+      ? data.fleet.maintenance_due.overdue_items ?? []
+      : maintenanceFilter === "due_soon"
+      ? data.fleet.maintenance_due.due_soon_items ?? []
+      : [];
 
   return (
     <div className="space-y-5 px-2 pb-10 sm:px-0">
@@ -332,106 +274,146 @@ export const StrategicDashboardPage = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
-        {/* Map */}
+        {/* Theatre Operations Map (Military Map System with Pan, Tile, Zoom, & Dossier) */}
         <div className="xl:col-span-2">
-          <Panel
-            title="Nationwide Operations Map"
-            icon="mdi:map-outline"
-            className="flex flex-col"
-            linkTo="/dashboard/operations"
-          >
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex gap-1.5">
-                {MAP_VIEWS.map((view) => (
-                  <button
-                    key={view.id}
-                    type="button"
-                    onClick={() => setMapView(view.id)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-xs transition-colors",
-                      mapView === view.id
-                        ? "border-[#7FD5FF] bg-[#0369A1]/20 text-white"
-                        : "border-[#0A4D66]/40 text-gray-300 hover:text-white",
-                    )}
-                  >
-                    <Icon icon={view.icon} className="h-3.5 w-3.5" />
-                    {view.label}
-                    <span className="text-gray-500">({viewCounts[view.id]})</span>
-                  </button>
-                ))}
-              </div>
-              <label className="flex items-center gap-1.5 text-xs text-gray-300">
-                <input
-                  type="checkbox"
-                  checked={showUnits}
-                  onChange={(e) => setShowUnits(e.target.checked)}
-                  className="accent-[#0369A1]"
-                />
-                Show units
-              </label>
-            </div>
-
-            <div className="overflow-hidden rounded-lg border border-[#0A4D66]/40">
-              <MapContainer center={NIGERIA_CENTER} zoom={DEFAULT_ZOOM} scrollWheelZoom className="h-110 w-full">
-                <TileLayer
-                  attribution="&copy; OpenStreetMap contributors"
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-
-                {visibleOperations.map((operation) => (
-                  <OperationRoute key={operation.id} operation={operation} />
-                ))}
-
-                {showUnits &&
-                  data.units.map((unit) => (
-                    <CircleMarker
-                      key={`unit-${unit.id}`}
-                      center={[unit.lat, unit.lng]}
-                      radius={8}
-                      pathOptions={{ color: "#0369A1", fillColor: "#0369A1", fillOpacity: 0.35, weight: 2 }}
-                    >
-                      <Tooltip direction="top">
-                        <div className="text-xs">
-                          <div className="font-semibold text-white">{unit.name}</div>
-                          <div className="text-gray-300">
-                            {unit.personnel_count} personnel · {unit.asset_count} assets · {unit.operation_count} operations
-                          </div>
-                        </div>
-                      </Tooltip>
-                    </CircleMarker>
-                  ))}
-              </MapContainer>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-gray-400">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#22C55E]" /> Departure
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#EF4444]" /> Arrival
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#F59E0B]" /> Waypoint
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#0369A1]" /> Unit
-              </span>
-              {visibleOperations.length === 0 && (
-                <span className="text-gray-500">No {mapView} operations to show on the map.</span>
-              )}
-            </div>
-          </Panel>
+          <StrategicOperationsMap
+            operations={visibleOperations}
+            units={data.units}
+            mapView={mapView}
+            onMapViewChange={setMapView}
+            showUnits={showUnits}
+            onToggleUnits={setShowUnits}
+            viewCounts={viewCounts}
+          />
         </div>
 
         {/* Right column */}
         <div className="space-y-5">
           <Panel title="Fleet Readiness" icon="mdi:airplane-cog" linkTo="/dashboard/assets">
             <div className="grid grid-cols-2 gap-3">
-              <StatCard label="Airworthy" value={data.fleet.airworthy} tone="success" />
-              <StatCard label="Grounded" value={data.fleet.grounded} tone={data.fleet.grounded > 0 ? "danger" : "default"} />
-              <StatCard label="Maint. Overdue" value={data.fleet.maintenance_due.overdue} tone="danger" />
-              <StatCard label="Maint. Due Soon" value={data.fleet.maintenance_due.due_soon} tone="warning" />
+              <StatCard
+                label="Airworthy"
+                value={data.fleet.airworthy}
+                tone="success"
+                onClick={() =>
+                  navigate("/dashboard/assets?filter=serviceable", {
+                    state: { from: "/dashboard/strategic", fromLabel: "Strategic Dashboard" },
+                  })
+                }
+              />
+              <StatCard
+                label="Grounded"
+                value={data.fleet.grounded}
+                tone={data.fleet.grounded > 0 ? "danger" : "default"}
+                onClick={() => setExpandedGrounded((v) => !v)}
+                isActive={expandedGrounded}
+              />
+              <StatCard
+                label="Maint. Overdue"
+                value={data.fleet.maintenance_due.overdue}
+                tone="danger"
+                onClick={() =>
+                  setMaintenanceFilter((curr) => (curr === "overdue" ? "none" : "overdue"))
+                }
+                isActive={maintenanceFilter === "overdue"}
+              />
+              <StatCard
+                label="Maint. Due Soon"
+                value={data.fleet.maintenance_due.due_soon}
+                tone="warning"
+                onClick={() =>
+                  setMaintenanceFilter((curr) => (curr === "due_soon" ? "none" : "due_soon"))
+                }
+                isActive={maintenanceFilter === "due_soon"}
+              />
             </div>
+
+            {/* Synchronized Maintenance Due Breakdown */}
+            {maintenanceFilter !== "none" && (
+              <div className="mt-3 rounded-lg border border-[#0A4D66]/60 bg-[#001825] p-3 text-xs space-y-2 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Icon
+                      icon={maintenanceFilter === "overdue" ? "mdi:alert-circle-outline" : "mdi:clock-alert-outline"}
+                      className={cn("w-4 h-4", maintenanceFilter === "overdue" ? "text-red-400" : "text-amber-300")}
+                    />
+                    <span className="font-bold text-white uppercase text-[11px]">
+                      {maintenanceFilter === "overdue" ? "Overdue Maintenance Items" : "Maintenance Items Due Soon"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setMaintenanceFilter("none")}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {maintenanceDueItems.length === 0 ? (
+                  <p className="text-gray-400 text-xs py-2 text-center">
+                    No items currently marked {maintenanceFilter === "overdue" ? "overdue" : "due soon"}.
+                  </p>
+                ) : (
+                  <ul className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
+                    {maintenanceDueItems.map((item: StrategicDueItem, idx: number) => (
+                      <li
+                        key={`maint-due-${idx}`}
+                        className="rounded border border-white/5 bg-[#001219]/80 p-2 text-xs flex items-center justify-between gap-2 hover:border-[#0A4D66] transition cursor-pointer"
+                        onClick={() => {
+                          if (item.asset_id) {
+                            navigate(`/dashboard/assets/${item.asset_id}`, {
+                              state: { from: "/dashboard/strategic", fromLabel: "Strategic Dashboard" },
+                            });
+                          } else {
+                            navigate("/dashboard/maintenance");
+                          }
+                        }}
+                      >
+                        <div>
+                          <div className="font-semibold text-white flex items-center gap-1.5">
+                            <span className={cn("w-1.5 h-1.5 rounded-full", item.status === "overdue" ? "bg-red-400" : "bg-amber-300")} />
+                            {item.asset_name} {item.asset_tail_number ? `(${item.asset_tail_number})` : ""}
+                          </div>
+                          <div className="text-[11px] text-gray-400">
+                            {item.name} {item.category ? `· ${item.category}` : ""}
+                          </div>
+                        </div>
+                        <div className="text-right text-[11px]">
+                          {item.hours_remaining !== null && (
+                            <div className={cn("font-mono font-medium", item.hours_remaining <= 0 ? "text-red-400" : "text-amber-300")}>
+                              {item.hours_remaining} hrs left
+                            </div>
+                          )}
+                          {item.days_remaining !== null && (
+                            <div className="text-[10px] text-gray-500 font-mono">
+                              {item.days_remaining} days
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
+                  <span className="text-gray-400">Linked to Fleet Maintenance Logs</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate("/dashboard/maintenance", {
+                        state: { from: "/dashboard/strategic", fromLabel: "Strategic Dashboard" },
+                      })
+                    }
+                    className="text-[#7FD5FF] hover:underline flex items-center gap-1"
+                  >
+                    Open Maintenance Hub <Icon icon="mdi:arrow-right" className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Grounded Aircraft Breakdown */}
             {data.fleet.grounded_aircraft.length > 0 && (
               <div className="mt-3">
                 <button
@@ -485,6 +467,14 @@ export const StrategicDashboardPage = () => {
                 )}
               </div>
             )}
+
+            {/* Maintenance Hub Live Sync Indicator */}
+            <div className="mt-3 flex items-center justify-between text-[11px] text-gray-400 border-t border-white/5 pt-2.5">
+              <span className="inline-flex items-center gap-1.5 text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                Synced with Maintenance Hub
+              </span>
+            </div>
           </Panel>
 
           <Panel title="Personnel Readiness" icon="mdi:account-group-outline" linkTo="/dashboard/personnel">

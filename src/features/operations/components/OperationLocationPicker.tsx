@@ -11,7 +11,7 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { circleMarker, divIcon, type LeafletMouseEvent } from "leaflet";
+import { circleMarker, divIcon } from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Icon } from "@iconify/react";
 import {
@@ -41,6 +41,7 @@ export type WaypointMarker = {
 
 type OperationLocationPickerProps = {
   activeTarget?: LocationTarget;
+  onTargetChange?: (target: LocationTarget) => void;
   departure: CoordinateValue;
   arrival: CoordinateValue;
   waypoints?: WaypointMarker[];
@@ -81,6 +82,16 @@ type OperationLocationPickerProps = {
 
 export type MapLayerMode = "night" | "osm" | "topo" | "imagery";
 
+const getTileUrl = (relativePath: string) => {
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (apiBase && (apiBase.startsWith("http://") || apiBase.startsWith("https://"))) {
+    const trimmedBase = apiBase.replace(/\/+$/, "");
+    const cleanPath = relativePath.replace(/^\/?api\/?/, "");
+    return `${trimmedBase}/${cleanPath}`;
+  }
+  return relativePath;
+};
+
 export const MAP_LAYERS: Record<
   MapLayerMode,
   {
@@ -96,15 +107,15 @@ export const MAP_LAYERS: Record<
     label: "Tactical Night",
     shortLabel: "Night",
     icon: "mdi:weather-night",
-    url: "/api/map/tiles/night/{z}/{x}/{y}.png",
-    maxZoom: 19,
+    url: getTileUrl("/api/map/tiles/dark/{z}/{x}/{y}.png?v=esri2"),
+    maxZoom: 18,
     description: "High-contrast dark mode for cockpit & command C2 ops",
   },
   osm: {
     label: "OpenStreetMap",
     shortLabel: "OSM",
     icon: "mdi:map-outline",
-    url: "/api/map/tiles/osm/{z}/{x}/{y}.png",
+    url: getTileUrl("/api/map/tiles/osm/{z}/{x}/{y}.png"),
     maxZoom: 19,
     description: "Standard road networks, civil boundaries, & infrastructure",
   },
@@ -112,7 +123,7 @@ export const MAP_LAYERS: Record<
     label: "Topographic Relief",
     shortLabel: "Topo",
     icon: "mdi:image-filter-hdr",
-    url: "/api/map/tiles/topo/{z}/{x}/{y}.png",
+    url: getTileUrl("/api/map/tiles/topo/{z}/{x}/{y}.png"),
     maxZoom: 17,
     description: "Elevation contour relief, mountain ridges, & terrain safety",
   },
@@ -120,13 +131,13 @@ export const MAP_LAYERS: Record<
     label: "Satellite Imagery",
     shortLabel: "Imagery",
     icon: "mdi:satellite-variant",
-    url: "/api/map/tiles/imagery/{z}/{x}/{y}.png",
+    url: getTileUrl("/api/map/tiles/imagery/{z}/{x}/{y}.png"),
     maxZoom: 18,
     description: "High-resolution satellite view of terrain & runways",
   },
 };
 
-const WEATHER_RADAR_URL = "/api/map/tiles/weather/{z}/{x}/{y}.png";
+const WEATHER_RADAR_URL = getTileUrl("/api/map/tiles/weather/{z}/{x}/{y}.png");
 
 const cefoCenter: [number, number] = [10.311875, 9.825];
 const defaultZoom = 6;
@@ -310,11 +321,26 @@ const createAeroFixIcon = (type: AeronauticalPointType, ident: string) => {
   });
 };
 
-const parseCoordinatePair = (coordinate: CoordinateValue): [number, number] | null => {
-  const latitude = Number(coordinate.latitude);
-  const longitude = Number(coordinate.longitude);
+const parseCoordinatePair = (coordinate?: CoordinateValue | null): [number, number] | null => {
+  if (!coordinate) return null;
+
+  const latStr = String(coordinate.latitude ?? "").trim();
+  const lngStr = String(coordinate.longitude ?? "").trim();
+
+  // If either coordinate is empty string or unset, don't plot phantom markers
+  if (!latStr || !lngStr) {
+    return null;
+  }
+
+  const latitude = Number(latStr);
+  const longitude = Number(lngStr);
 
   if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    return null;
+  }
+
+  // Treat (0, 0) as unset / uninitialized coordinates (Null Island)
+  if (latitude === 0 && longitude === 0) {
     return null;
   }
 
@@ -420,6 +446,7 @@ type LiveGpsPosition = {
 
 export const OperationLocationPicker = ({
   activeTarget = "departure",
+  onTargetChange,
   departure,
   arrival,
   waypoints = [],
@@ -460,7 +487,7 @@ export const OperationLocationPicker = ({
       return false;
     }
   });
-  const [weatherOpacity, setWeatherOpacity] = useState<number>(0.65);
+  const weatherOpacity = 0.65;
   const [showLayerMenu, setShowLayerMenu] = useState<boolean>(false);
 
   // Geo-Sensing Live Location state
@@ -613,13 +640,16 @@ export const OperationLocationPicker = ({
 
     const results: ValidWaypoint[] = [];
     waypoints.forEach((waypoint, index) => {
-      const lat = Number(waypoint.latitude);
-      const lng = Number(waypoint.longitude);
+      const latStr = String(waypoint.latitude ?? "").trim();
+      const lngStr = String(waypoint.longitude ?? "").trim();
+      if (!latStr || !lngStr) return;
+
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
       if (
         !Number.isNaN(lat) &&
         !Number.isNaN(lng) &&
-        waypoint.latitude !== "" &&
-        waypoint.longitude !== ""
+        !(lat === 0 && lng === 0)
       ) {
         results.push({
           index,
@@ -637,10 +667,6 @@ export const OperationLocationPicker = ({
     arrivalPoint,
   ].filter((point): point is [number, number] => point !== null);
 
-  const handleFacilityClick = (event: LeafletMouseEvent) => {
-    if (!onCoordinateSelect || readOnly) return;
-    onCoordinateSelect(activeTarget, event.latlng.lat, event.latlng.lng);
-  };
 
   const handleQuickJumpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -664,7 +690,7 @@ export const OperationLocationPicker = ({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-[#0A4D66]/40 bg-[#001219] flex flex-col ${className ?? ""}`.trim()}
+      className={`relative rounded-xl border border-[#0A4D66]/40 bg-[#001219] flex flex-col ${className ?? ""}`.trim()}
     >
       {/* Toast Notification Banner */}
       {toastMessage && (
@@ -685,17 +711,52 @@ export const OperationLocationPicker = ({
               <span className="font-semibold text-[#EF4444]">red</span>.
             </>
           ) : (
-            <>
-              <span>
-                Click map or aerodrome to plot active target:{" "}
-                <span className="font-bold uppercase text-[#7FD5FF]">{activeTarget}</span>
-              </span>
-              {activeTarget === "waypoint" && (
-                <span className="text-gray-400">
-                  (Click map or right-click to place enroute checkpoints)
-                </span>
-              )}
-            </>
+            <div className="flex flex-wrap items-center gap-1 bg-[#001219] p-1 rounded-lg border border-[#0A4D66]/60">
+              <span className="text-[10px] uppercase font-bold text-gray-400 px-1 hidden sm:inline">Plot Target:</span>
+              <button
+                type="button"
+                onClick={() => onTargetChange?.("departure")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                  activeTarget === "departure"
+                    ? "bg-emerald-600 text-white shadow-[0_0_8px_rgba(16,185,129,0.5)] ring-1 ring-white/20"
+                    : "text-gray-300 hover:text-white hover:bg-[#0A4D66]/40"
+                }`}
+                title="Plot or change Departure Aerodrome"
+              >
+                <span className={`w-2 h-2 rounded-full ${departurePoint ? "bg-white" : "bg-emerald-400 animate-pulse"}`} />
+                <span>1. Departure</span>
+                {departurePoint && <Icon icon="mdi:check" className="w-3.5 h-3.5 text-white" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onTargetChange?.("waypoint")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                  activeTarget === "waypoint"
+                    ? "bg-amber-600 text-white shadow-[0_0_8px_rgba(245,158,11,0.5)] ring-1 ring-white/20"
+                    : "text-gray-300 hover:text-white hover:bg-[#0A4D66]/40"
+                }`}
+                title="Plot enroute Waypoints / Checkpoints on the map"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span>2. Waypoints {validWaypoints.length > 0 ? `(${validWaypoints.length})` : ""}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => onTargetChange?.("arrival")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                  activeTarget === "arrival"
+                    ? "bg-red-600 text-white shadow-[0_0_8px_rgba(239,68,68,0.5)] ring-1 ring-white/20"
+                    : "text-gray-300 hover:text-white hover:bg-[#0A4D66]/40"
+                }`}
+                title="Plot or change Destination Aerodrome"
+              >
+                <span className={`w-2 h-2 rounded-full ${arrivalPoint ? "bg-white" : "bg-red-400 animate-pulse"}`} />
+                <span>3. Destination</span>
+                {arrivalPoint && <Icon icon="mdi:check" className="w-3.5 h-3.5 text-white" />}
+              </button>
+            </div>
           )}
         </div>
 
@@ -752,7 +813,7 @@ export const OperationLocationPicker = ({
             {/* Layer Selection Dropdown Menu */}
             {showLayerMenu && (
               <div
-                className="absolute right-0 top-full mt-1.5 z-[2500] w-64 rounded-xl border border-[#0A4D66] bg-[#001825]/98 p-2 shadow-2xl backdrop-blur-md text-xs font-sans text-gray-200 space-y-1 animate-in fade-in zoom-in-95 duration-100"
+                className="absolute left-0 top-full mt-1.5 z-[2500] w-64 rounded-xl border border-[#0A4D66] bg-[#001825]/98 p-2 shadow-2xl backdrop-blur-md text-xs font-sans text-gray-200 space-y-1 animate-in fade-in zoom-in-95 duration-100"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider text-[#7FD5FF] border-b border-white/10 flex items-center justify-between">
@@ -889,7 +950,7 @@ export const OperationLocationPicker = ({
       </div>
 
       {/* Relative container holding Leaflet Map, Floating Legend, and Right-Click Context Menu */}
-      <div className="relative w-full">
+      <div className="relative w-full overflow-hidden rounded-b-xl">
         {/* Tactical Map Color Legend Floating Card */}
         {showLegend && (
           <div className="absolute top-3 left-14 z-[1000] bg-[#001825]/95 border border-[#0A4D66] rounded-xl p-3 shadow-2xl backdrop-blur-md text-xs text-gray-200 w-64 space-y-2 animate-in fade-in duration-200 select-none">

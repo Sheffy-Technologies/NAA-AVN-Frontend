@@ -326,6 +326,7 @@ export const PersonnelPage = () => {
   >(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const filterBarRef = useRef<HTMLDivElement>(null);
+  const actionMenuRef = useRef<HTMLTableCellElement>(null);
   const displayedPersonnel = useMemo(() => {
     let result = mappedPersonnel;
     if (!unitFilter.all && unitFilter.selected.length > 0) {

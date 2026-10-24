@@ -117,6 +117,105 @@ type MissionPlanningCardProps = {
   className?: string;
 };
 
+/**
+ * Direct Freeform Number Input:
+ * Replaces sliders and fixed-step progression pickers so pilots and tactical dispatchers
+ * can type exact meteorological or performance figures (e.g. 13 kts, 047°, 235 L/h)
+ * directly from the keyboard without sliders, steppers, or auto-coercion jumps.
+ */
+interface DirectNumberInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  min?: number;
+  max?: number;
+  unit?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  allowDecimals?: boolean;
+}
+
+const DirectNumberInput = ({
+  value,
+  onChange,
+  min = 0,
+  max,
+  unit,
+  placeholder,
+  disabled = false,
+  className = "",
+  allowDecimals = true,
+}: DirectNumberInputProps) => {
+  const [text, setText] = useState<string>(() =>
+    value !== undefined && value !== null ? String(value) : ""
+  );
+  const isFocusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      setText(value !== undefined && value !== null ? String(value) : "");
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const pattern = allowDecimals ? /^\d*\.?\d*$/ : /^\d*$/;
+    if (raw === "" || pattern.test(raw)) {
+      setText(raw);
+      if (raw !== "" && !raw.endsWith(".")) {
+        const num = parseFloat(raw);
+        if (!isNaN(num)) {
+          let bounded = num;
+          if (min !== undefined && bounded < min) bounded = min;
+          if (max !== undefined && bounded > max) bounded = max;
+          onChange(bounded);
+        }
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    isFocusedRef.current = false;
+    if (text === "" || isNaN(parseFloat(text))) {
+      setText(String(value));
+    } else {
+      let num = parseFloat(text);
+      if (min !== undefined && num < min) num = min;
+      if (max !== undefined && num > max) num = max;
+      setText(String(num));
+      onChange(num);
+    }
+  };
+
+  const handleFocus = () => {
+    isFocusedRef.current = true;
+  };
+
+  return (
+    <div className="relative flex items-center w-full">
+      <input
+        type="text"
+        inputMode={allowDecimals ? "decimal" : "numeric"}
+        autoComplete="off"
+        value={text}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        disabled={disabled}
+        placeholder={placeholder}
+        className={`w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 disabled:opacity-50 ${
+          unit ? "pr-14" : ""
+        } ${className}`}
+      />
+      {unit && (
+        <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
+          {unit}
+        </span>
+      )}
+    </div>
+  );
+};
+
 export const MissionPlanningCard = ({
   departureLat,
   departureLng,
@@ -450,26 +549,16 @@ export const MissionPlanningCard = ({
             <span>Wind Direction (From)</span>
             <span className="text-[10px] text-gray-500 font-mono">0° - 360°</span>
           </label>
-          <div className="relative flex items-center">
-            <input
-              type="number"
-              min={0}
-              max={360}
-              step="any"
-              value={windDirectionDeg}
-              disabled={!isEditable}
-              onChange={(e) => {
-                const val = e.target.value;
-                const num = Number(val);
-                setWindDirectionDeg(Number.isNaN(num) ? 0 : Math.max(0, Math.min(360, num)));
-              }}
-              placeholder="060"
-              className="w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 pr-16 disabled:opacity-50"
-            />
-            <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
-              ° True
-            </span>
-          </div>
+          <DirectNumberInput
+            value={windDirectionDeg}
+            onChange={setWindDirectionDeg}
+            min={0}
+            max={360}
+            unit="° True"
+            placeholder="060"
+            disabled={!isEditable}
+            allowDecimals={false}
+          />
         </div>
 
         {/* Wind Velocity Input */}
@@ -478,26 +567,15 @@ export const MissionPlanningCard = ({
             <span>Wind Velocity</span>
             <span className="text-[10px] text-gray-500 font-mono">Speed</span>
           </label>
-          <div className="relative flex items-center">
-            <input
-              type="number"
-              min={0}
-              max={150}
-              step="any"
-              value={windSpeedKts}
-              disabled={!isEditable}
-              onChange={(e) => {
-                const val = e.target.value;
-                const num = Number(val);
-                setWindSpeedKts(Number.isNaN(num) ? 0 : Math.max(0, num));
-              }}
-              placeholder="15"
-              className="w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 pr-12 disabled:opacity-50"
-            />
-            <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
-              kts
-            </span>
-          </div>
+          <DirectNumberInput
+            value={windSpeedKts}
+            onChange={setWindSpeedKts}
+            min={0}
+            max={150}
+            unit="kts"
+            placeholder="15"
+            disabled={!isEditable}
+          />
         </div>
 
         {/* Planned TAS Input */}
@@ -506,26 +584,15 @@ export const MissionPlanningCard = ({
             <span>True Airspeed (TAS)</span>
             <span className="text-[10px] text-gray-500 font-mono">Cruise</span>
           </label>
-          <div className="relative flex items-center">
-            <input
-              type="number"
-              min={1}
-              max={600}
-              step="any"
-              value={cruiseSpeedKts}
-              disabled={!isEditable}
-              onChange={(e) => {
-                const val = e.target.value;
-                const num = Number(val);
-                setCruiseSpeedKts(Number.isNaN(num) ? 1 : Math.max(1, num));
-              }}
-              placeholder="120"
-              className="w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 pr-12 disabled:opacity-50"
-            />
-            <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
-              kts
-            </span>
-          </div>
+          <DirectNumberInput
+            value={cruiseSpeedKts}
+            onChange={setCruiseSpeedKts}
+            min={1}
+            max={600}
+            unit="kts"
+            placeholder="120"
+            disabled={!isEditable}
+          />
         </div>
 
         {/* Burn Rate Input */}
@@ -534,26 +601,15 @@ export const MissionPlanningCard = ({
             <span>Jet A-1 Burn Rate</span>
             <span className="text-[10px] text-gray-500 font-mono">Rate</span>
           </label>
-          <div className="relative flex items-center">
-            <input
-              type="number"
-              min={1}
-              max={5000}
-              step="any"
-              value={burnRateLph}
-              disabled={!isEditable}
-              onChange={(e) => {
-                const val = e.target.value;
-                const num = Number(val);
-                setBurnRateLph(Number.isNaN(num) ? 1 : Math.max(1, num));
-              }}
-              placeholder="240"
-              className="w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 pr-12 disabled:opacity-50"
-            />
-            <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
-              L/h
-            </span>
-          </div>
+          <DirectNumberInput
+            value={burnRateLph}
+            onChange={setBurnRateLph}
+            min={1}
+            max={5000}
+            unit="L/h"
+            placeholder="240"
+            disabled={!isEditable}
+          />
         </div>
       </div>
 
@@ -988,15 +1044,15 @@ export const MissionPlanningCard = ({
               <label className="text-[11px] text-gray-400 font-medium block mb-1">
                 Extra / Tactical Discretionary Fuel (L)
               </label>
-              <input
-                type="number"
-                min={0}
-                max={500}
-                step={25}
+              <DirectNumberInput
                 value={extraDiscretionaryFuelL}
+                onChange={setExtraDiscretionaryFuelL}
+                min={0}
+                max={2000}
+                unit="L"
+                placeholder="50"
                 disabled={!isEditable}
-                onChange={(e) => setExtraDiscretionaryFuelL(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-lg p-2 text-xs text-white font-mono focus:outline-none focus:border-[#7FD5FF]"
+                className="bg-[#001219] border-[#0A4D66]/40 text-xs p-2"
               />
             </div>
           </div>
@@ -1161,26 +1217,15 @@ export const MissionPlanningCard = ({
                 Max allowable: {(maxTakeoffWeightKg - emptyWeightKg).toLocaleString()} kg
               </span>
             </label>
-            <div className="relative flex items-center">
-              <input
-                type="number"
-                min={0}
-                max={5000}
-                step="any"
-                value={payloadKg}
-                disabled={!isEditable}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const num = Number(val);
-                  setPayloadKg(Number.isNaN(num) ? 0 : Math.max(0, num));
-                }}
-                placeholder="300"
-                className="w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 pr-12 disabled:opacity-50"
-              />
-              <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
-                kg
-              </span>
-            </div>
+            <DirectNumberInput
+              value={payloadKg}
+              onChange={setPayloadKg}
+              min={0}
+              max={5000}
+              unit="kg"
+              placeholder="300"
+              disabled={!isEditable}
+            />
           </div>
 
           <div className="rounded-xl border border-[#0A4D66]/40 bg-[#001825] p-4 space-y-2 text-xs font-mono">

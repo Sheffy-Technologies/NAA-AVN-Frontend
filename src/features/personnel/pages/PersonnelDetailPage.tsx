@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
-import { useGetPersonnelByIdQuery, useDeletePersonnelMutation } from "@/features/personnel/api";
+import { useTheme } from "@/context/ThemeContext";
+import { useGetPersonnelByIdQuery, useDeletePersonnelMutation, useUpdatePersonnelMutation } from "@/features/personnel/api";
 import { useGetPersonnelPassByIdQuery } from "@/features/personnel/passApi";
 import { useGetAttendanceQuery } from "@/features/personnel/attendanceApi";
 import { useGetCoursesQuery, type Course, type CourseStatus } from "@/features/personnel/courseApi";
@@ -201,6 +202,7 @@ const COURSE_STATUS_COLORS: Record<CourseStatus, string> = {
 };
 
 export const PersonnelDetailPage = () => {
+  const { isDark } = useTheme();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
@@ -209,6 +211,8 @@ export const PersonnelDetailPage = () => {
       skip: !id,
     });
   const [deletePersonnel, { isLoading: isDeleting }] = useDeletePersonnelMutation();
+  const [updatePersonnel, { isLoading: isUpdatingStatus }] = useUpdatePersonnelMutation();
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"bio" | "activity" | "pass" | "course" | "attendance">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
   const [showInitiatePassModal, setShowInitiatePassModal] = useState(false);
@@ -258,6 +262,21 @@ export const PersonnelDetailPage = () => {
       navigate("/dashboard/personnel");
     } catch {
       dispatch(showToast({ message: "Failed to delete personnel", type: "error" }));
+    }
+  };
+
+  const handleChangeStatus = async (newStatus: PersonnelStatus) => {
+    if (!id) return;
+    try {
+      await updatePersonnel({
+        id,
+        data: { status: newStatus },
+      }).unwrap();
+      dispatch(showToast({ message: `Status updated to ${newStatus}`, type: "success" }));
+    } catch {
+      dispatch(showToast({ message: "Failed to update status", type: "error" }));
+    } finally {
+      setIsStatusMenuOpen(false);
     }
   };
 
@@ -501,7 +520,7 @@ export const PersonnelDetailPage = () => {
       await downloadElementAsPdf({
         element: contentRef.current,
         fileName: `${person.firstName}-${person.lastName}-${person.id}`,
-        backgroundColor: "#001219",
+        backgroundColor: isDark ? "#001219" : "#ffffff",
       });
       dispatch(showToast({ message: "PDF downloaded", type: "success" }));
     } catch (error) {
@@ -517,119 +536,360 @@ export const PersonnelDetailPage = () => {
   };
 
   return (
-    <div className="px-2 sm:px-0">
-      <section className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl overflow-hidden">
-        <div className="flex flex-col gap-3 px-4 sm:px-6 py-3 border-b border-[#0A4D66]/40 bg-[#001219]">
-          <div className="flex items-center justify-between gap-3">
+    <div className="space-y-6">
+      {/* ── Executive Header Card ────────────────────────────── */}
+      <div
+        className={cn(
+          "rounded-2xl border p-5 sm:p-6 transition-all shadow-sm",
+          isDark
+            ? "bg-[#001219]/90 border-[#0A4D66]/50 backdrop-blur-md"
+            : "bg-white border-slate-200 shadow-slate-100",
+        )}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-4">
             <BackButton fallbackUrl="/dashboard/personnel" />
+
+            {/* Personnel Identity & Avatar */}
+            <div className="flex items-center gap-3.5">
+              {person?.image ? (
+                <img
+                  src={person.image}
+                  alt={`${person.firstName} ${person.lastName}`}
+                  className="w-12 h-12 rounded-xl object-cover ring-2 ring-cyan-500/30"
+                />
+              ) : (
+                <div
+                  className={cn(
+                    "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-base shadow-inner",
+                    isDark
+                      ? "bg-gradient-to-br from-cyan-950 to-[#0A4D66] text-cyan-200 border border-cyan-500/30"
+                      : "bg-gradient-to-br from-sky-100 to-sky-200 text-sky-800 border border-sky-300",
+                  )}
+                >
+                  {person?.firstName?.[0] || "P"}{person?.lastName?.[0] || "N"}
+                </div>
+              )}
+
+              <div>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1
+                    className={cn(
+                      "text-xl sm:text-2xl font-bold tracking-tight",
+                      isDark ? "text-white" : "text-slate-900",
+                    )}
+                  >
+                    {person ? `${person.rank} ${person.firstName} ${person.lastName}` : "Personnel Dossier"}
+                  </h1>
+
+                  {/* Status Pill */}
+                  {person && (
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wider border",
+                        person.status === "Active"
+                          ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-400"
+                          : person.status === "Grounded"
+                          ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+                          : "bg-rose-500/15 border-rose-500/40 text-rose-400",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "w-2 h-2 rounded-full",
+                          statusDotColor[person.status] || "bg-emerald-400",
+                          person.status === "Active" ? "animate-pulse" : "",
+                        )}
+                      />
+                      {person.status}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm mt-1">
+                  <span className={cn("font-mono font-medium", isDark ? "text-cyan-400" : "text-sky-600")}>
+                    SVC: {person?.serviceNo || "—"}
+                  </span>
+                  <span className={isDark ? "text-gray-500" : "text-slate-300"}>•</span>
+                  <span className={isDark ? "text-gray-300" : "text-slate-600"}>
+                    {person?.branch || "Armed Forces"}
+                  </span>
+                  <span className={isDark ? "text-gray-500" : "text-slate-300"}>•</span>
+                  <span className={isDark ? "text-gray-400" : "text-slate-500"}>
+                    {person?.specialty || "General Duty"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Toolbar */}
+          <div className="flex flex-wrap items-center gap-2 self-end lg:self-center">
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              disabled={isDownloadingPdf || !person}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors shadow-sm disabled:opacity-50",
+                isDark
+                  ? "bg-[#0A4D66]/30 border-[#0A4D66]/70 text-cyan-200 hover:bg-[#0A4D66]/50"
+                  : "bg-white border-[#0A4D66]/60 text-slate-800 hover:bg-slate-50",
+              )}
+            >
+              <Icon
+                icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
+                className={cn("w-3.5 h-3.5 text-sky-500", isDownloadingPdf && "animate-spin")}
+              />
+              <span>{isDownloadingPdf ? "Downloading..." : "Download"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeletePersonnel}
+              disabled={isDeleting}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors shadow-sm disabled:opacity-50",
+                isDark
+                  ? "border-red-700/60 text-red-300 hover:bg-red-900/30"
+                  : "border-red-300 bg-white text-red-600 hover:bg-red-50",
+              )}
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-3.5 h-3.5 text-red-500" />
+              <span>{isDeleting ? "Deleting..." : "Delete"}</span>
+            </button>
+
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+                disabled={isUpdatingStatus}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors shadow-sm disabled:opacity-50",
+                  isDark
+                    ? "border-[#0A4D66]/60 text-gray-200 hover:bg-[#0A4D66]/30"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+                )}
+              >
+                <span>Update status</span>
+                <Icon icon="mdi:chevron-down" className="w-3 h-3 opacity-60" />
+              </button>
+
+              {isStatusMenuOpen && !isUpdatingStatus && (
+                <div
+                  className={cn(
+                    "absolute right-0 mt-1 w-32 rounded-md border shadow-lg z-30 overflow-hidden py-1",
+                    isDark ? "bg-[#001219] border-[#0A4D66]/50 text-white" : "bg-white border-slate-200 text-slate-800",
+                  )}
+                >
+                  {(["Active", "Grounded", "Medical"] as const).map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => handleChangeStatus(status)}
+                      className={cn(
+                        "w-full flex items-center justify-between px-3 py-1.5 text-left text-xs transition-colors",
+                        isDark ? "hover:bg-[#0A4D66]/40" : "hover:bg-slate-100",
+                      )}
+                    >
+                      <span>{status}</span>
+                      {person?.status === status && (
+                        <Icon icon="mdi:check" className="w-3.5 h-3.5 text-emerald-500" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => navigate(`/dashboard/personnel/${id}/edit`)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-medium transition-colors shadow-sm",
+                isDark
+                  ? "border-[#0A4D66]/60 text-gray-200 hover:bg-[#0A4D66]/30"
+                  : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50",
+              )}
+            >
+              <span>Edit</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ── 4-Card Executive KPI Strip ── */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-5 mt-5 border-t border-inherit">
+          <div
+            className={cn(
+              "p-3.5 rounded-xl border flex flex-col gap-1 transition-all",
+              isDark ? "bg-[#001825]/60 border-[#0A4D66]/30" : "bg-slate-50 border-slate-200/80",
+            )}
+          >
+            <span className={cn("text-[10px] font-semibold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+              Operational Role
+            </span>
+            <span className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-900")}>
+              {person?.isPilot ? "Flight Aircrew" : person?.isEngineer ? "Maintenance Engineer" : "Specialist"}
+            </span>
+            <span className={cn("text-[11px] font-mono", isDark ? "text-cyan-400" : "text-sky-600")}>
+              Callsign: {person?.callSign || "—"}
+            </span>
+          </div>
+
+          <div
+            className={cn(
+              "p-3.5 rounded-xl border flex flex-col gap-1 transition-all",
+              isDark ? "bg-[#001825]/60 border-[#0A4D66]/30" : "bg-slate-50 border-slate-200/80",
+            )}
+          >
+            <span className={cn("text-[10px] font-semibold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+              Tasked Assignment
+            </span>
+            <span className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-900")}>
+              {person?.currentDeploymentUnit || "Unassigned"}
+            </span>
+            <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>
+              Since: {person?.currentDeploymentDate || "—"}
+            </span>
+          </div>
+
+          <div
+            className={cn(
+              "p-3.5 rounded-xl border flex flex-col gap-1 transition-all",
+              isDark ? "bg-[#001825]/60 border-[#0A4D66]/30" : "bg-slate-50 border-slate-200/80",
+            )}
+          >
+            <span className={cn("text-[10px] font-semibold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+              {person?.isPilot ? "Logbook Hours" : "Service Record"}
+            </span>
+            <span className={cn("text-sm font-bold truncate", isDark ? "text-cyan-300" : "text-sky-700")}>
+              {person?.isPilot ? `${person.totalFlightTimeHours} Flight Hours` : person?.yearsOfExperience || "Active Duty"}
+            </span>
+            <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>
+              {person?.ratings.length ?? 0} Certified Ratings
+            </span>
+          </div>
+
+          <div
+            className={cn(
+              "p-3.5 rounded-xl border flex flex-col gap-1 transition-all",
+              isDark ? "bg-[#001825]/60 border-[#0A4D66]/30" : "bg-slate-50 border-slate-200/80",
+            )}
+          >
+            <span className={cn("text-[10px] font-semibold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+              Medical &amp; Readiness
+            </span>
+            <span className={cn("text-sm font-bold truncate", isDark ? "text-emerald-400" : "text-emerald-600")}>
+              Blood: {person?.bloodGroup || "—"}
+            </span>
+            <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>
+              Readiness: {person?.status || "Active"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Main Tabbed Content Section ──────────────────────── */}
+      <section
+        className={cn(
+          "rounded-2xl border overflow-hidden shadow-sm transition-all",
+          isDark
+            ? "bg-[#001219]/90 border-[#0A4D66]/50 backdrop-blur-md"
+            : "bg-white border-slate-200 shadow-slate-100",
+        )}
+      >
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-4 px-4 sm:px-6 py-2.5 border-b",
+            isDark ? "border-[#0A4D66]/40 bg-[#001422]/60" : "border-slate-200 bg-slate-50/70",
+          )}
+        >
+          <AppTabs
+            tabs={[
+              { id: "bio", label: "Personnel Bio Data", icon: "mdi:shield-account-outline" },
+              { id: "activity", label: "Activity Log", icon: "mdi:clock-outline" },
+              { id: "pass", label: "Pass Records", icon: "mdi:calendar-check-outline" },
+              { id: "course", label: "Courses & Training", icon: "mdi:school-outline" },
+              { id: "attendance", label: "Duty Attendance", icon: "mdi:clipboard-check-outline" },
+            ]}
+            activeTab={activeTab}
+            onChange={(tab) => setActiveTab(tab as typeof activeTab)}
+            size="sm"
+            containerClassName="border-b-0"
+          />
+
+          {activeTab === "activity" && (
             <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "hidden sm:flex items-center gap-1 rounded-lg border p-1",
+                  isDark ? "border-[#0A4D66]/40 bg-[#001219]" : "border-slate-200 bg-slate-100",
+                )}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActivityView("table")}
+                  aria-label="Switch to table view"
+                  title="Table view"
+                  className={cn(
+                    "px-2 py-1 rounded-md flex items-center justify-center transition-colors",
+                    activityView === "table"
+                      ? isDark
+                        ? "bg-[#0A4D66] text-white"
+                        : "bg-white text-slate-800 shadow-sm"
+                      : isDark
+                      ? "text-gray-400 hover:text-white"
+                      : "text-slate-500 hover:text-slate-800",
+                  )}
+                >
+                  <Icon icon="mdi:view-list" className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivityView("grid")}
+                  aria-label="Switch to grid view"
+                  title="Grid view"
+                  className={cn(
+                    "px-2 py-1 rounded-md flex items-center justify-center transition-colors",
+                    activityView === "grid"
+                      ? isDark
+                        ? "bg-[#0A4D66] text-white"
+                        : "bg-white text-slate-800 shadow-sm"
+                      : isDark
+                      ? "text-gray-400 hover:text-white"
+                      : "text-slate-500 hover:text-slate-800",
+                  )}
+                >
+                  <Icon icon="mdi:view-grid-outline" className="w-4 h-4" />
+                </button>
+              </div>
+              <span
+                className={cn(
+                  "px-2.5 py-1 rounded-lg border text-xs font-mono font-medium",
+                  isDark ? "border-[#0A4D66]/40 bg-[#001219] text-gray-200" : "border-slate-200 bg-slate-50 text-slate-700",
+                )}
+              >
+                {mockActivityLog.length} events
+              </span>
               <button
                 type="button"
                 onClick={handleDownloadPdf}
                 disabled={isDownloadingPdf || !person}
-                className="px-3 py-1.5 rounded border border-[#0A4D66]/60 text-xs text-white hover:bg-red-900/30 disabled:opacity-50"
+                aria-label="Download personnel details"
+                title="Download personnel details"
+                className={cn(
+                  "inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors",
+                  isDark
+                    ? "border-[#0A4D66]/40 bg-[#001219] text-gray-300 hover:bg-[#0A4D66]/30"
+                    : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100",
+                )}
               >
-                {isDownloadingPdf ? "Downloading..." : "Download"}
-              </button>
-              <button
-                type="button"
-                onClick={handleDeletePersonnel}
-                disabled={isDeleting}
-                className="px-3 py-1.5 rounded border border-red-700/60 text-xs text-red-300 hover:bg-red-900/30 disabled:opacity-50"
-              >
-                {isDeleting ? "Deleting..." : "Delete"}
-              </button>
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded border border-[#0A4D66]/60 text-xs text-gray-200 hover:bg-[#0A4D66]/30"
-              >
-                Update status
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(`/dashboard/personnel/${id}/edit`)}
-                className="px-3 py-1.5 rounded border border-[#0A4D66]/60 text-xs text-gray-200 hover:bg-[#0A4D66]/30"
-              >
-                Edit
+                <Icon
+                  icon={isDownloadingPdf ? "mdi:loading" : "mdi:download-outline"}
+                  className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
+                />
               </button>
             </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300">
-            <AppTabs
-              tabs={[
-                { id: "bio", label: "Personnel bio data", icon: "mdi:shield-account-outline" },
-                { id: "activity", label: "Activity Log", icon: "mdi:clock-outline" },
-                { id: "pass", label: "Pass", icon: "mdi:calendar-check-outline" },
-                { id: "course", label: "Course", icon: "mdi:school-outline" },
-                { id: "attendance", label: "Attendance", icon: "mdi:clipboard-check-outline" },
-              ]}
-              activeTab={activeTab}
-              onChange={(tab) => setActiveTab(tab as typeof activeTab)}
-              size="sm"
-              containerClassName="border-b-0"
-            />
-
-            {activeTab === "activity" && (
-              <div className="flex items-center gap-2">
-                <div className="hidden sm:flex items-center gap-1 rounded-md border border-[#0A4D66]/40 bg-[#001219] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setActivityView("table")}
-                    aria-label="Switch to table view"
-                    title="Table view"
-                    className={cn(
-                      "px-2 py-1 rounded-sm flex items-center justify-center",
-                      activityView === "table"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400",
-                    )}
-                  >
-                    <Icon icon="mdi:view-list" className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActivityView("grid")}
-                    aria-label="Switch to grid view"
-                    title="Grid view"
-                    className={cn(
-                      "px-2 py-1 rounded-sm flex items-center justify-center",
-                      activityView === "grid"
-                        ? "bg-[#0A4D66] text-white"
-                        : "text-gray-400",
-                    )}
-                  >
-                    <Icon icon="mdi:view-grid-outline" className="w-4 h-4" />
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  className="px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200"
-                >
-                  {mockActivityLog.length}
-                </button>
-                <button
-                  type="button"
-                  className="hidden md:inline-flex px-3 py-1.5 rounded border border-[#0A4D66]/40 bg-[#001219] text-xs text-gray-200 whitespace-nowrap"
-                >
-                  Period
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDownloadPdf}
-                  disabled={isDownloadingPdf || !person}
-                  aria-label="Download personnel details"
-                  title="Download personnel details"
-                  className="inline-flex items-center justify-center w-8 h-8 rounded border border-[#0A4D66]/40 bg-[#001219] text-gray-300"
-                >
-                  <Icon
-                    icon={isDownloadingPdf ? "mdi:loading" : "mdi:download-outline"}
-                    className={cn("w-4 h-4", isDownloadingPdf ? "animate-spin" : "")}
-                  />
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {activeTab === "bio" && apiPerson && <LinkedAccountCard personnelId={apiPerson.id} user={apiPerson.user} />}
@@ -649,92 +909,126 @@ export const PersonnelDetailPage = () => {
                 </span>
               </div>
             ) : (
-              <div className="grid gap-4 lg:grid-cols-[260px,1.5fr,1.2fr]">
+              <div className="grid gap-5 lg:grid-cols-[280px,1.4fr,1.3fr]">
+                {/* Left Column: Photo & Core Vitals */}
                 <div className="space-y-4">
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 flex flex-col items-center gap-3">
+                  {/* Photo & Call Sign Badge */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-5 flex flex-col items-center gap-3.5 transition-all text-center",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40" : "bg-white border-slate-200 shadow-sm",
+                    )}
+                  >
                     {person.image ? (
                       <img
                         src={person.image}
                         alt={`${person.firstName} ${person.lastName}`}
-                        className="w-28 h-28 rounded-lg object-cover bg-[#0A4D66]"
+                        className="w-32 h-32 rounded-2xl object-cover ring-2 ring-cyan-500/40 shadow-md"
                       />
                     ) : (
-                      <div className="w-28 h-28 rounded-lg bg-[#0A4D66] flex items-center justify-center text-2xl font-semibold text-white">
+                      <div
+                        className={cn(
+                          "w-32 h-32 rounded-2xl flex items-center justify-center text-3xl font-bold shadow-inner",
+                          isDark
+                            ? "bg-gradient-to-br from-cyan-950 to-[#0A4D66] text-cyan-200 border border-cyan-500/30"
+                            : "bg-gradient-to-br from-sky-100 to-sky-200 text-sky-800 border border-sky-300",
+                        )}
+                      >
                         {person.firstName[0]}
                         {person.lastName[0]}
                       </div>
                     )}
-                    <div className="text-center">
-                      <div className="text-sm font-semibold text-white">
+                    <div>
+                      <div className={cn("text-base font-bold tracking-tight", isDark ? "text-white" : "text-slate-900")}>
                         {person.firstName} {person.lastName}
                       </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Service No. {person.serviceNo}
+                      <div className={cn("text-xs font-mono font-medium mt-1", isDark ? "text-cyan-400" : "text-sky-600")}>
+                        Service No: {person.serviceNo}
+                      </div>
+                      <span
+                        className={cn(
+                          "inline-block mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wider border",
+                          isDark
+                            ? "bg-[#0A4D66]/30 border-[#0A4D66]/60 text-cyan-300"
+                            : "bg-slate-100 border-slate-200 text-slate-700",
+                        )}
+                      >
+                        {person.rank}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Core Military Vitals Card */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-4.5 space-y-3 text-xs sm:text-sm transition-all",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                    )}
+                  >
+                    <div className={cn("text-[10px] font-bold uppercase tracking-wider pb-2 border-b", isDark ? "text-cyan-400 border-white/5" : "text-sky-700 border-slate-100")}>
+                      Military Vitals
+                    </div>
+                    <div className="grid gap-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={isDark ? "text-gray-400" : "text-slate-500"}>Blood Group:</span>
+                        <span className={cn("font-bold px-2 py-0.5 rounded text-xs", isDark ? "bg-red-950/60 text-red-300 border border-red-800/40" : "bg-red-50 text-red-700 border border-red-200")}>
+                          {person.bloodGroup || "—"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={isDark ? "text-gray-400" : "text-slate-500"}>Call Sign:</span>
+                        <span className={cn("font-mono font-bold", isDark ? "text-cyan-300" : "text-sky-700")}>
+                          {person.callSign || "—"}
+                        </span>
+                      </div>
+                      <div className="pt-2 border-t border-inherit">
+                        <span className={cn("block text-[11px] mb-1.5", isDark ? "text-gray-400" : "text-slate-500")}>
+                          Airframe &amp; System Ratings:
+                        </span>
+                        {person.ratings.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {person.ratings.map((rating) => (
+                              <span
+                                key={`${rating.name}-${rating.expiryDate ?? "none"}`}
+                                className={cn(
+                                  "inline-flex items-center rounded-lg border px-2 py-0.5 text-[11px] font-medium transition-colors",
+                                  isDark
+                                    ? "border-cyan-500/30 bg-cyan-950/40 text-cyan-200"
+                                    : "border-sky-200 bg-sky-50 text-sky-800",
+                                )}
+                              >
+                                {rating.name}
+                                {rating.isLifetime
+                                  ? " (Lifetime)"
+                                  : rating.expiryDate
+                                  ? ` (${rating.expiryDate})`
+                                  : ""}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className={isDark ? "text-gray-500 text-xs italic" : "text-slate-400 text-xs italic"}>None on record</span>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 grid gap-2 text-xs sm:text-sm text-gray-200 lg:grid-cols-2">
-                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
-                      <span className="text-gray-400 whitespace-nowrap">
-                        Rank:
-                      </span>
-                      <span>{person.rank}</span>
+                  {/* Prior Deployment */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-4.5 space-y-2.5 text-xs sm:text-sm transition-all",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                    )}
+                  >
+                    <div className={cn("text-[10px] font-bold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+                      Previous Deployment
                     </div>
-                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
-                      <span className="text-gray-400 whitespace-nowrap">
-                        Blood Group:
-                      </span>
-                      <span>{person.bloodGroup}</span>
+                    <div className="flex items-center gap-2">
+                      <Icon icon="mdi:calendar-blank-outline" className={cn("w-4 h-4", isDark ? "text-cyan-400" : "text-sky-600")} />
+                      <span className={isDark ? "text-white" : "text-slate-800"}>{person.lastDeploymentDate}</span>
                     </div>
-                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
-                      <span className="text-gray-400 whitespace-nowrap">
-                        Call Sign:
-                      </span>
-                      <span>{person.callSign}</span>
-                    </div>
-                    <div className="grid grid-cols-[110px,1fr] items-start gap-2">
-                      <span className="text-gray-400 whitespace-nowrap">
-                        Rating:
-                      </span>
-                      {person.ratings.length > 0 ? (
-                        <span className="flex flex-wrap gap-2">
-                          {person.ratings.map((rating) => (
-                            <span
-                              key={`${rating.name}-${rating.expiryDate ?? "none"}`}
-                              className="inline-flex items-center rounded-full border border-[#7FD5FF]/30 bg-[#0A4D66]/20 px-2 py-0.5 text-[11px] text-[#B7E6FF]"
-                            >
-                              {rating.name}
-                              {rating.isLifetime
-                                ? " (Lifetime)"
-                                : rating.expiryDate
-                                ? ` (${rating.expiryDate})`
-                                : ""}
-                            </span>
-                          ))}
-                        </span>
-                      ) : (
-                        <span>-</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 space-y-3 text-xs sm:text-sm text-gray-200">
-                    <div className="text-gray-400 text-[11px] uppercase">
-                      Last Deployment
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Icon
-                        icon="mdi:calendar-blank-outline"
-                        className="w-4 h-4 text-gray-400"
-                      />
-                      <span>{person.lastDeploymentDate}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Icon
-                        icon="mdi:office-building"
-                        className="w-4 h-4 text-gray-400"
-                      />
+                    <div className="flex items-center gap-2">
+                      <Icon icon="mdi:office-building" className={cn("w-4 h-4", isDark ? "text-cyan-400" : "text-sky-600")} />
                       {(() => {
                         const sortedDeps = [...(apiPerson?.deployments ?? [])].sort(
                           (a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime(),
@@ -744,244 +1038,272 @@ export const PersonnelDetailPage = () => {
                           <button
                             type="button"
                             onClick={() => navigate(`/dashboard/units/${lastUnitId}`)}
-                            className="text-left text-[#7FD5FF] hover:underline"
+                            className={cn("text-left font-medium hover:underline", isDark ? "text-cyan-300" : "text-sky-600")}
                           >
                             {person.lastDeploymentUnit}
                           </button>
                         ) : (
-                          <span>{person.lastDeploymentUnit}</span>
+                          <span className={isDark ? "text-white" : "text-slate-800"}>{person.lastDeploymentUnit}</span>
                         );
                       })()}
                     </div>
                   </div>
                 </div>
 
+                {/* Center Column: Identification & Duty Station */}
                 <div className="space-y-4">
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="text-[11px] uppercase text-gray-400 mb-3">
-                      Personnel Identification
+                  {/* Identification Card */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-5 text-xs sm:text-sm transition-all",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                    )}
+                  >
+                    <div className={cn("text-[10px] font-bold uppercase tracking-wider mb-3.5 pb-2 border-b", isDark ? "text-cyan-400 border-white/5" : "text-sky-700 border-slate-100")}>
+                      Personnel Identification Records
                     </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400">Service No.:</span>
-                        <span className="font-semibold">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Service Number</span>
+                        <span className={cn("font-mono font-bold text-sm", isDark ? "text-cyan-300" : "text-sky-700")}>
                           {person.serviceNo}
                         </span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400">First Name:</span>
-                        <span className="font-semibold">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>First Name</span>
+                        <span className={cn("font-semibold text-sm", isDark ? "text-white" : "text-slate-900")}>
                           {person.firstName}
                         </span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400">Last Name:</span>
-                        <span className="font-semibold">{person.lastName}</span>
+                      <div className="flex flex-col gap-0.5">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Last Name</span>
+                        <span className={cn("font-semibold text-sm", isDark ? "text-white" : "text-slate-900")}>
+                          {person.lastName}
+                        </span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400">Middle Name:</span>
-                        <span className="font-semibold">
-                          {person.middleName || "-"}
+                      <div className="flex flex-col gap-0.5">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Middle Name</span>
+                        <span className={cn("font-semibold text-sm", isDark ? "text-white" : "text-slate-900")}>
+                          {person.middleName || "—"}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="text-[11px] uppercase text-gray-400 mb-2">
-                      Dialogue Box
-                    </div>
-                    <p className="text-white">{person.dialogue}</p>
-                  </div>
-
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="text-[11px] uppercase text-gray-400 mb-2">
-                      Unit
+                  {/* Operational Unit Card */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-5 text-xs sm:text-sm transition-all",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                    )}
+                  >
+                    <div className={cn("text-[10px] font-bold uppercase tracking-wider mb-2", isDark ? "text-gray-400" : "text-slate-500")}>
+                      Assigned Formation &amp; Base
                     </div>
                     {apiPerson?.unit?.id ? (
                       <button
                         type="button"
                         onClick={() => navigate(`/dashboard/units/${apiPerson.unit.id}`)}
-                        className="text-left text-[#7FD5FF] hover:underline font-medium"
+                        className={cn("text-left font-bold text-base hover:underline flex items-center gap-1.5", isDark ? "text-cyan-300" : "text-sky-700")}
                       >
-                        {person.currentDeploymentUnit}
+                        <Icon icon="mdi:shield-airplane-outline" className="w-5 h-5 shrink-0" />
+                        <span>{person.currentDeploymentUnit}</span>
                       </button>
                     ) : (
-                      <p className="text-white">
+                      <p className={cn("font-semibold text-base", isDark ? "text-white" : "text-slate-900")}>
                         {person.currentDeploymentUnit}
                       </p>
                     )}
                   </div>
 
                   {person.isPilot && (
-                    <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                      <div className="text-[11px] uppercase text-gray-400 mb-2">
-                        Type Rating (Platform)
+                    <div
+                      className={cn(
+                        "rounded-2xl border p-5 text-xs sm:text-sm transition-all",
+                        isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                      )}
+                    >
+                      <div className={cn("text-[10px] font-bold uppercase tracking-wider mb-2", isDark ? "text-gray-400" : "text-slate-500")}>
+                        Type Rating (Authorized Platform)
                       </div>
-                      <p className="text-white font-medium">{person.aircraftRatedOn}</p>
+                      <p className={cn("font-bold text-base", isDark ? "text-white" : "text-slate-900")}>
+                        {person.aircraftRatedOn}
+                      </p>
                     </div>
                   )}
 
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="text-[11px] uppercase text-gray-400 mb-2">
-                      Current Deployment
+                  {/* Current Active Deployment */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-5 space-y-2.5 text-xs sm:text-sm transition-all",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                    )}
+                  >
+                    <div className={cn("text-[10px] font-bold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+                      Current Active Tour of Duty
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Icon
-                        icon="mdi:calendar-blank-outline"
-                        className="w-4 h-4 text-gray-400"
-                      />
-                      <span>{person.currentDeploymentDate}</span>
+                    <div className="flex items-center gap-2">
+                      <Icon icon="mdi:calendar-check-outline" className={cn("w-4 h-4", isDark ? "text-cyan-400" : "text-sky-600")} />
+                      <span className={isDark ? "text-white font-medium" : "text-slate-800 font-medium"}>Effective: {person.currentDeploymentDate}</span>
                     </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Icon
-                        icon="mdi:office-building"
-                        className="w-4 h-4 text-gray-400"
-                      />
+                    <div className="flex items-center gap-2">
+                      <Icon icon="mdi:crosshairs-gps" className={cn("w-4 h-4", isDark ? "text-cyan-400" : "text-sky-600")} />
                       {apiPerson?.latest_deployment?.to_unit_id ? (
                         <button
                           type="button"
                           onClick={() => navigate(`/dashboard/units/${apiPerson.latest_deployment!.to_unit_id}`)}
-                          className="text-left text-[#7FD5FF] hover:underline"
+                          className={cn("text-left font-medium hover:underline", isDark ? "text-cyan-300" : "text-sky-600")}
                         >
                           {person.currentDeploymentUnit}
                         </button>
                       ) : (
-                        <span>{person.currentDeploymentUnit}</span>
+                        <span className={isDark ? "text-white" : "text-slate-800"}>{person.currentDeploymentUnit}</span>
                       )}
                     </div>
                   </div>
                 </div>
 
+                {/* Right Column: Service Record, Specialization & Experience */}
                 <div className="space-y-4">
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="text-[11px] uppercase text-gray-400 mb-3">
-                      Service Details
+                  {/* Service Details Card */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-5 text-xs sm:text-sm transition-all",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                    )}
+                  >
+                    <div className={cn("text-[10px] font-bold uppercase tracking-wider mb-3.5 pb-2 border-b", isDark ? "text-cyan-400 border-white/5" : "text-sky-700 border-slate-100")}>
+                      Military Service Designation
                     </div>
-                    <div className="grid gap-2 lg:grid-cols-2">
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Branch:
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Branch of Service</span>
+                        <span className={cn("font-semibold text-sm", isDark ? "text-white" : "text-slate-900")}>
+                          {person.branch}
                         </span>
-                        <span>{person.branch}</span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Corps:
+                      <div className="flex flex-col gap-0.5">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Corps</span>
+                        <span className={cn("font-semibold text-sm", isDark ? "text-white" : "text-slate-900")}>
+                          {person.corpsName}
                         </span>
-                        <span>{person.corpsName}</span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0 lg:col-span-2">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Corps Details:
+                      <div className="sm:col-span-2 flex flex-col gap-0.5">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Specialty / Trade</span>
+                        <span className={cn("font-semibold text-sm", isDark ? "text-white" : "text-slate-900")}>
+                          {person.specialty}
                         </span>
-                        <span>{person.corpsDescription}</span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Specialty:
-                        </span>
-                        <span>{person.specialty}</span>
-                      </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Status:
-                        </span>
-                        <span className="flex items-center gap-2">
-                          <span className="text-emerald-400">
-                            {person.status}
-                          </span>
+                      <div className="sm:col-span-2 flex items-center justify-between pt-1">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Operational Status:</span>
+                        <span className="flex items-center gap-1.5 font-bold text-xs">
                           <span
                             className={cn(
                               "w-2 h-2 rounded-full",
-                              statusDotColor[person.status],
+                              statusDotColor[person.status] || "bg-emerald-400",
+                              person.status === "Active" ? "animate-pulse" : "",
                             )}
                           />
+                          <span className={person.status === "Active" ? "text-emerald-400" : "text-amber-400"}>
+                            {person.status}
+                          </span>
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                    <div className="text-[11px] uppercase text-gray-400 mb-3">
-                      Contact Information
+                  {/* Contact Information Card */}
+                  <div
+                    className={cn(
+                      "rounded-2xl border p-5 text-xs sm:text-sm transition-all",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                    )}
+                  >
+                    <div className={cn("text-[10px] font-bold uppercase tracking-wider mb-3.5 pb-2 border-b", isDark ? "text-cyan-400 border-white/5" : "text-sky-700 border-slate-100")}>
+                      Official Contact Coordinates
                     </div>
-                    <div className="grid gap-2 lg:grid-cols-2">
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Email:
+                    <div className="grid gap-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={isDark ? "text-gray-400" : "text-slate-500"}>Email:</span>
+                        <span className={cn("font-mono truncate max-w-[200px]", isDark ? "text-cyan-300" : "text-sky-700")}>
+                          {person.email || "—"}
                         </span>
-                        <span className="truncate">{person.email}</span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Phone No.:
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={isDark ? "text-gray-400" : "text-slate-500"}>Phone:</span>
+                        <span className={cn("font-mono font-medium", isDark ? "text-white" : "text-slate-800")}>
+                          {person.phone || "—"}
                         </span>
-                        <span>{person.phone}</span>
                       </div>
-                      <div className="grid grid-cols-[110px,1fr] gap-2 min-w-0 lg:col-span-2">
-                        <span className="text-gray-400 whitespace-nowrap">
-                          Address:
+                      <div className="pt-2 border-t border-inherit flex flex-col gap-1">
+                        <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Residential / Base Address:</span>
+                        <span className={cn("text-xs leading-relaxed", isDark ? "text-gray-300" : "text-slate-600")}>
+                          {person.address || "Unspecified base accommodation"}
                         </span>
-                        <span>{person.address}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Pilot Flight Hours Breakdown Card - Rendered ONLY if personnel is a Pilot */}
+                  {/* Pilot Flight Hours Breakdown Card */}
                   {person.isPilot && (
-                    <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200 space-y-3">
-                      <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-                        <div className="text-[11px] uppercase text-gray-400 font-semibold">
-                          Total Flight Hours
+                    <div
+                      className={cn(
+                        "rounded-2xl border p-5 text-xs sm:text-sm space-y-3.5 transition-all",
+                        isDark ? "bg-[#001825]/80 border-cyan-500/30 text-gray-200" : "bg-white border-sky-200 text-slate-700 shadow-sm",
+                      )}
+                    >
+                      <div className="flex items-center justify-between pb-2.5 border-b border-inherit">
+                        <div className={cn("text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5", isDark ? "text-cyan-400" : "text-sky-700")}>
+                          <Icon icon="mdi:airplane-clock" className="w-4 h-4" />
+                          <span>Logged Aircrew Flight Hours</span>
                         </div>
-                        <div className="text-base font-bold text-white tracking-wide">
-                          {person.totalFlightTimeHours} <span className="text-xs text-cyan-400 font-normal">HRS</span>
+                        <div className={cn("text-base font-extrabold tracking-wide", isDark ? "text-white" : "text-slate-900")}>
+                          {person.totalFlightTimeHours} <span className={cn("text-xs font-normal", isDark ? "text-cyan-400" : "text-sky-600")}>HRS</span>
                         </div>
                       </div>
 
                       {/* Operational vs Training Dual Breakdown */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded bg-[#001219]/70 border border-cyan-500/20 p-2.5">
-                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
-                            Operational Hours
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className={cn("rounded-xl p-3 border", isDark ? "bg-[#001219]/70 border-cyan-500/20" : "bg-sky-50/60 border-sky-200")}>
+                          <span className={cn("text-[10px] uppercase font-semibold block tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+                            Operational
                           </span>
-                          <span className="text-sm font-semibold text-cyan-300 mt-0.5 block">
-                            {person.totalOperationalHours} <span className="text-[10px] text-gray-400">HRS</span>
+                          <span className={cn("text-base font-bold mt-0.5 block", isDark ? "text-cyan-300" : "text-sky-800")}>
+                            {person.totalOperationalHours} <span className="text-xs font-normal text-inherit/70">h</span>
                           </span>
                         </div>
-                        <div className="rounded bg-[#001219]/70 border border-cyan-500/20 p-2.5">
-                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
-                            Training Hours
+                        <div className={cn("rounded-xl p-3 border", isDark ? "bg-[#001219]/70 border-cyan-500/20" : "bg-sky-50/60 border-sky-200")}>
+                          <span className={cn("text-[10px] uppercase font-semibold block tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+                            Training
                           </span>
-                          <span className="text-sm font-semibold text-cyan-300 mt-0.5 block">
-                            {person.totalTrainingHours} <span className="text-[10px] text-gray-400">HRS</span>
+                          <span className={cn("text-base font-bold mt-0.5 block", isDark ? "text-cyan-300" : "text-sky-800")}>
+                            {person.totalTrainingHours} <span className="text-xs font-normal text-inherit/70">h</span>
                           </span>
                         </div>
                       </div>
 
-                      {/* Platform Flight Experience List */}
+                      {/* Platform Breakdown */}
                       {person.aircraftHours.length > 0 && (
-                        <div className="pt-2 border-t border-white/5 space-y-1.5">
-                          <div className="text-[10px] uppercase text-gray-400 font-semibold mb-1">
-                            Platform Hours Breakdown
+                        <div className="pt-2 border-t border-inherit space-y-2">
+                          <div className={cn("text-[10px] uppercase font-semibold", isDark ? "text-gray-400" : "text-slate-500")}>
+                            Platform Breakdown
                           </div>
                           {person.aircraftHours.map((aircraft) => (
                             <div
                               key={aircraft.name}
-                              className="flex items-center justify-between py-1 border-b border-white/5 last:border-0 text-xs"
+                              className="flex items-center justify-between py-1 border-b border-inherit last:border-0 text-xs"
                             >
-                              <span className="text-[#7FD5FF] font-medium truncate max-w-[140px]">
+                              <span className={cn("font-medium truncate max-w-[140px]", isDark ? "text-cyan-300" : "text-sky-700")}>
                                 {aircraft.name}
                               </span>
                               <div className="flex items-center gap-2.5 text-[11px]">
-                                <span className="text-gray-400">
-                                  Op: <span className="text-gray-200 font-medium">{aircraft.operationalHours ?? aircraft.hours}h</span>
+                                <span className={isDark ? "text-gray-400" : "text-slate-500"}>
+                                  Op: <span className={cn("font-medium", isDark ? "text-gray-200" : "text-slate-800")}>{aircraft.operationalHours ?? aircraft.hours}h</span>
                                 </span>
-                                <span className="text-gray-400">
-                                  Tr: <span className="text-gray-200 font-medium">{aircraft.trainingHours ?? 0}h</span>
+                                <span className={isDark ? "text-gray-400" : "text-slate-500"}>
+                                  Tr: <span className={cn("font-medium", isDark ? "text-gray-200" : "text-slate-800")}>{aircraft.trainingHours ?? 0}h</span>
                                 </span>
-                                <span className="font-semibold text-white pl-1">
+                                <span className={cn("font-bold pl-1", isDark ? "text-white" : "text-slate-900")}>
                                   {aircraft.hours}h
                                 </span>
                               </div>
@@ -992,52 +1314,57 @@ export const PersonnelDetailPage = () => {
                     </div>
                   )}
 
-                  {/* Career Experience & Credentials Card (Non-Pilot Personnel: Engineers, Technicians, Logistics, Admin) */}
+                  {/* Career Experience & Credentials Card (Non-Pilot Personnel) */}
                   {!person.isPilot && (
-                    <div className="bg-[#001825] border border-emerald-500/30 rounded-lg p-4 text-xs sm:text-sm text-gray-200 space-y-3">
-                      <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
-                        <div className="text-[11px] uppercase text-emerald-400 font-semibold flex items-center gap-1.5">
+                    <div
+                      className={cn(
+                        "rounded-2xl border p-5 text-xs sm:text-sm space-y-3.5 transition-all",
+                        isDark ? "bg-[#001825]/80 border-emerald-500/30 text-gray-200" : "bg-white border-emerald-200 text-slate-700 shadow-sm",
+                      )}
+                    >
+                      <div className="flex items-center justify-between pb-2.5 border-b border-inherit">
+                        <div className={cn("text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5", isDark ? "text-emerald-400" : "text-emerald-700")}>
                           <Icon
                             icon={person.isEngineer ? "mdi:wrench-clock" : "mdi:briefcase-clock-outline"}
-                            className="w-4 h-4 text-emerald-400"
+                            className="w-4 h-4 text-emerald-500"
                           />
                           <span>
                             {person.isEngineer
-                              ? "Years of Engineering Experience"
-                              : "Years of Professional Experience"}
+                              ? "Engineering Experience"
+                              : "Professional Track"}
                           </span>
                         </div>
-                        <div className="text-base font-bold text-white tracking-wide">
+                        <div className={cn("text-base font-extrabold tracking-wide", isDark ? "text-white" : "text-slate-900")}>
                           {person.yearsOfExperience || "Active Duty"}
                         </div>
                       </div>
 
                       {/* Discipline & Verified Credentials Dual Summary */}
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded bg-[#001219]/70 border border-emerald-500/20 p-2.5">
-                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
-                            Specialty Track
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div className={cn("rounded-xl p-3 border", isDark ? "bg-[#001219]/70 border-emerald-500/20" : "bg-emerald-50/60 border-emerald-200")}>
+                          <span className={cn("text-[10px] uppercase font-semibold block tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+                            Specialty
                           </span>
-                          <span className="text-xs font-semibold text-emerald-300 mt-0.5 block truncate" title={person.specialty}>
+                          <span className={cn("text-xs font-semibold mt-0.5 block truncate", isDark ? "text-emerald-300" : "text-emerald-800")} title={person.specialty}>
                             {person.specialty || person.branch || "General Service"}
                           </span>
                         </div>
-                        <div className="rounded bg-[#001219]/70 border border-emerald-500/20 p-2.5">
-                          <span className="text-gray-400 text-[10px] uppercase block tracking-wider">
-                            Active Credentials
+                        <div className={cn("rounded-xl p-3 border", isDark ? "bg-[#001219]/70 border-emerald-500/20" : "bg-emerald-50/60 border-emerald-200")}>
+                          <span className={cn("text-[10px] uppercase font-semibold block tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+                            Credentials
                           </span>
-                          <span className="text-xs font-semibold text-emerald-300 mt-0.5 block">
+                          <span className={cn("text-xs font-semibold mt-0.5 block", isDark ? "text-emerald-300" : "text-emerald-800")}>
                             {person.ratings.length} {person.ratings.length === 1 ? "Certification" : "Certifications"}
                           </span>
                         </div>
                       </div>
 
                       {/* Credentials & Licensure Breakdown */}
-                      <div className="pt-2 border-t border-white/5 space-y-2">
-                        <div className="text-[10px] uppercase text-gray-400 font-semibold flex items-center justify-between">
+                      <div className="pt-2 border-t border-inherit space-y-2">
+                        <div className={cn("text-[10px] uppercase font-semibold flex items-center justify-between", isDark ? "text-gray-400" : "text-slate-500")}>
                           <span>Certifications &amp; Licenses</span>
                           {person.ratings.length > 0 && (
-                            <span className="text-[10px] text-emerald-400 font-mono">
+                            <span className={cn("font-mono font-medium", isDark ? "text-emerald-400" : "text-emerald-700")}>
                               {person.ratings.length} on file
                             </span>
                           )}
@@ -1048,28 +1375,28 @@ export const PersonnelDetailPage = () => {
                             {person.ratings.map((rating) => (
                               <div
                                 key={rating.name}
-                                className="rounded bg-[#001219]/70 border border-emerald-500/20 p-2 text-xs space-y-1"
+                                className={cn("rounded-xl border p-2.5 text-xs space-y-1", isDark ? "bg-[#001219]/70 border-emerald-500/20" : "bg-slate-50 border-slate-200")}
                               >
                                 <div className="flex items-center justify-between gap-2">
-                                  <span className="font-medium text-white text-xs truncate max-w-[180px]" title={rating.name}>
+                                  <span className={cn("font-medium text-xs truncate max-w-[180px]", isDark ? "text-white" : "text-slate-900")} title={rating.name}>
                                     {rating.name}
                                   </span>
                                   {rating.isLifetime ? (
-                                    <span className="text-[9px] font-semibold text-emerald-300 bg-emerald-950/80 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                                    <span className={cn("text-[9px] font-semibold px-1.5 py-0.5 rounded border", isDark ? "text-emerald-300 bg-emerald-950/80 border-emerald-500/30" : "text-emerald-800 bg-emerald-100 border-emerald-300")}>
                                       Lifetime
                                     </span>
                                   ) : rating.expiryDate ? (
-                                    <span className="text-[10px] text-gray-400">
+                                    <span className={cn("text-[10px]", isDark ? "text-gray-400" : "text-slate-500")}>
                                       Exp: {rating.expiryDate}
                                     </span>
                                   ) : null}
                                 </div>
 
                                 {rating.issueDate && (
-                                  <div className="text-[10px] text-gray-400 flex items-center justify-between pt-0.5">
+                                  <div className={cn("text-[10px] flex items-center justify-between pt-0.5", isDark ? "text-gray-400" : "text-slate-500")}>
                                     <span>Issued: {rating.issueDate}</span>
                                     {rating.derivedExperience && (
-                                      <span className="text-emerald-300 font-medium">
+                                      <span className={cn("font-medium", isDark ? "text-emerald-300" : "text-emerald-700")}>
                                         {rating.derivedExperience} Exp
                                       </span>
                                     )}
@@ -1079,7 +1406,7 @@ export const PersonnelDetailPage = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className="text-gray-400 text-xs italic">
+                          <p className={cn("text-xs italic", isDark ? "text-gray-500" : "text-slate-400")}>
                             No specialized licenses logged. Service duration recorded from enlistment.
                           </p>
                         )}
@@ -1087,16 +1414,22 @@ export const PersonnelDetailPage = () => {
                     </div>
                   )}
 
+                  {/* Flight Currency Card */}
                   {person.isPilot && (
-                    <div className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-4 text-xs sm:text-sm text-gray-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-[11px] uppercase text-gray-400">
-                          Flight Currency
+                    <div
+                      className={cn(
+                        "rounded-2xl border p-5 text-xs sm:text-sm space-y-3 transition-all",
+                        isDark ? "bg-[#001825]/80 border-[#0A4D66]/40 text-gray-200" : "bg-white border-slate-200 text-slate-700 shadow-sm",
+                      )}
+                    >
+                      <div className="flex items-center justify-between pb-2 border-b border-inherit">
+                        <div className={cn("text-[10px] font-bold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
+                          Flight Currency Status
                         </div>
                         {person.flightStatus && (
                           <span
                             className={cn(
-                              "text-xs font-medium",
+                              "text-xs font-semibold px-2 py-0.5 rounded-full border",
                               FLIGHT_STATUS_COLORS[person.flightStatus],
                             )}
                           >
@@ -1104,10 +1437,10 @@ export const PersonnelDetailPage = () => {
                           </span>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 mb-0.5">Last Flight</span>
-                          <span className="text-white">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-0.5">
+                          <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Last Logged Flight</span>
+                          <span className={cn("font-medium", isDark ? "text-white" : "text-slate-900")}>
                             {person.lastFlightDate
                               ? new Date(person.lastFlightDate).toLocaleDateString("en-GB", {
                                   day: "numeric",
@@ -1117,9 +1450,9 @@ export const PersonnelDetailPage = () => {
                               : "—"}
                           </span>
                         </div>
-                        <div className="flex flex-col">
-                          <span className="text-gray-500 mb-0.5">Due By</span>
-                          <span className="text-white">
+                        <div className="flex flex-col gap-0.5">
+                          <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Recurrency Due By</span>
+                          <span className={cn("font-medium", isDark ? "text-white" : "text-slate-900")}>
                             {person.nextFlightDueDate
                               ? new Date(person.nextFlightDueDate).toLocaleDateString("en-GB", {
                                   day: "numeric",
@@ -1141,43 +1474,34 @@ export const PersonnelDetailPage = () => {
         {activeTab === "activity" && (
           <div ref={contentRef} className="p-4 sm:p-6">
             {activityView === "grid" && (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {mockActivityLog.map((entry) => (
                   <div
                     key={entry.id}
-                    className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg px-4 py-3 flex flex-col gap-2"
+                    className={cn(
+                      "border rounded-xl p-4 flex flex-col gap-2.5 transition-all shadow-sm",
+                      isDark ? "bg-[#001825]/80 border-[#0A4D66]/40" : "bg-white border-slate-200",
+                    )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-white">
+                      <div className={cn("text-sm font-bold truncate", isDark ? "text-white" : "text-slate-900")}>
                         {entry.action}
                       </div>
-                      <button
-                        type="button"
-                        className="text-xs text-primary-med hover:text-primary-med/80"
-                      >
+                      <span className={cn("text-xs font-mono font-medium", isDark ? "text-cyan-400" : "text-sky-600")}>
                         {entry.ip}
-                      </button>
+                      </span>
                     </div>
-                    <div className="flex items-center gap-3 text-[11px] text-gray-300">
+                    <div className={cn("flex flex-wrap items-center gap-3 text-[11px]", isDark ? "text-gray-300" : "text-slate-600")}>
                       <div className="flex items-center gap-1">
-                        <Icon
-                          icon="mdi:calendar-blank-outline"
-                          className="w-4 h-4 text-gray-400"
-                        />
+                        <Icon icon="mdi:calendar-blank-outline" className={cn("w-3.5 h-3.5", isDark ? "text-gray-400" : "text-slate-400")} />
                         <span>{entry.date}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Icon
-                          icon="mdi:clock-outline"
-                          className="w-4 h-4 text-gray-400"
-                        />
+                        <Icon icon="mdi:clock-outline" className={cn("w-3.5 h-3.5", isDark ? "text-gray-400" : "text-slate-400")} />
                         <span>{entry.time}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <Icon
-                          icon="mdi:monitor"
-                          className="w-4 h-4 text-gray-400"
-                        />
+                        <Icon icon="mdi:monitor" className={cn("w-3.5 h-3.5", isDark ? "text-gray-400" : "text-slate-400")} />
                         <span>{entry.device}</span>
                       </div>
                     </div>
@@ -1187,10 +1511,10 @@ export const PersonnelDetailPage = () => {
             )}
 
             {activityView === "table" && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-xs sm:text-sm text-gray-200">
+              <div className={cn("overflow-x-auto rounded-xl border shadow-sm", isDark ? "border-[#0A4D66]/40" : "border-slate-200")}>
+                <table className="min-w-full text-xs sm:text-sm">
                   <thead>
-                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] sm:text-xs text-gray-400 uppercase tracking-wide">
+                    <tr className={cn("border-b text-[11px] uppercase tracking-wider font-semibold", isDark ? "bg-[#001219] border-[#0A4D66]/40 text-gray-400" : "bg-slate-100 border-slate-200 text-slate-600")}>
                       <th className="px-4 sm:px-6 py-3 text-left">Date</th>
                       <th className="px-4 py-3 text-left">Time</th>
                       <th className="px-4 py-3 text-left">Action Performed</th>
@@ -1205,29 +1529,37 @@ export const PersonnelDetailPage = () => {
                       <tr
                         key={entry.id}
                         className={cn(
-                          "border-t border-[#0A4D66]/40",
-                          index % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                          "border-t transition-colors",
+                          isDark
+                            ? index % 2 === 0
+                              ? "bg-[#001219]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                              : "bg-[#001825]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                            : index % 2 === 0
+                            ? "bg-white border-slate-100 hover:bg-slate-50"
+                            : "bg-slate-50/60 border-slate-100 hover:bg-slate-50",
                         )}
                       >
-                        <td className="px-4 sm:px-6 py-3 text-white">
+                        <td className={cn("px-4 sm:px-6 py-3 font-medium", isDark ? "text-white" : "text-slate-900")}>
                           {entry.date}
                         </td>
-                        <td className="px-4 py-3 text-white">
+                        <td className={cn("px-4 py-3", isDark ? "text-gray-300" : "text-slate-700")}>
                           {entry.time}
                         </td>
-                        <td className="px-4 py-3 text-white">
+                        <td className={cn("px-4 py-3 font-medium", isDark ? "text-white" : "text-slate-900")}>
                           {entry.action}
                         </td>
-                        <td className="px-4 py-3 text-white">
+                        <td className={cn("px-4 py-3", isDark ? "text-gray-400" : "text-slate-500")}>
                           {entry.oldRecord}
                         </td>
-                        <td className="px-4 py-3 text-white">
+                        <td className={cn("px-4 py-3", isDark ? "text-gray-200" : "text-slate-800")}>
                           {entry.newRecord}
                         </td>
-                        <td className="px-4 py-3 text-white">
+                        <td className={cn("px-4 py-3", isDark ? "text-gray-400" : "text-slate-500")}>
                           {entry.device}
                         </td>
-                        <td className="px-4 py-3 text-white">{entry.ip}</td>
+                        <td className={cn("px-4 py-3 font-mono text-xs", isDark ? "text-cyan-400" : "text-sky-600")}>
+                          {entry.ip}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1239,9 +1571,9 @@ export const PersonnelDetailPage = () => {
 
         {/* ── Pass Tab ─────────────────────────────────────── */}
         {activeTab === "pass" && (
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-6 space-y-5">
             {/* Overview cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
                 {
                   label: "Last Pass",
@@ -1303,28 +1635,36 @@ export const PersonnelDetailPage = () => {
               ].map((card) => (
                 <div
                   key={card.label}
-                  className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-3 flex flex-col gap-1"
+                  className={cn(
+                    "border rounded-xl p-3.5 flex flex-col gap-1 transition-all shadow-sm",
+                    isDark ? "bg-[#001825]/80 border-[#0A4D66]/40" : "bg-slate-50 border-slate-200",
+                  )}
                 >
-                  <div className="flex items-center gap-1.5 text-gray-400 text-[10px] uppercase tracking-wide">
+                  <div className={cn("flex items-center gap-1.5 text-[10px] uppercase font-semibold tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
                     <Icon icon={card.icon} className="w-3.5 h-3.5" />
-                    {card.label}
+                    <span>{card.label}</span>
                   </div>
-                  <span className="text-sm font-semibold text-white">
+                  <span className={cn("text-base font-bold truncate", isDark ? "text-white" : "text-slate-900")}>
                     {card.value}
                   </span>
                 </div>
               ))}
             </div>
 
-            {/* Initiate Pass */}
-            <div className="flex justify-end mb-4">
+            {/* Initiate Pass Button */}
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => setShowInitiatePassModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90"
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors shadow-sm",
+                  isDark
+                    ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20"
+                    : "bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100",
+                )}
               >
                 <Icon icon="mdi:plus" className="w-4 h-4" />
-                Initiate Pass
+                <span>Initiate Pass</span>
               </button>
             </div>
 
@@ -1335,10 +1675,10 @@ export const PersonnelDetailPage = () => {
                 Loading pass history...
               </div>
             ) : (
-              <div className="overflow-x-auto rounded border border-[#0A4D66]/40">
-                <table className="min-w-full text-xs text-gray-200 whitespace-nowrap">
+              <div className={cn("overflow-x-auto rounded-xl border shadow-sm", isDark ? "border-[#0A4D66]/40" : "border-slate-200")}>
+                <table className="min-w-full text-xs whitespace-nowrap">
                   <thead>
-                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] text-gray-400 uppercase tracking-wide">
+                    <tr className={cn("border-b text-[11px] uppercase tracking-wider font-semibold", isDark ? "bg-[#001219] border-[#0A4D66]/40 text-gray-400" : "bg-slate-100 border-slate-200 text-slate-600")}>
                       <th className="px-4 py-3 text-left">Start Date</th>
                       <th className="px-4 py-3 text-left">End Date</th>
                       <th className="px-4 py-3 text-left">Duration</th>
@@ -1350,7 +1690,7 @@ export const PersonnelDetailPage = () => {
                   <tbody>
                     {(passData?.personnel?.passes ?? []).length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                        <td colSpan={6} className={cn("px-4 py-6 text-center italic", isDark ? "text-gray-500" : "text-slate-400")}>
                           No pass records yet.
                         </td>
                       </tr>
@@ -1359,45 +1699,51 @@ export const PersonnelDetailPage = () => {
                         <tr
                           key={pass.id}
                           className={cn(
-                            "border-t border-[#0A4D66]/40",
-                            i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                            "border-t transition-colors",
+                            isDark
+                              ? i % 2 === 0
+                                ? "bg-[#001219]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                                : "bg-[#001825]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                              : i % 2 === 0
+                              ? "bg-white border-slate-100 hover:bg-slate-50"
+                              : "bg-slate-50/60 border-slate-100 hover:bg-slate-50",
                           )}
                         >
-                          <td className="px-4 py-3 text-white">
+                          <td className={cn("px-4 py-3 font-medium", isDark ? "text-white" : "text-slate-900")}>
                             {new Date(pass.start_date).toLocaleDateString("en-GB", {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
                             })}
                           </td>
-                          <td className="px-4 py-3 text-white">
+                          <td className={cn("px-4 py-3 font-medium", isDark ? "text-white" : "text-slate-900")}>
                             {new Date(pass.end_date).toLocaleDateString("en-GB", {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
                             })}
                           </td>
-                          <td className="px-4 py-3 text-white">{pass.duration}d</td>
+                          <td className={cn("px-4 py-3 font-mono", isDark ? "text-cyan-300" : "text-sky-700")}>{pass.duration}d</td>
                           <td className="px-4 py-3">
                             <span
                               className={cn(
-                                "text-xs font-medium capitalize",
+                                "text-xs font-semibold capitalize px-2 py-0.5 rounded-full border",
                                 {
-                                  pending: "text-amber-400",
-                                  approved: "text-blue-400",
-                                  active: "text-emerald-400",
-                                  completed: "text-gray-400",
-                                  rejected: "text-red-400",
-                                }[pass.status] ?? "text-gray-400",
+                                  pending: "bg-amber-500/10 border-amber-500/30 text-amber-400",
+                                  approved: "bg-blue-500/10 border-blue-500/30 text-blue-400",
+                                  active: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+                                  completed: "bg-slate-500/10 border-slate-500/30 text-slate-400",
+                                  rejected: "bg-rose-500/10 border-rose-500/30 text-rose-400",
+                                }[pass.status] ?? "bg-slate-500/10 border-slate-500/30 text-slate-400",
                               )}
                             >
                               {pass.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
+                          <td className={cn("px-4 py-3 max-w-xs truncate", isDark ? "text-gray-300" : "text-slate-600")}>
                             {pass.remarks ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-white">
+                          <td className={cn("px-4 py-3 font-medium", isDark ? "text-white" : "text-slate-900")}>
                             {pass.created_by_user
                               ? `${pass.created_by_user.firstname ?? ""} ${pass.created_by_user.lastname ?? ""}`.trim()
                               : "—"}
@@ -1411,11 +1757,12 @@ export const PersonnelDetailPage = () => {
             )}
           </div>
         )}
+
         {/* ── Course Tab ───────────────────────────────────── */}
         {activeTab === "course" && (
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-6 space-y-5">
             {/* Overview cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
                 { label: "Total Courses", value: courses.length, icon: "mdi:school-outline" },
                 {
@@ -1436,26 +1783,34 @@ export const PersonnelDetailPage = () => {
               ].map((card) => (
                 <div
                   key={card.label}
-                  className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-3 flex flex-col gap-1"
+                  className={cn(
+                    "border rounded-xl p-3.5 flex flex-col gap-1 transition-all shadow-sm",
+                    isDark ? "bg-[#001825]/80 border-[#0A4D66]/40" : "bg-slate-50 border-slate-200",
+                  )}
                 >
-                  <div className="flex items-center gap-1.5 text-gray-400 text-[10px] uppercase tracking-wide">
+                  <div className={cn("flex items-center gap-1.5 text-[10px] uppercase font-semibold tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
                     <Icon icon={card.icon} className="w-3.5 h-3.5" />
-                    {card.label}
+                    <span>{card.label}</span>
                   </div>
-                  <span className="text-sm font-semibold text-white">{card.value}</span>
+                  <span className={cn("text-base font-bold truncate", isDark ? "text-white" : "text-slate-900")}>{card.value}</span>
                 </div>
               ))}
             </div>
 
-            {/* Register Course */}
-            <div className="flex justify-end mb-4">
+            {/* Register Course Button */}
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => setShowRegisterCourseModal(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90"
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium border transition-colors shadow-sm",
+                  isDark
+                    ? "bg-cyan-500/10 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20"
+                    : "bg-sky-50 border-sky-300 text-sky-700 hover:bg-sky-100",
+                )}
               >
                 <Icon icon="mdi:plus" className="w-4 h-4" />
-                Register Course
+                <span>Register Course</span>
               </button>
             </div>
 
@@ -1466,10 +1821,10 @@ export const PersonnelDetailPage = () => {
                 Loading course history...
               </div>
             ) : (
-              <div className="overflow-x-auto rounded border border-[#0A4D66]/40">
-                <table className="min-w-full text-xs text-gray-200 whitespace-nowrap">
+              <div className={cn("overflow-x-auto rounded-xl border shadow-sm", isDark ? "border-[#0A4D66]/40" : "border-slate-200")}>
+                <table className="min-w-full text-xs whitespace-nowrap">
                   <thead>
-                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] text-gray-400 uppercase tracking-wide">
+                    <tr className={cn("border-b text-[11px] uppercase tracking-wider font-semibold", isDark ? "bg-[#001219] border-[#0A4D66]/40 text-gray-400" : "bg-slate-100 border-slate-200 text-slate-600")}>
                       <th className="px-4 py-3 text-left">Course</th>
                       <th className="px-4 py-3 text-left">Institution</th>
                       <th className="px-4 py-3 text-left">Start Date</th>
@@ -1482,7 +1837,7 @@ export const PersonnelDetailPage = () => {
                   <tbody>
                     {courses.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                        <td colSpan={7} className={cn("px-4 py-6 text-center italic", isDark ? "text-gray-500" : "text-slate-400")}>
                           No course records yet.
                         </td>
                       </tr>
@@ -1491,22 +1846,28 @@ export const PersonnelDetailPage = () => {
                         <tr
                           key={course.id}
                           className={cn(
-                            "border-t border-[#0A4D66]/40",
-                            i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
+                            "border-t transition-colors",
+                            isDark
+                              ? i % 2 === 0
+                                ? "bg-[#001219]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                                : "bg-[#001825]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                              : i % 2 === 0
+                              ? "bg-white border-slate-100 hover:bg-slate-50"
+                              : "bg-slate-50/60 border-slate-100 hover:bg-slate-50",
                           )}
                         >
-                          <td className="px-4 py-3 text-white">{course.title}</td>
-                          <td className="px-4 py-3 text-white">
+                          <td className={cn("px-4 py-3 font-semibold", isDark ? "text-white" : "text-slate-900")}>{course.title}</td>
+                          <td className={cn("px-4 py-3", isDark ? "text-gray-300" : "text-slate-700")}>
                             {course.institution ?? "—"}
                           </td>
-                          <td className="px-4 py-3 text-white">
+                          <td className={cn("px-4 py-3 font-medium", isDark ? "text-gray-300" : "text-slate-700")}>
                             {new Date(course.start_date).toLocaleDateString("en-GB", {
                               day: "numeric",
                               month: "short",
                               year: "numeric",
                             })}
                           </td>
-                          <td className="px-4 py-3 text-white">
+                          <td className={cn("px-4 py-3 font-medium", isDark ? "text-gray-300" : "text-slate-700")}>
                             {new Date(course.end_date).toLocaleDateString("en-GB", {
                               day: "numeric",
                               month: "short",
@@ -1516,14 +1877,14 @@ export const PersonnelDetailPage = () => {
                           <td className="px-4 py-3">
                             <span
                               className={cn(
-                                "text-xs font-medium capitalize",
+                                "text-xs font-semibold capitalize px-2 py-0.5 rounded-full border",
                                 COURSE_STATUS_COLORS[course.status],
                               )}
                             >
                               {course.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
+                          <td className={cn("px-4 py-3 max-w-xs truncate", isDark ? "text-gray-400" : "text-slate-500")}>
                             {course.remarks ?? "—"}
                           </td>
                           <td className="px-4 py-3 text-right">
@@ -1531,10 +1892,15 @@ export const PersonnelDetailPage = () => {
                               type="button"
                               onClick={() => setEditingCourse(course)}
                               title="Edit course"
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0A4D66]/40 text-[10px] text-gray-300 hover:bg-[#0A4D66]/30"
+                              className={cn(
+                                "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors",
+                                isDark
+                                  ? "border-[#0A4D66]/60 text-cyan-300 hover:bg-[#0A4D66]/30"
+                                  : "border-slate-200 text-slate-700 hover:bg-slate-100",
+                              )}
                             >
-                              <Icon icon="mdi:pencil-outline" className="w-3 h-3" />
-                              Edit
+                              <Icon icon="mdi:pencil-outline" className="w-3.5 h-3.5" />
+                              <span>Edit</span>
                             </button>
                           </td>
                         </tr>
@@ -1546,11 +1912,12 @@ export const PersonnelDetailPage = () => {
             )}
           </div>
         )}
+
         {/* ── Attendance Tab ───────────────────────────────── */}
         {activeTab === "attendance" && (
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-6 space-y-5">
             {/* Overview cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               {[
                 { label: "Days Present", value: attendanceStats.present, icon: "mdi:check-circle-outline", color: "text-emerald-400" },
                 { label: "Days Absent", value: attendanceStats.absent, icon: "mdi:close-circle-outline", color: "text-red-400" },
@@ -1564,15 +1931,21 @@ export const PersonnelDetailPage = () => {
                       : `${attendanceStats.daysTillNextLeave}d`
                     : "—",
                   icon: "mdi:calendar-clock",
-                  color: attendanceStats.daysTillNextLeave !== null && attendanceStats.daysTillNextLeave < 0 ? "text-red-400" : "text-white",
+                  color: attendanceStats.daysTillNextLeave !== null && attendanceStats.daysTillNextLeave < 0 ? "text-red-400" : isDark ? "text-white" : "text-slate-900",
                 },
               ].map((card) => (
-                <div key={card.label} className="bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-3 flex flex-col gap-1">
-                  <div className="flex items-center gap-1.5 text-gray-400 text-[10px] uppercase tracking-wide">
+                <div
+                  key={card.label}
+                  className={cn(
+                    "border rounded-xl p-3.5 flex flex-col gap-1 transition-all shadow-sm",
+                    isDark ? "bg-[#001825]/80 border-[#0A4D66]/40" : "bg-slate-50 border-slate-200",
+                  )}
+                >
+                  <div className={cn("flex items-center gap-1.5 text-[10px] uppercase font-semibold tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
                     <Icon icon={card.icon} className="w-3.5 h-3.5" />
-                    {card.label}
+                    <span>{card.label}</span>
                   </div>
-                  <span className={cn("text-sm font-semibold", card.color)}>
+                  <span className={cn("text-base font-bold", card.color)}>
                     {card.value}
                   </span>
                 </div>
@@ -1586,10 +1959,10 @@ export const PersonnelDetailPage = () => {
                 Loading attendance...
               </div>
             ) : (
-              <div className="overflow-x-auto rounded border border-[#0A4D66]/40">
-                <table className="min-w-full text-xs text-gray-200 whitespace-nowrap">
+              <div className={cn("overflow-x-auto rounded-xl border shadow-sm", isDark ? "border-[#0A4D66]/40" : "border-slate-200")}>
+                <table className="min-w-full text-xs whitespace-nowrap">
                   <thead>
-                    <tr className="bg-[#001219] border-b border-[#0A4D66]/40 text-[11px] text-gray-400 uppercase tracking-wide">
+                    <tr className={cn("border-b text-[11px] uppercase tracking-wider font-semibold", isDark ? "bg-[#001219] border-[#0A4D66]/40 text-gray-400" : "bg-slate-100 border-slate-200 text-slate-600")}>
                       <th className="px-4 py-3 text-left">Date</th>
                       <th className="px-4 py-3 text-left">Clock In</th>
                       <th className="px-4 py-3 text-left">Clock Out</th>
@@ -1601,7 +1974,7 @@ export const PersonnelDetailPage = () => {
                   <tbody>
                     {attendanceLogs.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                        <td colSpan={6} className={cn("px-4 py-6 text-center italic", isDark ? "text-gray-500" : "text-slate-400")}>
                           No attendance records yet.
                         </td>
                       </tr>
@@ -1618,32 +1991,47 @@ export const PersonnelDetailPage = () => {
                           return h > 0 ? `${h}h ${m}m` : `${m}m`;
                         };
                         const statusColors: Record<string, string> = {
-                          present: "text-emerald-400",
-                          late: "text-amber-400",
-                          absent: "text-red-400",
-                          half_day: "text-blue-400",
+                          present: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
+                          late: "bg-amber-500/10 border-amber-500/30 text-amber-400",
+                          absent: "bg-rose-500/10 border-rose-500/30 text-rose-400",
+                          half_day: "bg-blue-500/10 border-blue-500/30 text-blue-400",
                         };
                         return (
                           <tr
                             key={log.id}
-                            className={cn("border-t border-[#0A4D66]/40", i % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]")}
+                            className={cn(
+                              "border-t transition-colors",
+                              isDark
+                                ? i % 2 === 0
+                                  ? "bg-[#001219]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                                  : "bg-[#001825]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
+                                : i % 2 === 0
+                                ? "bg-white border-slate-100 hover:bg-slate-50"
+                                : "bg-slate-50/60 border-slate-100 hover:bg-slate-50",
+                            )}
                           >
-                            <td className="px-4 py-3 text-white">
+                            <td className={cn("px-4 py-3 font-medium", isDark ? "text-white" : "text-slate-900")}>
                               {new Date(log.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                             </td>
-                            <td className="px-4 py-3 text-emerald-400">{formatTime(log.clock_in)}</td>
-                            <td className="px-4 py-3 text-red-400">{formatTime(log.clock_out)}</td>
-                            <td className="px-4 py-3">{durationLabel(log.duration_minutes)}</td>
+                            <td className="px-4 py-3 font-mono font-medium text-emerald-400">{formatTime(log.clock_in)}</td>
+                            <td className="px-4 py-3 font-mono font-medium text-rose-400">{formatTime(log.clock_out)}</td>
+                            <td className={cn("px-4 py-3 font-mono", isDark ? "text-gray-300" : "text-slate-700")}>{durationLabel(log.duration_minutes)}</td>
                             <td className="px-4 py-3">
-                              <span className={cn("font-medium capitalize", statusColors[log.status] ?? "text-gray-400")}>
+                              <span className={cn("px-2 py-0.5 rounded-full text-xs font-semibold border capitalize", statusColors[log.status] ?? "text-gray-400")}>
                                 {log.status.replace("_", " ")}
                               </span>
                             </td>
                             <td className="px-4 py-3">
                               {log.is_within_range ? (
-                                <Icon icon="mdi:check-circle-outline" className="w-4 h-4 text-emerald-400" />
+                                <span className="inline-flex items-center gap-1 text-emerald-400 text-xs font-medium">
+                                  <Icon icon="mdi:check-circle-outline" className="w-4 h-4" />
+                                  <span>Base Geofence</span>
+                                </span>
                               ) : (
-                                <Icon icon="mdi:map-marker-off-outline" className="w-4 h-4 text-amber-400" />
+                                <span className="inline-flex items-center gap-1 text-amber-400 text-xs font-medium">
+                                  <Icon icon="mdi:map-marker-off-outline" className="w-4 h-4" />
+                                  <span>Out of Range</span>
+                                </span>
                               )}
                             </td>
                           </tr>
