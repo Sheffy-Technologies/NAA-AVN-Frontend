@@ -1095,4 +1095,17 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  {
+    path: "/login",
+    element: <Navigate to="/auth/login" replace />,
+  },
+  {
+    path: "/register",
+    element: <Navigate to="/auth/register" replace />,
+  },
+  {
+    path: "*",
+    element: <Navigate to="/dashboard" replace />,
+  },
 ]);
+

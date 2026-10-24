@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
 import { InfoTip } from "@/shared/ui/tooltip/InfoTip";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { useGetInspectionItemsQuery, type InspectionItem, type MaintenanceDueItem } from "../api";
+import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 
 /*
  * The Maintenance Tracking tables follow the mechanics' offline tracking sheet
@@ -156,84 +157,109 @@ const HeaderRow = ({ columns }: { columns: ColumnHelp[] }) => {
 export const PartTrackingTable = ({ rows }: { rows: MaintenanceDueItem[] }) => {
   const { isDark } = useTheme();
   const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const pagedRows = useMemo(() => rows.slice((page - 1) * pageSize, page * pageSize), [rows, page, pageSize]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [rows.length]);
+
   const open = (assetId: number) =>
     navigate(`/dashboard/assets/${assetId}`, { state: { from: "/dashboard/maintenance", fromLabel: "Maintenance Tracking" } });
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-xs">
-        <thead>
-          <HeaderRow columns={PART_COLUMNS} />
-        </thead>
-        <tbody className={cn("divide-y", isDark ? "divide-[#0A4D66]/20" : "divide-slate-100")}>
-          {rows.map((row) => {
-            const hasLife = row.life_limit_hours !== null && row.life_limit_hours !== undefined;
-            const remainingHours = hasLife ? row.life_remaining_hours : row.hours_remaining;
-            const dueHours = hasLife ? row.airframe_hours_due : row.next_due_hours;
-            const pct = row.percent_remaining;
-            return (
-              <tr
-                key={`${row.part_type}-${row.part_id}-${row.asset_id}`}
-                tabIndex={0}
-                role="button"
-                title="Click to view the aircraft"
-                onClick={(e) => onInteractiveRowClick(e, () => open(row.asset_id))}
-                onKeyDown={(e) => onInteractiveRowKeyDown(e, () => open(row.asset_id))}
-                className={cn(
-                  "cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
-                  isDark ? "text-gray-200 hover:bg-[#0A4D66]/20" : "text-slate-700 hover:bg-slate-50",
-                )}
-              >
-                <td className={cn("py-2.5 px-3 font-semibold", pct !== null && pct !== undefined && pct < 0.05 && "text-red-500")}>
-                  {pct !== null && pct !== undefined ? `${Math.round(pct * 100)}%` : <Dash />}
-                </td>
-                <td className="py-2.5 px-3 font-mono">{row.part_number || <Dash />}</td>
-                <td className="py-2.5 px-3 font-semibold">
-                  {row.part_label}
-                  <div className="text-[10px] font-normal uppercase opacity-60">{row.part_type}</div>
-                </td>
-                <td className="py-2.5 px-3 font-mono">{row.part_serial_number || <Dash />}</td>
-                <td className="py-2.5 px-3 whitespace-nowrap">
-                  {row.asset_name}
-                  {row.asset_tail_number ? ` (${row.asset_tail_number})` : ""}
-                </td>
-                <td className="py-2.5 px-3 font-mono whitespace-nowrap">{row.service_action_code || <Dash />}</td>
-                <td className="py-2.5 px-3">{fmt(row.component_current_hours) ?? <Dash />}</td>
-                <td className={cn("py-2.5 px-3 whitespace-nowrap", remainingHours !== null && remainingHours !== undefined && remainingHours <= 0 && "text-red-500 font-semibold")}>
-                  {remainingHours !== null && remainingHours !== undefined ? (
-                    `${fmt(remainingHours)} hrs`
-                  ) : row.days_remaining !== null ? (
-                    `${row.days_remaining} days`
-                  ) : (
-                    <Dash />
+    <div className="space-y-3">
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <HeaderRow columns={PART_COLUMNS} />
+          </thead>
+          <tbody className={cn("divide-y", isDark ? "divide-[#0A4D66]/20" : "divide-slate-100")}>
+            {pagedRows.map((row) => {
+              const hasLife = row.life_limit_hours !== null && row.life_limit_hours !== undefined;
+              const remainingHours = hasLife ? row.life_remaining_hours : row.hours_remaining;
+              const dueHours = hasLife ? row.airframe_hours_due : row.next_due_hours;
+              const pct = row.percent_remaining;
+              return (
+                <tr
+                  key={`${row.part_type}-${row.part_id}-${row.asset_id}`}
+                  tabIndex={0}
+                  role="button"
+                  title="Click to view the aircraft"
+                  onClick={(e) => onInteractiveRowClick(e, () => open(row.asset_id))}
+                  onKeyDown={(e) => onInteractiveRowKeyDown(e, () => open(row.asset_id))}
+                  className={cn(
+                    "cursor-pointer transition-colors focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50",
+                    isDark ? "text-gray-200 hover:bg-[#0A4D66]/20" : "text-slate-700 hover:bg-slate-50",
                   )}
-                  {remainingHours !== null && remainingHours !== undefined && row.days_remaining !== null && (
-                    <div className="text-[10px] opacity-60">{row.days_remaining} days</div>
-                  )}
-                </td>
-                <td className="py-2.5 px-3 whitespace-nowrap">
-                  {dueHours !== null && dueHours !== undefined ? fmt(dueHours) : fmtDate(row.next_due_date) ?? <Dash />}
-                  {dueHours !== null && dueHours !== undefined && row.next_due_date && <div className="text-[10px] opacity-60">{fmtDate(row.next_due_date)}</div>}
-                </td>
-                <td className="py-2.5 px-3">{hasLife ? fmt(row.life_limit_hours, 0) : row.service_action_code === "COND" ? "COND" : <Dash />}</td>
-                <td className="py-2.5 px-3">
-                  {row.airframe_hours_at_installation_missing ? (
-                    <span className="text-amber-600 dark:text-amber-300" title="Record the airframe hours when this part was fitted so its hours can be tracked.">
-                      Not recorded
-                    </span>
-                  ) : (
-                    fmt(row.airframe_hours_at_installation) ?? <Dash />
-                  )}
-                </td>
-                <td className="py-2.5 px-3">{fmt(row.component_hours_at_installation) ?? <Dash />}</td>
-                <td className="py-2.5 px-3 text-right">
-                  <StatusPill status={row.status} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                >
+                  <td className={cn("py-2.5 px-3 font-semibold", pct !== null && pct !== undefined && pct < 0.05 && "text-red-500")}>
+                    {pct !== null && pct !== undefined ? `${Math.round(pct * 100)}%` : <Dash />}
+                  </td>
+                  <td className="py-2.5 px-3 font-mono">{row.part_number || <Dash />}</td>
+                  <td className="py-2.5 px-3 font-semibold">
+                    {row.part_label}
+                    <div className="text-[10px] font-normal uppercase opacity-60">{row.part_type}</div>
+                  </td>
+                  <td className="py-2.5 px-3 font-mono">{row.part_serial_number || <Dash />}</td>
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    {row.asset_name}
+                    {row.asset_tail_number ? ` (${row.asset_tail_number})` : ""}
+                  </td>
+                  <td className="py-2.5 px-3 font-mono whitespace-nowrap">{row.service_action_code || <Dash />}</td>
+                  <td className="py-2.5 px-3">{fmt(row.component_current_hours) ?? <Dash />}</td>
+                  <td className={cn("py-2.5 px-3 whitespace-nowrap", remainingHours !== null && remainingHours !== undefined && remainingHours <= 0 && "text-red-500 font-semibold")}>
+                    {remainingHours !== null && remainingHours !== undefined ? (
+                      `${fmt(remainingHours)} hrs`
+                    ) : row.days_remaining !== null ? (
+                      `${row.days_remaining} days`
+                    ) : (
+                      <Dash />
+                    )}
+                    {remainingHours !== null && remainingHours !== undefined && row.days_remaining !== null && (
+                      <div className="text-[10px] opacity-60">{row.days_remaining} days</div>
+                    )}
+                  </td>
+                  <td className="py-2.5 px-3 whitespace-nowrap">
+                    {dueHours !== null && dueHours !== undefined ? fmt(dueHours) : fmtDate(row.next_due_date) ?? <Dash />}
+                    {dueHours !== null && dueHours !== undefined && row.next_due_date && <div className="text-[10px] opacity-60">{fmtDate(row.next_due_date)}</div>}
+                  </td>
+                  <td className="py-2.5 px-3">{hasLife ? fmt(row.life_limit_hours, 0) : row.service_action_code === "COND" ? "COND" : <Dash />}</td>
+                  <td className="py-2.5 px-3">
+                    {row.airframe_hours_at_installation_missing ? (
+                      <span className="text-amber-600 dark:text-amber-300" title="Record the airframe hours when this part was fitted so its hours can be tracked.">
+                        Not recorded
+                      </span>
+                    ) : (
+                      fmt(row.airframe_hours_at_installation) ?? <Dash />
+                    )}
+                  </td>
+                  <td className="py-2.5 px-3">{fmt(row.component_hours_at_installation) ?? <Dash />}</td>
+                  <td className="py-2.5 px-3 text-right">
+                    <StatusPill status={row.status} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {totalPages > 1 && (
+        <div
+          className={cn(
+            "flex flex-col sm:flex-row items-center justify-between gap-2 p-3 rounded-lg border text-xs",
+            isDark ? "bg-[#001825] border-[#0A4D66]/30 text-gray-400" : "bg-slate-50 border-slate-200 text-slate-600",
+          )}
+        >
+          <span>
+            Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, rows.length)} of {rows.length} tracked components
+          </span>
+          <NumberedPagination currentPage={page} lastPage={totalPages} onPageChange={setPage} />
+        </div>
+      )}
     </div>
   );
 };
@@ -254,6 +280,9 @@ export const InspectionTrackingTable = ({ assetId, statusFilter }: { assetId?: s
   const { isDark } = useTheme();
   const navigate = useNavigate();
   const [category, setCategory] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
+
   const { data, isLoading, isError } = useGetInspectionItemsQuery({
     asset_type: "aircraft",
     ...(assetId ? { asset_id: Number(assetId) } : {}),
@@ -267,8 +296,15 @@ export const InspectionTrackingTable = ({ assetId, statusFilter }: { assetId?: s
     [data, category, statusFilter],
   );
 
+  useEffect(() => {
+    setPage(1);
+  }, [rows.length, category, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const pagedRows = useMemo(() => rows.slice((page - 1) * pageSize, page * pageSize), [rows, page, pageSize]);
+
   return (
-    <div className="mt-8">
+    <div className="mt-8 space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3 mb-3">
         <div>
           <h3 className="text-sm font-bold text-[#0A4D66] dark:text-[#7FD5FF] uppercase tracking-wide">Inspections, ADs &amp; Recurring Tasks</h3>
@@ -313,7 +349,7 @@ export const InspectionTrackingTable = ({ assetId, statusFilter }: { assetId?: s
               <HeaderRow columns={INSPECTION_COLUMNS} />
             </thead>
             <tbody className={cn("divide-y", isDark ? "divide-[#0A4D66]/20" : "divide-slate-100")}>
-              {rows.map((r) => {
+              {pagedRows.map((r) => {
                 const remaining =
                   r.hours_remaining !== null
                     ? `${fmt(r.hours_remaining)} hrs`
@@ -366,6 +402,20 @@ export const InspectionTrackingTable = ({ assetId, statusFilter }: { assetId?: s
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div
+          className={cn(
+            "flex flex-col sm:flex-row items-center justify-between gap-2 p-3 rounded-lg border text-xs",
+            isDark ? "bg-[#001825] border-[#0A4D66]/30 text-gray-400" : "bg-slate-50 border-slate-200 text-slate-600",
+          )}
+        >
+          <span>
+            Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, rows.length)} of {rows.length} inspections
+          </span>
+          <NumberedPagination currentPage={page} lastPage={totalPages} onPageChange={setPage} />
         </div>
       )}
     </div>

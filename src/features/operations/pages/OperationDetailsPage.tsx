@@ -6,6 +6,7 @@ import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { useTheme } from "@/context/ThemeContext";
 import {
   useDeleteOperationMutation,
   useGetOperationByIdQuery,
@@ -33,17 +34,25 @@ const InfoRow = ({
   label: string;
   value: React.ReactNode;
   className?: string;
-}) => (
-  <div
-    className={cn(
-      "flex py-3 border-b border-[#0A4D66]/40 last:border-0",
-      className,
-    )}
-  >
-    <span className="w-1/3 text-[#7FD5FF] font-medium text-sm">{label}:</span>
-    <span className="w-2/3 text-white font-bold text-sm">{value}</span>
-  </div>
-);
+}) => {
+  const { isDark } = useTheme();
+  return (
+    <div
+      className={cn(
+        "flex items-baseline py-2.5 border-b last:border-0 text-xs transition-colors",
+        isDark ? "border-[#0A4D66]/25" : "border-slate-100",
+        className,
+      )}
+    >
+      <span className={cn("w-1/3 font-semibold uppercase tracking-wider text-[11px]", isDark ? "text-sky-400" : "text-sky-800")}>
+        {label}:
+      </span>
+      <span className={cn("w-2/3 font-medium", isDark ? "text-slate-100" : "text-slate-900")}>
+        {value}
+      </span>
+    </div>
+  );
+};
 
 const getPersonName = (person: unknown) => {
   if (!person || typeof person !== "object") return "N/A";
@@ -80,6 +89,7 @@ const PersonLink = ({
   person: unknown;
   onNavigate: (id: number) => void;
 }) => {
+  const { isDark } = useTheme();
   const name = getPersonName(person);
   const id = getPersonId(person);
   if (!id || name === "N/A") {
@@ -92,7 +102,10 @@ const PersonLink = ({
         e.stopPropagation();
         onNavigate(id);
       }}
-      className="text-left text-[#7FD5FF] hover:underline"
+      className={cn(
+        "text-left font-semibold hover:underline transition-colors",
+        isDark ? "text-sky-400 hover:text-sky-300" : "text-sky-700 hover:text-sky-800"
+      )}
     >
       {name}
     </button>
@@ -124,6 +137,7 @@ const AssetCard = ({
   operationId: number | string;
 }) => {
   const dispatch = useAppDispatch();
+  const { isDark } = useTheme();
   const [logFlightHours, { isLoading: isLogging }] =
     useLogOperationFlightHoursMutation();
   const [showLogModal, setShowLogModal] = useState(false);
@@ -212,12 +226,12 @@ const AssetCard = ({
 
   const cardContent = (
     <>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] uppercase tracking-wide text-gray-500">
-          {assetIdValue ? "Click to view asset details" : ""}
+      <div className="flex items-center justify-between mb-1.5">
+        <span className={cn("text-[10px] font-bold uppercase tracking-wider", isDark ? "text-sky-400" : "text-sky-800")}>
+          {assetIdValue ? "Click to view asset dossier" : "Assigned Airframe"}
         </span>
         {assetIdValue ? (
-          <Icon icon="mdi:chevron-right" className="w-4 h-4 text-[#7FD5FF]" />
+          <Icon icon="mdi:arrow-top-right" className="w-4 h-4 text-sky-500" />
         ) : null}
       </div>
       <InfoRow label="Name" value={assetName} />
@@ -290,9 +304,9 @@ const AssetCard = ({
         value={<PersonLink person={coPilotDetails} onNavigate={goToPerson} />}
       />
       {assetIdValue ? (
-        <div className="pt-3 mt-1 border-t border-[#0A4D66]/40">
+        <div className={cn("pt-3 mt-1 border-t", isDark ? "border-[#0A4D66]/30" : "border-slate-100")}>
           {entry.logged_to_asset_at ? (
-            <div className="flex items-center gap-2 text-xs text-emerald-400">
+            <div className="flex items-center gap-2 text-xs text-emerald-500 font-medium">
               <Icon icon="mdi:check-decagram-outline" className="w-4 h-4" />
               Flight hours logged to asset on {formatLoggedAt(entry.logged_to_asset_at)}
             </div>
@@ -308,13 +322,18 @@ const AssetCard = ({
                 });
                 setShowLogModal(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded border border-[#7FD5FF]/40 bg-[#0A4D66]/30 px-3 py-1.5 text-xs font-medium text-[#C9F1FF] transition-colors hover:bg-[#0A4D66]/60"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all shadow-xs",
+                isDark
+                  ? "border-sky-500/30 bg-sky-500/10 text-sky-300 hover:bg-sky-500/20"
+                  : "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100"
+              )}
             >
-              <Icon icon="mdi:clipboard-check-outline" className="w-3.5 h-3.5" />
+              <Icon icon="mdi:clipboard-check-outline" className="w-3.5 h-3.5 text-sky-500" />
               Log Flight Hours to Asset
             </button>
           ) : (
-            <span className="text-xs text-gray-500">
+            <span className={cn("text-xs", isDark ? "text-slate-500" : "text-slate-400")}>
               No flight hours recorded for this aircraft yet.
             </span>
           )}
@@ -376,8 +395,11 @@ const AssetCard = ({
             : undefined
         }
         className={cn(
-          "rounded-lg border border-[#0A4D66]/30 bg-[#001825] p-4",
-          assetIdValue && "cursor-pointer hover:border-[#7FD5FF]/70 transition-colors",
+          "rounded-2xl border p-4 transition-all duration-200 shadow-xs",
+          isDark
+            ? "border-[#0A4D66]/40 bg-[#001825]/90 hover:border-[#0A4D66]/80"
+            : "border-slate-200 bg-white hover:border-slate-300",
+          assetIdValue && "cursor-pointer",
         )}
       >
         {cardContent}
@@ -389,14 +411,14 @@ const AssetCard = ({
         title={`Log Flight Hours — ${assetName}`}
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-400">
+          <p className={cn("text-xs leading-relaxed", isDark ? "text-slate-400" : "text-slate-600")}>
             Confirm the values to log to this aircraft's permanent flight record. You
             can adjust them before submitting — this can only be done once per
             aircraft per operation.
           </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-xs text-gray-400">
+          <div className="grid grid-cols-3 gap-3">
+            <label className={cn("flex flex-col gap-1 text-xs font-semibold", isDark ? "text-slate-300" : "text-slate-700")}>
               Flight Hours
               <input
                 type="number"
@@ -406,10 +428,15 @@ const AssetCard = ({
                 onChange={(e) =>
                   setDraft((prev) => ({ ...prev, flight_hours: e.target.value }))
                 }
-                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                className={cn(
+                  "rounded-xl border p-2 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/40",
+                  isDark
+                    ? "border-[#0A4D66]/50 bg-[#001825] text-white"
+                    : "border-slate-300 bg-slate-50 text-slate-800"
+                )}
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-gray-400">
+            <label className={cn("flex flex-col gap-1 text-xs font-semibold", isDark ? "text-slate-300" : "text-slate-700")}>
               Landings
               <input
                 type="number"
@@ -418,10 +445,15 @@ const AssetCard = ({
                 onChange={(e) =>
                   setDraft((prev) => ({ ...prev, landing: e.target.value }))
                 }
-                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                className={cn(
+                  "rounded-xl border p-2 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/40",
+                  isDark
+                    ? "border-[#0A4D66]/50 bg-[#001825] text-white"
+                    : "border-slate-300 bg-slate-50 text-slate-800"
+                )}
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs text-gray-400">
+            <label className={cn("flex flex-col gap-1 text-xs font-semibold", isDark ? "text-slate-300" : "text-slate-700")}>
               Cycles
               <input
                 type="number"
@@ -430,16 +462,26 @@ const AssetCard = ({
                 onChange={(e) =>
                   setDraft((prev) => ({ ...prev, cycle: e.target.value }))
                 }
-                className="rounded border border-[#0A4D66]/40 bg-[#001219] p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                className={cn(
+                  "rounded-xl border p-2 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/40",
+                  isDark
+                    ? "border-[#0A4D66]/50 bg-[#001825] text-white"
+                    : "border-slate-300 bg-slate-50 text-slate-800"
+                )}
               />
             </label>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={() => setShowLogModal(false)}
-              className="rounded px-4 py-2 text-sm text-gray-300 hover:text-white transition-colors"
+              className={cn(
+                "rounded-xl px-4 py-2 text-xs font-semibold border transition-all",
+                isDark
+                  ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  : "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200"
+              )}
             >
               Cancel
             </button>
@@ -447,7 +489,7 @@ const AssetCard = ({
               type="button"
               onClick={handleConfirmLog}
               disabled={isLogging}
-              className="rounded bg-[#0369A1] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#0369A1]/90 disabled:opacity-50"
+              className="rounded-xl bg-sky-600 hover:bg-sky-500 px-4 py-2 text-xs font-bold text-white shadow-md disabled:opacity-50 transition-all"
             >
               {isLogging ? "Logging..." : "Confirm & Log"}
             </button>
@@ -513,6 +555,7 @@ const OperationTab = ({
     is_sos?: boolean;
   }>;
 }) => {
+  const { isDark } = useTheme();
   const [editDates, setEditDates] = useState<DateTimeDraft | null>(null);
 
   if (!operation) return null;
@@ -568,32 +611,172 @@ const OperationTab = ({
     return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
   };
 
+  const isOngoing = operation.status === "ongoing";
+  const isCompleted = operation.status === "completed";
+  const isAborted = operation.status === "aborted";
+
   return (
     <div className="space-y-6">
+      {/* 4-Column Executive KPI Strip */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Mission Type */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className={cn("text-xs font-semibold uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
+              Mission Profile
+            </span>
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400">
+              <Icon icon="mdi:target" className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className={cn("text-base font-bold truncate", isDark ? "text-white" : "text-slate-900")}>
+              {operation.operation_category?.name || "General Mission"}
+            </div>
+            <div className={cn("text-xs mt-0.5", isDark ? "text-slate-400" : "text-slate-500")}>
+              {operation.operation_type?.name || "Tactical Air Sortie"}
+            </div>
+          </div>
+        </div>
+
+        {/* Operating Unit */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className={cn("text-xs font-semibold uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
+              Tasked Unit
+            </span>
+            <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+              <Icon icon="mdi:shield-account" className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className={cn("text-base font-bold truncate", isDark ? "text-white" : "text-slate-900")}>
+              {operation.unit?.name || "Unassigned"}
+            </div>
+            <div className={cn("text-xs mt-0.5", isDark ? "text-slate-400" : "text-slate-500")}>
+              {operation.name || "Regional Theater"}
+            </div>
+          </div>
+        </div>
+
+        {/* Timeline */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className={cn("text-xs font-semibold uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
+              Schedule Window
+            </span>
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+              <Icon icon="mdi:calendar-range" className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2">
+            <div className={cn("text-base font-bold truncate", isDark ? "text-white" : "text-slate-900")}>
+              {formatDate(operation.start_date_time)}
+            </div>
+            <div className={cn("text-xs mt-0.5", isDark ? "text-slate-400" : "text-slate-500")}>
+              {operation.duration_label || "Scheduled sortie"}
+            </div>
+          </div>
+        </div>
+
+        {/* Operational Status */}
+        <div className={cn(
+          "p-4 rounded-2xl border transition-all",
+          isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+        )}>
+          <div className="flex items-center justify-between">
+            <span className={cn("text-xs font-semibold uppercase tracking-wider", isDark ? "text-slate-400" : "text-slate-500")}>
+              Operation Status
+            </span>
+            <div className={cn(
+              "p-2 rounded-xl",
+              isCompleted
+                ? "bg-emerald-500/10 text-emerald-400"
+                : isOngoing
+                ? "bg-amber-500/10 text-amber-400"
+                : isAborted
+                ? "bg-red-500/10 text-red-400"
+                : "bg-sky-500/10 text-sky-400"
+            )}>
+              <Icon icon="mdi:radar" className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className={cn(
+              "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border",
+              isCompleted
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                : isOngoing
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                : isAborted
+                ? "bg-red-500/10 text-red-400 border-red-500/30"
+                : "bg-sky-500/10 text-sky-400 border-sky-500/30"
+            )}>
+              <span className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                isCompleted ? "bg-emerald-400" : isOngoing ? "bg-amber-400 animate-pulse" : isAborted ? "bg-red-400" : "bg-sky-400"
+              )} />
+              <span className="capitalize">{operation.status || "Planned"}</span>
+            </span>
+            <span className={cn(
+              "text-[11px] font-bold uppercase px-2 py-0.5 rounded border",
+              operation.priority === "high"
+                ? "bg-red-500/10 text-red-400 border-red-500/30"
+                : operation.priority === "medium"
+                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                : "bg-slate-500/10 text-slate-400 border-slate-500/30"
+            )}>
+              {operation.priority || "Normal"} Priority
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
+        {/* Mission Dossier Card */}
+        <div className={cn(
+          "rounded-2xl border p-6 transition-all shadow-sm",
+          isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+        )}>
+          <div className="flex items-center gap-2 mb-4">
+            <Icon icon="mdi:clipboard-text-outline" className="w-5 h-5 text-sky-500" />
+            <h3 className={cn("text-sm font-bold uppercase tracking-wider", isDark ? "text-white" : "text-slate-900")}>
+              Operation Dossier
+            </h3>
+          </div>
+
           <InfoRow
             label="Operation Name"
             value={operation.operation_category?.name || "N/A"}
           />
           <InfoRow
-            label="Region"
+            label="Region / Theater"
             value={operation.name || "N/A"}
           />
           <InfoRow
-            label="Type"
+            label="Sortie Type"
             value={operation.operation_type?.name || "N/A"}
           />
           <InfoRow
-            label="Unit"
+            label="Assigned Unit"
             value={
               operation.unit?.id ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    navigate(`/dashboard/units/${operation.unit.id}`)
-                  }
-                  className="text-left text-[#7FD5FF] hover:underline font-bold text-sm"
+                  onClick={() => navigate(`/dashboard/units/${operation.unit.id}`)}
+                  className={cn(
+                    "text-left font-bold hover:underline transition-colors",
+                    isDark ? "text-sky-400 hover:text-sky-300" : "text-sky-700 hover:text-sky-800"
+                  )}
                 >
                   {operation.unit.name}
                 </button>
@@ -602,169 +785,144 @@ const OperationTab = ({
               )
             }
           />
-          <div className="flex flex-col gap-2 py-3 border-b border-[#0A4D66]/40">
+
+          <div className={cn("flex flex-col gap-2 py-2.5 border-b text-xs transition-colors", isDark ? "border-[#0A4D66]/25" : "border-slate-100")}>
             <div className="flex items-center justify-between">
-              <span className="text-[#7FD5FF] font-medium text-sm">
-                Date{operation.end_date_time ? " / End Date" : ""}:
+              <span className={cn("font-semibold uppercase tracking-wider text-[11px]", isDark ? "text-sky-400" : "text-sky-800")}>
+                Mission Window{operation.end_date_time ? " / End Date" : ""}:
               </span>
               {!editDates ? (
                 <button
                   type="button"
                   onClick={startEditingDates}
                   title="Edit operation dates"
-                  className="text-gray-400 hover:text-[#7FD5FF] transition-colors"
+                  className={cn(
+                    "p-1 rounded-lg border transition-all text-xs font-medium inline-flex items-center gap-1",
+                    isDark
+                      ? "border-[#0A4D66]/40 bg-[#001825] text-slate-300 hover:text-sky-400 hover:border-sky-500/50"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:text-sky-600 hover:border-slate-300"
+                  )}
                 >
-                  <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+                  <Icon icon="mdi:pencil-outline" className="w-3.5 h-3.5" />
+                  <span>Edit Schedule</span>
                 </button>
               ) : null}
             </div>
 
             {editDates ? (
-              <div className="space-y-3">
+              <div className={cn("p-4 rounded-xl border mt-2 space-y-3", isDark ? "border-[#0A4D66]/40 bg-[#001825]/60" : "border-slate-200 bg-slate-50")}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-400">Start Date</label>
+                    <label className={cn("text-[11px] font-semibold", isDark ? "text-slate-400" : "text-slate-600")}>Start Date</label>
                     <input
                       type="date"
                       value={editDates.startDate}
                       onChange={(e) =>
-                        setEditDates(
-                          (prev) => prev && { ...prev, startDate: e.target.value },
-                        )
+                        setEditDates((prev) => prev && { ...prev, startDate: e.target.value })
                       }
-                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      className={cn(
+                        "rounded-xl border p-2 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/40",
+                        isDark ? "bg-[#001219] border-[#0A4D66]/50 text-white" : "bg-white border-slate-300 text-slate-800"
+                      )}
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-400">Start Time</label>
+                    <label className={cn("text-[11px] font-semibold", isDark ? "text-slate-400" : "text-slate-600")}>Start Time</label>
                     <input
                       type="time"
                       value={editDates.startTime}
                       onChange={(e) =>
-                        setEditDates(
-                          (prev) => prev && { ...prev, startTime: e.target.value },
-                        )
+                        setEditDates((prev) => prev && { ...prev, startTime: e.target.value })
                       }
-                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      className={cn(
+                        "rounded-xl border p-2 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/40",
+                        isDark ? "bg-[#001219] border-[#0A4D66]/50 text-white" : "bg-white border-slate-300 text-slate-800"
+                      )}
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-400">End Date</label>
+                    <label className={cn("text-[11px] font-semibold", isDark ? "text-slate-400" : "text-slate-600")}>End Date</label>
                     <input
                       type="date"
                       value={editDates.endDate}
                       onChange={(e) =>
-                        setEditDates(
-                          (prev) => prev && { ...prev, endDate: e.target.value },
-                        )
+                        setEditDates((prev) => prev && { ...prev, endDate: e.target.value })
                       }
-                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      className={cn(
+                        "rounded-xl border p-2 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/40",
+                        isDark ? "bg-[#001219] border-[#0A4D66]/50 text-white" : "bg-white border-slate-300 text-slate-800"
+                      )}
                     />
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-gray-400">End Time</label>
+                    <label className={cn("text-[11px] font-semibold", isDark ? "text-slate-400" : "text-slate-600")}>End Time</label>
                     <input
                       type="time"
                       value={editDates.endTime}
                       onChange={(e) =>
-                        setEditDates(
-                          (prev) => prev && { ...prev, endTime: e.target.value },
-                        )
+                        setEditDates((prev) => prev && { ...prev, endTime: e.target.value })
                       }
-                      className="bg-[#001219] border border-[#0A4D66]/40 rounded p-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF] scheme-dark"
+                      className={cn(
+                        "rounded-xl border p-2 text-xs font-medium transition-all focus:outline-none focus:ring-2 focus:ring-sky-500/40",
+                        isDark ? "bg-[#001219] border-[#0A4D66]/50 text-white" : "bg-white border-slate-300 text-slate-800"
+                      )}
                     />
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={saveDates}
-                    disabled={isSavingDateTime}
-                    className="px-3 py-1.5 rounded bg-[#0369A1] text-white text-xs font-semibold hover:bg-[#0369A1]/90 transition-colors disabled:opacity-50"
-                  >
-                    {isSavingDateTime ? "Saving..." : "Save"}
-                  </button>
+                <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     type="button"
                     onClick={cancelEditingDates}
                     disabled={isSavingDateTime}
-                    className="px-3 py-1.5 rounded border border-[#0A4D66]/40 text-xs text-gray-300 hover:text-white transition-colors disabled:opacity-50"
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all",
+                      isDark ? "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    )}
                   >
                     Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveDates}
+                    disabled={isSavingDateTime}
+                    className="px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition-all shadow-md disabled:opacity-50"
+                  >
+                    {isSavingDateTime ? "Saving..." : "Save Schedule"}
                   </button>
                 </div>
               </div>
             ) : (
-              <span className="text-white font-bold text-sm">
+              <span className={cn("font-medium", isDark ? "text-slate-100" : "text-slate-900")}>
                 {formatDate(operation.start_date_time)}
-                {operation.end_date_time
-                  ? ` – ${formatDate(operation.end_date_time)}`
-                  : ""}
+                {operation.end_date_time ? ` – ${formatDate(operation.end_date_time)}` : ""}
               </span>
             )}
           </div>
+
           {operation.duration_label ? (
-            <InfoRow label="Duration" value={operation.duration_label} />
+            <InfoRow label="Estimated Duration" value={operation.duration_label} />
           ) : null}
-          <InfoRow
-            label="Priority"
-            value={
-              <span
-                className={cn(
-                  "capitalize font-semibold",
-                  operation.priority === "high"
-                    ? "text-red-400"
-                    : operation.priority === "medium"
-                      ? "text-amber-300"
-                      : "text-emerald-400",
-                )}
-              >
-                {operation.priority || "N/A"}
-              </span>
-            }
-          />
-          <InfoRow
-            label="Status"
-            value={
-              <div className="flex items-center gap-2">
-                <span className="capitalize">{operation.status}</span>
-                <span
-                  className={cn(
-                    "w-2 h-2 rounded-full",
-                    operation.status === "completed"
-                      ? "bg-emerald-400"
-                      : operation.status === "ongoing"
-                        ? "bg-amber-400"
-                        : operation.status === "aborted"
-                          ? "bg-red-500"
-                          : "bg-blue-400",
-                  )}
-                />
-              </div>
-            }
-          />
+
           {departureLabel !== "N/A" ? (
-            <InfoRow label="Departure" value={departureLabel} />
+            <InfoRow label="Departure Location" value={departureLabel} />
           ) : null}
           {arrivalLabel !== "N/A" ? (
             <InfoRow label="Destination" value={arrivalLabel} />
           ) : null}
           {operation.waypoints && operation.waypoints.length > 0 ? (
             <InfoRow
-              label="Waypoints"
+              label="Mission Waypoints"
               value={
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   {operation.waypoints
                     .slice()
                     .sort((a, b) => a.sequence - b.sequence)
                     .map((waypoint) => (
-                      <span key={waypoint.id} className="text-xs text-gray-300">
-                        <span className="font-semibold text-[#F59E0B]">
+                      <span key={waypoint.id} className={cn("text-xs font-mono flex items-center gap-1.5", isDark ? "text-slate-300" : "text-slate-700")}>
+                        <span className="font-bold text-amber-500 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20 text-[10px]">
                           CP-{waypoint.sequence}
                         </span>
-                        {waypoint.name ? ` ${waypoint.name}` : ""} —{" "}
-                        {Number(waypoint.latitude).toFixed(6)},{" "}
-                        {Number(waypoint.longitude).toFixed(6)}
+                        <span>{waypoint.name ? `${waypoint.name} • ` : ""}{Number(waypoint.latitude).toFixed(5)}, {Number(waypoint.longitude).toFixed(5)}</span>
                       </span>
                     ))}
                 </div>
@@ -773,12 +931,28 @@ const OperationTab = ({
           ) : null}
         </div>
 
-        <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-          <h3 className="text-[#7FD5FF] text-sm font-bold mb-4 uppercase">
-            Aircraft
-          </h3>
+        {/* Aircraft Assets Fleet Card */}
+        <div className={cn(
+          "rounded-2xl border p-6 transition-all shadow-sm flex flex-col",
+          isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+        )}>
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <Icon icon="mdi:airplane" className="w-5 h-5 text-sky-500" />
+              <h3 className={cn("text-sm font-bold uppercase tracking-wider", isDark ? "text-white" : "text-slate-900")}>
+                Assigned Aircraft Fleet
+              </h3>
+            </div>
+            <span className={cn(
+              "px-2.5 py-0.5 rounded-full text-xs font-bold border",
+              isDark ? "bg-[#001825] border-[#0A4D66]/50 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700"
+            )}>
+              {operation.assets?.length ?? 0} Airframe(s)
+            </span>
+          </div>
+
           {operation.assets && operation.assets.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1">
               {operation.assets.map((entry, index) => (
                 <AssetCard
                   key={entry.id ?? `${entry.asset_id ?? "asset"}-${index}`}
@@ -790,20 +964,34 @@ const OperationTab = ({
               ))}
             </div>
           ) : (
-            <div className="text-gray-400 text-sm">
-              No aircraft assets assigned.
+            <div className={cn(
+              "rounded-xl border border-dashed p-8 text-center flex-1 flex flex-col items-center justify-center",
+              isDark ? "border-[#0A4D66]/40 text-slate-400" : "border-slate-300 text-slate-500"
+            )}>
+              <Icon icon="mdi:airplane-off" className="w-8 h-8 mb-2 opacity-40" />
+              <p className="text-sm font-medium">No aircraft assets assigned to this operation.</p>
             </div>
           )}
         </div>
       </div>
 
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
+      {/* Operation Map View */}
+      <div className={cn(
+        "rounded-2xl border p-6 transition-all shadow-sm",
+        isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+      )}>
         <div className="flex items-center justify-between gap-4 mb-4">
-          <h3 className="text-[#7FD5FF] text-sm font-bold uppercase">
-            Operation Map View
-          </h3>
-          <span className="text-xs text-gray-400 uppercase tracking-wide">
-            QGIS route preview
+          <div className="flex items-center gap-2">
+            <Icon icon="mdi:map-legend" className="w-5 h-5 text-sky-500" />
+            <h3 className={cn("text-sm font-bold uppercase tracking-wider", isDark ? "text-white" : "text-slate-900")}>
+              Operation Tactical Map
+            </h3>
+          </div>
+          <span className={cn(
+            "text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full border",
+            isDark ? "bg-[#001825] border-[#0A4D66]/50 text-sky-400" : "bg-sky-50 border-sky-200 text-sky-700"
+          )}>
+            QGIS / Carto Tactical Engine
           </span>
         </div>
 
@@ -894,23 +1082,31 @@ const AARTab = ({
   /** Refetch the operation after an approval decision changes the AAR's status. */
   onChanged?: () => void;
 }) => {
+  const { isDark } = useTheme();
   const report = operation.afterActionReport;
 
   if (!report) {
     return (
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-10 text-center text-white">
-        <Icon
-          icon="mdi:file-remove-outline"
-          className="w-10 h-10 text-gray-400 mx-auto mb-3"
-        />
-        <p className="text-base font-semibold">No after action report</p>
+      <div className={cn(
+        "rounded-2xl border p-12 text-center transition-all shadow-sm flex flex-col items-center justify-center",
+        isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+      )}>
+        <div className={cn("p-4 rounded-2xl border mb-3", isDark ? "bg-[#001825] border-[#0A4D66]/40 text-slate-500" : "bg-slate-50 border-slate-200 text-slate-400")}>
+          <Icon icon="mdi:file-document-remove-outline" className="w-10 h-10" />
+        </div>
+        <p className={cn("text-base font-bold", isDark ? "text-white" : "text-slate-900")}>
+          No After Action Report Recorded
+        </p>
+        <p className={cn("text-xs mt-1 max-w-md", isDark ? "text-slate-400" : "text-slate-500")}>
+          Debriefing and operational engagement telemetry have not been logged for this mission.
+        </p>
         <button
           type="button"
           onClick={onAddReport}
-          className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#0A4D66] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A4D66]/80 transition-colors"
+          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-sky-600 hover:bg-sky-500 px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all"
         >
           <Icon icon="mdi:plus" className="w-4 h-4" />
-          Add After Action Report
+          Create After Action Report
         </button>
       </div>
     );
@@ -946,20 +1142,31 @@ const AARTab = ({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white">
+    <div className="space-y-6">
+      {/* Debrief Summary Dossier */}
+      <div className={cn(
+        "rounded-2xl border p-6 transition-all shadow-sm",
+        isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+      )}>
+        <div className="flex items-center gap-2 mb-4">
+          <Icon icon="mdi:clipboard-check-outline" className="w-5 h-5 text-sky-500" />
+          <h3 className={cn("text-sm font-bold uppercase tracking-wider", isDark ? "text-white" : "text-slate-900")}>
+            Mission Debrief Summary
+          </h3>
+        </div>
+
         <div className="space-y-0">
           <InfoRow
-            label="Mission"
+            label="Mission Objective"
             value={<span className="capitalize">{report.mission}</span>}
           />
-          <InfoRow label="Task No." value={report.task_no || "-"} />
-          <InfoRow label="Date" value={report.report_date || (report as unknown as { created_at?: string })?.created_at?.slice(0, 10) || "-"} />
+          <InfoRow label="Task Order No." value={report.task_no || "-"} />
+          <InfoRow label="Report Date" value={report.report_date || (report as unknown as { created_at?: string })?.created_at?.slice(0, 10) || "-"} />
           <InfoRow
-            label="Aircraft"
+            label="Aircraft Formation"
             value={
               report.aircraft_formation === "formation"
-                ? "Formation"
+                ? "Formation Flight"
                 : report.aircraft_formation === "single_ship"
                 ? "Single Ship"
                 : report.aircraft_formation === "none"
@@ -967,78 +1174,91 @@ const AARTab = ({
                 : report.aircraft_formation || "-"
             }
           />
-          <InfoRow label="Unit / Formation" value={report.unit_formation || "-"} />
-          <InfoRow label="Infantry No" value={report.infantry_no ?? "-"} />
-          <InfoRow label="Vehicle No." value={report.vehicles_no ?? totalContactVehicles} />
-          <InfoRow label="Ammo Spent" value={report.ammo_spent || "-"} />
-          <InfoRow label="Activities" value={report.activities || "-"} />
+          <InfoRow label="Tasked Formation" value={report.unit_formation || "-"} />
+          <InfoRow label="Infantry Personnel" value={report.infantry_no ?? "-"} />
+          <InfoRow label="Total Vehicles" value={report.vehicles_no ?? totalContactVehicles} />
+          <InfoRow label="Munitions / Ammo Spent" value={report.ammo_spent || "-"} />
+          <InfoRow label="Operational Activities" value={report.activities || "-"} />
         </div>
       </div>
 
+      {/* Enemy Contacts Grid */}
       {(report.contacts ?? []).length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {report.contacts.map((contact, idx) => (
             <div
               key={idx}
-              className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-5 text-white"
+              className={cn(
+                "rounded-2xl border p-6 transition-all shadow-sm",
+                isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+              )}
             >
-              <div className="text-[#7FD5FF] text-sm mb-3">
-                Enemy in Contact {idx + 1}
+              <div className="flex items-center gap-2 mb-3">
+                <Icon icon="mdi:crosshairs-gps" className="w-4 h-4 text-amber-500" />
+                <h4 className={cn("text-xs font-bold uppercase tracking-wider", isDark ? "text-amber-400" : "text-amber-700")}>
+                  Enemy Contact Profile #{idx + 1}
+                </h4>
               </div>
 
               <div className="space-y-0">
                 <InfoRow
-                  label="Engagement"
+                  label="Engagement Level"
                   value={
                     <span className="capitalize">
                       {contact.engagement?.replace(/_/g, " ") || "-"}
                     </span>
                   }
                 />
-                <InfoRow label="Location" value={contact.location || "-"} />
+                <InfoRow label="Contact Location" value={contact.location || "-"} />
                 <InfoRow
                   label="Time of Contact"
                   value={contact.time_of_contact || "-"}
                 />
               </div>
 
-              <div className="mt-4 text-sm text-gray-300 space-y-2">
-                <div className="text-gray-400">Enemy Resources</div>
+              <div className={cn("mt-4 pt-3 border-t space-y-1 text-xs", isDark ? "border-[#0A4D66]/30 text-slate-300" : "border-slate-100 text-slate-700")}>
+                <div className={cn("font-bold text-[11px] uppercase tracking-wider mb-1", isDark ? "text-slate-400" : "text-slate-500")}>
+                  Enemy Resources & Forces
+                </div>
                 <InfoRow
-                  label="Description"
+                  label="Resources Note"
                   value={contact.enemy_resources_description || "-"}
                 />
                 <InfoRow
-                  label="Infantry No."
+                  label="Enemy Infantry"
                   value={contact.enemy_infantry_no ?? "-"}
                 />
                 <InfoRow
-                  label="Vehicle No."
+                  label="Enemy Vehicles"
                   value={contact.enemy_vehicle_no ?? "-"}
                 />
               </div>
 
-              <div className="mt-4 text-sm text-gray-300 space-y-2">
-                <div className="text-gray-400">Targets Treated</div>
+              <div className={cn("mt-4 pt-3 border-t space-y-1 text-xs", isDark ? "border-[#0A4D66]/30 text-slate-300" : "border-slate-100 text-slate-700")}>
+                <div className={cn("font-bold text-[11px] uppercase tracking-wider mb-1", isDark ? "text-emerald-400" : "text-emerald-700")}>
+                  Targets Neutralized / Treated
+                </div>
                 <InfoRow
-                  label="Description"
+                  label="Outcome Summary"
                   value={contact.targets_treated_description || "-"}
                 />
                 <InfoRow
-                  label="Infantry No."
+                  label="Infantry Neutralized"
                   value={contact.targets_infantry_no ?? "-"}
                 />
                 <InfoRow
-                  label="Vehicle No."
+                  label="Vehicles Destroyed"
                   value={contact.targets_vehicle_no ?? "-"}
                 />
               </div>
 
-              <div className="mt-4 text-sm text-gray-300 space-y-2">
-                <div className="text-gray-400">Damage Received</div>
+              <div className={cn("mt-4 pt-3 border-t space-y-1 text-xs", isDark ? "border-[#0A4D66]/30 text-slate-300" : "border-slate-100 text-slate-700")}>
+                <div className={cn("font-bold text-[11px] uppercase tracking-wider mb-1", isDark ? "text-red-400" : "text-red-700")}>
+                  Damage Incurred
+                </div>
                 <InfoRow
-                  label="Description"
-                  value={contact.damage_received || "-"}
+                  label="Damage Assessment"
+                  value={contact.damage_received || "No battle damage sustained"}
                 />
               </div>
             </div>
@@ -1046,20 +1266,32 @@ const AARTab = ({
         </div>
       )}
 
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-4">
-        <div className="flex items-center justify-between border-b border-[#0A4D66]/40 pb-3">
-          <h4 className="text-[#7FD5FF] text-sm font-bold uppercase">
-            Vehicles
-          </h4>
-          <span className="text-xs text-gray-400">{reportVehicles.length}</span>
+      {/* Operational Vehicles Section */}
+      <div className={cn(
+        "rounded-2xl border p-6 transition-all shadow-sm space-y-4",
+        isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+      )}>
+        <div className={cn("flex items-center justify-between border-b pb-3", isDark ? "border-[#0A4D66]/30" : "border-slate-100")}>
+          <div className="flex items-center gap-2">
+            <Icon icon="mdi:tank" className="w-5 h-5 text-sky-500" />
+            <h4 className={cn("text-sm font-bold uppercase tracking-wider", isDark ? "text-white" : "text-slate-900")}>
+              Participating Ground Vehicles
+            </h4>
+          </div>
+          <span className={cn(
+            "text-xs font-bold px-2.5 py-0.5 rounded-full border",
+            isDark ? "bg-[#001825] border-[#0A4D66]/50 text-slate-300" : "bg-slate-100 border-slate-200 text-slate-700"
+          )}>
+            {reportVehicles.length} vehicle(s)
+          </span>
         </div>
 
         {reportVehicles.length === 0 ? (
-          <p className="text-sm text-gray-400">
-            No vehicles recorded in after action report.
+          <p className={cn("text-xs py-2", isDark ? "text-slate-400" : "text-slate-500")}>
+            No ground vehicles recorded in this after action report.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {reportVehicles.map((vehicle, index) => (
               <div
                 key={
@@ -1069,9 +1301,13 @@ const AARTab = ({
                     ? String((vehicle as Record<string, unknown>).id)
                     : `${index}`
                 }
-                className="rounded-lg border border-[#0A4D66]/30 bg-[#001825] px-4 py-3 text-sm text-gray-200"
+                className={cn(
+                  "rounded-xl border px-4 py-3 text-xs font-semibold shadow-xs transition-colors flex items-center gap-2",
+                  isDark ? "border-[#0A4D66]/40 bg-[#001825] text-slate-200" : "border-slate-200 bg-slate-50 text-slate-800"
+                )}
               >
-                {getVehicleDisplay(vehicle, index)}
+                <Icon icon="mdi:car-side" className="w-4 h-4 text-sky-500 shrink-0" />
+                <span className="truncate">{getVehicleDisplay(vehicle, index)}</span>
               </div>
             ))}
           </div>
@@ -1079,7 +1315,10 @@ const AARTab = ({
       </div>
 
       {/* AAR Signature & Endorsement Table */}
-      <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6 text-white space-y-4">
+      <div className={cn(
+        "rounded-2xl border p-6 transition-all shadow-sm space-y-4",
+        isDark ? "bg-[#001219]/90 border-[#0A4D66]/40 text-white" : "bg-white border-slate-200 text-slate-900"
+      )}>
         <AARSignatureTable
           report={report}
           operationId={operation.id}
@@ -1087,7 +1326,7 @@ const AARTab = ({
         />
       </div>
 
-      {/* Approval: while the AAR workflow is on, the report is approved here after the signatures. */}
+      {/* Approval Panel */}
       <ApprovalPanel module="after-action-reports" recordId={report.id} onChanged={onChanged} />
     </div>
   );
@@ -1101,6 +1340,7 @@ export const OperationDetailsPage = () => {
     queryTab === "aar" ? "aar" : queryTab === "satcom" ? "satcom" : "operation";
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { isDark } = useTheme();
   const contentRef = useRef<HTMLDivElement | null>(null);
   const [activeTab, setActiveTab] = useState<"operation" | "satcom" | "aar">(initialTab);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
@@ -1125,16 +1365,20 @@ export const OperationDetailsPage = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#001219] text-[#7FD5FF]">
-        <Icon icon="mdi:loading" className="w-8 h-8 animate-spin" />
+      <div className={cn("min-h-screen w-full flex items-center justify-center py-24", isDark ? "text-slate-400" : "text-slate-500")}>
+        <div className="animate-spin h-8 w-8 border-2 border-sky-500 border-t-transparent rounded-full mr-3" />
+        <span className="text-sm font-medium">Loading operational mission data...</span>
       </div>
     );
   }
 
   if (!operation) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#001219] text-gray-400 gap-4">
-        <p>Operation not found</p>
+      <div className={cn("min-h-screen w-full flex flex-col items-center justify-center py-24 gap-4", isDark ? "text-slate-400" : "text-slate-500")}>
+        <div className={cn("p-4 rounded-2xl border", isDark ? "bg-[#001219] border-[#0A4D66]/40 text-slate-500" : "bg-white border-slate-200 text-slate-400")}>
+          <Icon icon="mdi:target-off" className="w-12 h-12" />
+        </div>
+        <p className={cn("text-lg font-semibold", isDark ? "text-white" : "text-slate-900")}>Operation Record Not Found</p>
         <BackButton fallbackUrl="/dashboard/operations" />
       </div>
     );
@@ -1222,7 +1466,7 @@ export const OperationDetailsPage = () => {
       await downloadElementAsPdf({
         element: contentRef.current,
         fileName: `${operation.name || "operation"}-${operation.id}`,
-        backgroundColor: "#001219",
+        backgroundColor: isDark ? "#001219" : "#FFFFFF",
       });
       dispatch(showToast({ message: "PDF downloaded", type: "success" }));
     } catch (error) {
@@ -1242,87 +1486,157 @@ export const OperationDetailsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#001219] text-gray-200 flex flex-col p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+    <div className={cn("space-y-6", isDark ? "text-slate-100" : "text-slate-800")}>
+      {/* Executive Command Header */}
+      <div className={cn(
+        "p-6 rounded-2xl border transition-all duration-200 shadow-sm",
+        isDark ? "bg-[#001219]/90 border-[#0A4D66]/40" : "bg-white border-slate-200"
+      )}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
             <BackButton fallbackUrl="/dashboard/operations" />
-            <div className="text-sm text-slate-700 dark:text-gray-300 font-medium">{operation.name}</div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
+                  Air Sortie Mission • OP-{operation.id}
+                </span>
+                <span className={cn(
+                  "inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border",
+                  operation.status === "completed"
+                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                    : operation.status === "ongoing"
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                    : operation.status === "aborted"
+                    ? "bg-red-500/10 text-red-400 border-red-500/30"
+                    : "bg-sky-500/10 text-sky-400 border-sky-500/30"
+                )}>
+                  <span className={cn(
+                    "w-1.5 h-1.5 rounded-full",
+                    operation.status === "completed"
+                      ? "bg-emerald-400"
+                      : operation.status === "ongoing"
+                      ? "bg-amber-400 animate-pulse"
+                      : operation.status === "aborted"
+                      ? "bg-red-400"
+                      : "bg-sky-400"
+                  )} />
+                  <span className="capitalize">{operation.status || "Planned"}</span>
+                </span>
+              </div>
+              <h1 className={cn("text-2xl font-bold tracking-tight", isDark ? "text-white" : "text-slate-900")}>
+                {operation.name}
+              </h1>
+              <p className={cn("text-xs mt-1 flex flex-wrap items-center gap-3", isDark ? "text-slate-400" : "text-slate-500")}>
+                <span>Theater: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{operation.operation_category?.name || "General"}</strong></span>
+                <span>•</span>
+                <span>Unit: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{operation.unit?.name || "Unassigned"}</strong></span>
+                <span>•</span>
+                <span>Fleet: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{operation.assets?.length || 0} airframe(s)</strong></span>
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleDeleteOperation}
-              disabled={isDeleting}
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825] disabled:opacity-60"
-            >
-              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-              {isDeleting ? "Deleting..." : "Delete"}
-            </button>
+          {/* Action Toolbar */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0">
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setIsStatusMenuOpen((prev) => !prev)}
                 disabled={isUpdatingStatus}
-                className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825] disabled:opacity-60"
-                type="button"
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all shadow-sm",
+                  isDark
+                    ? "bg-[#001825] hover:bg-slate-800 border-[#0A4D66]/50 text-slate-200"
+                    : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700"
+                )}
               >
-                <Icon icon="mdi:refresh" className="w-4 h-4" />
-                {isUpdatingStatus ? "Updating..." : "Update status"}
-                <Icon icon="mdi:chevron-down" className="w-4 h-4" />
+                <Icon icon="mdi:refresh" className={cn("w-4 h-4 text-sky-500", isUpdatingStatus && "animate-spin")} />
+                <span>{isUpdatingStatus ? "Updating..." : "Update Status"}</span>
+                <Icon icon="mdi:chevron-down" className="w-3.5 h-3.5 opacity-60" />
               </button>
 
               {isStatusMenuOpen && !isUpdatingStatus ? (
-                <div className="absolute right-0 mt-2 min-w-40 bg-[#001825] border border-[#0A4D66]/40 rounded shadow-lg z-30 overflow-hidden">
+                <div className={cn(
+                  "absolute right-0 mt-2 min-w-44 rounded-2xl border shadow-xl z-30 overflow-hidden py-1 backdrop-blur-md",
+                  isDark ? "bg-[#001825]/95 border-[#0A4D66]/60" : "bg-white/95 border-slate-200"
+                )}>
                   {statusOptions.map((status) => (
                     <button
                       key={status}
                       type="button"
                       onClick={() => handleUpdateStatus(status)}
                       className={cn(
-                        "w-full text-left px-3 py-2 text-xs capitalize hover:bg-[#001825] transition-colors",
+                        "w-full text-left px-4 py-2.5 text-xs capitalize transition-colors flex items-center justify-between",
                         operation.status === status
-                          ? "text-[#7FD5FF]"
-                          : "text-gray-300",
+                          ? (isDark ? "bg-sky-500/20 text-sky-400 font-bold" : "bg-sky-50 text-sky-700 font-bold")
+                          : (isDark ? "text-slate-300 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100")
                       )}
                     >
-                      {status}
+                      <span>{status}</span>
+                      {operation.status === status && <Icon icon="mdi:check" className="w-4 h-4 text-sky-500" />}
                     </button>
                   ))}
                 </div>
               ) : null}
             </div>
+
             <button
-              onClick={() =>
-                navigate(`/dashboard/operations/${operation.id}/edit`)
-              }
-              className="flex items-center gap-1 px-3 py-1.5 bg-[#001825] border border-[#0A4D66]/40 rounded text-xs text-gray-300 hover:bg-[#001825]"
+              type="button"
+              onClick={() => navigate(`/dashboard/operations/${operation.id}/edit`)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all shadow-sm",
+                isDark
+                  ? "bg-[#001825] hover:bg-slate-800 border-[#0A4D66]/50 text-slate-200"
+                  : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700"
+              )}
             >
-              <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
+              <Icon icon="mdi:pencil-outline" className="w-4 h-4 text-amber-500" />
+              <span>Edit Mission</span>
             </button>
+
             <button
+              type="button"
               onClick={handleDownloadPdf}
               disabled={isDownloadingPdf}
-              title="Download operation"
-              className="p-1.5 text-gray-400 hover:text-white disabled:opacity-60"
+              title="Download operation dossier PDF"
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all shadow-sm disabled:opacity-50",
+                isDark
+                  ? "bg-[#001825] hover:bg-slate-800 border-red-500/30 text-red-400"
+                  : "bg-red-50 hover:bg-red-100 border-red-300 text-red-700"
+              )}
             >
               <Icon
-                icon={isDownloadingPdf ? "mdi:loading" : "mdi:download"}
-                className={cn(
-                  "w-5 h-5",
-                  isDownloadingPdf ? "animate-spin" : "",
-                )}
+                icon={isDownloadingPdf ? "mdi:loading" : "mdi:file-pdf-box"}
+                className={cn("w-4 h-4", isDownloadingPdf && "animate-spin")}
               />
+              <span>{isDownloadingPdf ? "Generating..." : "PDF Dossier"}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleDeleteOperation}
+              disabled={isDeleting}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all shadow-sm disabled:opacity-50",
+                isDark
+                  ? "bg-red-950/20 hover:bg-red-950/40 border-red-500/30 text-red-400"
+                  : "bg-red-50 hover:bg-red-100 border-red-200 text-red-700"
+              )}
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              <span>{isDeleting ? "Deleting..." : "Delete"}</span>
             </button>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#0A4D66]/40 dark:border-[#0A4D66]/40 border-slate-300">
+        {/* Tab Controls Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-4 mt-6 border-slate-200 dark:border-[#0A4D66]/30">
           <AppTabs<"operation" | "satcom" | "aar">
             tabs={[
-              { id: "operation", label: "Operation Details", icon: "mdi:database" },
-              { id: "satcom", label: "Satellite Comms & Tracking (inReach)", icon: "mdi:satellite-variant" },
-              { id: "aar", label: "After Action Report", icon: "mdi:file-document-outline" },
+              { id: "operation", label: "Mission Dossier", icon: "mdi:target" },
+              { id: "satcom", label: "Garmin inReach & Satcom Tracking", icon: "mdi:satellite-variant" },
+              { id: "aar", label: "After Action Report (AAR)", icon: "mdi:file-document-outline" },
             ]}
             activeTab={activeTab}
             onChange={(t) => setActiveTab(t)}
@@ -1333,10 +1647,10 @@ export const OperationDetailsPage = () => {
             <button
               type="button"
               onClick={handleAddAfterActionReport}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-[#0A4D66] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#083c50] transition-colors shadow-sm mb-2 sm:mb-0"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 px-3.5 py-2 text-xs font-bold text-white shadow-md transition-all"
             >
               <Icon icon="mdi:plus" className="w-4 h-4" />
-              <span>Add AAR</span>
+              <span>Create AAR Report</span>
             </button>
           )}
         </div>

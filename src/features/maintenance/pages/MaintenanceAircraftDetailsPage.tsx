@@ -159,7 +159,7 @@ export const MaintenanceAircraftDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const authToken = useAppSelector((state) => state.auth.token);
-  const { data: asset, isLoading, refetch: refetchAsset } = useGetAssetByIdQuery(id || "");
+  const { data: asset, isLoading, refetch: refetchAsset } = useGetAssetByIdQuery(id || "", { skip: !id });
   const { data: units = [] } = useGetUnitsQuery();
   const { data: enginePositions = [] } = useGetEnginePositionsQuery();
   const { data: avionicCategories = [] } = useGetAvionicCategoriesQuery();
@@ -326,7 +326,7 @@ export const MaintenanceAircraftDetailsPage = () => {
       <div className="flex items-center justify-between">
         <button
           type="button"
-          onClick={() => navigate("/maintenance/aircraft")}
+          onClick={() => navigate("/dashboard/maintenance/aircraft")}
           className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#7FD5FF] transition-colors"
         >
           <Icon icon="mdi:arrow-left" className="w-4 h-4" />
@@ -1202,7 +1202,7 @@ export const MaintenanceAircraftDetailsPage = () => {
                   {assetWorkOrders.map((wo) => (
                     <div
                       key={wo.id}
-                      onClick={() => navigate(`/maintenance/work-orders/${wo.id}`)}
+                      onClick={() => navigate(`/dashboard/maintenance/work-orders/${wo.id}`)}
                       className="p-4 rounded-lg bg-[#001825] border border-[#0A4D66]/40 hover:border-[#7FD5FF]/50 cursor-pointer transition-colors flex items-center justify-between"
                     >
                       <div>

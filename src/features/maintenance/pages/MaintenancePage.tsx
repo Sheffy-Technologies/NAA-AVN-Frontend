@@ -22,6 +22,7 @@ import { MaintenanceInventorySection, type MaintenanceInventorySubTab } from "..
 import { CreateWorkOrderModal } from "../components/CreateWorkOrderModal";
 import { LogDefectModal } from "../components/LogDefectModal";
 import { InspectionTrackingTable, PartTrackingTable } from "../components/TrackingSheetTables";
+import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 
 type MainTabKey = "overview" | "maintenance" | "work-orders" | "inventory";
 type MaintenanceSubTabKey = "tracking" | "programs" | "compliance" | "aircraft";
@@ -273,6 +274,45 @@ export const MaintenancePage = () => {
       return recAssetId ? String(recAssetId) === complianceAssetFilter : true;
     });
   }, [complianceRecords, complianceAssetFilter]);
+
+  // Internal tab pagination states
+  const [compliancePage, setCompliancePage] = useState(1);
+  const [aircraftPage, setAircraftPage] = useState(1);
+  const [workOrdersPage, setWorkOrdersPage] = useState(1);
+  const [defectsPage, setDefectsPage] = useState(1);
+  const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    setCompliancePage(1);
+  }, [complianceAssetFilter]);
+
+  useEffect(() => {
+    setAircraftPage(1);
+  }, [aircraftSearch, aircraftUnitFilter, aircraftStatusFilter]);
+
+  const complianceTotalPages = Math.ceil(filteredComplianceRecords.length / PAGE_SIZE) || 1;
+  const pagedComplianceRecords = useMemo(() => {
+    const start = (compliancePage - 1) * PAGE_SIZE;
+    return filteredComplianceRecords.slice(start, start + PAGE_SIZE);
+  }, [filteredComplianceRecords, compliancePage]);
+
+  const aircraftTotalPages = Math.ceil(filteredAircraftList.length / PAGE_SIZE) || 1;
+  const pagedAircraftList = useMemo(() => {
+    const start = (aircraftPage - 1) * PAGE_SIZE;
+    return filteredAircraftList.slice(start, start + PAGE_SIZE);
+  }, [filteredAircraftList, aircraftPage]);
+
+  const workOrdersTotalPages = Math.ceil(workOrders.length / PAGE_SIZE) || 1;
+  const pagedWorkOrders = useMemo(() => {
+    const start = (workOrdersPage - 1) * PAGE_SIZE;
+    return workOrders.slice(start, start + PAGE_SIZE);
+  }, [workOrders, workOrdersPage]);
+
+  const defectsTotalPages = Math.ceil(defectRecords.length / PAGE_SIZE) || 1;
+  const pagedDefects = useMemo(() => {
+    const start = (defectsPage - 1) * PAGE_SIZE;
+    return defectRecords.slice(start, start + PAGE_SIZE);
+  }, [defectRecords, defectsPage]);
 
   const selectedComplianceItem = useMemo(
     () => complianceRecords.find((row) => row.id === selectedComplianceId) ?? null,
@@ -757,7 +797,8 @@ export const MaintenancePage = () => {
                   No compliance records found.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr
@@ -776,7 +817,7 @@ export const MaintenancePage = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
-                      {filteredComplianceRecords.map((row) => (
+                      {pagedComplianceRecords.map((row) => (
                         <tr
                           key={row.id}
                           tabIndex={0}
@@ -828,7 +869,23 @@ export const MaintenancePage = () => {
                     </tbody>
                   </table>
                 </div>
-              )}
+
+                {complianceTotalPages > 1 && (
+                  <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      Showing {(compliancePage - 1) * PAGE_SIZE + 1} to{" "}
+                      {Math.min(compliancePage * PAGE_SIZE, filteredComplianceRecords.length)} of{" "}
+                      {filteredComplianceRecords.length} records
+                    </span>
+                    <NumberedPagination
+                      currentPage={compliancePage}
+                      lastPage={complianceTotalPages}
+                      onPageChange={setCompliancePage}
+                    />
+                  </div>
+                )}
+              </>
+            )}
 
               {selectedComplianceItem && (
                 <div
@@ -990,7 +1047,8 @@ export const MaintenancePage = () => {
                   No aircraft matching filters.
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr
@@ -1010,7 +1068,7 @@ export const MaintenancePage = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
-                      {filteredAircraftList.map((asset) => {
+                      {pagedAircraftList.map((asset) => {
                         const status = asset.serviceability_status || "serviceable";
                         const isGrounded = status === "grounded";
                         const isMaint = status === "under_maintenance";
@@ -1112,7 +1170,23 @@ export const MaintenancePage = () => {
                     </tbody>
                   </table>
                 </div>
-              )}
+
+                {aircraftTotalPages > 1 && (
+                  <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      Showing {(aircraftPage - 1) * PAGE_SIZE + 1} to{" "}
+                      {Math.min(aircraftPage * PAGE_SIZE, filteredAircraftList.length)} of{" "}
+                      {filteredAircraftList.length} aircraft
+                    </span>
+                    <NumberedPagination
+                      currentPage={aircraftPage}
+                      lastPage={aircraftTotalPages}
+                      onPageChange={setAircraftPage}
+                    />
+                  </div>
+                )}
+              </>
+            )}
             </div>
           )}
         </div>
@@ -1230,8 +1304,9 @@ export const MaintenancePage = () => {
                   No work orders found. Click "New Work Order" to create one.
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {workOrders.map((order) => {
+                <>
+                  <div className="space-y-3">
+                  {pagedWorkOrders.map((order) => {
                     const isCompleted = order.status === "completed";
                     const isInProgress = order.status === "in_progress";
                     return (
@@ -1296,7 +1371,23 @@ export const MaintenancePage = () => {
                     );
                   })}
                 </div>
-              )}
+
+                {workOrdersTotalPages > 1 && (
+                  <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                    <span>
+                      Showing {(workOrdersPage - 1) * PAGE_SIZE + 1} to{" "}
+                      {Math.min(workOrdersPage * PAGE_SIZE, workOrders.length)} of{" "}
+                      {workOrders.length} work orders
+                    </span>
+                    <NumberedPagination
+                      currentPage={workOrdersPage}
+                      lastPage={workOrdersTotalPages}
+                      onPageChange={setWorkOrdersPage}
+                    />
+                  </div>
+                )}
+              </>
+            )}
             </div>
           )}
 
@@ -1394,7 +1485,7 @@ export const MaintenancePage = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
-                        {defectRecords.map((defect) => (
+                        {pagedDefects.map((defect) => (
                           <tr
                             key={defect.id}
                             tabIndex={0}
@@ -1452,6 +1543,21 @@ export const MaintenancePage = () => {
                       </tbody>
                     </table>
                   </div>
+
+                  {defectsTotalPages > 1 && (
+                    <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
+                      <span>
+                        Showing {(defectsPage - 1) * PAGE_SIZE + 1} to{" "}
+                        {Math.min(defectsPage * PAGE_SIZE, defectRecords.length)} of{" "}
+                        {defectRecords.length} defects
+                      </span>
+                      <NumberedPagination
+                        currentPage={defectsPage}
+                        lastPage={defectsTotalPages}
+                        onPageChange={setDefectsPage}
+                      />
+                    </div>
+                  )}
                 </>
               )}
 

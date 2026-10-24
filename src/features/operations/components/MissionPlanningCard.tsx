@@ -3,7 +3,8 @@ import { Icon } from "@iconify/react";
 import { useGetInventoriesQuery } from "@/features/inventory/api";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
-  generateJeppesenNavLog,
+  generateTacticalNavLog,
+  calculateWindTriangle,
   calculateTacticalCriticalPoints,
   calculateIcaoFuelHierarchy,
   NIGERIA_AERONAUTICAL_DATABASE,
@@ -12,6 +13,7 @@ import {
   type TacticalCriticalPoints,
   type IcaoFuelHierarchy,
 } from "../utils/navigationEngine";
+import { calculateBearing } from "../utils/coordinates";
 
 export type MissionEquipmentConfig =
   | "slick_transport"
@@ -113,6 +115,105 @@ type MissionPlanningCardProps = {
   isEditable?: boolean;
   onPlanningChange?: (data: MissionPlanningData) => void;
   className?: string;
+};
+
+/**
+ * Direct Freeform Number Input:
+ * Replaces sliders and fixed-step progression pickers so pilots and tactical dispatchers
+ * can type exact meteorological or performance figures (e.g. 13 kts, 047°, 235 L/h)
+ * directly from the keyboard without sliders, steppers, or auto-coercion jumps.
+ */
+interface DirectNumberInputProps {
+  value: number;
+  onChange: (val: number) => void;
+  min?: number;
+  max?: number;
+  unit?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+  allowDecimals?: boolean;
+}
+
+const DirectNumberInput = ({
+  value,
+  onChange,
+  min = 0,
+  max,
+  unit,
+  placeholder,
+  disabled = false,
+  className = "",
+  allowDecimals = true,
+}: DirectNumberInputProps) => {
+  const [text, setText] = useState<string>(() =>
+    value !== undefined && value !== null ? String(value) : ""
+  );
+  const isFocusedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isFocusedRef.current) {
+      setText(value !== undefined && value !== null ? String(value) : "");
+    }
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    const pattern = allowDecimals ? /^\d*\.?\d*$/ : /^\d*$/;
+    if (raw === "" || pattern.test(raw)) {
+      setText(raw);
+      if (raw !== "" && !raw.endsWith(".")) {
+        const num = parseFloat(raw);
+        if (!isNaN(num)) {
+          let bounded = num;
+          if (min !== undefined && bounded < min) bounded = min;
+          if (max !== undefined && bounded > max) bounded = max;
+          onChange(bounded);
+        }
+      }
+    }
+  };
+
+  const handleBlur = () => {
+    isFocusedRef.current = false;
+    if (text === "" || isNaN(parseFloat(text))) {
+      setText(String(value));
+    } else {
+      let num = parseFloat(text);
+      if (min !== undefined && num < min) num = min;
+      if (max !== undefined && num > max) num = max;
+      setText(String(num));
+      onChange(num);
+    }
+  };
+
+  const handleFocus = () => {
+    isFocusedRef.current = true;
+  };
+
+  return (
+    <div className="relative flex items-center w-full">
+      <input
+        type="text"
+        inputMode={allowDecimals ? "decimal" : "numeric"}
+        autoComplete="off"
+        value={text}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        disabled={disabled}
+        placeholder={placeholder}
+        className={`w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 disabled:opacity-50 ${
+          unit ? "pr-14" : ""
+        } ${className}`}
+      />
+      {unit && (
+        <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
+          {unit}
+        </span>
+      )}
+    </div>
+  );
 };
 
 export const MissionPlanningCard = ({
@@ -245,9 +346,9 @@ export const MissionPlanningCard = ({
   // Baseline Initial Fuel on Board estimation for NavLog decrement (1,000L or 4.5h endurance)
   const estimatedInitialFobL = Math.round(burnRateLph * 4.0);
 
-  // Compute Full Jeppesen NavLog (Dead-Reckoning with Wind Vectors)
+  // Compute Full Tactical NavLog (Dead-Reckoning with Wind Vectors)
   const navLogSummary: NavLogSummary = useMemo(() => {
-    return generateJeppesenNavLog(
+    return generateTacticalNavLog(
       routeFixes,
       cruiseSpeedKts,
       windDirectionDeg,
@@ -265,6 +366,15 @@ export const MissionPlanningCard = ({
     estimatedInitialFobL,
     magneticVarDeg,
   ]);
+
+  // Overall Direct Corridor Wind Triangle Analysis
+  const corridorWindAnalysis = useMemo(() => {
+    if (routeFixes.length < 2) return null;
+    const dep = routeFixes[0];
+    const arr = routeFixes[routeFixes.length - 1];
+    const directCourseDeg = calculateBearing(dep.latitude, dep.longitude, arr.latitude, arr.longitude);
+    return calculateWindTriangle(cruiseSpeedKts, windDirectionDeg, windSpeedKts, directCourseDeg, magneticVarDeg);
+  }, [routeFixes, cruiseSpeedKts, windDirectionDeg, windSpeedKts, magneticVarDeg]);
 
   // Destination coordinates for Alternate calculations
   const destinationCoords = useMemo(() => {
@@ -424,7 +534,7 @@ export const MissionPlanningCard = ({
         <div className="flex items-center gap-2">
           <Icon icon="mdi:weather-windy" className="w-4 h-4 text-[#7FD5FF]" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-            Winds Aloft &amp; Airframe Cruise Performance (Garmin / Jeppesen E6B)
+            Winds Aloft &amp; Airframe Cruise Performance (Tactical Vector Engine)
           </h4>
         </div>
         <span className="text-[11px] font-mono text-[#7FD5FF]">
@@ -432,90 +542,145 @@ export const MissionPlanningCard = ({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Wind Direction Slider */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-gray-400">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Wind Direction Input */}
+        <div className="space-y-1.5">
+          <label className="flex items-center justify-between text-xs text-gray-400 font-medium">
             <span>Wind Direction (From)</span>
-            <span className="text-white font-mono font-bold">{String(windDirectionDeg).padStart(3, "0")}° True</span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={359}
-            step={5}
+            <span className="text-[10px] text-gray-500 font-mono">0° - 360°</span>
+          </label>
+          <DirectNumberInput
             value={windDirectionDeg}
-            disabled={!isEditable}
-            onChange={(e) => setWindDirectionDeg(Number(e.target.value))}
-            className="w-full accent-[#0369A1]"
-          />
-        </div>
-
-        {/* Wind Speed Slider */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-gray-400">
-            <span>Wind Velocity</span>
-            <span className="text-white font-mono font-bold">{windSpeedKts} kts</span>
-          </div>
-          <input
-            type="range"
+            onChange={setWindDirectionDeg}
             min={0}
-            max={60}
-            step={2}
+            max={360}
+            unit="° True"
+            placeholder="060"
+            disabled={!isEditable}
+            allowDecimals={false}
+          />
+        </div>
+
+        {/* Wind Velocity Input */}
+        <div className="space-y-1.5">
+          <label className="flex items-center justify-between text-xs text-gray-400 font-medium">
+            <span>Wind Velocity</span>
+            <span className="text-[10px] text-gray-500 font-mono">Speed</span>
+          </label>
+          <DirectNumberInput
             value={windSpeedKts}
+            onChange={setWindSpeedKts}
+            min={0}
+            max={150}
+            unit="kts"
+            placeholder="15"
             disabled={!isEditable}
-            onChange={(e) => setWindSpeedKts(Number(e.target.value))}
-            className="w-full accent-[#0369A1]"
           />
         </div>
 
-        {/* Planned TAS */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-gray-400">
+        {/* Planned TAS Input */}
+        <div className="space-y-1.5">
+          <label className="flex items-center justify-between text-xs text-gray-400 font-medium">
             <span>True Airspeed (TAS)</span>
-            <span className="text-white font-mono font-bold">{cruiseSpeedKts} kts</span>
-          </div>
-          <input
-            type="range"
-            min={70}
-            max={260}
-            step={5}
+            <span className="text-[10px] text-gray-500 font-mono">Cruise</span>
+          </label>
+          <DirectNumberInput
             value={cruiseSpeedKts}
+            onChange={setCruiseSpeedKts}
+            min={1}
+            max={600}
+            unit="kts"
+            placeholder="120"
             disabled={!isEditable}
-            onChange={(e) => setCruiseSpeedKts(Number(e.target.value))}
-            className="w-full accent-[#0369A1]"
           />
         </div>
 
-        {/* Burn Rate */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-gray-400">
+        {/* Burn Rate Input */}
+        <div className="space-y-1.5">
+          <label className="flex items-center justify-between text-xs text-gray-400 font-medium">
             <span>Jet A-1 Burn Rate</span>
-            <span className="text-white font-mono font-bold">{burnRateLph} L/h</span>
-          </div>
-          <input
-            type="range"
-            min={100}
-            max={650}
-            step={10}
+            <span className="text-[10px] text-gray-500 font-mono">Rate</span>
+          </label>
+          <DirectNumberInput
             value={burnRateLph}
+            onChange={setBurnRateLph}
+            min={1}
+            max={5000}
+            unit="L/h"
+            placeholder="240"
             disabled={!isEditable}
-            onChange={(e) => setBurnRateLph(Number(e.target.value))}
-            className="w-full accent-[#0369A1]"
           />
         </div>
       </div>
+
+      {/* Live Tactical Vector Triangle Resolution (E6B Computer Display) */}
+      {corridorWindAnalysis && (
+        <div className="rounded-lg bg-[#001219]/90 border border-[#0A4D66]/50 p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-[#0A4D66]/30 border border-[#7FD5FF]/40 flex items-center justify-center text-[#7FD5FF]">
+              <Icon icon="mdi:compass-rose" className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-[10px] uppercase text-gray-400 font-bold block tracking-wider">
+                Direct Corridor Track &amp; Heading Solution
+              </span>
+              <span className="font-mono text-white text-xs">
+                Track: <strong className="text-[#7FD5FF]">{String(corridorWindAnalysis.trueCourseDeg).padStart(3, "0")}°T</strong> ({String(corridorWindAnalysis.magneticHeadingDeg).padStart(3, "0")}°M) &bull; Steering:{" "}
+                <strong className="text-emerald-400">{corridorWindAnalysis.driftDescription}</strong>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 font-mono text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <Icon
+                icon={corridorWindAnalysis.isHeadwind ? "mdi:arrow-down-bold" : "mdi:arrow-up-bold"}
+                className={`w-3.5 h-3.5 ${corridorWindAnalysis.isHeadwind ? "text-amber-400" : "text-emerald-400"}`}
+              />
+              <span className="text-gray-300">
+                {corridorWindAnalysis.isHeadwind ? "Headwind" : "Tailwind"}:{" "}
+                <strong className={corridorWindAnalysis.isHeadwind ? "text-amber-400" : "text-emerald-400"}>
+                  {Math.abs(corridorWindAnalysis.headwindKts)} kts
+                </strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Icon icon="mdi:swap-horizontal" className="w-3.5 h-3.5 text-sky-400" />
+              <span className="text-gray-300">
+                Crosswind:{" "}
+                <strong className="text-sky-300">
+                  {Math.abs(corridorWindAnalysis.crosswindKts)} kts
+                </strong>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Icon icon="mdi:speedometer" className="w-3.5 h-3.5 text-[#F59E0B]" />
+              <span className="text-gray-300">
+                Resultant GS:{" "}
+                <strong className="text-white text-xs font-bold">
+                  {corridorWindAnalysis.groundSpeedKts} kts
+                </strong>
+                <span className="text-gray-500 ml-1">
+                  ({corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts >= 0 ? `+${corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts}` : corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts} kts)
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
-  // Sub-render: Tab 1 - Jeppesen NavLog Table
+  // Sub-render: Tab 1 - Tactical NavLog Table
   const renderNavLogTable = () => (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Icon icon="mdi:table-clock" className="w-4 h-4 text-[#7FD5FF]" />
           <span className="text-xs font-bold uppercase tracking-wider text-white">
-            Jeppesen Dead-Reckoning Navigation Log ({navLogSummary.legs.length} Sortie Legs)
+            Tactical Dead-Reckoning Navigation Log ({navLogSummary.legs.length} Sortie Legs)
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -561,7 +726,7 @@ export const MissionPlanningCard = ({
                 <th className="p-2.5">To Checkpoint</th>
                 <th className="p-2.5 text-center">Track (TC / WCA)</th>
                 <th className="p-2.5 text-center">HDG (TH / MH)</th>
-                <th className="p-2.5 text-center">Groundspeed</th>
+                <th className="p-2.5 text-center">Groundspeed / Wind</th>
                 <th className="p-2.5 text-right">Dist (NM / km)</th>
                 <th className="p-2.5 text-right">Leg ETE</th>
                 <th className="p-2.5 text-right">Cumulative</th>
@@ -587,7 +752,12 @@ export const MissionPlanningCard = ({
                     <span className="text-emerald-400 font-bold">{String(leg.magneticHeadingDeg).padStart(3, "0")}°M</span>
                     <span className="text-gray-400 text-[10px] ml-1">({String(leg.trueHeadingDeg).padStart(3, "0")}°T)</span>
                   </td>
-                  <td className="p-2.5 text-center text-white font-bold">{leg.groundSpeedKts} kts</td>
+                  <td className="p-2.5 text-center">
+                    <span className="text-white font-bold">{leg.groundSpeedKts} kts</span>
+                    <span className="text-[10px] text-gray-400 block font-normal font-sans">
+                      {leg.windSummary}
+                    </span>
+                  </td>
                   <td className="p-2.5 text-right">
                     <span className="text-gray-200">{leg.distanceNm} NM</span>
                     <span className="text-gray-500 text-[10px] block font-sans">({leg.distanceKm} km)</span>
@@ -790,7 +960,7 @@ export const MissionPlanningCard = ({
         <div className="flex items-center gap-2">
           <Icon icon="mdi:gas-station" className="w-4 h-4 text-[#F59E0B]" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-            ICAO Annex 6 &amp; Jeppesen 6-Tier Pre-Flight Fuel Hierarchy
+            ICAO Annex 6 &amp; Tactical Aviation Fuel Hierarchy
           </h4>
           <span className="rounded bg-[#0A4D66]/40 px-2 py-0.5 text-[10px] font-semibold text-[#7FD5FF]">
             {effectiveAircraftCount} {effectiveAircraftCount === 1 ? "Airframe" : "Airframes Fleet"}
@@ -874,15 +1044,15 @@ export const MissionPlanningCard = ({
               <label className="text-[11px] text-gray-400 font-medium block mb-1">
                 Extra / Tactical Discretionary Fuel (L)
               </label>
-              <input
-                type="number"
-                min={0}
-                max={500}
-                step={25}
+              <DirectNumberInput
                 value={extraDiscretionaryFuelL}
+                onChange={setExtraDiscretionaryFuelL}
+                min={0}
+                max={2000}
+                unit="L"
+                placeholder="50"
                 disabled={!isEditable}
-                onChange={(e) => setExtraDiscretionaryFuelL(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-lg p-2 text-xs text-white font-mono focus:outline-none focus:border-[#7FD5FF]"
+                className="bg-[#001219] border-[#0A4D66]/40 text-xs p-2"
               />
             </div>
           </div>
@@ -1040,20 +1210,21 @@ export const MissionPlanningCard = ({
 
         {/* Weight Breakdown Card */}
         <div className="space-y-3">
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-400">
-              <span>Mission Cargo &amp; Troop Payload (kg)</span>
-              <span className="text-white font-mono font-bold">{payloadKg} kg</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={1200}
-              step={25}
+          <div className="space-y-1.5">
+            <label className="flex items-center justify-between text-xs text-gray-400 font-medium">
+              <span>Mission Cargo &amp; Troop Payload</span>
+              <span className="text-[10px] text-gray-500 font-mono">
+                Max allowable: {(maxTakeoffWeightKg - emptyWeightKg).toLocaleString()} kg
+              </span>
+            </label>
+            <DirectNumberInput
               value={payloadKg}
+              onChange={setPayloadKg}
+              min={0}
+              max={5000}
+              unit="kg"
+              placeholder="300"
               disabled={!isEditable}
-              onChange={(e) => setPayloadKg(Number(e.target.value))}
-              className="w-full accent-[#0369A1]"
             />
           </div>
 
@@ -1161,7 +1332,7 @@ export const MissionPlanningCard = ({
         <div className="flex items-center gap-2 border-b border-[#0A4D66]/30 pb-1.5">
           <Icon icon="mdi:table-clock" className="w-4 h-4 text-[#7FD5FF]" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-            1. Jeppesen Dead-Reckoning Navigation Log ({navLogSummary.legs.length} Sortie Legs)
+            1. Tactical Dead-Reckoning Navigation Log ({navLogSummary.legs.length} Sortie Legs)
           </h4>
         </div>
         <div className="overflow-x-auto rounded-xl border border-[#0A4D66]/40 bg-[#001825]">
@@ -1172,12 +1343,12 @@ export const MissionPlanningCard = ({
                 <th className="p-2.5">To Checkpoint</th>
                 <th className="p-2.5 text-center">Track (TC / WCA)</th>
                 <th className="p-2.5 text-center">HDG (TH / MH)</th>
-                <th className="p-2.5 text-center">Groundspeed</th>
+                <th className="p-2.5 text-center">Groundspeed / Wind</th>
                 <th className="p-2.5 text-right">Dist (NM / km)</th>
-                <th className="p-2.5 text-right">Leg ETE</th>
+                <th className="p-2.5 text-right">Leg ETE / ATO</th>
                 <th className="p-2.5 text-right">Cumulative</th>
                 <th className="p-2.5 text-right">Fuel Burn</th>
-                <th className="p-2.5 text-right">Rem. FOB</th>
+                <th className="p-2.5 text-right">Rem. FOB / AFOB</th>
                 <th className="p-2.5 text-center">MSA</th>
               </tr>
             </thead>
@@ -1198,17 +1369,32 @@ export const MissionPlanningCard = ({
                     <span className="text-emerald-400 font-bold">{String(leg.magneticHeadingDeg).padStart(3, "0")}°M</span>
                     <span className="text-gray-400 text-[10px] ml-1">({String(leg.trueHeadingDeg).padStart(3, "0")}°T)</span>
                   </td>
-                  <td className="p-2.5 text-center text-white font-bold">{leg.groundSpeedKts} kts</td>
+                  <td className="p-2.5 text-center">
+                    <span className="text-white font-bold">{leg.groundSpeedKts} kts</span>
+                    <span className="text-[10px] text-gray-400 block font-normal font-sans">
+                      {leg.windSummary}
+                    </span>
+                  </td>
                   <td className="p-2.5 text-right">
                     <span className="text-gray-200">{leg.distanceNm} NM</span>
                     <span className="text-gray-500 text-[10px] block font-sans">({leg.distanceKm} km)</span>
                   </td>
-                  <td className="p-2.5 text-right text-emerald-400">+{leg.legEteMinutes}m</td>
+                  <td className="p-2.5 text-right text-emerald-400">
+                    <div>+{leg.legEteMinutes}m</div>
+                    <div className="text-[9px] text-gray-500 font-sans border-t border-gray-700/50 mt-0.5 pt-0.5">
+                      ATO: [____]
+                    </div>
+                  </td>
                   <td className="p-2.5 text-right text-white font-bold">
                     {Math.floor(leg.cumulativeTimeMinutes / 60)}h {leg.cumulativeTimeMinutes % 60}m
                   </td>
                   <td className="p-2.5 text-right text-amber-300">{leg.legFuelLiters} L</td>
-                  <td className="p-2.5 text-right text-sky-300 font-bold">{leg.fuelOnBoardRemainingLiters} L</td>
+                  <td className="p-2.5 text-right text-sky-300 font-bold">
+                    <div>{leg.fuelOnBoardRemainingLiters} L</div>
+                    <div className="text-[9px] text-gray-500 font-sans border-t border-gray-700/50 mt-0.5 pt-0.5">
+                      AFOB: [____]
+                    </div>
+                  </td>
                   <td className="p-2.5 text-center text-gray-400 font-semibold">{leg.minimumSafeAltitudeFt} ft</td>
                 </tr>
               ))}
@@ -1261,7 +1447,7 @@ export const MissionPlanningCard = ({
         <div className="flex items-center gap-2 border-b border-[#0A4D66]/30 pb-1.5">
           <Icon icon="mdi:gas-station" className="w-4 h-4 text-[#F59E0B]" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-            3. ICAO Annex 6 &amp; Jeppesen Pre-Flight Fuel Hierarchy
+            3. Pre-Flight Fuel Hierarchy &amp; Tactical Reserves
           </h4>
         </div>
         <div className="overflow-x-auto rounded-xl border border-[#0A4D66]/40 bg-[#001825]">
@@ -1420,7 +1606,7 @@ export const MissionPlanningCard = ({
               Tactical Flight Planning, Route Analysis &amp; NavLog
             </h3>
             <p className="text-[11px] text-gray-400">
-              Garmin G1000 / Jeppesen FliteStar Dead-Reckoning &amp; ICAO Fuel Engine
+              Military Dead-Reckoning Navigation &amp; ICAO Mission Fuel Analysis Engine
             </p>
           </div>
         </div>
@@ -1436,7 +1622,7 @@ export const MissionPlanningCard = ({
               }`}
             >
               <Icon icon="mdi:table-clock" className="w-4 h-4" />
-              <span>Jeppesen NavLog</span>
+              <span>Tactical NavLog</span>
             </button>
             <button
               type="button"

@@ -47,6 +47,7 @@ export const SatelliteCommsCard = ({
     isLoading: isLoadingMessages,
     refetch: refetchMessages,
   } = useGetOperationSatelliteMessagesQuery(operationId, {
+    skip: !operationId,
     pollingInterval: 6000,
   });
 
@@ -288,7 +289,7 @@ export const SatelliteCommsCard = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Tactical Satellite Comms (Garmin inReach / Iridium)
+                  Tactical Satellite Comms &amp; BLOS Telemetry (Iridium LEO)
                 </h3>
                 {operationName && (
                   <span className="text-xs font-semibold text-cyan-300/80 font-mono hidden sm:inline">

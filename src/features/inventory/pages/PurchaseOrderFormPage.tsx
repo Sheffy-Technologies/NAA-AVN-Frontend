@@ -14,6 +14,8 @@ import {
   useGetExpenseCategoriesQuery,
 } from "../api";
 import { Icon } from "@/shared/icons/Icon";
+import { cn } from "@/shared/utils/cn";
+import { useTheme } from "@/context/ThemeContext";
 import { BackButton } from "@/shared/ui/button";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { NewInventoryItemFields } from "../components/NewInventoryItemFields";
@@ -311,227 +313,357 @@ export default function PurchaseOrderFormPage() {
     }
   };
 
+  const { isDark } = useTheme();
+
   return (
-    <div className="max-w-2xl mx-auto py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <BackButton
-          fallbackUrl={
-            initialRfqId
-              ? `/dashboard/inventory/rfq/${initialRfqId}`
-              : "/dashboard/inventory/purchase-orders"
-          }
-        />
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Create Purchase Order</h2>
+    <div className="max-w-4xl mx-auto py-6 space-y-6">
+      {/* Modern Page Header */}
+      <div className={cn(
+        "p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors",
+        isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-sm" : "bg-white border-slate-200 shadow-sm"
+      )}>
+        <div className="flex items-center gap-3">
+          <BackButton
+            fallbackUrl={
+              initialRfqId
+                ? `/dashboard/inventory/rfq/${initialRfqId}`
+                : "/dashboard/inventory/purchase-orders"
+            }
+          />
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Create Purchase Order
+            </h1>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Draft and issue official procurement purchase order to registered suppliers.
+            </p>
+          </div>
+        </div>
         {initialRfqId && (
-          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-[#7FD5FF]/30 bg-[#0369A1]/10 px-3 py-1 text-xs text-[#7FD5FF]">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3.5 py-1.5 text-xs font-semibold text-sky-600 dark:text-sky-300">
             <Icon icon="mdi:link-variant" className="w-3.5 h-3.5" />
             Linked to {rfqNumberById.get(Number(initialRfqId)) || `RFQ #${initialRfqId}`}
           </span>
         )}
       </div>
-      <form onSubmit={handleSubmit} className="space-y-6 bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="po-approved-bid" className="block text-xs text-gray-400 mb-1">Approved Bid</label>
-            <select
-              id="po-approved-bid"
-              title="Approved Bid"
-              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={form.approved_bid_id}
-              onChange={(e) => {
-                const bidId = e.target.value;
-                const bid = approvedBidById.get(Number(bidId));
-                const currencyFromBid = bid?.currency
-                  ? currencies.find(
-                      (currency) =>
-                        currency.code.toLowerCase() === bid.currency?.toLowerCase(),
-                    )
-                  : undefined;
-                setForm((prev) => ({
-                  ...prev,
-                  approved_bid_id: bidId,
-                  rfq_id: bid ? String(bid.rfq_id) : "",
-                  supplier_id:
-                    bid && bid.supplier_id
-                      ? String(bid.supplier_id)
-                      : prev.supplier_id,
-                  currency_id: currencyFromBid
-                    ? String(currencyFromBid.id)
-                    : prev.currency_id,
-                }));
-              }}
-            >
-              <option value="">Select approved quotation (optional)</option>
-              {approvedBids.map((bid) => {
-                const rfqNumber = rfqNumberById.get(bid.rfq_id) || `RFQ #${bid.rfq_id}`;
-                const supplierName = bid.supplier?.name || `Supplier #${bid.supplier_id}`;
-                const quoteNumber = bid.quotation_number || `QT-${bid.id}`;
-                return (
-                  <option key={bid.id} value={bid.id}>
-                    {quoteNumber} | {rfqNumber} | {supplierName}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="po-supplier" className="block text-xs text-gray-400 mb-1">Supplier</label>
-            <select
-              id="po-supplier"
-              title="Supplier"
-              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={form.supplier_id}
-              onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}
-            >
-              <option value="">Select supplier</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            {form.rfq_id && (
-              <p className="mt-1 text-xs text-[#7FD5FF]">
-                Linked RFQ: {rfqNumberById.get(Number(form.rfq_id)) || `RFQ #${form.rfq_id}`}
-              </p>
-            )}
-          </div>
-          <div>
-            <label htmlFor="po-budget" className="block text-xs text-gray-400 mb-1">Budget</label>
-            <select
-              id="po-budget"
-              title="Budget"
-              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={form.budget_id}
-              onChange={(e) => {
-                const budgetId = e.target.value;
-                const selectedBudget = (budgets as ProcurementBudget[]).find(
-                  (budget) => Number(budget.id) === Number(budgetId),
-                );
 
-                setForm((prev) => ({
-                  ...prev,
-                  budget_id: budgetId,
-                  currency_id: selectedBudget?.currency_id
-                    ? String(selectedBudget.currency_id)
-                    : prev.currency_id,
-                }));
-              }}
-            >
-              <option value="">Select budget</option>
-              {(budgets as ProcurementBudget[]).map((budget) => (
-                <option key={budget.id} value={budget.id}>{budget.name}</option>
-              ))}
-            </select>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Vendor & Quotation Selection */}
+        <div className={cn(
+          "p-6 rounded-2xl border space-y-5 transition-colors",
+          isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-sm" : "bg-white border-slate-200 shadow-sm"
+        )}>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200 dark:border-[#0A4D66]/40">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+              <Icon icon="mdi:domain" className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Supplier & Financial Allocation
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Link to approved quotation, supplier vendor profile, and budget allocation.
+              </p>
+            </div>
           </div>
-          <div>
-            <label htmlFor="po-currency" className="block text-xs text-gray-400 mb-1">Currency</label>
-            <select
-              id="po-currency"
-              title="Currency"
-              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={form.currency_id}
-              onChange={(e) => setForm((f) => ({ ...f, currency_id: e.target.value }))}
-            >
-              <option value="">Select currency</option>
-              {(currencies as ProcurementCurrency[]).map((currency) => (
-                <option key={currency.id} value={currency.id}>
-                  {currency.code} - {currency.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Order Name</label>
-            <input
-              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="Optional"
-            />
-          </div>
-          <div>
-            <label htmlFor="po-order-date" className="block text-xs text-gray-400 mb-1">Order Date</label>
-            <input
-              id="po-order-date"
-              title="Order Date"
-              type="date"
-              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={form.order_date}
-              onChange={(e) => setForm((f) => ({ ...f, order_date: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label htmlFor="po-expected-delivery" className="block text-xs text-gray-400 mb-1">Expected Delivery</label>
-            <input
-              id="po-expected-delivery"
-              title="Expected Delivery"
-              type="date"
-              className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              value={form.expected_date_of_delivery}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, expected_date_of_delivery: e.target.value }))
-              }
-            />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="po-approved-bid" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Approved Quotation (Optional)
+              </label>
+              <select
+                id="po-approved-bid"
+                title="Approved Bid"
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.approved_bid_id}
+                onChange={(e) => {
+                  const bidId = e.target.value;
+                  const bid = approvedBidById.get(Number(bidId));
+                  const currencyFromBid = bid?.currency
+                    ? currencies.find(
+                        (currency) =>
+                          currency.code.toLowerCase() === bid.currency?.toLowerCase(),
+                      )
+                    : undefined;
+                  setForm((prev) => ({
+                    ...prev,
+                    approved_bid_id: bidId,
+                    rfq_id: bid ? String(bid.rfq_id) : "",
+                    supplier_id:
+                      bid && bid.supplier_id
+                        ? String(bid.supplier_id)
+                        : prev.supplier_id,
+                    currency_id: currencyFromBid
+                      ? String(currencyFromBid.id)
+                      : prev.currency_id,
+                  }));
+                }}
+              >
+                <option value="">Select approved quotation (optional)</option>
+                {approvedBids.map((bid) => {
+                  const rfqNumber = rfqNumberById.get(bid.rfq_id) || `RFQ #${bid.rfq_id}`;
+                  const supplierName = bid.supplier?.name || `Supplier #${bid.supplier_id}`;
+                  const quoteNumber = bid.quotation_number || `QT-${bid.id}`;
+                  return (
+                    <option key={bid.id} value={bid.id}>
+                      {quoteNumber} | {rfqNumber} | {supplierName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="po-supplier" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Supplier Vendor <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="po-supplier"
+                title="Supplier"
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.supplier_id}
+                onChange={(e) => setForm((f) => ({ ...f, supplier_id: e.target.value }))}
+              >
+                <option value="">Select supplier vendor</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {form.rfq_id && (
+                <p className="mt-1 text-xs text-sky-600 dark:text-sky-400 font-medium">
+                  Linked RFQ: {rfqNumberById.get(Number(form.rfq_id)) || `RFQ #${form.rfq_id}`}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="po-budget" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Procurement Budget
+              </label>
+              <select
+                id="po-budget"
+                title="Budget"
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.budget_id}
+                onChange={(e) => {
+                  const budgetId = e.target.value;
+                  const selectedBudget = (budgets as ProcurementBudget[]).find(
+                    (budget) => Number(budget.id) === Number(budgetId),
+                  );
+
+                  setForm((prev) => ({
+                    ...prev,
+                    budget_id: budgetId,
+                    currency_id: selectedBudget?.currency_id
+                      ? String(selectedBudget.currency_id)
+                      : prev.currency_id,
+                  }));
+                }}
+              >
+                <option value="">Select budget source</option>
+                {(budgets as ProcurementBudget[]).map((budget) => (
+                  <option key={budget.id} value={budget.id}>{budget.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="po-currency" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Currency
+              </label>
+              <select
+                id="po-currency"
+                title="Currency"
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.currency_id}
+                onChange={(e) => setForm((f) => ({ ...f, currency_id: e.target.value }))}
+              >
+                <option value="">Select currency</option>
+                {(currencies as ProcurementCurrency[]).map((currency) => (
+                  <option key={currency.id} value={currency.id}>
+                    {currency.code} - {currency.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
-        <div>
-          <label htmlFor="po-status" className="block text-xs text-gray-400 mb-1">Status</label>
-          <select
-            id="po-status"
-            title="Status"
-            className="w-full rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-            value={form.status}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                status: e.target.value as PurchaseOrderStatus,
-              }))
-            }
-          >
-            <option value="draft">Draft</option>
-            <option value="sent">Sent</option>
-            <option value="received">Received</option>
-          </select>
-        </div>
-        <div className="border-t border-[#0A4D66]/40 pt-4">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-semibold text-white">Items</span>
+
+        {/* Section 2: Order Metadata & Schedule */}
+        <div className={cn(
+          "p-6 rounded-2xl border space-y-5 transition-colors",
+          isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-sm" : "bg-white border-slate-200 shadow-sm"
+        )}>
+          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-200 dark:border-[#0A4D66]/40">
+            <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+              <Icon icon="mdi:calendar-clock" className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                Order Schedule & Description
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Identify the order and specify fulfillment deadlines.
+              </p>
+            </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Purchase Order Title / Description
+              </label>
+              <input
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Avionics Spares & Rotor Assemblies Procurement"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="po-order-date" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Order Date
+              </label>
+              <input
+                id="po-order-date"
+                title="Order Date"
+                type="date"
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.order_date}
+                onChange={(e) => setForm((f) => ({ ...f, order_date: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="po-expected-delivery" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Expected Delivery Date
+              </label>
+              <input
+                id="po-expected-delivery"
+                title="Expected Delivery"
+                type="date"
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.expected_date_of_delivery}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, expected_date_of_delivery: e.target.value }))
+                }
+              />
+            </div>
+
+            <div>
+              <label htmlFor="po-status" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Initial Order Status
+              </label>
+              <select
+                id="po-status"
+                title="Status"
+                className={cn(
+                  "w-full rounded-xl px-3.5 py-2.5 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                value={form.status}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    status: e.target.value as PurchaseOrderStatus,
+                  }))
+                }
+              >
+                <option value="draft">Draft (Review Stage)</option>
+                <option value="sent">Sent to Supplier</option>
+                <option value="received">Received into Stock</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Line Items Builder */}
+        <div className={cn(
+          "p-6 rounded-2xl border space-y-5 transition-colors",
+          isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-sm" : "bg-white border-slate-200 shadow-sm"
+        )}>
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-[#0A4D66]/40">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-sky-500/10 text-sky-500">
+                <Icon icon="mdi:package-variant" className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Order Line Items ({items.length})
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Select catalogue parts or specify custom procurement line items.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {rfqItemsSynced && form.rfq_id && items.length > 0 && (
-            <p className="mb-2 text-xs text-[#7FD5FF] flex items-center gap-1.5">
-              <Icon icon="mdi:information-outline" className="w-3.5 h-3.5" />
+            <div className="p-3.5 rounded-xl border border-sky-500/30 bg-sky-500/10 text-xs text-sky-700 dark:text-sky-300 flex items-center gap-2 font-medium">
+              <Icon icon="mdi:information-outline" className="w-4 h-4 shrink-0 text-sky-500" />
               Preselected from the parts requisition linked to{" "}
               {rfqNumberById.get(Number(form.rfq_id)) || `RFQ #${form.rfq_id}`}. Review
               quantities and prices before submitting.
-            </p>
+            </div>
           )}
-          <div className="mb-2 flex flex-wrap gap-2 text-xs">
+
+          {/* Mode Switcher */}
+          <div className="flex flex-wrap gap-2 text-xs">
             <button
               type="button"
               onClick={() => setItemMode("existing")}
-              aria-pressed={itemMode === "existing"}
-              className={`rounded border px-3 py-1.5 ${
+              className={cn(
+                "rounded-xl px-4 py-2 font-semibold transition-all border",
                 itemMode === "existing"
-                  ? "border-[#7FD5FF] bg-[#0369A1]/20 text-white"
-                  : "border-gray-700 text-gray-300 hover:text-white"
-              }`}
+                  ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                  : isDark
+                    ? "border-[#0A4D66]/60 bg-[#001825] text-slate-300 hover:bg-[#0A4D66]/30"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              )}
             >
-              In stock
+              Existing Catalogue Item
             </button>
             <button
               type="button"
               onClick={() => setItemMode("new")}
-              aria-pressed={itemMode === "new"}
-              className={`rounded border px-3 py-1.5 ${
+              className={cn(
+                "rounded-xl px-4 py-2 font-semibold transition-all border",
                 itemMode === "new"
-                  ? "border-[#7FD5FF] bg-[#0369A1]/20 text-white"
-                  : "border-gray-700 text-gray-300 hover:text-white"
-              }`}
+                  ? "bg-sky-600 text-white border-sky-600 shadow-xs"
+                  : isDark
+                    ? "border-[#0A4D66]/60 bg-[#001825] text-slate-300 hover:bg-[#0A4D66]/30"
+                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+              )}
             >
-              Not in stock — add new item
+              Non-Catalogue Item (Register New)
             </button>
           </div>
+
           {itemMode === "new" && (
-            <div className="mb-2">
+            <div className="p-4 rounded-xl border border-sky-500/30 bg-sky-500/5">
               <NewInventoryItemFields
                 draft={newInventory}
                 onChange={setNewInventory}
@@ -539,107 +671,172 @@ export default function PurchaseOrderFormPage() {
               />
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 mb-2">
+
+          {/* Draft Item Input Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
             {itemMode === "existing" && (
-              <SearchableSelect
-                className="sm:col-span-2"
-                placeholder="Select inventory item"
-                searchPlaceholder="Search by part number or description..."
-                options={inventories.map((inv) => ({
-                  value: inv.id,
-                  label: `${inv.part_number} - ${inv.description}`,
-                }))}
-                value={itemDraft.inventory_id ? Number(itemDraft.inventory_id) : null}
-                onChange={(value) =>
-                  setItemDraft((d) => ({
-                    ...d,
-                    inventory_id: value === null ? "" : String(value),
-                  }))
-                }
-              />
+              <div className="sm:col-span-5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Catalogue Part
+                </label>
+                <SearchableSelect
+                  className="w-full"
+                  placeholder="Select inventory item"
+                  searchPlaceholder="Search by part number or description..."
+                  options={inventories.map((inv) => ({
+                    value: inv.id,
+                    label: `${inv.part_number} - ${inv.description}`,
+                  }))}
+                  value={itemDraft.inventory_id ? Number(itemDraft.inventory_id) : null}
+                  onChange={(value) =>
+                    setItemDraft((d) => ({
+                      ...d,
+                      inventory_id: value === null ? "" : String(value),
+                    }))
+                  }
+                />
+              </div>
             )}
             {itemMode === "existing" && (
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Part No. (Opt)
+                </label>
+                <input
+                  className={cn(
+                    "w-full rounded-xl px-3 py-2 text-sm transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                    isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                  )}
+                  placeholder="Part #"
+                  value={itemDraft.part_number}
+                  onChange={(e) =>
+                    setItemDraft((d) => ({ ...d, part_number: e.target.value }))
+                  }
+                />
+              </div>
+            )}
+            <div className={itemMode === "existing" ? "sm:col-span-2" : "sm:col-span-4"}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Qty Ordered
+              </label>
               <input
-                className="rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-                placeholder="Part No (optional)"
-                value={itemDraft.part_number}
+                type="number"
+                min={1}
+                className={cn(
+                  "w-full rounded-xl px-3 py-2 text-sm text-right transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                placeholder="1"
+                value={itemDraft.quantity_ordered}
                 onChange={(e) =>
-                  setItemDraft((d) => ({ ...d, part_number: e.target.value }))
+                  setItemDraft((d) => ({ ...d, quantity_ordered: e.target.value }))
                 }
               />
-            )}
-            <input
-              type="number"
-              min={1}
-              className="rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              placeholder="Qty Ordered"
-              value={itemDraft.quantity_ordered}
-              onChange={(e) =>
-                setItemDraft((d) => ({ ...d, quantity_ordered: e.target.value }))
-              }
-            />
-            <input
-              type="number"
-              min={0}
-              className="rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              placeholder="Qty Received"
-              value={itemDraft.quantity_received}
-              onChange={(e) =>
-                setItemDraft((d) => ({ ...d, quantity_received: e.target.value }))
-              }
-            />
-            <input
-              type="number"
-              min={0}
-              step="0.01"
-              className="rounded border border-gray-700 bg-[#001219] px-3 py-2 text-sm text-white"
-              placeholder="Unit Price"
-              value={itemDraft.unit_price}
-              onChange={(e) =>
-                setItemDraft((d) => ({ ...d, unit_price: e.target.value }))
-              }
-            />
-            <button
-              type="button"
-              title="Add Item"
-              aria-label="Add Item"
-              className="px-3 py-2 rounded bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors"
-              onClick={handleAddItem}
-            >
-              <Icon icon="mdi:plus" className="w-4 h-4" />
-            </button>
+            </div>
+            <div className={itemMode === "existing" ? "sm:col-span-2" : "sm:col-span-4"}>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Unit Price
+              </label>
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                className={cn(
+                  "w-full rounded-xl px-3 py-2 text-sm text-right transition-colors border focus:outline-none focus:ring-2 focus:ring-sky-500",
+                  isDark ? "border-[#0A4D66]/60 bg-[#001825] text-white" : "border-slate-300 bg-white text-slate-900"
+                )}
+                placeholder="0.00"
+                value={itemDraft.unit_price}
+                onChange={(e) =>
+                  setItemDraft((d) => ({ ...d, unit_price: e.target.value }))
+                }
+              />
+            </div>
+            <div className="sm:col-span-1">
+              <button
+                type="button"
+                title="Add Item"
+                aria-label="Add Item"
+                className="w-full flex items-center justify-center p-2.5 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-500 shadow-md shadow-emerald-600/20 transition-all"
+                onClick={handleAddItem}
+              >
+                <Icon icon="mdi:plus" className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-          <ul className="divide-y divide-[#0A4D66]/40">
-            {items.map((item, idx) => (
-              <li key={idx} className="flex items-center gap-2 py-2">
-                <span className="flex-1 text-white">
-                  {item.inventory_id
-                    ? `Inv #${item.inventory_id} ${item.part_number ? `- ${item.part_number}` : ""}`
-                    : `NEW: ${item.new_inventory?.part_number ?? ""} - ${item.new_inventory?.description ?? ""}`}
-                </span>
-                <span className="w-20 text-center text-gray-200">QO: {item.quantity_ordered ?? "-"}</span>
-                <span className="w-20 text-center text-gray-200">QR: {item.quantity_received ?? "-"}</span>
-                <span className="w-24 text-center text-gray-200">UP: {item.unit_price ?? "-"}</span>
-                <button
-                  type="button"
-                  title="Remove Item"
-                  aria-label="Remove Item"
-                  className="text-red-400 hover:text-red-600"
-                  onClick={() => handleRemoveItem(idx)}
-                >
-                  <Icon icon="mdi:delete" className="w-4 h-4" />
-                </button>
-              </li>
-            ))}
-          </ul>
+
+          {/* Staged Items List */}
+          {items.length > 0 ? (
+            <div className={cn(
+              "rounded-xl border overflow-hidden",
+              isDark ? "border-[#0A4D66]/40" : "border-slate-200"
+            )}>
+              <ul className={cn("divide-y text-sm", isDark ? "divide-[#0A4D66]/30" : "divide-slate-200")}>
+                {items.map((item, idx) => (
+                  <li
+                    key={idx}
+                    className={cn(
+                      "flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 transition-colors",
+                      isDark
+                        ? (idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]/60")
+                        : (idx % 2 === 0 ? "bg-white" : "bg-slate-50/70")
+                    )}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-slate-900 dark:text-white truncate">
+                        {item.inventory_id
+                          ? `Part #${item.inventory_id} ${item.part_number ? `• ${item.part_number}` : ""}`
+                          : `NEW: ${item.new_inventory?.part_number ?? "Custom"} - ${item.new_inventory?.description ?? ""}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 self-end sm:self-auto">
+                      <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                        Qty: {item.quantity_ordered ?? "-"}
+                      </span>
+                      <span className="inline-flex px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-500/10 text-slate-700 dark:text-slate-300">
+                        Price: {item.unit_price ? Number(item.unit_price).toLocaleString() : "-"}
+                      </span>
+                      <button
+                        type="button"
+                        title="Remove Item"
+                        aria-label="Remove Item"
+                        className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                        onClick={() => handleRemoveItem(idx)}
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <div className={cn(
+              "p-6 rounded-xl border border-dashed text-center text-xs text-slate-500 dark:text-slate-400",
+              isDark ? "border-[#0A4D66]/40" : "border-slate-300"
+            )}>
+              No line items added yet. Choose a catalogue part above and click + to add.
+            </div>
+          )}
         </div>
-        {error && <div className="text-red-400 text-sm">{error}</div>}
-        <div className="flex justify-end">
+
+        {error && (
+          <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-500 flex items-center gap-2">
+            <Icon icon="mdi:alert-circle" className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-3 pt-2">
           <button
             type="submit"
-            className="px-6 py-2 rounded bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold shadow-md shadow-emerald-600/20 disabled:opacity-60 transition-all"
             disabled={isLoading}
           >
+            <Icon
+              icon={isLoading ? "mdi:loading" : "mdi:check-bold"}
+              className={cn("w-4 h-4", isLoading && "animate-spin")}
+            />
             {isLoading ? "Creating..." : "Create Purchase Order"}
           </button>
         </div>
