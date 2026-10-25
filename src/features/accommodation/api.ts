@@ -29,6 +29,8 @@ export type AccommodationBlock = AccommodationFigures & {
   name: string;
   location: string | null;
   description: string | null;
+  /** Optional photo URL (POST /accommodation-blocks/image). */
+  image: string | null;
 };
 
 export type OccupantPersonnel = {
@@ -69,7 +71,14 @@ export type Occupancy = {
 export type Residence = {
   id: number;
   accommodation_block_id: number;
-  block?: { id: number; name: string; location?: string | null; accommodation_category_id: number; category?: { id: number; name: string } | null } | null;
+  block?: {
+    id: number;
+    name: string;
+    location?: string | null;
+    image?: string | null;
+    accommodation_category_id: number;
+    category?: { id: number; name: string } | null;
+  } | null;
   name: string;
   apartment_type: string;
   apartment_type_label: string;
@@ -81,6 +90,8 @@ export type Residence = {
   has_boys_quarters: boolean;
   status: ResidenceStatus;
   notes: string | null;
+  /** Optional photo URL (POST /residences/image). */
+  image: string | null;
   active_occupancies_count: number;
   occupancy_status: OccupancyStatus;
   active_occupancies?: Occupancy[];
@@ -94,7 +105,7 @@ export type ResidenceOptions = {
 };
 
 export type CategoryPayload = Partial<Pick<AccommodationCategory, "name" | "description" | "sort_order">>;
-export type BlockPayload = Partial<Pick<AccommodationBlock, "accommodation_category_id" | "name" | "location" | "description">>;
+export type BlockPayload = Partial<Pick<AccommodationBlock, "accommodation_category_id" | "name" | "location" | "description" | "image">>;
 export type ResidencePayload = Partial<
   Pick<
     Residence,
@@ -109,6 +120,7 @@ export type ResidencePayload = Partial<
     | "has_boys_quarters"
     | "status"
     | "notes"
+    | "image"
   >
 >;
 export type OccupancyPayload = Partial<
@@ -162,6 +174,21 @@ export const accommodationApi = createApi({
       query: (id) => ({ url: `/accommodation-blocks/${id}`, method: "DELETE" }),
       invalidatesTags: [...ALL],
     }),
+    /** Photo uploads return the stored image's URL, saved on the record as `image`. */
+    uploadBlockImage: builder.mutation<{ data: string }, File>({
+      query: (file) => {
+        const data = new FormData();
+        data.append("image", file);
+        return { url: "/accommodation-blocks/image", method: "POST", data };
+      },
+    }),
+    uploadResidenceImage: builder.mutation<{ data: string }, File>({
+      query: (file) => {
+        const data = new FormData();
+        data.append("image", file);
+        return { url: "/residences/image", method: "POST", data };
+      },
+    }),
     getResidenceOptions: builder.query<ResidenceOptions, void>({
       query: () => ({ url: "/residences/options", method: "GET" }),
     }),
@@ -208,6 +235,8 @@ export const {
   useGetAccommodationBlocksQuery,
   useSaveAccommodationBlockMutation,
   useDeleteAccommodationBlockMutation,
+  useUploadBlockImageMutation,
+  useUploadResidenceImageMutation,
   useGetResidenceOptionsQuery,
   useGetResidencesQuery,
   useGetResidenceQuery,

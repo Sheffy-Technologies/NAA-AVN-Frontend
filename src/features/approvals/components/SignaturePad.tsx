@@ -24,14 +24,18 @@ export const SignaturePad = forwardRef<SignaturePadHandle, { height?: number; on
     const last = useRef<Point | null>(null);
     const [hasInk, setHasInk] = useState(false);
     const lastWidth = useRef(0);
+    // Held in a ref so a parent passing a new inline onChange on every render
+    // doesn't re-run the canvas setup below, which would wipe the signature
+    // each time the parent re-renders (e.g. when the finger lifts).
+    const onChangeRef = useRef(onChange);
+    useEffect(() => {
+      onChangeRef.current = onChange;
+    }, [onChange]);
 
-    const setInk = useCallback(
-      (value: boolean) => {
-        setHasInk(value);
-        onChange?.(value);
-      },
-      [onChange],
-    );
+    const setInk = useCallback((value: boolean) => {
+      setHasInk(value);
+      onChangeRef.current?.(value);
+    }, []);
 
     /** Sizes the canvas and paints it blank (no React state involved). */
     const paintBlank = useCallback(() => {

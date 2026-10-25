@@ -29,14 +29,15 @@ export const categoryFields: AccField[] = [
   { name: "description", label: "Description", type: "textarea" },
 ];
 
-export const blockFields = (categories: AccOption[]): AccField[] => [
+export const blockFields = (categories: AccOption[], upload?: (file: File) => Promise<string>): AccField[] => [
   { name: "accommodation_category_id", label: "Category", type: "select", required: true, options: categories },
   { name: "name", label: "Block name", type: "text", required: true, placeholder: "e.g. SOQ Block D" },
   { name: "location", label: "Location", type: "text", wide: true, placeholder: "e.g. Behind the officers' mess" },
   { name: "description", label: "Description", type: "textarea" },
+  { name: "image", label: "Photo of the block (optional)", type: "image", upload },
 ];
 
-export const residenceFields = (blocks: AccOption[], apartmentTypes: AccOption[]): AccField[] => [
+export const residenceFields = (blocks: AccOption[], apartmentTypes: AccOption[], upload?: (file: File) => Promise<string>): AccField[] => [
   { name: "accommodation_block_id", label: "Block", type: "search-select", required: true, options: blocks },
   { name: "name", label: "House / flat / room", type: "text", required: true, placeholder: "e.g. Flat 3 or Comd's House" },
   { name: "apartment_type", label: "Type of apartment", type: "select", required: true, options: apartmentTypes },
@@ -55,6 +56,7 @@ export const residenceFields = (blocks: AccOption[], apartmentTypes: AccOption[]
   { name: "is_furnished", label: "Furnished", type: "checkbox" },
   { name: "has_boys_quarters", label: "Has boys' quarters", type: "checkbox" },
   { name: "notes", label: "Notes", type: "textarea" },
+  { name: "image", label: "Photo of the residence (optional)", type: "image", upload },
 ];
 
 export const allocateFields = (residences: AccOption[], personnel: AccOption[]): AccField[] => [

@@ -142,6 +142,22 @@ export const ResidenceDetailModal = ({
         <p className="opacity-60 py-6 text-center">Loading…</p>
       ) : (
         <>
+          {(r.image || r.block?.image) && (
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {r.image && (
+                <figure className={cn(!r.block?.image && "col-span-2")}>
+                  <img src={r.image} alt={r.name} className="w-full h-40 object-cover rounded-lg border dark:border-slate-700" />
+                  <figcaption className="mt-1 opacity-60">Residence</figcaption>
+                </figure>
+              )}
+              {r.block?.image && (
+                <figure className={cn(!r.image && "col-span-2")}>
+                  <img src={r.block.image} alt={r.block.name} className="w-full h-40 object-cover rounded-lg border dark:border-slate-700" />
+                  <figcaption className="mt-1 opacity-60">{r.block.name}</figcaption>
+                </figure>
+              )}
+            </div>
+          )}
           <div className="flex items-start justify-between gap-3 mb-4">
             <div className="opacity-80">{[r.block?.category?.name, r.block?.name, r.block?.location].filter(Boolean).join(" · ")}</div>
             {occ && <SqStatus value={occ.tone} label={occ.label} />}
