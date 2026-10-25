@@ -20,6 +20,7 @@ import {
   type Memo,
 } from "../api";
 import { MemoSheet } from "../components/MemoSheet";
+import { MemoAttachments } from "../components/MemoAttachments";
 import { MemoStatusBadge } from "../components/MemosTab";
 import { downloadMemo, formatDateTime, memoErrorMessage } from "../memoHelpers";
 
@@ -191,6 +192,8 @@ const MemoSidePanel = ({ memo }: { memo: Memo }) => (
         </div>
       )}
     </div>
+
+    <MemoAttachments memo={memo} />
 
     <div>
       <h3 className="text-[11px] font-bold uppercase text-[#7FD5FF] mb-2">Copied To ({memo.recipients.length})</h3>

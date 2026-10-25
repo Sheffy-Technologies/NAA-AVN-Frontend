@@ -176,6 +176,11 @@ const AddVehiclePage = lazy(() =>
     default: module.AddVehiclePage,
   })),
 );
+const VehicleDetailsPage = lazy(() =>
+  import("@/features/assets/pages/VehicleDetailsPage").then((module) => ({
+    default: module.VehicleDetailsPage,
+  })),
+);
 const EditVehiclePage = lazy(() =>
   import("@/features/assets/pages/EditVehiclePage").then((module) => ({
     default: module.EditVehiclePage,
@@ -536,6 +541,14 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <AddVehiclePage />
+          </Suspense>
+        ), ASSETS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "assets/vehicles/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <VehicleDetailsPage />
           </Suspense>
         ), ASSETS_ROUTE_PERMISSIONS),
       },

@@ -28,7 +28,7 @@ import { FuelDayModal } from "../components/FuelDayModal";
 import { GeneratorFormModal } from "../components/GeneratorFormModal";
 import { MaintenanceLogModal } from "../components/MaintenanceLogModal";
 import { UsageLogModal } from "../components/UsageLogModal";
-import { GENERATOR_STATUS_LABEL, GENERATOR_STATUS_TONE, MAINTENANCE_TYPE_LABEL, apiError, fmtDate, num, serviceCountdown } from "../generatorHelpers";
+import { GENERATOR_STATUS_LABEL, GENERATOR_STATUS_TONE, MAINTENANCE_TYPE_LABEL, apiError, fmtDate, hoursMinutes, num, serviceCountdown } from "../generatorHelpers";
 
 /** Litres, or a dash when the figure wasn't recorded. */
 const litres = (value: number | null | undefined) => (value === null || value === undefined ? "–" : num(value));
@@ -66,6 +66,15 @@ export const GeneratorDetailsPage = () => {
   const canEditLog = has("generator-usage-logs.update");
   const canDeleteLog = has("generator-usage-logs.delete");
 
+  // Total time worked per day, from the server's daily figures. Shown on the
+  // first row of each date in the run log (the list is newest first, so that's
+  // the day's last run).
+  const dayHours = new Map(days.map((d) => [d.date.slice(0, 10), d.hours_worked]));
+  const firstRunOfDate = new Set(
+    logs.filter((l, i) => i === 0 || logs[i - 1].usage_date.slice(0, 10) !== l.usage_date.slice(0, 10)).map((l) => l.id),
+  );
+  const dayTotal = (l: GeneratorUsageLog) => (firstRunOfDate.has(l.id) ? dayHours.get(l.usage_date.slice(0, 10)) ?? null : null);
+
   const profile: Array<[string, string]> = [
     ["Manufacturer", generator.manufacturer ?? "–"],
     ["Model", generator.model ?? "–"],
@@ -88,12 +97,13 @@ export const GeneratorDetailsPage = () => {
   ];
 
   const csvRows = (rows: GeneratorUsageLog[]) => [
-    ["Date", "Time on", "Time off", "Hours worked", "Cumulative hours", "Opening fuel (L)", "Received (L)", "Total available (L)", "Closing fuel (L)", "Consumed (L)", "Operator", "Signed at", "Remarks"],
+    ["Date", "Time on", "Time off", "Hours worked", "Day total hours", "Cumulative hours", "Opening fuel (L)", "Received (L)", "Total available (L)", "Closing fuel (L)", "Consumed (L)", "Operator", "Signed at", "Remarks"],
     ...rows.map((l) => [
       l.usage_date.slice(0, 10),
       l.time_on,
       l.time_off,
       String(l.hours_worked),
+      dayTotal(l) !== null ? String(dayTotal(l)) : "",
       String(l.cumulative_hours),
       String(l.fuel_opening_litres ?? ""),
       String(l.fuel_received_litres),
@@ -125,11 +135,12 @@ export const GeneratorDetailsPage = () => {
       tables: [
         {
           heading: "Run log",
-          headers: ["Date", "On–Off", "Hrs", "Cum. hrs", "Open/Recv (L)", "Close/Used (L)", "Operator"],
+          headers: ["Date", "On–Off", "Hrs", "Day total", "Cum. hrs", "Open/Recv (L)", "Close/Used (L)", "Operator"],
           rows: [...logs].reverse().map((l) => [
             fmtDate(l.usage_date),
             `${l.time_on}–${l.time_off}`,
             num(l.hours_worked, 2),
+            dayTotal(l) !== null ? hoursMinutes(dayTotal(l)) : "",
             num(l.cumulative_hours),
             `${litres(l.fuel_opening_litres)} / ${num(l.fuel_received_litres)}`,
             `${litres(l.fuel_closing_litres)} / ${litres(l.fuel_consumed_litres)}`,
@@ -139,11 +150,11 @@ export const GeneratorDetailsPage = () => {
         },
         {
           heading: "Daily fuel",
-          headers: ["Date", "Times used", "Hrs", "Cum. hrs", "Opening (L)", "Received (L)", "Day closing (L)", "Used (L)", "L/hr"],
+          headers: ["Date", "Times used", "Total time worked", "Cum. hrs", "Opening (L)", "Received (L)", "Day closing (L)", "Used (L)", "L/hr"],
           rows: [...days].reverse().map((d) => [
             fmtDate(d.date),
             String(d.runs),
-            num(d.hours_worked, 2),
+            `${hoursMinutes(d.hours_worked)} (${num(d.hours_worked, 2)} h)`,
             d.cumulative_hours !== null ? num(d.cumulative_hours) : "–",
             litres(d.fuel_opening_litres),
             num(d.fuel_received_litres),
@@ -334,6 +345,18 @@ export const GeneratorDetailsPage = () => {
               { key: "on", label: "Time on", render: (l) => l.time_on },
               { key: "off", label: "Time off", render: (l) => (l.time_off < l.time_on ? `${l.time_off} (+1)` : l.time_off) },
               { key: "hrs", label: "Hrs worked", render: (l) => num(l.hours_worked, 2) },
+              {
+                key: "day",
+                label: "Day total",
+                render: (l) => {
+                  const total = dayTotal(l);
+                  return total === null ? null : (
+                    <span className="whitespace-nowrap font-semibold" title={`${num(total, 2)} hours worked on ${fmtDate(l.usage_date)}`}>
+                      {hoursMinutes(total)}
+                    </span>
+                  );
+                },
+              },
               { key: "cum", label: "Cum. hrs", render: (l) => <span className="font-semibold">{num(l.cumulative_hours)}</span> },
               { key: "open", label: "Opening (L)", render: (l) => litres(l.fuel_opening_litres) },
               { key: "recv", label: "Received (L)", render: (l) => (l.fuel_received_litres ? num(l.fuel_received_litres) : "–") },
@@ -399,7 +422,16 @@ export const GeneratorDetailsPage = () => {
           columns={[
             { key: "date", label: "Date", render: (d) => <span className="whitespace-nowrap font-semibold">{fmtDate(d.date)}</span> },
             { key: "runs", label: "Times used", render: (d) => d.runs },
-            { key: "hrs", label: "Hrs worked", render: (d) => num(d.hours_worked, 2) },
+            {
+              key: "hrs",
+              label: "Total time worked",
+              render: (d) => (
+                <span className="whitespace-nowrap">
+                  <span className="font-semibold">{hoursMinutes(d.hours_worked)}</span>
+                  <span className="opacity-60"> ({num(d.hours_worked, 2)} h)</span>
+                </span>
+              ),
+            },
             {
               key: "cum",
               label: "Cum. hrs (end of day)",

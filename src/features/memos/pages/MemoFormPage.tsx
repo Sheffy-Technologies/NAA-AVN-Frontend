@@ -12,10 +12,13 @@ import {
   useGetMemoQuery,
   useSubmitMemoMutation,
   useUpdateMemoMutation,
+  useAddMemoAttachmentsMutation,
+  type Memo,
   type MemoPayload,
 } from "../api";
 import { MemoEditor } from "../components/MemoEditor";
 import { MemoSheet } from "../components/MemoSheet";
+import { MemoAttachments, PendingMemoAttachments } from "../components/MemoAttachments";
 import { memoErrorMessage } from "../memoHelpers";
 
 type FormState = Omit<MemoPayload, "approving_officer_id"> & { approving_officer_id: number | null };
@@ -91,16 +94,19 @@ export const MemoFormPage = () => {
         originator_name: options?.defaults.originator_name ?? "",
       };
 
-  return <MemoForm key={memoId ?? "new"} memoId={memoId} initial={initial} />;
+  return <MemoForm key={memoId ?? "new"} memoId={memoId} initial={initial} existing={existing} />;
 };
 
-const MemoForm = ({ memoId, initial }: { memoId?: number; initial: FormState }) => {
+const MemoForm = ({ memoId, initial, existing }: { memoId?: number; initial: FormState; existing?: Memo }) => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { data: options } = useGetMemoOptionsQuery();
   const [createMemo, { isLoading: creating }] = useCreateMemoMutation();
   const [updateMemo, { isLoading: updating }] = useUpdateMemoMutation();
   const [submitMemo, { isLoading: submitting }] = useSubmitMemoMutation();
+  const [addAttachments, { isLoading: attaching }] = useAddMemoAttachmentsMutation();
+  // A new memo's documents wait here until the memo has been saved.
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [form, setForm] = useState<FormState>(initial);
   const padRef = useRef<SignaturePadHandle>(null);
   // Drawn signature, mirrored into the preview after each stroke.
@@ -121,12 +127,25 @@ const MemoForm = ({ memoId, initial }: { memoId?: number; initial: FormState }) 
       originator_name: form.originator_name?.trim() || null,
     };
 
+    let saved: Memo;
     try {
-      return memoId ? await updateMemo({ id: memoId, data: payload }).unwrap() : await createMemo(payload).unwrap();
+      saved = memoId ? await updateMemo({ id: memoId, data: payload }).unwrap() : await createMemo(payload).unwrap();
     } catch (error) {
       dispatch(showToast({ message: memoErrorMessage(error), type: "error" }));
       return null;
     }
+
+    if (pendingFiles.length) {
+      try {
+        saved = await addAttachments({ id: saved.id, files: pendingFiles.map((file) => ({ file })) }).unwrap();
+        setPendingFiles([]);
+      } catch (error) {
+        // The memo itself is saved; the documents can be added from its page.
+        dispatch(showToast({ message: `Memo saved, but the documents weren't attached: ${memoErrorMessage(error)}`, type: "error" }));
+      }
+    }
+
+    return saved;
   };
 
   const save = async () => {
@@ -166,7 +185,7 @@ const MemoForm = ({ memoId, initial }: { memoId?: number; initial: FormState }) 
     label: u.name,
     description: [u.service_number, u.email].filter(Boolean).join(" · ") || undefined,
   }));
-  const saving = creating || updating || submitting;
+  const saving = creating || updating || submitting || attaching;
 
   return (
     <div className="px-2 sm:px-0 space-y-4">
@@ -249,6 +268,10 @@ const MemoForm = ({ memoId, initial }: { memoId?: number; initial: FormState }) 
           <div className="space-y-1">
             <span className="text-xs text-gray-400">Body</span>
             <MemoEditor value={form.body} onChange={(html) => set("body", html)} />
+          </div>
+
+          <div className="rounded-lg border border-[#0A4D66]/40 bg-[#001825] p-3 text-xs text-gray-300">
+            {existing ? <MemoAttachments memo={existing} /> : <PendingMemoAttachments files={pendingFiles} onChange={setPendingFiles} />}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

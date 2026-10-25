@@ -18,6 +18,15 @@ export const GENERATOR_STATUS_TONE: Record<string, string> = {
 export const num = (value: number | null | undefined, digits = 1) =>
   value === null || value === undefined ? "–" : value.toLocaleString(undefined, { maximumFractionDigits: digits });
 
+/** Decimal hours as "5 h 30 min" (the run log's total time worked). */
+export const hoursMinutes = (hours: number | null | undefined) => {
+  if (hours === null || hours === undefined) return "–";
+  const total = Math.round(hours * 60);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h && m ? `${h} h ${m} min` : h ? `${h} h` : `${m} min`;
+};
+
 export const fmtDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "–";
 

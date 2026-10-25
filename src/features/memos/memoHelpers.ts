@@ -2,7 +2,7 @@ import axios from "axios";
 import DOMPurify from "dompurify";
 import { store } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
-import type { MemoStatus } from "./api";
+import type { MemoAttachment, MemoStatus } from "./api";
 
 /**
  * Same allowlist as the backend (App\Support\Memos\MemoHtml). The server
@@ -62,5 +62,36 @@ export const downloadMemo = async (id: number, format: "pdf" | "docx", reference
     URL.revokeObjectURL(url);
   } catch {
     store.dispatch(showToast({ message: "The memo could not be downloaded.", type: "error" }));
+  }
+};
+
+/** File types the server accepts for supporting documents (MemoController::addAttachments). */
+export const MEMO_ATTACHMENT_ACCEPT = ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.jpg,.jpeg,.png,.webp,.heic";
+
+export const MEMO_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+
+export const formatFileSize = (bytes?: number | null) => {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+/** Supporting documents are on the private disk: fetched through the API, never a public URL. */
+export const downloadMemoAttachment = async (attachment: MemoAttachment) => {
+  try {
+    const token = store.getState().auth.token;
+    const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/memo-attachments/${attachment.id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      responseType: "blob",
+    });
+    const url = URL.createObjectURL(response.data as Blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = attachment.file_name;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch {
+    store.dispatch(showToast({ message: "The document could not be downloaded.", type: "error" }));
   }
 };

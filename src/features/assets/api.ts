@@ -220,20 +220,45 @@ export type VehicleType = {
   updated_at: string;
 };
 
-export type Vehicle = {
+export type VehicleStatus = "serviceable" | "unserviceable" | "under_repair" | "written_off";
+
+/** Register fields shared by the vehicle forms and payloads. */
+export type VehicleRegisterFields = {
+  model?: string | null;
+  chassis_number?: string | null;
+  issue_authority?: string | null;
+  date_issued?: string | null;
+  location?: string | null;
+  status?: VehicleStatus;
+};
+
+export type Vehicle = VehicleRegisterFields & {
   id: number;
   name: string;
   vehicle_type_id?: number;
+  vehicle_type?: { id: number; name: string } | null;
   registration_number?: string | null;
   serial_number?: string | null;
   unit_id?: number | null;
+  unit?: { id: number; name: string } | null;
   photo?: string | null;
   photo_url?: string | null;
   serviceability_status?: Asset["serviceability_status"] | null;
   operation_status?: string | null;
-  status?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+};
+
+/** GET /vehicles/{id}: the vehicle plus the after action reports it appears on. */
+export type VehicleDetail = Vehicle & {
+  after_action_reports: {
+    id: number;
+    operation_id: number | null;
+    task_no: string | null;
+    report_date: string | null;
+    status: string | null;
+    operation: { id: number; name: string; status: string | null } | null;
+  }[];
 };
 
 export type Facility = {
@@ -421,7 +446,7 @@ export type CreateAssetPayload = {
   }>;
 };
 
-export type CreateVehiclePayload = {
+export type CreateVehiclePayload = VehicleRegisterFields & {
   name: string;
   vehicle_type_id: number;
   registration_number: string;
@@ -430,7 +455,7 @@ export type CreateVehiclePayload = {
   photo?: File | null;
 };
 
-export type UpdateVehiclePayload = {
+export type UpdateVehiclePayload = VehicleRegisterFields & {
   id: number;
   name?: string;
   vehicle_type_id?: number;
@@ -612,6 +637,14 @@ export type AssetDetail = Asset & {
   maintenance_due: MaintenanceDueItem[];
 };
 
+/** Register fields into the vehicle multipart body; "" clears a field. */
+const appendVehicleRegisterFields = (formData: FormData, body: VehicleRegisterFields) => {
+  (["model", "chassis_number", "issue_authority", "date_issued", "location", "status"] as const).forEach((key) => {
+    const value = body[key];
+    if (value !== undefined) formData.append(key, value ?? "");
+  });
+};
+
 export const assetsApi = createApi({
   reducerPath: "assetsApi",
   baseQuery: axiosBaseQuery(),
@@ -779,6 +812,17 @@ export const assetsApi = createApi({
             ]
           : [{ type: "Assets", id: "LIST" }],
     }),
+    getVehicleById: builder.query<VehicleDetail, number>({
+      query: (id) => ({ url: `/vehicles/${id}`, method: "GET" }),
+      providesTags: (_result, _error, id) => [{ type: "Assets", id }],
+    }),
+    deleteVehicle: builder.mutation<void, number>({
+      query: (id) => ({ url: `/vehicles/${id}`, method: "DELETE" }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Assets", id },
+        { type: "Assets", id: "LIST" },
+      ],
+    }),
     getFacilities: builder.query<Facility[], void>({
       query: () => ({
         url: "/facilities",
@@ -821,6 +865,7 @@ export const assetsApi = createApi({
           formData.append("serial_number", body.serial_number);
         }
         formData.append("unit_id", String(body.unit_id));
+        appendVehicleRegisterFields(formData, body);
 
         if (body.photo) {
           formData.append("photo", body.photo);
@@ -854,6 +899,7 @@ export const assetsApi = createApi({
         if (body.unit_id !== undefined) {
           formData.append("unit_id", String(body.unit_id));
         }
+        appendVehicleRegisterFields(formData, body);
         if (body.photo) {
           formData.append("photo", body.photo);
         }
@@ -1024,6 +1070,8 @@ export const {
   useCreateDocumentMutation,
   useGetAssetsQuery,
   useGetVehiclesQuery,
+  useGetVehicleByIdQuery,
+  useDeleteVehicleMutation,
   useGetFacilitiesQuery,
   useGetAssetByIdQuery,
   useCreateAssetMutation,

@@ -7,12 +7,14 @@ import {
   useCreateVehicleMutation,
   useGetVehicleTypesQuery,
 } from "@/features/assets/api";
+import { VehicleRegisterInputs } from "@/features/assets/components/VehicleRegisterInputs";
+import { emptyVehicleRegisterValues, type VehicleRegisterValues } from "@/features/assets/vehicleHelpers";
 
 type VehicleFormValues = {
   name: string;
   vehicle_type_id: number | "";
   registration_number: string;
-  serial_number: string;
+  chassis_number: string;
   unit_id: number | "";
   photo: File | null;
 };
@@ -21,7 +23,7 @@ const emptyVehicleValues: VehicleFormValues = {
   name: "",
   vehicle_type_id: "",
   registration_number: "",
-  serial_number: "",
+  chassis_number: "",
   unit_id: "",
   photo: null,
 };
@@ -30,6 +32,11 @@ export const AddVehiclePage = () => {
   const navigate = useNavigate();
   const [values, setValues] = useState<VehicleFormValues>(emptyVehicleValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [register, setRegister] = useState<VehicleRegisterValues>(emptyVehicleRegisterValues);
+  const setRegisterField = <K extends keyof VehicleRegisterValues>(field: K, value: VehicleRegisterValues[K]) => {
+    setRegister((prev) => ({ ...prev, [field]: value }));
+    setSubmitError(null);
+  };
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   const { data: units = [] } = useGetUnitsQuery();
@@ -45,7 +52,7 @@ export const AddVehiclePage = () => {
   }, [photoPreviewUrl]);
 
   const handleTextChange =
-    (field: "name" | "registration_number" | "serial_number") =>
+    (field: "name" | "registration_number" | "chassis_number") =>
     (event: ChangeEvent<HTMLInputElement>) => {
       setValues((prev) => ({ ...prev, [field]: event.target.value }));
       setSubmitError(null);
@@ -109,8 +116,8 @@ export const AddVehiclePage = () => {
       return;
     }
 
-    if (!values.serial_number.trim()) {
-      setSubmitError("Enter serial number.");
+    if (!values.chassis_number.trim()) {
+      setSubmitError("Enter chassis number.");
       return;
     }
 
@@ -124,8 +131,13 @@ export const AddVehiclePage = () => {
         name: values.name.trim(),
         vehicle_type_id: values.vehicle_type_id,
         registration_number: values.registration_number.trim(),
-        serial_number: values.serial_number.trim(),
+        chassis_number: values.chassis_number.trim(),
         unit_id: values.unit_id,
+        model: register.model.trim(),
+        issue_authority: register.issue_authority.trim(),
+        date_issued: register.date_issued,
+        location: register.location.trim(),
+        status: register.status,
         photo: values.photo,
       }).unwrap();
 
@@ -203,12 +215,12 @@ export const AddVehiclePage = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">Serial Number</label>
+            <label className="text-[11px] uppercase text-gray-400">Chassis Number</label>
             <input
               type="text"
-              value={values.serial_number}
-              onChange={handleTextChange("serial_number")}
-              placeholder="Enter serial number"
+              value={values.chassis_number}
+              onChange={handleTextChange("chassis_number")}
+              placeholder="Enter chassis number"
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none placeholder:text-gray-500"
             />
           </div>
@@ -229,6 +241,8 @@ export const AddVehiclePage = () => {
               ))}
             </select>
           </div>
+
+          <VehicleRegisterInputs values={register} onChange={setRegisterField} />
 
           <div className="space-y-1">
             <label className="text-[11px] uppercase text-gray-400">Photo</label>

@@ -24,12 +24,24 @@ export type MemoSummary = {
   read_at?: string | null;
 };
 
+/** A supporting document (enclosure) on a memo. */
+export type MemoAttachment = {
+  id: number;
+  name: string;
+  file_name: string;
+  mime_type: string | null;
+  file_size: number | null;
+  uploaded_by: MemoPerson | null;
+  created_at: string;
+};
+
 export type Memo = MemoSummary & {
   body: string | null;
   originator_rank: string | null;
   originator_name: string | null;
   has_originator_signature: boolean;
   recipients: (MemoPerson & { read_at: string | null })[];
+  attachments: MemoAttachment[];
   approval: { id: number; status: string; submitted_at: string | null; completed_at: string | null } | null;
   decision: {
     action: "approved" | "rejected";
@@ -38,7 +50,7 @@ export type Memo = MemoSummary & {
     signed_at: string | null;
     has_signature: boolean;
   } | null;
-  can: { edit: boolean; delete: boolean; submit: boolean; withdraw: boolean; decide: boolean; copy: boolean };
+  can: { edit: boolean; attach: boolean; delete: boolean; submit: boolean; withdraw: boolean; decide: boolean; copy: boolean };
 };
 
 export type MemoCounts = { awaiting_my_approval: number; unread_shared: number };
@@ -112,6 +124,22 @@ export const memosApi = createApi({
       query: (id) => ({ url: `/memos/${id}/withdraw`, method: "POST" }),
       invalidatesTags: (_r, _e, id) => [{ type: "Memo", id }, { type: "Memo", id: "LIST" }],
     }),
+    /** Originator only, while the memo is a draft or rejected. */
+    addMemoAttachments: builder.mutation<Memo, { id: number; files: { file: File; name?: string }[] }>({
+      query: ({ id, files }) => {
+        const data = new FormData();
+        files.forEach(({ file, name }, i) => {
+          data.append(`attachments[${i}][file]`, file);
+          if (name?.trim()) data.append(`attachments[${i}][name]`, name.trim());
+        });
+        return { url: `/memos/${id}/attachments`, method: "POST", data, headers: { "Content-Type": "multipart/form-data" } };
+      },
+      invalidatesTags: (_r, _e, { id }) => [{ type: "Memo", id }],
+    }),
+    deleteMemoAttachment: builder.mutation<Memo, { id: number; memoId: number }>({
+      query: ({ id }) => ({ url: `/memo-attachments/${id}`, method: "DELETE" }),
+      invalidatesTags: (_r, _e, { memoId }) => [{ type: "Memo", id: memoId }],
+    }),
     copyMemo: builder.mutation<Memo, { id: number; user_ids: number[] }>({
       query: ({ id, ...data }) => ({ url: `/memos/${id}/recipients`, method: "POST", data }),
       invalidatesTags: (_r, _e, { id }) => [{ type: "Memo", id }, { type: "Memo", id: "LIST" }],
@@ -131,4 +159,6 @@ export const {
   useRejectMemoMutation,
   useWithdrawMemoMutation,
   useCopyMemoMutation,
+  useAddMemoAttachmentsMutation,
+  useDeleteMemoAttachmentMutation,
 } = memosApi;
