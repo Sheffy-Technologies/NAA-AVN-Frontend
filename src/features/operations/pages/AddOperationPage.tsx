@@ -15,7 +15,10 @@ export const AddOperationPage = () => {
 
   const handleSubmit = async (payload: CreateOperationRequest) => {
     try {
-      await createOperation(payload).unwrap();
+      const saved = await createOperation(payload).unwrap();
+      if (saved.airworthiness_warning) {
+        dispatch(showToast({ message: saved.airworthiness_warning.message, type: "warning" }));
+      }
       navigate("/dashboard/operations");
     } catch (error) {
       console.error("Failed to create operation:", error);
