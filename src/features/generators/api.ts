@@ -1,7 +1,7 @@
 import { createApi } from "@reduxjs/toolkit/query/react";
 import { axiosBaseQuery } from "@/shared/api/baseQuery";
 
-export type GeneratorStatus = "operational" | "under_maintenance" | "unserviceable" | "decommissioned";
+export type GeneratorStatus = "serviceable" | "under_maintenance" | "unserviceable" | "decommissioned";
 export type FuelType = "diesel" | "petrol" | "gas" | "other";
 
 export type MaintenanceStatus = "ok" | "due_soon" | "overdue" | "not_set";

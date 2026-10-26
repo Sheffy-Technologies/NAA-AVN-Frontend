@@ -5,7 +5,7 @@ import {
   type NaavnDocument,
   type NaavnLayout,
 } from "@/shared/documents/naavnDocument";
-import type { InventorySupplier, PurchaseOrder, Rfq } from "./api";
+import type { InventoryRequisitionDetail, InventorySupplier, PurchaseOrder, Rfq } from "./api";
 
 // Grid and layout copied from docs/NAAVN Purchase Order Sheet.xlsx (sheet NAAVN-006).
 const PO_COLUMN_WIDTHS = [8.3, 19.5, 16.8, 12.8, 16.7, 14, 25.3];
@@ -26,6 +26,17 @@ const RFQ_LAYOUT: NaavnLayout = {
   rightValue: [4, 5],
   shipTo: [1, 2],
   issuerSignature: [2, 2],
+};
+
+// Same 7-column grid as the purchase order. The last column stays as wide
+// as the PO's: the approval box beside it takes its width from it.
+const REQUISITION_COLUMN_WIDTHS = [8.3, 19.5, 24.5, 9, 13, 13, 25.3];
+const REQUISITION_LAYOUT: NaavnLayout = {
+  leftLabel: [0, 1],
+  leftValue: [2, 2],
+  rightLabel: [4, 5],
+  rightValue: [6, 6],
+  shipTo: [1, 2],
 };
 
 export const personName = (
@@ -150,3 +161,58 @@ export const buildRfqDocument = (
   ],
   approval: false,
 });
+
+const statusText = (status?: string | null) => (status ? status.replace(/_/g, " ").toUpperCase() : "");
+
+/** An inventory requisition on the NAAVN form, from the saved figures (not unsaved edits). */
+export const buildRequisitionDocument = (requisition: InventoryRequisitionDetail): NaavnDocument => {
+  const unit = requisition.requesting_unit;
+
+  return {
+    title: "INVENTORY REQUISITION",
+    docRef: null,
+    revisionNo: null,
+    revisionDate: null,
+    sheetName: `Requisition ${requisition.id}`,
+    columnWidths: REQUISITION_COLUMN_WIDTHS,
+    layout: REQUISITION_LAYOUT,
+    leftFields: [
+      { label: "DATE:", value: toCalendarDate(requisition.created_at) },
+      { label: "REQUESTED BY:", value: personName(requisition.requested_by) },
+      { label: "REQUESTING UNIT:", value: unit?.name?.toUpperCase() ?? (requisition.requesting_unit_id ? `UNIT #${requisition.requesting_unit_id}` : "") },
+    ],
+    rightFields: [
+      { label: "REQUISITION NO.:", value: requisition.id, bold: true },
+      { label: "STATUS:", value: statusText(requisition.status) },
+      { label: "APPROVED BY:", value: personName(requisition.approved_by) },
+      { label: "DATE APPROVED:", value: toCalendarDate(requisition.approved_at ?? null) },
+    ],
+    addressLabel: "DELIVER TO",
+    shipTo: [unit?.name, unit?.description].filter((line): line is string => Boolean(line?.trim())),
+    tables: [
+      {
+        columns: [
+          { header: "ITEM", span: [0, 0], align: "center" },
+          { header: "PART NUMBER", span: [1, 1] },
+          { header: "DESCRIPTION", span: [2, 2] },
+          { header: "UNIT", span: [3, 3], align: "center" },
+          { header: "QTY REQUESTED", span: [4, 4], format: "integer" },
+          { header: "QTY APPROVED", span: [5, 5], format: "integer" },
+          { header: "QTY IN STOCK", span: [6, 6], format: "integer" },
+        ],
+        rows: (requisition.items ?? []).map((line, index) => [
+          index + 1,
+          line.inventory?.part_number || "",
+          line.inventory?.description || line.inventory?.part_name || `Inventory #${line.inventory_id}`,
+          line.inventory?.measurement_unit || "",
+          toNumber(line.requested_quantity ?? null) ?? 0,
+          toNumber(line.approved_quantity ?? null),
+          toNumber(line.available_quantity ?? line.inventory?.current_stock ?? null),
+        ]),
+        emptyText: "No items on this requisition",
+      },
+    ],
+    approval: true,
+    footnote: requisition.remark?.trim() ? `REMARKS: ${requisition.remark.trim()}` : null,
+  };
+};

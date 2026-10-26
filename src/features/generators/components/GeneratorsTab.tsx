@@ -51,7 +51,7 @@ export const GeneratorsTab = () => {
     <div className="space-y-4">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile label="Generators" value={all.length} sub="In your units" icon="mdi:engine-outline" />
-        <StatTile label="Operational" value={count("operational")} sub="Ready to run" icon="mdi:check-circle-outline" tone="emerald" />
+        <StatTile label="Serviceable" value={count("serviceable")} sub="Ready to run" icon="mdi:check-circle-outline" tone="emerald" />
         <StatTile label="Under maintenance" value={count("under_maintenance")} sub="Being serviced" icon="mdi:wrench-outline" tone="amber" />
         <StatTile label="Unserviceable" value={count("unserviceable")} sub="Not available" icon="mdi:alert-octagon-outline" tone="red" />
       </div>

@@ -43,7 +43,7 @@ const NUMERIC = new Set(["capacity_kva", "fuel_tank_capacity_litres", "purchase_
 const toValues = (g: Generator | null): Values =>
   Object.fromEntries(
     FIELDS.map((f) => {
-      const v = g ? (g as Record<string, unknown>)[f] : f === "status" ? "operational" : f === "fuel_type" ? "diesel" : "";
+      const v = g ? (g as Record<string, unknown>)[f] : f === "status" ? "serviceable" : f === "fuel_type" ? "diesel" : "";
       return [f, v === null || v === undefined ? "" : String(v).slice(0, f === "date_purchased" ? 10 : undefined)];
     }),
   ) as Values;

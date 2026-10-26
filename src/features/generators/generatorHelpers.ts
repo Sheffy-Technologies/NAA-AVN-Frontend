@@ -1,7 +1,7 @@
 import type { GeneratorMaintenance } from "./api";
 
 export const GENERATOR_STATUS_LABEL: Record<string, string> = {
-  operational: "Operational",
+  serviceable: "Serviceable",
   under_maintenance: "Under maintenance",
   unserviceable: "Unserviceable",
   decommissioned: "Decommissioned",
@@ -9,7 +9,7 @@ export const GENERATOR_STATUS_LABEL: Record<string, string> = {
 
 /** Generator statuses mapped onto the shared badge colours. */
 export const GENERATOR_STATUS_TONE: Record<string, string> = {
-  operational: "approved",
+  serviceable: "approved",
   under_maintenance: "in_progress",
   unserviceable: "rejected",
   decommissioned: "cancelled",
