@@ -9,7 +9,8 @@ export type MessageAttachableType =
   | "purchase-order"
   | "asset"
   | "inventory"
-  | "document";
+  | "document"
+  | "memo";
 
 export type MessageUser = {
   id: number;

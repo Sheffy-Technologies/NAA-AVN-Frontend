@@ -12,7 +12,7 @@ export type AccOption = { value: string | number; label: string; description?: s
 export type AccField = {
   name: string;
   label: string;
-  type: "text" | "textarea" | "number" | "date" | "select" | "search-select" | "checkbox";
+  type: "text" | "textarea" | "number" | "date" | "select" | "search-select" | "checkbox" | "image";
   required?: boolean;
   options?: AccOption[];
   placeholder?: string;
@@ -20,9 +20,53 @@ export type AccField = {
   wide?: boolean;
   min?: number;
   max?: string;
+  /** "image" fields: uploads the file and resolves to its URL. */
+  upload?: (file: File) => Promise<string>;
 };
 
 export type AccValues = Record<string, string | boolean>;
+
+/** Optional photo: preview, upload/change, remove. The value is the uploaded image's URL. */
+const ImageInput = ({ value, upload, onChange }: { value: string; upload?: (file: File) => Promise<string>; onChange: (url: string) => void }) => {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const pick = async (file?: File) => {
+    if (!file || !upload) return;
+    if (!file.type.startsWith("image/")) return setError("Choose an image file.");
+    if (file.size > 5 * 1024 * 1024) return setError("The photo must be 5 MB or smaller.");
+    setUploading(true);
+    setError(null);
+    try {
+      onChange(await upload(file));
+    } catch (err) {
+      setError(apiError(err, "The photo could not be uploaded."));
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-24 h-16 shrink-0 rounded-lg border border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001219] overflow-hidden flex items-center justify-center">
+        {value ? <img src={value} alt="" className="w-full h-full object-cover" /> : <Icon icon="mdi:image-outline" className="w-7 h-7 text-slate-400" />}
+      </div>
+      <div className="space-y-1">
+        <label className="inline-flex items-center gap-1 cursor-pointer font-semibold text-[#0369A1] dark:text-[#7FD5FF] hover:underline">
+          <Icon icon={uploading ? "mdi:loading" : "mdi:camera-outline"} className={cn("w-4 h-4", uploading && "animate-spin")} />
+          {uploading ? "Uploading…" : value ? "Change photo" : "Upload photo"}
+          <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => void pick(e.target.files?.[0])} />
+        </label>
+        {value && !uploading && (
+          <button type="button" onClick={() => onChange("")} className="block text-red-500 hover:underline">
+            Remove photo
+          </button>
+        )}
+        {error && <span className="block text-red-500">{error}</span>}
+      </div>
+    </div>
+  );
+};
 
 export const AccFormModal = ({
   title,
@@ -97,8 +141,11 @@ export const AccFormModal = ({
           {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-500 dark:text-red-300">{error}</div>}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {fields.map((f) => (
-              <label key={f.name} className={cn("block", (f.wide || f.type === "textarea") && "sm:col-span-2")}>
+            {fields.map((f) => {
+              // The photo field has its own file input and buttons, so it can't sit inside a <label>.
+              const Wrapper = f.type === "image" ? "div" : "label";
+              return (
+              <Wrapper key={f.name} className={cn("block", (f.wide || f.type === "textarea" || f.type === "image") && "sm:col-span-2")}>
                 {f.type === "checkbox" ? (
                   <span className="flex items-center gap-2 pt-5">
                     <input type="checkbox" checked={Boolean(values[f.name])} onChange={(e) => set(f.name, e.target.checked)} />
@@ -109,7 +156,9 @@ export const AccFormModal = ({
                     <span className="block font-semibold mb-1">
                       {f.label} {f.required && <span className="text-red-500">*</span>}
                     </span>
-                    {f.type === "textarea" ? (
+                    {f.type === "image" ? (
+                      <ImageInput value={String(values[f.name] ?? "")} upload={f.upload} onChange={(url) => set(f.name, url)} />
+                    ) : f.type === "textarea" ? (
                       <textarea rows={2} value={String(values[f.name] ?? "")} onChange={(e) => set(f.name, e.target.value)} className={fieldClass} />
                     ) : f.type === "select" ? (
                       <select required={f.required} value={String(values[f.name] ?? "")} onChange={(e) => set(f.name, e.target.value)} className={fieldClass}>
@@ -143,8 +192,9 @@ export const AccFormModal = ({
                   </>
                 )}
                 {f.help && <span className="block mt-1 opacity-60">{f.help}</span>}
-              </label>
-            ))}
+              </Wrapper>
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between gap-2 pt-3 border-t dark:border-slate-700">

@@ -42,6 +42,10 @@ type AircraftTabKey =
 
 type TrackByKey = "hours" | "cycles" | "both";
 
+// Blank stays null so an unknown counter isn't saved as 0.
+const optionalNumber = (value: string): number | null =>
+  value.trim() === "" ? null : Number(value);
+
 type ApiErrorPayload = {
   message?: unknown;
   errors?: unknown;
@@ -256,6 +260,14 @@ export const AddAssetPage = () => {
     inspection_interval_cycles: "",
     landings: "",
 
+    // Tracking-sheet counters (A/C T.T. is total_airframe_hours above)
+    engine_total_hours: "",
+    engine_starts: "",
+    hobbs_hours: "",
+    hook_cycles: "",
+    hook_hours: "",
+    external_lifts: "",
+
     // Configuration
     role: "air-defense",
     seats: 1,
@@ -445,7 +457,7 @@ export const AddAssetPage = () => {
       model: loadedAsset.model || "",
       unit_id: String(loadedAsset.unit_id || ""),
       operation_status: loadedAsset.serviceability_status || "serviceable",
-      total_airframe_hours: String(loadedAsset.total_airframe_hours || ""),
+      total_airframe_hours: String(loadedAsset.hours ?? ""),
       service_life_limit: String(loadedAsset.service_life_limit || ""),
       last_major_inspection_date: toDateOnly(loadedAsset.last_inspection_date || ""),
       last_major_inspection_hours: String(loadedAsset.last_inspection_hours || ""),
@@ -459,6 +471,12 @@ export const AddAssetPage = () => {
       last_inspection_cycles: String(loadedAsset.last_inspection_cycles || ""),
       inspection_interval_cycles: String(loadedAsset.inspection_interval_cycle || ""),
       landings: String(loadedAsset.landings || ""),
+      engine_total_hours: String(loadedAsset.engine_total_hours ?? ""),
+      engine_starts: String(loadedAsset.engine_starts ?? ""),
+      hobbs_hours: String(loadedAsset.hobbs_hours ?? ""),
+      hook_cycles: String(loadedAsset.hook_cycles ?? ""),
+      hook_hours: String(loadedAsset.hook_hours ?? ""),
+      external_lifts: String(loadedAsset.external_lifts ?? ""),
       role: configMap.get("role") ?? prev.role,
       seats: Number(configMap.get("seats")) || prev.seats,
       manufacturer: loadedAsset.manufacturer || "",
@@ -760,6 +778,12 @@ export const AddAssetPage = () => {
       last_inspection_cycles: "400",
       inspection_interval_cycles: "90",
       landings: "420",
+      engine_total_hours: "380",
+      engine_starts: "78",
+      hobbs_hours: "395",
+      hook_cycles: "0",
+      hook_hours: "0",
+      external_lifts: "0",
       role: "air-defense",
       seats: 1,
       manufacturer: "Lockheed Martin",
@@ -1130,6 +1154,13 @@ export const AddAssetPage = () => {
         next_type_of_inspection: formData.next_type_of_inspection,
         last_inspection_date: toDateOnly(formData.last_major_inspection_date),
         landings: formData.landings,
+        hours: optionalNumber(formData.total_airframe_hours),
+        engine_total_hours: optionalNumber(formData.engine_total_hours),
+        engine_starts: optionalNumber(formData.engine_starts),
+        hobbs_hours: optionalNumber(formData.hobbs_hours),
+        hook_cycles: optionalNumber(formData.hook_cycles),
+        hook_hours: optionalNumber(formData.hook_hours),
+        external_lifts: optionalNumber(formData.external_lifts),
         operation_status: "operational",
         manufacturer: formData.manufacturer,
         purchase_date: toDateOnly(formData.purchase_date),
@@ -1681,6 +1712,120 @@ export const AddAssetPage = () => {
                 <option value="grounded">Grounded</option>
                 <option value="unserviceable">Unserviceable</option>
               </select>
+            </div>
+          </div>
+        </section>
+
+        {/* Tracking-sheet counters: baselines when the aircraft enters the
+            system. Hours-based ones and landings then advance with flights. */}
+        <section>
+          <h2 className="text-xs font-bold text-[#7FD5FF] uppercase mb-4">
+            Tracking Sheet Counters
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-[#001219] p-6 rounded-xl border border-[#0A4D66]/40">
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">A/C T.T. (hrs)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                title="Airframe total time when added. Logged flight hours are added to it."
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.total_airframe_hours}
+                onChange={(e) => handleInputChange("total_airframe_hours", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">ENG T.T. (hrs)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                title="Engine total time when added. Logged flight hours are added to it."
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.engine_total_hours}
+                onChange={(e) => handleInputChange("engine_total_hours", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">ENG Starts</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                title="ENG Starts"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.engine_starts}
+                onChange={(e) => handleInputChange("engine_starts", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Hobbs (hrs)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                title="Hobbs meter reading when added. Logged flight hours are added to it."
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.hobbs_hours}
+                onChange={(e) => handleInputChange("hobbs_hours", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Hook Cycles</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                title="Hook Cycles"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.hook_cycles}
+                onChange={(e) => handleInputChange("hook_cycles", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Hook Hrs</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                title="Hook Hrs"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.hook_hours}
+                onChange={(e) => handleInputChange("hook_hours", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Landings</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                title="Landings when added. Landings from flights are added to it."
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.landings}
+                onChange={(e) => handleInputChange("landings", e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-400">Ext Lifts</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                title="Ext Lifts"
+                className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#7FD5FF]"
+                placeholder="0"
+                value={formData.external_lifts}
+                onChange={(e) => handleInputChange("external_lifts", e.target.value)}
+              />
             </div>
           </div>
         </section>

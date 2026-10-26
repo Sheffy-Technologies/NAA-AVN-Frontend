@@ -2400,7 +2400,16 @@ export const AssetDetailsPage = () => {
                 )}
               </div>
 
-              <div className="col-span-3 grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="col-span-3 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Header counters of the mechanics' tracking sheet. */}
+                <StatCard label="A/C T.T." value={formatCounter(asset.current_total_hours, 1)} />
+                <StatCard label="ENG T.T." value={formatCounter(asset.current_engine_total_hours, 1)} />
+                <StatCard label="ENG STARTS" value={formatCounter(asset.engine_starts)} />
+                <StatCard label="HOBBS" value={formatCounter(asset.current_hobbs_hours, 1)} />
+                <StatCard label="HOOK CYCLES" value={formatCounter(asset.hook_cycles)} />
+                <StatCard label="HOOK HRS" value={formatCounter(asset.hook_hours, 1)} />
+                <StatCard label="LANDINGS" value={formatCounter(asset.current_total_landings)} />
+                <StatCard label="EXT LIFTS" value={formatCounter(asset.external_lifts)} />
                 <StatCard
                   label="TOTAL ENGINES"
                   value={String(asset.engines.length)}
@@ -6081,6 +6090,20 @@ export const AssetDetailsPage = () => {
       )}
     </div>
   );
+};
+
+// Tracking-sheet counter; "—" when no baseline was ever entered.
+const formatCounter = (
+  value: number | string | null | undefined,
+  decimals = 0,
+): string => {
+  if (value === null || value === undefined || value === "") return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 };
 
 const StatCard = ({ label, value, onClick }: { label: string; value: string; onClick?: () => void }) => {

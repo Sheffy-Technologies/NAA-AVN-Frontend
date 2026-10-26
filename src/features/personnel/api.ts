@@ -69,6 +69,45 @@ export type LinkedUser = {
   email: string | null;
 };
 
+/** Option for linking a user account to personnel (GET /personnel/link-options). */
+export type PersonnelLinkOption = {
+  id: number;
+  name: string;
+  service_number: string | null;
+  rank: string | null;
+  /** The account already linked to this person, if any. */
+  user_id: number | null;
+};
+
+/** One row of GET /personnel/{id}/activity-logs. */
+export type PersonnelActivityEntry = {
+  id: number;
+  event: string | null;
+  description: string;
+  action: string;
+  subject_type: string | null;
+  subject_id: number | null;
+  subject_label: string;
+  causer_id: number | null;
+  causer_name: string;
+  /** by_user: done by this person's linked account; on_record: a change to their personnel record by someone else. */
+  source: "by_user" | "on_record";
+  changes: { field: string; old: unknown; new: unknown }[];
+  ip_address: string | null;
+  device: string | null;
+  user_agent: string | null;
+  created_at: string;
+};
+
+export type PersonnelActivityResponse = {
+  data: PersonnelActivityEntry[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  linked_user_id: number | null;
+};
+
 export type Personnel = {
   id: number;
   user_id: number | null;
@@ -189,7 +228,7 @@ export type UploadImageResponse = {
 export const personnelApi = createApi({
   reducerPath: "personnelApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Personnel", "MyPersonnel"],
+  tagTypes: ["Personnel", "MyPersonnel", "PersonnelLinkOptions", "PersonnelActivity"],
   endpoints: (builder) => ({
     getPersonnel: builder.query<Personnel[], PersonnelFilters>({
       query: (filters) => ({
@@ -240,7 +279,30 @@ export const personnelApi = createApi({
     /** Admin: link (or unlink with null) the login account for a personnel record. */
     linkPersonnelUser: builder.mutation<Personnel, { id: number; user_id: number | null }>({
       query: ({ id, user_id }) => ({ url: `/personnel/${id}/user`, method: "PUT", data: { user_id } }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: "Personnel", id }, { type: "Personnel", id: "LIST" }, "MyPersonnel"],
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "Personnel", id },
+        { type: "Personnel", id: "LIST" },
+        "MyPersonnel",
+        "PersonnelLinkOptions",
+        { type: "PersonnelActivity", id },
+      ],
+    }),
+    /** Admin: personnel to pick from when linking a user account (user management page). */
+    getPersonnelLinkOptions: builder.query<PersonnelLinkOption[], void>({
+      query: () => ({ url: "/personnel/link-options", method: "GET" }),
+      providesTags: ["PersonnelLinkOptions"],
+    }),
+    /** What this person's linked account did, plus changes to their personnel record. */
+    getPersonnelActivityLogs: builder.query<
+      PersonnelActivityResponse,
+      { id: number | string; page?: number; scope?: "all" | "by_user" | "on_record" }
+    >({
+      query: ({ id, page, scope }) => ({
+        url: `/personnel/${id}/activity-logs`,
+        method: "GET",
+        params: { page, scope: scope && scope !== "all" ? scope : undefined },
+      }),
+      providesTags: (_result, _error, { id }) => [{ type: "PersonnelActivity", id: Number(id) }],
     }),
     /** Self-service: the logged-in user's own linked record. */
     getMyPersonnel: builder.query<MyPersonnelResponse, void>({
@@ -332,6 +394,8 @@ export type MyPersonnelResponse = {
 
 export const {
   useLinkPersonnelUserMutation,
+  useGetPersonnelLinkOptionsQuery,
+  useGetPersonnelActivityLogsQuery,
   useGetMyPersonnelQuery,
   useUpdateMyPersonnelMutation,
   useUploadMyPersonnelImageMutation,

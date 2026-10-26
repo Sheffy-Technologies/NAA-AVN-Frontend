@@ -136,6 +136,16 @@ const DocumentsPage = lazy(() =>
     default: module.DocumentsPage,
   })),
 );
+const MemoFormPage = lazy(() =>
+  import("@/features/memos/pages/MemoFormPage").then((module) => ({
+    default: module.MemoFormPage,
+  })),
+);
+const MemoDetailsPage = lazy(() =>
+  import("@/features/memos/pages/MemoDetailsPage").then((module) => ({
+    default: module.MemoDetailsPage,
+  })),
+);
 const DocumentCorrespondencePage = lazy(() =>
   import("@/features/documents/pages/DocumentCorrespondencePage").then((module) => ({
     default: module.DocumentCorrespondencePage,
@@ -164,6 +174,11 @@ const AddAssetPage = lazy(() =>
 const AddVehiclePage = lazy(() =>
   import("@/features/assets/pages/AddVehiclePage").then((module) => ({
     default: module.AddVehiclePage,
+  })),
+);
+const VehicleDetailsPage = lazy(() =>
+  import("@/features/assets/pages/VehicleDetailsPage").then((module) => ({
+    default: module.VehicleDetailsPage,
   })),
 );
 const EditVehiclePage = lazy(() =>
@@ -530,6 +545,14 @@ export const router = createBrowserRouter([
         ), ASSETS_ROUTE_PERMISSIONS),
       },
       {
+        path: "assets/vehicles/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <VehicleDetailsPage />
+          </Suspense>
+        ), ASSETS_ROUTE_PERMISSIONS),
+      },
+      {
         path: "assets/vehicles/:id/edit",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
@@ -822,6 +845,30 @@ export const router = createBrowserRouter([
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <DocumentsPage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "documents/memos/new",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MemoFormPage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "documents/memos/:id",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MemoDetailsPage />
+          </Suspense>
+        ), DOCUMENTS_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "documents/memos/:id/edit",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <MemoFormPage />
           </Suspense>
         ), DOCUMENTS_ROUTE_PERMISSIONS),
       },

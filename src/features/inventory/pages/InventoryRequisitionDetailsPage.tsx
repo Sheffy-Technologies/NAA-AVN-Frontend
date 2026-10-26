@@ -1,11 +1,13 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
+import { buildRequisitionDocument, personName } from "@/features/inventory/procurementDocuments";
+import { exportNaavnPdf } from "@/shared/documents/naavnPdf";
+import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/shared/hooks/redux";
 import { showToast } from "@/shared/store/toastSlice";
-import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import {
   useCreateStockMovementMutation,
   useCreateRfqMutation,
@@ -64,7 +66,6 @@ export const InventoryRequisitionDetailsPage = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { id } = useParams<{ id: string }>();
-  const contentRef = useRef<HTMLDivElement | null>(null);
   const { isDark } = useTheme();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -161,12 +162,18 @@ export const InventoryRequisitionDetailsPage = () => {
         ? `User #${detail.user_id}`
         : "-";
     const status = normalizeStatus(detail?.status);
+    const approvedByName = personName(detail?.approved_by) || null;
+    const approvedAt = detail?.approved_at
+      ? new Date(detail.approved_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+      : null;
 
     return {
       requestingLocation,
       requestingUnitDescription,
       requestedByName,
       lastUpdatedBy,
+      approvedByName,
+      approvedAt,
       status,
     };
   }, [detail]);
@@ -283,16 +290,13 @@ export const InventoryRequisitionDetailsPage = () => {
     }
   };
 
+  /** The official NAAVN form, drawn as a vector PDF like the PO and RFQ (not a screenshot of the page). */
   const handleDownloadPdf = async () => {
-    if (!contentRef.current || !detail || isDownloadingPdf) return;
+    if (!detail || isDownloadingPdf) return;
 
     setIsDownloadingPdf(true);
     try {
-      await downloadElementAsPdf({
-        element: contentRef.current,
-        fileName: `inventory-requisition-${detail.id}`,
-        backgroundColor: "#001219",
-      });
+      await exportNaavnPdf([buildRequisitionDocument(detail)], sanitizeDocumentFileName(`Requisition ${detail.id}`));
       dispatch(showToast({ message: "PDF downloaded", type: "success" }));
     } catch {
       dispatch(showToast({ message: "Failed to download PDF", type: "error" }));
@@ -434,6 +438,12 @@ export const InventoryRequisitionDetailsPage = () => {
               <span>Origin: {header.requestingLocation}</span>
               <span>•</span>
               <span>Requested by {header.requestedByName}</span>
+              {header.approvedByName && (
+                <>
+                  <span>•</span>
+                  <span>Approved by {header.approvedByName}</span>
+                </>
+              )}
             </p>
           </div>
         </div>
@@ -529,6 +539,12 @@ export const InventoryRequisitionDetailsPage = () => {
           <div className="mt-2 text-base font-bold text-slate-900 dark:text-white truncate">
             {header.requestedByName}
           </div>
+          {header.approvedByName && (
+            <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400 truncate">
+              Approved by {header.approvedByName}
+              {header.approvedAt && ` · ${header.approvedAt}`}
+            </p>
+          )}
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
             Updated by {header.lastUpdatedBy}
           </p>
@@ -591,7 +607,6 @@ export const InventoryRequisitionDetailsPage = () => {
 
       {/* Requisition Line Items Table */}
       <section
-        ref={contentRef}
         className={cn(
           "rounded-2xl border overflow-hidden transition-colors",
           isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-sm" : "bg-white border-slate-200 shadow-sm"

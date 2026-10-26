@@ -27,6 +27,7 @@ import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { LinkPersonnelModal } from "@/features/security/components/LinkPersonnelModal";
 
 type SecurityTab = "activity" | "device" | "user" | "rbac" | "system";
 
@@ -85,6 +86,7 @@ export const SecurityPage = () => {
   const [assignRolesUserId, setAssignRolesUserId] = useState<number | null>(null);
   const [assignRolesDraft, setAssignRolesDraft] = useState<string[]>([]);
   const [assignUnitsUserId, setAssignUnitsUserId] = useState<number | null>(null);
+  const [linkPersonnelUserId, setLinkPersonnelUserId] = useState<number | null>(null);
   const [assignUnitsDraft, setAssignUnitsDraft] = useState<number[]>([]);
   const [editUserId, setEditUserId] = useState<number | null>(null);
   const [editUserDraft, setEditUserDraft] = useState({
@@ -146,6 +148,7 @@ export const SecurityPage = () => {
     const names = (authUser?.role_names ?? authUser?.roles?.map((r) => r.name) ?? []) as string[];
     return names.includes("super-admin");
   }, [authUser]);
+  const canLinkPersonnel = (authUser?.permissions ?? []).includes("personnel.user.link");
 
   const {
     data: systemSettings,
@@ -236,6 +239,7 @@ export const SecurityPage = () => {
         roles: (u.roles || []).map((role) => role.name).filter(Boolean) as string[],
         unitIds: (u.units || []).map((unit) => unit.id),
         unitNames: (u.units || []).map((unit) => unit.name),
+        personnel: u.linked_personnel ?? null,
         created: hasValid
           ? created.toLocaleString("en-GB", {
               day: "2-digit",
@@ -255,7 +259,7 @@ export const SecurityPage = () => {
     if (!query) return userRows;
 
     return userRows.filter((row) =>
-      [row.name, row.email, row.phone, ...row.roles].some((field) =>
+      [row.name, row.email, row.phone, row.personnel?.name, row.personnel?.service_number, ...row.roles].some((field) =>
         field?.toLowerCase().includes(query),
       ),
     );
@@ -1260,6 +1264,7 @@ export const SecurityPage = () => {
                   <th className="px-6 py-3 font-medium">Phone</th>
                   <th className="px-6 py-3 font-medium">Roles</th>
                   <th className="px-6 py-3 font-medium">Units</th>
+                  <th className="px-6 py-3 font-medium">Personnel</th>
                   <th className="px-6 py-3 font-medium">Created</th>
                   <th className="px-6 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -1267,13 +1272,13 @@ export const SecurityPage = () => {
               <tbody>
                 {isUsersLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
                       Loading users...
                     </td>
                   </tr>
                 ) : filteredUserRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
                       {userSearchQuery
                         ? "No users match your search"
                         : "No users found"}
@@ -1335,6 +1340,23 @@ export const SecurityPage = () => {
                           )}
                         </div>
                       </td>
+                      <td className="px-6 py-4">
+                        {row.personnel ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/dashboard/personnel/${row.personnel!.id}`)}
+                            className="text-left text-sm text-[#7FD5FF] hover:underline"
+                            title="Open personnel record"
+                          >
+                            {row.personnel.name}
+                            {row.personnel.service_number && (
+                              <span className="block text-xs text-gray-400">{row.personnel.service_number}</span>
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-sm text-gray-500">Not linked</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">{row.created}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
@@ -1354,6 +1376,16 @@ export const SecurityPage = () => {
                             >
                               <Icon icon="mdi:office-building-marker-outline" className="h-3.5 w-3.5" />
                               Assign Units
+                            </button>
+                          )}
+                          {canLinkPersonnel && (
+                            <button
+                              type="button"
+                              onClick={() => setLinkPersonnelUserId(row.id)}
+                              className="inline-flex items-center gap-1 rounded border border-sky-400/40 px-3 py-1.5 text-xs text-sky-300 hover:bg-sky-500/10"
+                            >
+                              <Icon icon="mdi:card-account-details-outline" className="h-3.5 w-3.5" />
+                              {row.personnel ? "Change Personnel" : "Link Personnel"}
                             </button>
                           )}
                           {isSuperAdmin && (
@@ -1838,6 +1870,17 @@ export const SecurityPage = () => {
           </div>
         </div>
       )}
+
+      {linkPersonnelUserId !== null && (() => {
+        const row = userRows.find((r) => r.id === linkPersonnelUserId);
+        return row ? (
+          <LinkPersonnelModal
+            user={{ id: row.id, name: row.name, personnel: row.personnel }}
+            onClose={() => setLinkPersonnelUserId(null)}
+            onSaved={() => void refetchUsers()}
+          />
+        ) : null;
+      })()}
 
       {assignUnitsUserId !== null && (
         <div

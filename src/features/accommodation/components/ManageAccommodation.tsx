@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "@iconify/react";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
@@ -14,6 +15,8 @@ import {
   useSaveAccommodationBlockMutation,
   useSaveAccommodationCategoryMutation,
   useSaveResidenceMutation,
+  useUploadBlockImageMutation,
+  useUploadResidenceImageMutation,
   type AccommodationBlock,
   type AccommodationCategory,
   type Residence,
@@ -27,6 +30,13 @@ type Editing =
   | { kind: "block"; record: AccommodationBlock | null }
   | { kind: "residence"; record: Residence | null }
   | null;
+
+/** Small photo for a list row, or an icon when there's none. */
+const Thumb = ({ src, icon }: { src?: string | null; icon: string }) => (
+  <div className="w-10 h-10 shrink-0 rounded border border-slate-200 dark:border-[#0A4D66]/40 bg-slate-50 dark:bg-[#001219] overflow-hidden flex items-center justify-center">
+    {src ? <img src={src} alt="" className="w-full h-full object-cover" /> : <Icon icon={icon} className="w-5 h-5 text-slate-400" />}
+  </div>
+);
 
 const figures = (x: { residences_count: number; occupied_count: number; vacant_count: number }) =>
   `${x.residences_count} · ${x.occupied_count} occupied · ${x.vacant_count} vacant`;
@@ -52,6 +62,8 @@ export const ManageAccommodation = ({ categories }: { categories: AccommodationC
   const [saveBlock] = useSaveAccommodationBlockMutation();
   const [deleteBlock] = useDeleteAccommodationBlockMutation();
   const [saveResidence] = useSaveResidenceMutation();
+  const [uploadBlockImage] = useUploadBlockImageMutation();
+  const [uploadResidenceImage] = useUploadResidenceImageMutation();
   const [deleteResidence] = useDeleteResidenceMutation();
 
   const categoryOptions = categories.map((c) => ({ value: c.id, label: c.name }));
@@ -84,7 +96,7 @@ export const ManageAccommodation = ({ categories }: { categories: AccommodationC
 
     if (editing.kind === "block") {
       const { record } = editing;
-      const fields = blockFields(categoryOptions);
+      const fields = blockFields(categoryOptions, async (file) => (await uploadBlockImage(file).unwrap()).data);
       return (
         <AccFormModal
           title={record ? `Edit ${record.name}` : "Add block"}
@@ -102,7 +114,7 @@ export const ManageAccommodation = ({ categories }: { categories: AccommodationC
     }
 
     const { record } = editing;
-    const fields = residenceFields(blockOptions, typeOptions);
+    const fields = residenceFields(blockOptions, typeOptions, async (file) => (await uploadResidenceImage(file).unwrap()).data);
     return (
       <AccFormModal
         title={record ? `Edit ${record.name}` : "Add residence"}
@@ -164,9 +176,12 @@ export const ManageAccommodation = ({ categories }: { categories: AccommodationC
                 key: "name",
                 label: "Block",
                 render: (b) => (
-                  <div>
-                    <div className="font-semibold">{b.name}</div>
-                    <div className="text-[11px] opacity-70">{[b.category?.name, b.location].filter(Boolean).join(" · ")}</div>
+                  <div className="flex items-center gap-2">
+                    <Thumb src={b.image} icon="mdi:office-building-outline" />
+                    <div>
+                      <div className="font-semibold">{b.name}</div>
+                      <div className="text-[11px] opacity-70">{[b.category?.name, b.location].filter(Boolean).join(" · ")}</div>
+                    </div>
                   </div>
                 ),
               },
@@ -219,9 +234,12 @@ export const ManageAccommodation = ({ categories }: { categories: AccommodationC
               key: "name",
               label: "Residence",
               render: (r) => (
-                <div>
-                  <div className="font-semibold">{r.name}</div>
-                  <div className="text-[11px] opacity-70">{[r.block?.category?.name, r.block?.name].filter(Boolean).join(" · ")}</div>
+                <div className="flex items-center gap-2">
+                  <Thumb src={r.image} icon="mdi:home-outline" />
+                  <div>
+                    <div className="font-semibold">{r.name}</div>
+                    <div className="text-[11px] opacity-70">{[r.block?.category?.name, r.block?.name].filter(Boolean).join(" · ")}</div>
+                  </div>
                 </div>
               ),
             },

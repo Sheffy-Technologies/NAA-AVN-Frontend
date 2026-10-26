@@ -3,19 +3,26 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
-import { useGetPersonnelByIdQuery, useDeletePersonnelMutation, useUpdatePersonnelMutation } from "@/features/personnel/api";
+import {
+  useGetPersonnelByIdQuery,
+  useDeletePersonnelMutation,
+  useUpdatePersonnelMutation,
+  useGetPersonnelActivityLogsQuery,
+  type PersonnelActivityEntry,
+} from "@/features/personnel/api";
 import { useGetPersonnelPassByIdQuery } from "@/features/personnel/passApi";
 import { useGetAttendanceQuery } from "@/features/personnel/attendanceApi";
 import { useGetCoursesQuery, type Course, type CourseStatus } from "@/features/personnel/courseApi";
 import { InitiatePassModal } from "../components/InitiatePassModal";
 import { RegisterCourseModal } from "../components/RegisterCourseModal";
 import { EditCourseModal } from "../components/EditCourseModal";
-import { useAppDispatch } from "@/app/store";
+import { useAppDispatch, useAppSelector } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { BackButton } from "@/shared/ui/button/BackButton";
 import { LinkedAccountCard } from "../components/LinkedAccountCard";
+import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
 
@@ -68,14 +75,46 @@ type PersonnelDetail = {
 };
 
 type ActivityLogEntry = {
-  id: string;
+  id: number;
   date: string;
   time: string;
   action: string;
+  /** Who did it, when it was someone other than this person. */
+  by: string | null;
   oldRecord: string;
   newRecord: string;
   device: string;
   ip: string;
+};
+
+const formatChangeValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
+
+const toActivityLogEntry = (entry: PersonnelActivityEntry): ActivityLogEntry => {
+  const at = new Date(entry.created_at);
+  const valid = !Number.isNaN(at.getTime());
+  const changed = entry.changes.filter((c) => entry.event !== "updated" || formatChangeValue(c.old) !== formatChangeValue(c.new));
+  const describe = (side: "old" | "new") =>
+    changed
+      .filter((c) => c[side] !== null && c[side] !== undefined)
+      .map((c) => `${c.field}: ${formatChangeValue(c[side])}`)
+      .join(", ") || "—";
+
+  return {
+    id: entry.id,
+    date: valid ? at.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—",
+    time: valid ? at.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "—",
+    action: entry.action,
+    by: entry.source === "on_record" ? entry.causer_name : null,
+    oldRecord: describe("old"),
+    newRecord: describe("new"),
+    device: entry.device ?? "—",
+    ip: entry.ip_address ?? "—",
+  };
 };
 
 // const mockPersonnel: PersonnelDetail = {
@@ -109,68 +148,6 @@ type ActivityLogEntry = {
 //   ],
 // };
 
-const mockActivityLog: ActivityLogEntry[] = [
-  {
-    id: "1",
-    date: "26 Jan 2026",
-    time: "14:30 Z",
-    action: "Login",
-    oldRecord: "Patrol",
-    newRecord: "Patrol",
-    device: "Desktop",
-    ip: "197.210.12.45",
-  },
-  {
-    id: "2",
-    date: "26 Jan 2026",
-    time: "14:30 Z",
-    action: "Viewed Record",
-    oldRecord: "Logistics",
-    newRecord: "Logistics",
-    device: "Phone",
-    ip: "197.210.12.45",
-  },
-  {
-    id: "3",
-    date: "26 Jan 2026",
-    time: "14:30 Z",
-    action: "Downloaded Document",
-    oldRecord: "Escort",
-    newRecord: "Escort",
-    device: "Desktop",
-    ip: "197.210.12.45",
-  },
-  {
-    id: "4",
-    date: "26 Jan 2026",
-    time: "14:30 Z",
-    action: "Updated Record",
-    oldRecord: "Reconnaissance",
-    newRecord: "Reconnaissance",
-    device: "Desktop",
-    ip: "197.210.12.45",
-  },
-  {
-    id: "5",
-    date: "26 Jan 2026",
-    time: "14:30 Z",
-    action: "Failed Login Attempt",
-    oldRecord: "Emergency",
-    newRecord: "Emergency",
-    device: "Phone",
-    ip: "197.210.12.45",
-  },
-  {
-    id: "6",
-    date: "26 Jan 2026",
-    time: "14:30 Z",
-    action: "Role Changed",
-    oldRecord: "Emergency",
-    newRecord: "Emergency",
-    device: "Desktop",
-    ip: "197.210.12.45",
-  },
-];
 
 const statusDotColor: Record<PersonnelStatus, string> = {
   Active: "bg-emerald-400",
@@ -215,6 +192,9 @@ export const PersonnelDetailPage = () => {
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"bio" | "activity" | "pass" | "course" | "attendance">("bio");
   const [activityView, setActivityView] = useState<"grid" | "table">("grid");
+  const [activityPage, setActivityPage] = useState(1);
+  const [activityScope, setActivityScope] = useState<"all" | "by_user" | "on_record">("all");
+  const canViewActivity = useAppSelector((state) => state.auth.user?.permissions ?? []).includes("activity-logs.viewAny");
   const [showInitiatePassModal, setShowInitiatePassModal] = useState(false);
   const [showRegisterCourseModal, setShowRegisterCourseModal] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -228,6 +208,12 @@ export const PersonnelDetailPage = () => {
     { personnel_id: id ? Number(id) : undefined },
     { skip: !id || activeTab !== "course" },
   );
+
+  const { data: activityResponse, isFetching: isActivityLoading } = useGetPersonnelActivityLogsQuery(
+    { id: id ?? "", page: activityPage, scope: activityScope },
+    { skip: !id || activeTab !== "activity" || !canViewActivity },
+  );
+  const activityLog = useMemo(() => (activityResponse?.data ?? []).map(toActivityLogEntry), [activityResponse]);
 
   const { data: attendanceLogs = [], isLoading: isAttendanceLoading } = useGetAttendanceQuery(
     { personnel_id: id ? Number(id) : undefined },
@@ -806,7 +792,7 @@ export const PersonnelDetailPage = () => {
           <AppTabs
             tabs={[
               { id: "bio", label: "Personnel Bio Data", icon: "mdi:shield-account-outline" },
-              { id: "activity", label: "Activity Log", icon: "mdi:clock-outline" },
+              ...(canViewActivity ? [{ id: "activity", label: "Activity Log", icon: "mdi:clock-outline" }] : []),
               { id: "pass", label: "Pass Records", icon: "mdi:calendar-check-outline" },
               { id: "course", label: "Courses & Training", icon: "mdi:school-outline" },
               { id: "attendance", label: "Duty Attendance", icon: "mdi:clipboard-check-outline" },
@@ -819,6 +805,22 @@ export const PersonnelDetailPage = () => {
 
           {activeTab === "activity" && (
             <div className="flex items-center gap-2">
+              <select
+                aria-label="Filter activity"
+                value={activityScope}
+                onChange={(e) => {
+                  setActivityScope(e.target.value as typeof activityScope);
+                  setActivityPage(1);
+                }}
+                className={cn(
+                  "rounded-lg border px-2 py-1 text-xs",
+                  isDark ? "border-[#0A4D66]/40 bg-[#001219] text-gray-200" : "border-slate-200 bg-white text-slate-700",
+                )}
+              >
+                <option value="all">All activity</option>
+                <option value="by_user">Done by this person</option>
+                <option value="on_record">Changes to this record</option>
+              </select>
               <div
                 className={cn(
                   "hidden sm:flex items-center gap-1 rounded-lg border p-1",
@@ -868,7 +870,7 @@ export const PersonnelDetailPage = () => {
                   isDark ? "border-[#0A4D66]/40 bg-[#001219] text-gray-200" : "border-slate-200 bg-slate-50 text-slate-700",
                 )}
               >
-                {mockActivityLog.length} events
+                {activityResponse?.total ?? 0} events
               </span>
               <button
                 type="button"
@@ -1472,10 +1474,29 @@ export const PersonnelDetailPage = () => {
         )}
 
         {activeTab === "activity" && (
-          <div ref={contentRef} className="p-4 sm:p-6">
-            {activityView === "grid" && (
-              <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {mockActivityLog.map((entry) => (
+          <div ref={contentRef} className="p-4 sm:p-6 space-y-4">
+            {activityResponse && !activityResponse.linked_user_id && (
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-xs",
+                  isDark ? "border-amber-500/30 bg-amber-500/10 text-amber-200" : "border-amber-200 bg-amber-50 text-amber-800",
+                )}
+              >
+                <Icon icon="mdi:account-off-outline" className="w-4 h-4 shrink-0" />
+                No user account is linked to this person, so only changes to their personnel record are shown. Link an account on the Bio Data tab
+                or in User Management to see what they do in the system.
+              </div>
+            )}
+
+            {isActivityLoading && !activityResponse ? (
+              <div className={cn("py-10 text-center text-sm", isDark ? "text-gray-400" : "text-slate-500")}>Loading activity…</div>
+            ) : activityLog.length === 0 ? (
+              <div className={cn("py-10 text-center text-sm", isDark ? "text-gray-400" : "text-slate-500")}>No activity recorded yet.</div>
+            ) : null}
+
+            {activityView === "grid" && activityLog.length > 0 && (
+              <div className={cn("grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", isActivityLoading && "opacity-60")}>
+                {activityLog.map((entry) => (
                   <div
                     key={entry.id}
                     className={cn(
@@ -1505,19 +1526,30 @@ export const PersonnelDetailPage = () => {
                         <span>{entry.device}</span>
                       </div>
                     </div>
+                    {entry.by && (
+                      <div className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>
+                        By <span className={isDark ? "text-gray-200" : "text-slate-800"}>{entry.by}</span>
+                      </div>
+                    )}
+                    {entry.newRecord !== "—" && (
+                      <div className={cn("text-[11px] line-clamp-3 break-words", isDark ? "text-gray-300" : "text-slate-600")} title={entry.newRecord}>
+                        {entry.newRecord}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             )}
 
-            {activityView === "table" && (
-              <div className={cn("overflow-x-auto rounded-xl border shadow-sm", isDark ? "border-[#0A4D66]/40" : "border-slate-200")}>
+            {activityView === "table" && activityLog.length > 0 && (
+              <div className={cn("overflow-x-auto rounded-xl border shadow-sm", isDark ? "border-[#0A4D66]/40" : "border-slate-200", isActivityLoading && "opacity-60")}>
                 <table className="min-w-full text-xs sm:text-sm">
                   <thead>
                     <tr className={cn("border-b text-[11px] uppercase tracking-wider font-semibold", isDark ? "bg-[#001219] border-[#0A4D66]/40 text-gray-400" : "bg-slate-100 border-slate-200 text-slate-600")}>
                       <th className="px-4 sm:px-6 py-3 text-left">Date</th>
                       <th className="px-4 py-3 text-left">Time</th>
                       <th className="px-4 py-3 text-left">Action Performed</th>
+                      <th className="px-4 py-3 text-left">By</th>
                       <th className="px-4 py-3 text-left">Old Record</th>
                       <th className="px-4 py-3 text-left">New Record</th>
                       <th className="px-4 py-3 text-left">Device</th>
@@ -1525,7 +1557,7 @@ export const PersonnelDetailPage = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockActivityLog.map((entry, index) => (
+                    {activityLog.map((entry, index) => (
                       <tr
                         key={entry.id}
                         className={cn(
@@ -1548,10 +1580,13 @@ export const PersonnelDetailPage = () => {
                         <td className={cn("px-4 py-3 font-medium", isDark ? "text-white" : "text-slate-900")}>
                           {entry.action}
                         </td>
-                        <td className={cn("px-4 py-3", isDark ? "text-gray-400" : "text-slate-500")}>
+                        <td className={cn("px-4 py-3", isDark ? "text-gray-300" : "text-slate-700")}>
+                          {entry.by ?? "This person"}
+                        </td>
+                        <td className={cn("px-4 py-3 max-w-xs break-words", isDark ? "text-gray-400" : "text-slate-500")}>
                           {entry.oldRecord}
                         </td>
-                        <td className={cn("px-4 py-3", isDark ? "text-gray-200" : "text-slate-800")}>
+                        <td className={cn("px-4 py-3 max-w-xs break-words", isDark ? "text-gray-200" : "text-slate-800")}>
                           {entry.newRecord}
                         </td>
                         <td className={cn("px-4 py-3", isDark ? "text-gray-400" : "text-slate-500")}>
@@ -1565,6 +1600,14 @@ export const PersonnelDetailPage = () => {
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {activityResponse && activityResponse.last_page > 1 && (
+              <NumberedPagination
+                currentPage={activityResponse.current_page}
+                lastPage={activityResponse.last_page}
+                onPageChange={setActivityPage}
+              />
             )}
           </div>
         )}

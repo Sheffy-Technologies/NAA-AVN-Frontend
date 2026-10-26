@@ -8,7 +8,6 @@ import {
   useCompleteWorkOrderMutation,
   useGetComplianceRecordsQuery,
   useGetDefectRecordsQuery,
-  useGetMaintenanceDueItemsQuery,
   useGetWorkOrdersQuery,
 } from "@/features/maintenance/api";
 import { useGetAssetsQuery } from "@/features/assets/api";
@@ -21,7 +20,7 @@ import { MaintenanceOverviewTab } from "../components/MaintenanceOverviewTab";
 import { MaintenanceInventorySection, type MaintenanceInventorySubTab } from "../components/MaintenanceInventorySection";
 import { CreateWorkOrderModal } from "../components/CreateWorkOrderModal";
 import { LogDefectModal } from "../components/LogDefectModal";
-import { InspectionTrackingTable, PartTrackingTable } from "../components/TrackingSheetTables";
+import { MaintenanceTracker } from "../tracker/MaintenanceTracker";
 import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 
 type MainTabKey = "overview" | "maintenance" | "work-orders" | "inventory";
@@ -125,16 +124,6 @@ export const MaintenancePage = () => {
     }
   }, [location.pathname]);
 
-  // Maintenance Due Tracking Queries
-  const {
-    data: dueItemsResponse,
-    isLoading: isDueItemsLoading,
-    isError: isDueItemsError,
-  } = useGetMaintenanceDueItemsQuery(
-    { asset_type: "aircraft" },
-    { skip: activeMainTab !== "maintenance" || activeMaintenanceSubTab !== "tracking" },
-  );
-
   // Units query
   const { data: units = [] } = useGetUnitsQuery();
 
@@ -232,40 +221,8 @@ export const MaintenancePage = () => {
   const [createWorkOrderInitialDefects, setCreateWorkOrderDefectIds] = useState<number[]>([]);
   const [isLogDefectModalOpen, setIsLogDefectModalOpen] = useState(false);
 
-  // Tracking Filters & Harmonized Lists
-  const [trackingAssetFilter, setTrackingAssetFilter] = useState<string>("");
-  const [trackingStatusFilter, setTrackingStatusFilter] = useState<string>("all");
-  const [trackingTypeFilter, setTrackingTypeFilter] = useState<string>("all");
-
   // Compliance Filter
   const [complianceAssetFilter, setComplianceAssetFilter] = useState<string>("");
-
-  const allTrackingItems = useMemo(() => dueItemsResponse?.data ?? [], [dueItemsResponse]);
-
-  const filteredTrackingItems = useMemo(() => {
-    return allTrackingItems.filter((row) => {
-      if (trackingAssetFilter && String(row.asset_id) !== trackingAssetFilter) {
-        return false;
-      }
-      if (trackingStatusFilter !== "all" && row.status !== trackingStatusFilter) {
-        return false;
-      }
-      if (trackingTypeFilter !== "all" && row.part_type !== trackingTypeFilter) {
-        return false;
-      }
-      return true;
-    });
-  }, [allTrackingItems, trackingAssetFilter, trackingStatusFilter, trackingTypeFilter]);
-
-  const trackingCounts = useMemo(() => {
-    return {
-      total: allTrackingItems.length,
-      filtered: filteredTrackingItems.length,
-      ok: allTrackingItems.filter((i) => i.status === "ok").length,
-      due_soon: allTrackingItems.filter((i) => i.status === "due_soon").length,
-      overdue: allTrackingItems.filter((i) => i.status === "overdue").length,
-    };
-  }, [allTrackingItems, filteredTrackingItems]);
 
   const filteredComplianceRecords = useMemo(() => {
     if (!complianceAssetFilter) return complianceRecords;
@@ -640,113 +597,8 @@ export const MaintenancePage = () => {
           {/* Subtab Content: Maintenance Programs (Planning) */}
           {activeMaintenanceSubTab === "programs" && <PlanningPage />}
 
-          {/* Subtab Content: Due/Overdue Tracking */}
-          {activeMaintenanceSubTab === "tracking" && (
-            <div
-              className={cn(
-                "border rounded-xl p-6",
-                isDark ? "bg-[#001219] border-[#0A4D66]/40 text-white" : "bg-white border-slate-200 text-slate-800 shadow-sm",
-              )}
-            >
-              {/* Header & Subtitle */}
-              <div className="mb-4">
-                <h2 className="text-sm font-bold text-[#0A4D66] dark:text-[#7FD5FF] uppercase tracking-wide">
-                  Maintenance Tracking Records
-                </h2>
-                <p className={cn("text-xs mt-0.5", isDark ? "text-gray-400" : "text-slate-500")}>
-                  Components, engines and avionics across all assets
-                </p>
-              </div>
-
-              {/* 3 Dropdown Filters with Search */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                <SearchableSelect
-                  size="sm"
-                  placeholder="All Assets"
-                  searchPlaceholder="Search aircraft..."
-                  value={trackingAssetFilter}
-                  onChange={(val) => setTrackingAssetFilter(val ? String(val) : "")}
-                  options={[
-                    { value: "", label: "All Assets" },
-                    ...aircraftAssets.map((asset) => ({
-                      value: String(asset.id),
-                      label: `${asset.name}${asset.tail_number ? ` (${asset.tail_number})` : ""}`,
-                    })),
-                  ]}
-                  clearable={false}
-                />
-
-                <SearchableSelect
-                  size="sm"
-                  placeholder="All Statuses"
-                  searchPlaceholder="Search status..."
-                  value={trackingStatusFilter}
-                  onChange={(val) => setTrackingStatusFilter(val ? String(val) : "all")}
-                  options={[
-                    { value: "all", label: "All Statuses" },
-                    { value: "ok", label: "OK Only" },
-                    { value: "due_soon", label: "Due Soon" },
-                    { value: "overdue", label: "Overdue" },
-                  ]}
-                  clearable={false}
-                />
-
-                <SearchableSelect
-                  size="sm"
-                  placeholder="All Item Types"
-                  searchPlaceholder="Search item type..."
-                  value={trackingTypeFilter}
-                  onChange={(val) => setTrackingTypeFilter(val ? String(val) : "all")}
-                  options={[
-                    { value: "all", label: "All Item Types" },
-                    { value: "component", label: "Components" },
-                    { value: "engine", label: "Engines" },
-                    { value: "avionics", label: "Avionics" },
-                    { value: "asset", label: "Airframe" },
-                  ]}
-                  clearable={false}
-                />
-              </div>
-
-              {/* Status breakdown pills */}
-              <div className="flex flex-wrap items-center gap-2 mb-4 text-xs font-semibold">
-                <span className={cn("text-xs font-medium mr-2", isDark ? "text-gray-400" : "text-slate-600")}>
-                  Showing {trackingCounts.filtered} of {trackingCounts.total}
-                </span>
-                {trackingCounts.ok > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/30">
-                    OK: {trackingCounts.ok}
-                  </span>
-                )}
-                {trackingCounts.due_soon > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-amber-500/10 text-amber-600 dark:text-amber-300 border border-amber-500/30">
-                    Due Soon: {trackingCounts.due_soon}
-                  </span>
-                )}
-                {trackingCounts.overdue > 0 && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/30">
-                    Overdue: {trackingCounts.overdue}
-                  </span>
-                )}
-              </div>
-
-              {isDueItemsLoading ? (
-                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
-                  Loading tracking records...
-                </div>
-              ) : isDueItemsError ? (
-                <div className="text-red-500 dark:text-red-300 text-xs py-4">Failed to load tracking records.</div>
-              ) : filteredTrackingItems.length === 0 ? (
-                <div className={cn("text-xs py-8 text-center", isDark ? "text-gray-400" : "text-slate-500")}>
-                  No components, engines, or avionics matching filter.
-                </div>
-              ) : (
-                <PartTrackingTable rows={filteredTrackingItems} />
-              )}
-
-              <InspectionTrackingTable assetId={trackingAssetFilter || undefined} statusFilter={trackingStatusFilter} />
-            </div>
-          )}
+          {/* Subtab Content: Maintenance Tracking (the maintenance tracker) */}
+          {activeMaintenanceSubTab === "tracking" && <MaintenanceTracker />}
 
           {/* Subtab Content: Compliance Records */}
           {activeMaintenanceSubTab === "compliance" && (

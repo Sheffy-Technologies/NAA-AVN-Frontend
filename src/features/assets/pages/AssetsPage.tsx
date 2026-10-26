@@ -26,6 +26,12 @@ import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { FacilitiesMapView } from "@/features/assets/components/FacilitiesMapView";
 import {
+  VEHICLE_STATUSES,
+  vehicleRegisterRow,
+  vehicleStatusLabel,
+  vehicleStatusTone,
+} from "@/features/assets/vehicleHelpers";
+import {
   ImportCsvModal,
   type ImportCsvField,
 } from "@/shared/components/ImportCsvModal";
@@ -34,9 +40,20 @@ const VEHICLE_IMPORT_FIELDS: ImportCsvField[] = [
   { key: "name", label: "Name", required: true, example: "Land Cruiser 1" },
   { key: "vehicle_type", label: "Vehicle Type", required: true, example: "Pickup Truck" },
   { key: "registration_number", label: "Registration Number", required: true, example: "ABJ-123-XY" },
-  { key: "serial_number", label: "Serial Number", required: false, example: "SN-55123" },
+  { key: "model", label: "Model", required: false, example: "Toyota Hilux 2.4" },
+  { key: "chassis_number", label: "Chassis Number", required: false, example: "JTFHX02P400123456" },
+  { key: "issue_authority", label: "Authority for Issue", required: false, example: "AHQ DOAA/MT/2026/014" },
+  { key: "date_issued", label: "Date Issued (YYYY-MM-DD)", required: false, example: "2026-03-14" },
   { key: "unit", label: "Unit", required: true, example: "1 Squadron" },
+  { key: "location", label: "Deployment/Location", required: false, example: "MT Yard, Kaduna" },
+  { key: "status", label: "Status", required: false, example: "serviceable" },
 ];
+
+/** The Assets page's serviceable / under maintenance / grounded buckets, for a vehicle status. */
+const vehicleOperationStatus = (status?: string | null) =>
+  status === "under_repair" ? "under_maintenance" : status === "unserviceable" || status === "written_off" ? "grounded" : "operational";
+
+const vehicleDetailsUrl = (id: number) => `/dashboard/assets/vehicles/${id}`;
 
 const FACILITY_IMPORT_FIELDS: ImportCsvField[] = [
   { key: "name", label: "Name", required: true, example: "Main Hangar" },
@@ -125,11 +142,22 @@ export const AssetsPage = () => {
       throw new Error(`Vehicle type "${row.vehicle_type}" not found`);
     }
 
+    const status = row.status?.trim().toLowerCase().replace(/\s+/g, "_");
+    const statusMatch = status ? VEHICLE_STATUSES.find((s) => s.value === status || s.label.toLowerCase().replace(/\s+/g, "_") === status) : null;
+    if (status && !statusMatch) {
+      throw new Error(`Status "${row.status}" must be one of: ${VEHICLE_STATUSES.map((s) => s.label).join(", ")}`);
+    }
+
     await createVehicle({
       name: row.name,
       vehicle_type_id: vehicleTypeMatch.id,
       registration_number: row.registration_number,
-      serial_number: row.serial_number || undefined,
+      chassis_number: row.chassis_number || undefined,
+      model: row.model || undefined,
+      issue_authority: row.issue_authority || undefined,
+      date_issued: row.date_issued || undefined,
+      location: row.location || undefined,
+      status: statusMatch?.value,
       unit_id: unitMatch.id,
     }).unwrap();
   };
@@ -218,12 +246,15 @@ export const AssetsPage = () => {
           name: vehicle.name,
           image: vehicle.photo ?? null,
           image_url: vehicle.photo_url ?? vehicle.photo ?? null,
-          serial_number: vehicle.serial_number || "-",
+          serial_number: vehicle.chassis_number || vehicle.serial_number || "-",
           model: vehicle.registration_number || "-",
           configuration: [],
           serviceability_status:
-            vehicle.serviceability_status ||
-            ((vehicle.status as Asset["serviceability_status"]) ?? "serviceable"),
+            vehicleOperationStatus(vehicle.status) === "operational"
+              ? "serviceable"
+              : vehicleOperationStatus(vehicle.status) === "under_maintenance"
+                ? "under_maintenance"
+                : "grounded",
           tail_number: vehicle.registration_number || "-",
           total_airframe_hours: "0",
           service_life_limit: "0",
@@ -233,11 +264,7 @@ export const AssetsPage = () => {
           next_type_of_inspection: "-",
           last_inspection_date: "-",
           landings: "0",
-          operation_status: normalizeOperationStatus(
-            vehicle.operation_status ??
-              vehicle.status ??
-              vehicle.serviceability_status,
-          ),
+          operation_status: vehicleOperationStatus(vehicle.status),
           manufacturer: "-",
           purchase_date: "-",
           created_at: vehicle.created_at || "",
@@ -250,6 +277,8 @@ export const AssetsPage = () => {
           current_total_hours: 0,
           current_total_cycles: 0,
           current_total_landings: 0,
+          current_engine_total_hours: null,
+          current_hobbs_hours: null,
         }))
       : activeTab === "facility"
         ? (facilities ?? []).map((facility: Facility) => ({
@@ -292,6 +321,8 @@ export const AssetsPage = () => {
             current_total_hours: 0,
             current_total_cycles: 0,
             current_total_landings: 0,
+            current_engine_total_hours: null,
+            current_hobbs_hours: null,
           }))
       :
           assets
@@ -353,12 +384,9 @@ export const AssetsPage = () => {
           const matchesUnit =
             selectedUnitId === "all" ||
             String(vehicle.unit_id ?? "") === selectedUnitId;
-          const vehicleOperationStatus = normalizeOperationStatus(
-            vehicle.operation_status ?? vehicle.status ?? vehicle.serviceability_status,
-          );
           const matchesOperationStatus =
             selectedOperationStatus === "all" ||
-            vehicleOperationStatus === selectedOperationStatus;
+            (vehicle.status ?? "serviceable") === selectedOperationStatus;
 
           return matchesUnit && matchesOperationStatus;
         })
@@ -378,7 +406,12 @@ export const AssetsPage = () => {
       return;
     }
 
-    const rows = filteredAssets.map((asset) => ({
+    const rows = activeTab === "vehicle"
+      ? filteredVehicles.map((vehicle) => ({
+          Name: vehicle.name,
+          ...vehicleRegisterRow(vehicle, vehicleTypes?.find((t) => t.id === vehicle.vehicle_type_id)?.name, getUnitName(vehicle.unit_id ?? 0)),
+        }))
+      : filteredAssets.map((asset) => ({
       Name: asset.name,
       Type: asset.model,
       Unit: getUnitName(asset.unit_id),
@@ -413,6 +446,8 @@ export const AssetsPage = () => {
               aria-selected={activeTab === tab.id}
               onClick={() => {
                 setActiveTab(tab.id);
+                // Aircraft and vehicles use different status values.
+                setSelectedOperationStatus("all");
                 setViewMode("table");
                 window.history.replaceState(window.history.state, "", tab.id === "aircraft" ? location.pathname : `${location.pathname}?tab=${tab.id}`);
                 if (tab.id !== "aircraft") {
@@ -497,7 +532,7 @@ export const AssetsPage = () => {
 
             {/* Filters */}
             <div className="flex items-center gap-2 overflow-x-auto max-w-full">
-              {activeTab === "aircraft" && (
+              {(activeTab === "aircraft" || activeTab === "vehicle") && (
                 <>
                   <button
                     type="button"
@@ -530,10 +565,20 @@ export const AssetsPage = () => {
                     onChange={(e) => setSelectedOperationStatus(e.target.value)}
                     className="bg-[#001825] border border-[#0A4D66]/40 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
                   >
-                    <option value="all">All Serviceability</option>
-                    <option value="operational">Serviceable</option>
-                    <option value="under_maintenance">Under Maintenance</option>
-                    <option value="grounded">Grounded</option>
+                    <option value="all">{activeTab === "vehicle" ? "All Statuses" : "All Serviceability"}</option>
+                    {activeTab === "vehicle" ? (
+                      VEHICLE_STATUSES.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="operational">Serviceable</option>
+                        <option value="under_maintenance">Under Maintenance</option>
+                        <option value="grounded">Grounded</option>
+                      </>
+                    )}
                   </select>
                 </>
               )}
@@ -616,12 +661,12 @@ export const AssetsPage = () => {
               <table className="w-full text-left border-collapse min-w-[1000px]">
                 <thead>
                   <tr className="bg-[#001825] text-xs uppercase text-gray-400 border-b border-[#0A4D66]/40">
-                    <th className="px-6 py-4 font-medium">Photo</th>
-                    <th className="px-6 py-4 font-medium">Name</th>
+                    <th className="px-6 py-4 font-medium">Vehicle Type/Model</th>
+                    <th className="px-6 py-4 font-medium">Chassis Number</th>
                     <th className="px-6 py-4 font-medium">Registration Number</th>
-                    <th className="px-6 py-4 font-medium">Serial Number</th>
-                    <th className="px-6 py-4 font-medium">Vehicle Type</th>
-                    <th className="px-6 py-4 font-medium">Unit</th>
+                    <th className="px-6 py-4 font-medium">Authority for Issue</th>
+                    <th className="px-6 py-4 font-medium">Date Issued</th>
+                    <th className="px-6 py-4 font-medium">Deployment/Location</th>
                     <th className="px-6 py-4 font-medium">Status</th>
                     <th className="px-6 py-4 font-medium text-right">Action</th>
                   </tr>
@@ -629,113 +674,75 @@ export const AssetsPage = () => {
                 <tbody className="divide-y divide-[#0A4D66]/20 text-sm">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                         Loading...
                       </td>
                     </tr>
                   ) : filteredVehicles.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
+                      <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
                         No vehicles found
                       </td>
                     </tr>
                   ) : (
                     filteredVehicles.map((vehicle, idx) => {
-                      const operationStatus = normalizeOperationStatus(
-                        vehicle.operation_status ??
-                          vehicle.status ??
-                          vehicle.serviceability_status,
+                      const register = vehicleRegisterRow(
+                        vehicle,
+                        vehicleTypes?.find((t) => t.id === vehicle.vehicle_type_id)?.name,
+                        getUnitName(vehicle.unit_id ?? 0),
                       );
+                      const tone = vehicleStatusTone(vehicle.status);
+                      const open = () =>
+                        navigate(vehicleDetailsUrl(vehicle.id), {
+                          state: { from: "/dashboard/assets?tab=vehicle", fromLabel: "Assets" },
+                        });
 
                       return (
                         <tr
                           key={vehicle.id}
                           tabIndex={0}
                           role="button"
-                          title="Click to edit vehicle"
-                          onClick={(e) =>
-                            onInteractiveRowClick(e, () =>
-                              navigate(
-                                `/dashboard/assets/vehicles/${vehicle.id}/edit`,
-                                { state: { from: "/dashboard/assets", fromLabel: "Assets" } },
-                              ),
-                            )
-                          }
-                          onKeyDown={(e) =>
-                            onInteractiveRowKeyDown(e, () =>
-                              navigate(
-                                `/dashboard/assets/vehicles/${vehicle.id}/edit`,
-                                { state: { from: "/dashboard/assets", fromLabel: "Assets" } },
-                              ),
-                            )
-                          }
+                          title="Click to view vehicle"
+                          onClick={(e) => onInteractiveRowClick(e, open)}
+                          onKeyDown={(e) => onInteractiveRowKeyDown(e, open)}
                           className={cn(
                             "hover:bg-[#0A4D66]/20 transition-colors cursor-pointer focus:outline-none focus:bg-[#0A4D66]/30",
                             idx % 2 === 0 ? "bg-[#001219]" : "bg-[#001825]",
                           )}
                         >
                           <td className="px-6 py-4">
-                            <div className="w-8 h-8 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
-                              {vehicle.photo_url || vehicle.photo ? (
-                                <img
-                                  src={vehicle.photo_url || vehicle.photo || ""}
-                                  alt={vehicle.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Icon icon="mdi:car" className="w-5 h-5 text-[#7FD5FF]" />
-                              )}
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 shrink-0 rounded bg-[#0A4D66]/40 flex items-center justify-center overflow-hidden">
+                                {vehicle.photo_url || vehicle.photo ? (
+                                  <img
+                                    src={vehicle.photo_url || vehicle.photo || ""}
+                                    alt={vehicle.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <Icon icon="mdi:car" className="w-5 h-5 text-[#7FD5FF]" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-medium text-white">{register["Vehicle Type/Model"]}</div>
+                                <div className="text-[11px] text-gray-500">{vehicle.name}</div>
+                              </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 font-medium text-white">{vehicle.name}</td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {vehicle.registration_number || "-"}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {vehicle.serial_number || "-"}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {getVehicleTypeName(vehicle.vehicle_type_id)}
-                          </td>
-                          <td className="px-6 py-4 text-gray-300">
-                            {getUnitName(vehicle.unit_id ?? 0)}
-                          </td>
+                          <td className="px-6 py-4 text-gray-300">{register["Chassis Number"]}</td>
+                          <td className="px-6 py-4 text-gray-300">{register["Registration Number"]}</td>
+                          <td className="px-6 py-4 text-gray-300">{register["Authority for Issue"]}</td>
+                          <td className="px-6 py-4 text-gray-300 whitespace-nowrap">{register["Date Issued"]}</td>
+                          <td className="px-6 py-4 text-gray-300">{register["Deployment/Location"]}</td>
                           <td className="px-6 py-4">
-                            <span
-                              className={cn(
-                                "flex items-center gap-1.5",
-                                operationStatus === "operational"
-                                  ? "text-emerald-400"
-                                  : operationStatus === "under_maintenance"
-                                  ? "text-amber-400"
-                                  : "text-red-400",
-                              )}
-                            >
-                              <div
-                                className={cn(
-                                  "w-1.5 h-1.5 rounded-full",
-                                  operationStatus === "operational"
-                                    ? "bg-emerald-500"
-                                    : operationStatus === "under_maintenance"
-                                    ? "bg-amber-500"
-                                    : "bg-red-500",
-                                )}
-                              />
-                              {formatStatus(operationStatus)}
+                            <span className={cn("flex items-center gap-1.5 whitespace-nowrap", tone.text)}>
+                              <div className={cn("w-1.5 h-1.5 rounded-full", tone.dot)} />
+                              {vehicleStatusLabel(vehicle.status)}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate(
-                                  `/dashboard/assets/vehicles/${vehicle.id}/edit`,
-                                  { state: { from: "/dashboard/assets", fromLabel: "Assets" } },
-                                )
-                              }
-                              className="text-[#7FD5FF] hover:text-white text-xs"
-                            >
-                              Edit
+                            <button type="button" onClick={open} className="text-[#7FD5FF] hover:text-white text-xs">
+                              View
                             </button>
                           </td>
                         </tr>
@@ -1006,10 +1013,14 @@ export const AssetsPage = () => {
                     role="button"
                     title="Click to view asset details"
                     onClick={(e) =>
-                      onInteractiveRowClick(e, () => handleOpenDetail(asset.id))
+                      onInteractiveRowClick(e, () =>
+                        asset.type === "vehicle" ? navigate(vehicleDetailsUrl(asset.id)) : handleOpenDetail(asset.id),
+                      )
                     }
                     onKeyDown={(e) =>
-                      onInteractiveRowKeyDown(e, () => handleOpenDetail(asset.id))
+                      onInteractiveRowKeyDown(e, () =>
+                        asset.type === "vehicle" ? navigate(vehicleDetailsUrl(asset.id)) : handleOpenDetail(asset.id),
+                      )
                     }
                     className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-4 flex flex-col gap-4 relative overflow-hidden group hover:border-[#7FD5FF]/50 transition-colors cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]"
                   >

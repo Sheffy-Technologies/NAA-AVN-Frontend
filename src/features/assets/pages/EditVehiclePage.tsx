@@ -8,12 +8,14 @@ import {
   useGetVehiclesQuery,
   useUpdateVehicleMutation,
 } from "@/features/assets/api";
+import { VehicleRegisterInputs } from "@/features/assets/components/VehicleRegisterInputs";
+import { emptyVehicleRegisterValues, type VehicleRegisterValues } from "@/features/assets/vehicleHelpers";
 
 type VehicleFormValues = {
   name: string;
   vehicle_type_id: number | "";
   registration_number: string;
-  serial_number: string;
+  chassis_number: string;
   unit_id: number | "";
   photo: File | null;
 };
@@ -22,7 +24,7 @@ const emptyVehicleValues: VehicleFormValues = {
   name: "",
   vehicle_type_id: "",
   registration_number: "",
-  serial_number: "",
+  chassis_number: "",
   unit_id: "",
   photo: null,
 };
@@ -34,6 +36,11 @@ export const EditVehiclePage = () => {
 
   const [values, setValues] = useState<VehicleFormValues>(emptyVehicleValues);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [register, setRegister] = useState<VehicleRegisterValues>(emptyVehicleRegisterValues);
+  const setRegisterField = <K extends keyof VehicleRegisterValues>(field: K, value: VehicleRegisterValues[K]) => {
+    setRegister((prev) => ({ ...prev, [field]: value }));
+    setSubmitError(null);
+  };
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
 
   const { data: units = [] } = useGetUnitsQuery();
@@ -55,9 +62,16 @@ export const EditVehiclePage = () => {
       name: vehicle.name || "",
       vehicle_type_id: vehicle.vehicle_type_id ?? "",
       registration_number: vehicle.registration_number || "",
-      serial_number: vehicle.serial_number || "",
+      chassis_number: vehicle.chassis_number || "",
       unit_id: vehicle.unit_id ?? "",
       photo: null,
+    });
+    setRegister({
+      model: vehicle.model || "",
+      issue_authority: vehicle.issue_authority || "",
+      date_issued: vehicle.date_issued?.slice(0, 10) || "",
+      location: vehicle.location || "",
+      status: vehicle.status || "serviceable",
     });
     setPhotoPreviewUrl(vehicle.photo_url || vehicle.photo || null);
   }, [vehicle]);
@@ -71,7 +85,7 @@ export const EditVehiclePage = () => {
   }, [photoPreviewUrl]);
 
   const handleTextChange =
-    (field: "name" | "registration_number" | "serial_number") =>
+    (field: "name" | "registration_number" | "chassis_number") =>
     (event: ChangeEvent<HTMLInputElement>) => {
       setValues((prev) => ({ ...prev, [field]: event.target.value }));
       setSubmitError(null);
@@ -148,12 +162,17 @@ export const EditVehiclePage = () => {
         name: values.name.trim(),
         vehicle_type_id: values.vehicle_type_id,
         registration_number: values.registration_number.trim(),
-        serial_number: values.serial_number.trim(),
+        chassis_number: values.chassis_number.trim(),
         unit_id: values.unit_id,
+        model: register.model.trim(),
+        issue_authority: register.issue_authority.trim(),
+        date_issued: register.date_issued,
+        location: register.location.trim(),
+        status: register.status,
         photo: values.photo,
       }).unwrap();
 
-      navigate("/dashboard/assets");
+      navigate(`/dashboard/assets/vehicles/${vehicleId}`);
     } catch {
       setSubmitError("Failed to update vehicle. Please try again.");
     }
@@ -253,13 +272,13 @@ export const EditVehiclePage = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[11px] uppercase text-gray-400">Serial Number</label>
+            <label className="text-[11px] uppercase text-gray-400">Chassis Number</label>
             <input
               type="text"
-              value={values.serial_number}
-              onChange={handleTextChange("serial_number")}
-              title="Serial number"
-              placeholder="Enter serial number"
+              value={values.chassis_number}
+              onChange={handleTextChange("chassis_number")}
+              title="Chassis number"
+              placeholder="Enter chassis number"
               className="w-full bg-[#001825] border border-[#0A4D66]/40 rounded-md px-3 py-2 text-xs sm:text-sm text-white outline-none"
             />
           </div>
@@ -280,6 +299,8 @@ export const EditVehiclePage = () => {
               ))}
             </select>
           </div>
+
+          <VehicleRegisterInputs values={register} onChange={setRegisterField} />
 
           <div className="space-y-1">
             <label className="text-[11px] uppercase text-gray-400">Photo</label>

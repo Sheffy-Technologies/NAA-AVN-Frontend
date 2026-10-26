@@ -17,6 +17,12 @@ export type UserRecord = {
     id: number;
     name: string;
   }>;
+  /** The personnel record linked to this account (GET /users only). */
+  linked_personnel?: {
+    id: number;
+    name: string;
+    service_number: string | null;
+  } | null;
   created_at?: string | null;
   updated_at?: string | null;
 };

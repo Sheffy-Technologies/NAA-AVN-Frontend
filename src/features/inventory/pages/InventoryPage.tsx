@@ -40,6 +40,7 @@ import {
   formatAtaChapter,
 } from "../inventoryUtils";
 import { StoreModal } from "@/features/inventory/components/StoreModal";
+import { personName } from "@/features/inventory/procurementDocuments";
 import { StoreInventoryModal } from "@/features/inventory/components/StoreInventoryModal";
 import { DeleteStoreModal } from "@/features/inventory/components/DeleteStoreModal";
 
@@ -1170,7 +1171,7 @@ export const InventoryPage = () => {
   };
 
   const handleExportRequisitions = () => {
-    const headers = ["Date", "Time", "Requesting Location", "Status", "Last Updated By"];
+    const headers = ["Date", "Time", "Requesting Location", "Status", "Approved By", "Last Updated By"];
     const rows = (requisitionsData ?? []).map((r) => {
       const lastUpdatedBy = typeof r.last_updated_by === "string" ? r.last_updated_by : (r.last_updated_by?.name ?? "-");
       const location = r.requesting_unit?.name ?? (r.requesting_unit_id ? `Unit #${r.requesting_unit_id}` : "-");
@@ -1179,6 +1180,7 @@ export const InventoryPage = () => {
         formatTimeShort(r.created_at),
         location,
         normalizeRequisitionStatus(r.status),
+        personName(r.approved_by) || "-",
         lastUpdatedBy,
       ];
     });
@@ -2252,6 +2254,7 @@ export const InventoryPage = () => {
                         Requesting Location
                       </th>
                       <th className="px-6 py-4 font-medium">Status</th>
+                      <th className="px-6 py-4 font-medium">Approved By</th>
                       <th className="px-6 py-4 font-medium">Last Updated By</th>
                       <th className="px-6 py-4 font-medium text-right">
                         Action
@@ -2267,7 +2270,7 @@ export const InventoryPage = () => {
                     {isRequisitionsLoading ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="px-6 py-8 text-center text-gray-500"
                         >
                           Loading requisitions...
@@ -2276,7 +2279,7 @@ export const InventoryPage = () => {
                     ) : (filteredRequisitions.length ?? 0) === 0 ? (
                       <tr>
                         <td
-                          colSpan={6}
+                          colSpan={7}
                           className="px-6 py-8 text-center text-gray-500"
                         >
                           No requisitions found.
@@ -2361,6 +2364,14 @@ export const InventoryPage = () => {
                               >
                                 {statusLabel}
                               </span>
+                            </td>
+                            <td
+                              className={cn(
+                                "px-6 py-4",
+                                isDark ? "text-gray-300" : "text-slate-600",
+                              )}
+                            >
+                              {personName(requisition.approved_by) || "-"}
                             </td>
                             <td
                               className={cn(

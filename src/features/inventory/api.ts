@@ -290,6 +290,9 @@ export type InventoryRequisition = {
   requesting_unit?: InventoryUnit;
   requested_by?: InventoryRequisitionRequester | null;
   last_updated_by?: { id: number; name: string } | string | null;
+  /** The officer who moved the requisition to approved (directly or via the approval workflow). */
+  approved_by?: InventoryRequisitionRequester | null;
+  approved_at?: string | null;
 };
 
 export type InventoryRequisitionFilters = {
