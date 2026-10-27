@@ -53,5 +53,43 @@ export const printPaper = (element: HTMLElement | null, title: string) => {
   setTimeout(() => win.print(), 400);
 };
 
-export const downloadPaperPdf = (element: HTMLElement | null, fileName: string) =>
-  element ? downloadElementAsPdf({ element, fileName, backgroundColor: "#ffffff" }) : Promise.resolve();
+export const downloadPaperPdf = async (element: HTMLElement | null, fileName: string) => {
+  if (!element) return;
+
+  const clone = element.cloneNode(true) as HTMLElement;
+  const sources = element.querySelectorAll("input,textarea,select");
+  clone.querySelectorAll("input,textarea,select").forEach((node, i) => {
+    const src = sources[i] as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+    const span = document.createElement("span");
+    span.style.whiteSpace = "pre-wrap";
+    span.textContent = src.value || " ";
+    node.replaceWith(span);
+  });
+  clone.querySelectorAll(".noprint").forEach((n) => n.remove());
+
+  // Mount in off-screen container so layout, fonts, and fixed width calculate accurately
+  const container = document.createElement("div");
+  container.style.position = "fixed";
+  container.style.left = "-9999px";
+  container.style.top = "0";
+  container.style.width = "820px";
+  container.style.backgroundColor = "#ffffff";
+  container.style.zIndex = "-9999";
+  container.style.pointerEvents = "none";
+
+  const styleEl = document.createElement("style");
+  styleEl.textContent = `${PAPER_CSS} body{background:#fff;color:#000}`;
+  container.appendChild(styleEl);
+  container.appendChild(clone);
+  document.body.appendChild(container);
+
+  try {
+    await downloadElementAsPdf({
+      element: clone,
+      fileName,
+      backgroundColor: "#ffffff",
+    });
+  } finally {
+    container.remove();
+  }
+};

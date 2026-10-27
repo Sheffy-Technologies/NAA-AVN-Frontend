@@ -4,8 +4,8 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { BackButton } from "@/shared/ui/button/BackButton";
 import { useGetUnitsQuery, useDeleteUnitMutation, type Unit } from "@/shared/api/units";
-import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 
 type UnitRow = {
   id: number;
@@ -22,13 +22,7 @@ export const UnitsPage = () => {
   const [deleteUnit] = useDeleteUnitMutation();
   
   const [activeActionId, setActiveActionId] = useState<number | null>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
-
-  useClickOutside(
-    actionsRef, 
-    () => setActiveActionId(null), 
-    activeActionId !== null
-  );
+  const actionButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const units: UnitRow[] = useMemo(() => {
     if (!data) return [];
@@ -54,10 +48,6 @@ export const UnitsPage = () => {
     navigate("/dashboard/units/add", {
       state: { from: "/dashboard/units", fromLabel: "Units" },
     });
-  };
-
-  const handleActionClick = (id: number) => {
-    setActiveActionId(activeActionId === id ? null : id);
   };
 
   const handleView = (id: number) => {
@@ -187,12 +177,18 @@ export const UnitsPage = () => {
                         <span className="text-white">Active</span>
                       </div>
                     </td>
-                    <td className="px-4 sm:px-6 py-3 align-middle text-right relative">
+                    <td className="px-4 sm:px-6 py-3 align-middle text-right">
                       <button
                         type="button"
+                        ref={activeActionId === unit.id ? actionButtonRef : undefined}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleActionClick(unit.id);
+                          if (activeActionId === unit.id) {
+                            setActiveActionId(null);
+                          } else {
+                            actionButtonRef.current = e.currentTarget;
+                            setActiveActionId(unit.id);
+                          }
                         }}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
                       >
@@ -201,31 +197,6 @@ export const UnitsPage = () => {
                           className="w-5 h-5"
                         />
                       </button>
-                      {activeActionId === unit.id && (
-                        <div
-                          ref={actionsRef}
-                          className="absolute right-8 top-0 w-32 bg-[#001825] border border-[#0A4D66] rounded-md shadow-lg z-10 overflow-hidden"
-                        >
-                          <button
-                            onClick={() => handleView(unit.id)}
-                            className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/40 flex items-center gap-2"
-                          >
-                            <Icon icon="mdi:eye" className="w-4 h-4" /> View
-                          </button>
-                          <button
-                            onClick={() => handleEdit(unit.id)}
-                            className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/40 flex items-center gap-2"
-                          >
-                            <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(unit.id)}
-                            className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 flex items-center gap-2"
-                          >
-                            <Icon icon="mdi:trash-can" className="w-4 h-4" /> Delete
-                          </button>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 ))
@@ -234,6 +205,45 @@ export const UnitsPage = () => {
           </table>
         </div>
       </section>
+
+      <FloatingActionMenu
+        open={activeActionId !== null}
+        anchorRef={actionButtonRef}
+        onClose={() => setActiveActionId(null)}
+        widthClassName="w-32"
+      >
+        {activeActionId !== null && (
+          <div className="py-1 text-xs text-gray-200">
+            <button
+              onClick={() => {
+                handleView(activeActionId);
+                setActiveActionId(null);
+              }}
+              className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/40 flex items-center gap-2"
+            >
+              <Icon icon="mdi:eye" className="w-4 h-4" /> View
+            </button>
+            <button
+              onClick={() => {
+                handleEdit(activeActionId);
+                setActiveActionId(null);
+              }}
+              className="w-full text-left px-4 py-2 text-xs text-gray-300 hover:bg-[#0A4D66]/40 flex items-center gap-2"
+            >
+              <Icon icon="mdi:pencil" className="w-4 h-4" /> Edit
+            </button>
+            <button
+              onClick={() => {
+                handleDelete(activeActionId);
+                setActiveActionId(null);
+              }}
+              className="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-[#0A4D66]/40 flex items-center gap-2"
+            >
+              <Icon icon="mdi:trash-can" className="w-4 h-4" /> Delete
+            </button>
+          </div>
+        )}
+      </FloatingActionMenu>
     </div>
   );
 };

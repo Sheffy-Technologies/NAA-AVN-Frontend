@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { SearchableSelect, type SearchableSelectOption } from "@/shared/ui/select/SearchableSelect";
+import type { DueHorizon } from "@/features/maintenance/tracker/trackerHelpers";
 import {
   useGetMaintenanceDueItemsQuery,
   type MaintenanceDueItem,
@@ -65,6 +66,9 @@ export const MaintenanceTrackingRecords = () => {
   const [assetFilter, setAssetFilter] = useState<number | null>(null);
   const [dueFilter, setDueFilter] = useState<DueFilter>("all");
   const [partTypeFilter, setPartTypeFilter] = useState<MaintenanceDuePartType | "">("");
+  const [dueHorizonFilter, setDueHorizonFilter] = useState<DueHorizon>("all");
+  const [customHours, setCustomHours] = useState<string>("50");
+  const [customDays, setCustomDays] = useState<string>("30");
 
   // No filters sent to the API: it returns every tracked part system-wide, and
   // filtering client-side keeps the asset dropdown populated from the full set.
@@ -86,16 +90,74 @@ export const MaintenanceTrackingRecords = () => {
     return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [allRows]);
 
+  const parsedCustomHours = Number(customHours) || 50;
+  const parsedCustomDays = Number(customDays) || 30;
+
   const rows = useMemo(
     () =>
       allRows.filter((row) => {
         if (assetFilter !== null && row.asset_id !== assetFilter) return false;
         if (partTypeFilter && row.part_type !== partTypeFilter) return false;
-        if (dueFilter === "due") return row.status === "overdue" || row.status === "due_soon";
-        if (dueFilter !== "all") return row.status === dueFilter;
+        if (dueFilter === "due") {
+          if (row.status !== "overdue" && row.status !== "due_soon") return false;
+        } else if (dueFilter !== "all" && row.status !== dueFilter) {
+          return false;
+        }
+
+        if (dueHorizonFilter !== "all") {
+          const hrs = row.hours_remaining;
+          const days = row.days_remaining;
+          let match = true;
+          switch (dueHorizonFilter) {
+            case "hrs_50":
+              match = hrs !== null && hrs <= 50;
+              break;
+            case "hrs_100":
+              match = hrs !== null && hrs <= 100;
+              break;
+            case "hrs_200":
+              match = hrs !== null && hrs <= 200;
+              break;
+            case "hrs_500":
+              match = hrs !== null && hrs <= 500;
+              break;
+            case "custom_hrs":
+              match = hrs !== null && hrs <= parsedCustomHours;
+              break;
+            case "cal_1m":
+              match = days !== null && days <= 30;
+              break;
+            case "cal_2m":
+              match = days !== null && days <= 60;
+              break;
+            case "cal_3m":
+              match = days !== null && days <= 90;
+              break;
+            case "cal_6m":
+              match = days !== null && days <= 180;
+              break;
+            case "cal_1y":
+              match = days !== null && days <= 365;
+              break;
+            case "custom_days":
+              match = days !== null && days <= parsedCustomDays;
+              break;
+            case "combo_50h_1m":
+              match = (hrs !== null && hrs <= 50) || (days !== null && days <= 30);
+              break;
+            case "combo_100h_2m":
+              match = (hrs !== null && hrs <= 100) || (days !== null && days <= 60);
+              break;
+            case "combo_200h_3m":
+              match = (hrs !== null && hrs <= 200) || (days !== null && days <= 90);
+              break;
+          }
+          if (!match) return false;
+        }
+
         return true;
       }),
-    [allRows, assetFilter, dueFilter, partTypeFilter],
+    [allRows, assetFilter, dueFilter, partTypeFilter, dueHorizonFilter, parsedCustomHours, parsedCustomDays],
   );
 
   const counts = useMemo(
@@ -110,7 +172,18 @@ export const MaintenanceTrackingRecords = () => {
     [rows],
   );
 
-  const hasFilters = assetFilter !== null || dueFilter !== "all" || partTypeFilter !== "";
+  const hasFilters =
+    assetFilter !== null ||
+    dueFilter !== "all" ||
+    partTypeFilter !== "" ||
+    dueHorizonFilter !== "all";
+
+  const handleClearFilters = () => {
+    setAssetFilter(null);
+    setDueFilter("all");
+    setPartTypeFilter("");
+    setDueHorizonFilter("all");
+  };
 
   return (
     <div className="bg-[#001219] border border-[#0A4D66]/40 rounded-xl p-6">
@@ -126,11 +199,7 @@ export const MaintenanceTrackingRecords = () => {
         {hasFilters && (
           <button
             type="button"
-            onClick={() => {
-              setAssetFilter(null);
-              setDueFilter("all");
-              setPartTypeFilter("");
-            }}
+            onClick={handleClearFilters}
             className="text-xs text-[#7FD5FF] hover:underline"
           >
             Clear filters
@@ -138,7 +207,40 @@ export const MaintenanceTrackingRecords = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+      {/* Quick Due Horizon Chips */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-4 text-xs">
+        <span className="text-gray-400 font-semibold mr-1">Coming due:</span>
+        {[
+          { id: "all", label: "All" },
+          { id: "hrs_50", label: "≤ 50 hrs" },
+          { id: "hrs_100", label: "≤ 100 hrs" },
+          { id: "hrs_200", label: "≤ 200 hrs" },
+          { id: "cal_1m", label: "≤ 1 mo (30d)" },
+          { id: "cal_2m", label: "≤ 2 mos (60d)" },
+          { id: "cal_3m", label: "≤ 3 mos (90d)" },
+          { id: "cal_6m", label: "≤ 6 mos (180d)" },
+          { id: "cal_1y", label: "≤ 1 yr (365d)" },
+        ].map((chip) => {
+          const isSelected = dueHorizonFilter === chip.id;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              className={cn(
+                "rounded-full px-2.5 py-0.5 font-medium transition-colors border text-xs",
+                isSelected
+                  ? "bg-amber-900/40 text-amber-300 border-amber-500/50 font-bold"
+                  : "bg-[#001825] text-gray-300 border-[#0A4D66]/40 hover:border-[#7FD5FF]/50",
+              )}
+              onClick={() => setDueHorizonFilter(chip.id as DueHorizon)}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         <SearchableSelect
           placeholder="All Assets"
           searchPlaceholder="Search assets..."
@@ -147,6 +249,60 @@ export const MaintenanceTrackingRecords = () => {
           onChange={(value) => setAssetFilter(value === null ? null : Number(value))}
           buttonClassName="py-2"
         />
+
+        <div className="flex gap-2 items-center">
+          <select
+            title="Due horizon"
+            value={dueHorizonFilter}
+            onChange={(e) => setDueHorizonFilter(e.target.value as DueHorizon)}
+            className="w-full rounded-md border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-gray-200 focus:outline-none"
+          >
+            <option value="all">Due horizon: All</option>
+            <optgroup label="Operating Hours Remaining">
+              <option value="hrs_50">Due in ≤ 50 hours</option>
+              <option value="hrs_100">Due in ≤ 100 hours</option>
+              <option value="hrs_200">Due in ≤ 200 hours</option>
+              <option value="hrs_500">Due in ≤ 500 hours</option>
+              <option value="custom_hrs">Custom hours…</option>
+            </optgroup>
+            <optgroup label="Calendar Time Remaining">
+              <option value="cal_1m">Due in ≤ 1 month (30 days)</option>
+              <option value="cal_2m">Due in ≤ 2 months (60 days)</option>
+              <option value="cal_3m">Due in ≤ 3 months (90 days)</option>
+              <option value="cal_6m">Due in ≤ 6 months (180 days)</option>
+              <option value="cal_1y">Due in ≤ 1 year (365 days)</option>
+              <option value="custom_days">Custom days…</option>
+            </optgroup>
+            <optgroup label="Combined (Hours or Calendar)">
+              <option value="combo_50h_1m">Due in ≤ 50 hrs OR ≤ 1 mo</option>
+              <option value="combo_100h_2m">Due in ≤ 100 hrs OR ≤ 2 mos</option>
+              <option value="combo_200h_3m">Due in ≤ 200 hrs OR ≤ 3 mos</option>
+            </optgroup>
+          </select>
+          {dueHorizonFilter === "custom_hrs" && (
+            <input
+              type="number"
+              min="1"
+              step="5"
+              value={customHours}
+              onChange={(e) => setCustomHours(e.target.value)}
+              placeholder="50"
+              className="w-20 rounded-md border border-[#0A4D66]/40 bg-[#001825] px-2 py-2 text-sm text-gray-200 focus:outline-none"
+            />
+          )}
+          {dueHorizonFilter === "custom_days" && (
+            <input
+              type="number"
+              min="1"
+              step="5"
+              value={customDays}
+              onChange={(e) => setCustomDays(e.target.value)}
+              placeholder="30"
+              className="w-20 rounded-md border border-[#0A4D66]/40 bg-[#001825] px-2 py-2 text-sm text-gray-200 focus:outline-none"
+            />
+          )}
+        </div>
+
         <select
           title="Maintenance status"
           value={dueFilter}
@@ -159,6 +315,7 @@ export const MaintenanceTrackingRecords = () => {
             </option>
           ))}
         </select>
+
         <select
           title="Item type"
           value={partTypeFilter}

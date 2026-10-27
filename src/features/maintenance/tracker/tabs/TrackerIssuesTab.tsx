@@ -249,6 +249,20 @@ const VoucherEditor = ({ voucher, nav, initialFrom, initialPart }: { voucher: Vo
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!paperRef.current) return;
+    setIsDownloadingPdf(true);
+    try {
+      await downloadPaperPdf(paperRef.current, safeFileName(voucher?.reference ?? "issue-voucher"));
+      dispatch(showToast({ message: "PDF downloaded successfully.", type: "success" }));
+    } catch (e) {
+      dispatch(showToast({ message: apiError(e, "Could not generate PDF. Please try again."), type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const available = useMemo(() => {
     const map = new Map<string, number>();
@@ -396,7 +410,7 @@ const VoucherEditor = ({ voucher, nav, initialFrom, initialPart }: { voucher: Vo
         <Button size="sm" variant="secondary" onClick={() => printPaper(paperRef.current, voucher?.reference ?? "Issue voucher")}>
           Print
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => downloadPaperPdf(paperRef.current, safeFileName(voucher?.reference ?? "issue-voucher"))}>
+        <Button size="sm" variant="secondary" onClick={handleDownloadPdf} isLoading={isDownloadingPdf}>
           Download PDF
         </Button>
         {id && (status === "draft" || status === "approved") && perms.has("stock-issues.issue") && (

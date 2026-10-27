@@ -204,3 +204,117 @@ export const downloadText = (fileName: string, text: string, type = "application
 };
 
 export const safeFileName = (value: string) => value.replace(/[\\/:*?"<>|\s]+/g, "-");
+
+export type DueHorizon =
+  | "all"
+  | "hrs_50"
+  | "hrs_100"
+  | "hrs_200"
+  | "hrs_500"
+  | "custom_hrs"
+  | "cal_1m"
+  | "cal_2m"
+  | "cal_3m"
+  | "cal_6m"
+  | "cal_1y"
+  | "custom_days"
+  | "combo_50h_1m"
+  | "combo_100h_2m"
+  | "combo_200h_3m";
+
+export const DUE_HORIZON_OPTIONS: Array<{
+  value: DueHorizon;
+  label: string;
+  group?: string;
+  hours?: number;
+  days?: number;
+}> = [
+  { value: "all", label: "All due horizons" },
+  // Hours
+  { value: "hrs_50", label: "Due in ≤ 50 hours", group: "Operating Hours Remaining", hours: 50 },
+  { value: "hrs_100", label: "Due in ≤ 100 hours", group: "Operating Hours Remaining", hours: 100 },
+  { value: "hrs_200", label: "Due in ≤ 200 hours", group: "Operating Hours Remaining", hours: 200 },
+  { value: "hrs_500", label: "Due in ≤ 500 hours", group: "Operating Hours Remaining", hours: 500 },
+  { value: "custom_hrs", label: "Custom hours…", group: "Operating Hours Remaining" },
+  // Calendar
+  { value: "cal_1m", label: "Due in ≤ 1 month (30 days)", group: "Calendar Time Remaining", days: 30 },
+  { value: "cal_2m", label: "Due in ≤ 2 months (60 days)", group: "Calendar Time Remaining", days: 60 },
+  { value: "cal_3m", label: "Due in ≤ 3 months (90 days)", group: "Calendar Time Remaining", days: 90 },
+  { value: "cal_6m", label: "Due in ≤ 6 months (180 days)", group: "Calendar Time Remaining", days: 180 },
+  { value: "cal_1y", label: "Due in ≤ 1 year (365 days)", group: "Calendar Time Remaining", days: 365 },
+  { value: "custom_days", label: "Custom days…", group: "Calendar Time Remaining" },
+  // Combined
+  { value: "combo_50h_1m", label: "Due in ≤ 50 hrs OR ≤ 1 month", group: "Combined (Hours or Calendar)", hours: 50, days: 30 },
+  { value: "combo_100h_2m", label: "Due in ≤ 100 hrs OR ≤ 2 months", group: "Combined (Hours or Calendar)", hours: 100, days: 60 },
+  { value: "combo_200h_3m", label: "Due in ≤ 200 hrs OR ≤ 3 months", group: "Combined (Hours or Calendar)", hours: 200, days: 90 },
+];
+
+export const getItemDaysRemaining = (item: TrackerItem, referenceDate?: string): number | null => {
+  if (item.tracking.unit === "days" && item.tracking.remaining !== null) {
+    return item.tracking.remaining;
+  }
+  const dateStr = item.tracking.due_date || (item.basis === "expiry" ? item.expiry_date : null);
+  if (dateStr) {
+    const baseDate = referenceDate ? new Date(referenceDate) : new Date();
+    baseDate.setHours(0, 0, 0, 0);
+    const targetDate = new Date(dateStr.length === 10 ? `${dateStr}T00:00:00` : dateStr);
+    if (!Number.isNaN(targetDate.getTime()) && !Number.isNaN(baseDate.getTime())) {
+      return Math.round((targetDate.getTime() - baseDate.getTime()) / 86400000);
+    }
+  }
+  return null;
+};
+
+export const matchesDueHorizon = (
+  item: TrackerItem,
+  horizon: DueHorizon | string,
+  customHours = 50,
+  customDays = 30,
+  referenceDate?: string
+): boolean => {
+  if (!horizon || horizon === "all") return true;
+
+  const hoursRemaining =
+    item.tracking.unit === "hours" && item.tracking.remaining !== null
+      ? item.tracking.remaining
+      : null;
+
+  const daysRemaining = getItemDaysRemaining(item, referenceDate);
+
+  switch (horizon) {
+    case "hrs_50":
+      return hoursRemaining !== null && hoursRemaining <= 50;
+    case "hrs_100":
+      return hoursRemaining !== null && hoursRemaining <= 100;
+    case "hrs_200":
+      return hoursRemaining !== null && hoursRemaining <= 200;
+    case "hrs_500":
+      return hoursRemaining !== null && hoursRemaining <= 500;
+    case "custom_hrs":
+      return hoursRemaining !== null && hoursRemaining <= customHours;
+
+    case "cal_1m":
+      return daysRemaining !== null && daysRemaining <= 30;
+    case "cal_2m":
+      return daysRemaining !== null && daysRemaining <= 60;
+    case "cal_3m":
+      return daysRemaining !== null && daysRemaining <= 90;
+    case "cal_6m":
+      return daysRemaining !== null && daysRemaining <= 180;
+    case "cal_1y":
+      return daysRemaining !== null && daysRemaining <= 365;
+    case "custom_days":
+      return daysRemaining !== null && daysRemaining <= customDays;
+
+    case "combo_50h_1m":
+      return (hoursRemaining !== null && hoursRemaining <= 50) || (daysRemaining !== null && daysRemaining <= 30);
+    case "combo_100h_2m":
+      return (hoursRemaining !== null && hoursRemaining <= 100) || (daysRemaining !== null && daysRemaining <= 60);
+    case "combo_200h_3m":
+      return (hoursRemaining !== null && hoursRemaining <= 200) || (daysRemaining !== null && daysRemaining <= 90);
+
+    default:
+      return true;
+  }
+};
+

@@ -34,12 +34,12 @@ const sanitizeFileName = (value: string) =>
 export const downloadElementAsPdf = async ({
   element,
   fileName,
-  backgroundColor = "#001219",
+  backgroundColor = "#ffffff",
 }: DownloadElementAsPdfParams) => {
-  // html2canvas-pro, not html2canvas: Tailwind v4 colours are oklab()/oklch()
-  // and color-mix(), which the original html2canvas can't parse.
+  // html2canvas-pro handles modern color spaces (oklch, color-mix) in Tailwind v4;
+  // fall back to standard html2canvas if html2canvas-pro is unavailable.
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-    import("html2canvas-pro"),
+    import("html2canvas-pro" as string).catch(() => import("html2canvas")),
     import("jspdf"),
   ]);
 
@@ -49,7 +49,7 @@ export const downloadElementAsPdf = async ({
       useCORS: true,
       backgroundColor,
       ignoreElements: ignoreImages
-        ? (node) => node.nodeName.toUpperCase() === "IMG"
+        ? (node: Element) => node.nodeName.toUpperCase() === "IMG"
         : undefined,
     });
 
@@ -64,13 +64,15 @@ export const downloadElementAsPdf = async ({
   try {
     rendered = await captureAsImageData(false);
   } catch (error) {
-    if (!isImageOrCorsError(error)) {
+    if (isImageOrCorsError(error)) {
+      console.warn("Retrying PDF generation without <img> elements due to CORS/rendering constraints", {
+        fileName,
+        error,
+      });
+      rendered = await captureAsImageData(true);
+    } else {
       throw error;
     }
-
-    // An image from another origin taints the canvas: try again without images.
-    console.warn("Retrying PDF generation without <img> elements due to CORS/security constraints", { fileName });
-    rendered = await captureAsImageData(true);
   }
 
   const { canvas, imageData } = rendered;

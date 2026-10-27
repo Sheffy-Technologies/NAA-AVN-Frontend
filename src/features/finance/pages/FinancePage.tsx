@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { BackButton } from "@/shared/ui/button/BackButton";
 import {
@@ -200,6 +201,8 @@ export const FinancePage = () => {
   );
   const expensesTableRef = useRef<HTMLDivElement>(null);
   const budgetsTableRef = useRef<HTMLDivElement>(null);
+  const expenseActionButtonRef = useRef<HTMLButtonElement | null>(null);
+  const budgetActionButtonRef = useRef<HTMLButtonElement | null>(null);
   const expenseSliderRef = useRef<HTMLDivElement>(null);
 
   const summaryCards = useMemo(() => {
@@ -481,26 +484,6 @@ export const FinancePage = () => {
     }
   };
 
-  const handleToggleExpenseDetail = (id: number) => {
-    setOpenExpenseDetailId((current) => (current === id ? null : id));
-  };
-
-  const handleToggleBudgetActions = (id: number) => {
-    setOpenBudgetActionId((current) => (current === id ? null : id));
-  };
-
-  useClickOutside(
-    expensesTableRef,
-    () => setOpenExpenseDetailId(null),
-    activeTab === "expenses" && openExpenseDetailId !== null,
-  );
-
-  useClickOutside(
-    budgetsTableRef,
-    () => setOpenBudgetActionId(null),
-    activeTab === "budgets" && openBudgetActionId !== null,
-  );
-
   useClickOutside(accountMenuRef, () => setAccountMenuOpen(false), accountMenuOpen);
 
   const selectedAccount = useMemo(
@@ -519,6 +502,22 @@ export const FinancePage = () => {
   const activeExpenseRow = useMemo(
     () => expenses.find((expense) => expense.id === activeExpenseId),
     [activeExpenseId, expenses],
+  );
+
+  const openExpenseDetail = useMemo(
+    () =>
+      openExpenseDetailId != null
+        ? (filteredExpenses.find((e) => e.id === openExpenseDetailId) ?? null)
+        : null,
+    [filteredExpenses, openExpenseDetailId],
+  );
+
+  const openBudgetAction = useMemo(
+    () =>
+      openBudgetActionId != null
+        ? (filteredBudgets.find((b) => b.id === openBudgetActionId) ?? null)
+        : null,
+    [filteredBudgets, openBudgetActionId],
   );
 
   const handleGenerateReport = () => {
@@ -1031,57 +1030,23 @@ export const FinancePage = () => {
                       <td className="px-4 py-3 align-middle text-white">
                         {row.date}
                       </td>
-                      <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
+                      <td className="px-4 sm:px-6 py-3 align-middle text-right">
                         <button
                           type="button"
+                          ref={openExpenseDetailId === row.id ? expenseActionButtonRef : undefined}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleToggleExpenseDetail(row.id);
+                            if (openExpenseDetailId === row.id) {
+                              setOpenExpenseDetailId(null);
+                            } else {
+                              expenseActionButtonRef.current = e.currentTarget;
+                              setOpenExpenseDetailId(row.id);
+                            }
                           }}
                           className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                         >
                           <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
                         </button>
-
-                        {openExpenseDetailId === row.id && (
-                          <div className="absolute right-4 top-10 z-20 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
-                            <div className="py-1 text-xs text-gray-200">
-                              <button
-                                type="button"
-                                onClick={() => handleViewExpense(row.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:eye-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>View</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleEditExpense(row.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:pencil-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteExpense(row.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                              >
-                                <Icon
-                                  icon="mdi:trash-can-outline"
-                                  className="w-4 h-4"
-                                />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))
@@ -1257,66 +1222,23 @@ export const FinancePage = () => {
                           },
                         )}
                       </td>
-                      <td className="relative px-4 sm:px-6 py-3 align-middle text-right">
+                      <td className="px-4 sm:px-6 py-3 align-middle text-right">
                         <button
                           type="button"
+                          ref={openBudgetActionId === budget.id ? budgetActionButtonRef : undefined}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleToggleBudgetActions(budget.id);
+                            if (openBudgetActionId === budget.id) {
+                              setOpenBudgetActionId(null);
+                            } else {
+                              budgetActionButtonRef.current = e.currentTarget;
+                              setOpenBudgetActionId(budget.id);
+                            }
                           }}
                           className="inline-flex items-center justify-center w-8 h-8 rounded-full hover:bg-[#0A4D66]/40 text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                         >
                           <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
                         </button>
-
-                        {openBudgetActionId === budget.id && (
-                          <div className="absolute right-4 top-10 z-20 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
-                            <div className="py-1 text-xs text-gray-200">
-                              <button
-                                type="button"
-                                onClick={() => handleViewBudget(budget.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:eye-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>View</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:pencil-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Edit</span>
-                              </button>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:download-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Download</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteBudget(budget.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                              >
-                                <Icon
-                                  icon="mdi:trash-can-outline"
-                                  className="w-4 h-4"
-                                />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))
@@ -1489,6 +1411,120 @@ export const FinancePage = () => {
         onImportRow={handleImportExpenseRow}
         onClose={() => setIsImportOpen(false)}
       />
+
+      <FloatingActionMenu
+        open={openExpenseDetailId !== null && openExpenseDetail !== null}
+        anchorRef={expenseActionButtonRef}
+        onClose={() => setOpenExpenseDetailId(null)}
+        widthClassName="w-40"
+      >
+        {openExpenseDetail && (
+          <div className="py-1 text-xs text-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                handleViewExpense(openExpenseDetail.id);
+                setOpenExpenseDetailId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:eye-outline" className="w-4 h-4 text-gray-300" />
+              <span>View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleEditExpense(openExpenseDetail.id);
+                setOpenExpenseDetailId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon
+                icon="mdi:pencil-outline"
+                className="w-4 h-4 text-gray-300"
+              />
+              <span>Edit</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDeleteExpense(openExpenseDetail.id);
+                setOpenExpenseDetailId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+            >
+              <Icon
+                icon="mdi:trash-can-outline"
+                className="w-4 h-4"
+              />
+              <span>Delete</span>
+            </button>
+          </div>
+        )}
+      </FloatingActionMenu>
+
+      <FloatingActionMenu
+        open={openBudgetActionId !== null && openBudgetAction !== null}
+        anchorRef={budgetActionButtonRef}
+        onClose={() => setOpenBudgetActionId(null)}
+        widthClassName="w-40"
+      >
+        {openBudgetAction && (
+          <div className="py-1 text-xs text-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                handleViewBudget(openBudgetAction.id);
+                setOpenBudgetActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:eye-outline" className="w-4 h-4 text-gray-300" />
+              <span>View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpenBudgetActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon
+                icon="mdi:pencil-outline"
+                className="w-4 h-4 text-gray-300"
+              />
+              <span>Edit</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpenBudgetActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon
+                icon="mdi:download-outline"
+                className="w-4 h-4 text-gray-300"
+              />
+              <span>Download</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDeleteBudget(openBudgetAction.id);
+                setOpenBudgetActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+            >
+              <Icon
+                icon="mdi:trash-can-outline"
+                className="w-4 h-4"
+              />
+              <span>Delete</span>
+            </button>
+          </div>
+        )}
+      </FloatingActionMenu>
     </div>
   );
 };
