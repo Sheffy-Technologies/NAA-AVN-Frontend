@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@iconify/react";
 import { useGetExpensesQuery } from "@/features/finance/api";
+import { useGetAssetsQuery } from "@/features/assets/api";
 import { useAppSelector } from "@/shared/hooks/redux";
 import { cn } from "@/shared/utils/cn";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
@@ -298,6 +299,11 @@ export const DashboardPage = () => {
       skip: activeTab !== "maintenance",
     });
 
+  const { data: aircraftAssets = [] } = useGetAssetsQuery(
+    { type: "aircraft" },
+    { skip: activeTab !== "maintenance" },
+  );
+
   const { data: finance, isFetching: isFetchingFinance } =
     useGetDashboardFinanceQuery(undefined, {
       skip: activeTab !== "finances",
@@ -413,37 +419,61 @@ export const DashboardPage = () => {
   }, [operations]);
 
   const maintenanceCards: Card[] = useMemo(() => {
+    const aircraftList = aircraftAssets.length > 0 ? aircraftAssets : (maintenance?.recent_aircrafts ?? []);
+    const totalAircraft = aircraftAssets.length > 0 ? aircraftAssets.length : (maintenance?.total_aircraft ?? 0);
+
+    let serviceable = 0;
+    let underMaintenance = 0;
+    let grounded = 0;
+
+    if (aircraftList.length > 0) {
+      aircraftList.forEach((a) => {
+        const status = a.serviceability_status || "serviceable";
+        if (status === "serviceable") {
+          serviceable++;
+        } else if (status === "under_maintenance") {
+          underMaintenance++;
+        } else if (status === "grounded" || status === "medical" || status === "unserviceable") {
+          grounded++;
+        }
+      });
+    } else {
+      serviceable = maintenance?.maintenance_events?.serviceable ?? 0;
+      underMaintenance = maintenance?.maintenance_events?.under_maintenance ?? 0;
+      grounded = maintenance?.maintenance_events?.grounded ?? 0;
+    }
+
     return [
       {
         label: "Total",
-        value: maintenance?.total_aircraft ?? 0,
+        value: totalAircraft,
         icon: "mdi:airplane",
         badge: "Fleet",
         badgeColor: "sky",
       },
       {
         label: "Serviceable",
-        value: maintenance?.maintenance_events?.serviceable ?? 0,
+        value: serviceable,
         icon: "mdi:airplane-check",
         badge: "Ready",
         badgeColor: "emerald",
       },
       {
         label: "Under Maintenance",
-        value: maintenance?.maintenance_events?.under_maintenance ?? 0,
+        value: underMaintenance,
         icon: "mdi:toolbox",
         badge: "Hangar",
         badgeColor: "amber",
       },
       {
         label: "Grounded",
-        value: maintenance?.maintenance_events?.grounded ?? 0,
+        value: grounded,
         icon: "mdi:airplane-off",
         badge: "AOG",
         badgeColor: "red",
       },
     ];
-  }, [maintenance]);
+  }, [aircraftAssets, maintenance]);
 
   const personnelCards: Card[] = useMemo(() => {
     return [

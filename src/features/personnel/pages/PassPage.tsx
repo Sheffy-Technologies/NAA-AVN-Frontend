@@ -20,9 +20,9 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch, useAppSelector } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
-import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import { useGetActiveApprovalModulesQuery } from "@/features/approvals/api";
 import { ApprovalDialog } from "@/features/approvals/components/ApprovalPanel";
 
@@ -105,9 +105,7 @@ export const PassPage = () => {
 
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [editingPass, setEditingPass] = useState<Pass | null>(null);
-  const actionMenuRef = useRef<HTMLTableCellElement>(null);
-
-  useClickOutside(actionMenuRef, () => setOpenActionId(null), openActionId !== null);
+  const actionButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const authUser = useAppSelector((state) => state.auth.user);
   const currentUserId = authUser?.id ? Number(authUser.id) : null;
@@ -206,6 +204,14 @@ export const PassPage = () => {
       return name.includes(q);
     });
   }, [passHistory, historySearch]);
+
+  const openActionPass = useMemo(
+    () =>
+      openActionId
+        ? (filteredHistory.find((p) => p.id === openActionId) ?? null)
+        : null,
+    [filteredHistory, openActionId],
+  );
 
   return (
     <div className="px-2 sm:px-0">
@@ -668,68 +674,23 @@ export const PassPage = () => {
                         <td className="px-4 py-3 text-gray-300 max-w-xs truncate">
                           {pass.remarks ?? "—"}
                         </td>
-                        <td
-                          className="relative px-4 sm:px-6 py-3 text-right"
-                          ref={openActionId === pass.id ? actionMenuRef : undefined}
-                        >
+                        <td className="px-4 sm:px-6 py-3 text-right">
                           <button
                             type="button"
-                            onClick={() =>
-                              setOpenActionId((c) =>
-                                c === pass.id ? null : pass.id,
-                              )
-                            }
+                            ref={openActionId === pass.id ? actionButtonRef : undefined}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (openActionId === pass.id) {
+                                setOpenActionId(null);
+                              } else {
+                                actionButtonRef.current = e.currentTarget;
+                                setOpenActionId(pass.id);
+                              }
+                            }}
                             className="inline-flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#0A4D66]/40 text-gray-300"
                           >
                             <Icon icon="mdi:dots-vertical" className="w-4 h-4" />
                           </button>
-                          {openActionId === pass.id && (
-                            <div className="absolute right-4 top-9 z-20 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
-                              <div className="py-1 text-xs text-gray-200">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigate(
-                                      `/dashboard/personnel/${pass.personnel_id}`,
-                                    );
-                                    setOpenActionId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                                >
-                                  <Icon
-                                    icon="mdi:account-outline"
-                                    className="w-4 h-4"
-                                  />
-                                  View Personnel
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingPass(pass);
-                                    setOpenActionId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                                >
-                                  <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleDeletePass(pass.id);
-                                    setOpenActionId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                                >
-                                  <Icon
-                                    icon="mdi:trash-can-outline"
-                                    className="w-4 h-4"
-                                  />
-                                  Delete
-                                </button>
-                              </div>
-                            </div>
-                          )}
                         </td>
                       </tr>
                     ))
@@ -761,6 +722,51 @@ export const PassPage = () => {
           }}
         />
       )}
+
+      <FloatingActionMenu
+        open={openActionId !== null && openActionPass !== null}
+        anchorRef={actionButtonRef}
+        onClose={() => setOpenActionId(null)}
+        widthClassName="w-40"
+      >
+        {openActionPass && (
+          <div className="py-1 text-xs text-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                navigate(`/dashboard/personnel/${openActionPass.personnel_id}`);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:account-outline" className="w-4 h-4" />
+              View Personnel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingPass(openActionPass);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDeletePass(openActionPass.id);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              Delete
+            </button>
+          </div>
+        )}
+      </FloatingActionMenu>
     </div>
   );
 };

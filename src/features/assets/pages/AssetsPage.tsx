@@ -25,6 +25,7 @@ import { cn } from "@/shared/utils/cn";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
 import { FacilitiesMapView } from "@/features/assets/components/FacilitiesMapView";
+import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import {
   VEHICLE_STATUSES,
   vehicleRegisterRow,
@@ -116,13 +117,8 @@ export const AssetsPage = () => {
   const location = useLocation();
   const [openActionId, setOpenActionId] = useState<number | null>(null);
   const [statusMenuForId, setStatusMenuForId] = useState<number | null>(null);
-  const actionMenuRef = useRef<HTMLTableCellElement>(null);
+  const actionButtonRef = useRef<HTMLButtonElement | null>(null);
   const statusMenuRef = useRef<HTMLDivElement>(null);
-
-  useClickOutside(actionMenuRef, () => {
-    setOpenActionId(null);
-    setStatusMenuForId(null);
-  });
 
   useClickOutside(statusMenuRef, () => {
     setStatusMenuForId(null);
@@ -182,11 +178,6 @@ export const AssetsPage = () => {
     }
   };
 
-  const handleToggleActions = (id: number) => {
-    setOpenActionId((current) => (current === id ? null : id));
-    setStatusMenuForId(null);
-  };
-
   const handleOpenDetail = (id: number) => {
     navigate(`/dashboard/assets/${id}`, {
       state: { from: "/dashboard/assets", fromLabel: "Assets" },
@@ -224,7 +215,7 @@ export const AssetsPage = () => {
 
     if (normalized === "serviceable") return "operational";
     if (normalized === "under_maintenance") return "under_maintenance";
-    if (normalized === "grounded") return "grounded";
+    if (normalized === "grounded" || normalized === "unserviceable" || normalized === "medical") return "grounded";
 
     return normalized;
   };
@@ -346,6 +337,8 @@ export const AssetsPage = () => {
 
     return matchesUnit && matchesOperationStatus;
   });
+
+  const openActionAsset = openActionId ? (filteredAssets.find((a) => a.id === openActionId) ?? null) : null;
 
   // Stats
   const total = filteredAssets.length;
@@ -856,19 +849,22 @@ export const AssetsPage = () => {
                             {formatStatus(asset.serviceability_status)}
                           </span>
                         </td>
-                        <td
-                          className="relative px-6 py-4 text-right"
-                          ref={
-                            openActionId === asset.id ? actionMenuRef : undefined
-                          }
-                        >
+                        <td className="px-6 py-4 text-right">
                           <button
                             type="button"
                             title="Open actions"
                             aria-label="Open actions"
+                            ref={openActionId === asset.id ? actionButtonRef : undefined}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleToggleActions(asset.id);
+                              if (openActionId === asset.id) {
+                                setOpenActionId(null);
+                                setStatusMenuForId(null);
+                              } else {
+                                actionButtonRef.current = e.currentTarget;
+                                setOpenActionId(asset.id);
+                                setStatusMenuForId(null);
+                              }
                             }}
                             className="text-gray-400 hover:text-white"
                           >
@@ -877,100 +873,6 @@ export const AssetsPage = () => {
                               className="w-5 h-5"
                             />
                           </button>
-
-                          {openActionId === asset.id && (
-                            <div className="absolute right-8 top-8 z-50 w-48 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl text-left">
-                              <div className="py-1 text-xs text-gray-200">
-                                <button
-                                  onClick={() => handleOpenDetail(asset.id)}
-                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                                >
-                                  <Icon
-                                    icon="mdi:eye-outline"
-                                    className="w-4 h-4 text-gray-300"
-                                  />
-                                  <span>View</span>
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    navigate(`/dashboard/assets/${asset.id}/edit`)
-                                  }
-                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                                >
-                                  <Icon
-                                    icon="mdi:pencil-outline"
-                                    className="w-4 h-4 text-gray-300"
-                                  />
-                                  <span>Edit</span>
-                                </button>
-                                <div className="relative">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setStatusMenuForId((current) =>
-                                        current === asset.id ? null : asset.id,
-                                      );
-                                    }}
-                                    className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                                  >
-                                    <span className="inline-flex items-center gap-2">
-                                      <Icon
-                                        icon="mdi:swap-horizontal"
-                                        className="w-4 h-4 text-gray-300"
-                                      />
-                                      <span>Update Status</span>
-                                    </span>
-                                    <Icon
-                                      icon="mdi:chevron-right"
-                                      className="w-4 h-4 text-gray-400"
-                                    />
-                                  </button>
-                                  {statusMenuForId === asset.id && (
-                                    <div
-                                      ref={statusMenuRef}
-                                      className="absolute top-0 right-full mr-1 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl"
-                                    >
-                                      {STATUS_OPTIONS.map((status) => (
-                                        <button
-                                          key={status}
-                                          onClick={() =>
-                                            handleChangeStatus(asset.id, status)
-                                          }
-                                          className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#0A4D66]/40"
-                                        >
-                                          <span>{formatStatus(status)}</span>
-                                          {asset.serviceability_status ===
-                                            status && (
-                                            <Icon
-                                              icon="mdi:check"
-                                              className="w-4 h-4 text-emerald-400"
-                                            />
-                                          )}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                <button className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left">
-                                  <Icon
-                                    icon="mdi:clock-outline"
-                                    className="w-4 h-4 text-gray-300"
-                                  />
-                                  <span>Log Flight Hrs</span>
-                                </button>
-                                <button
-                                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                                  onClick={() => handleDeleteAsset(asset.id, asset.name)}
-                                >
-                                  <Icon
-                                    icon="mdi:trash-can-outline"
-                                    className="w-4 h-4"
-                                  />
-                                  <span>Delete</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
                         </td>
                       </tr>
                     ))
@@ -1141,6 +1043,105 @@ export const AssetsPage = () => {
         ))}
       </div>
       )}
+
+      <FloatingActionMenu
+        open={openActionId !== null && openActionAsset !== null}
+        anchorRef={actionButtonRef}
+        onClose={() => {
+          setOpenActionId(null);
+          setStatusMenuForId(null);
+        }}
+        widthClassName="w-48"
+      >
+        {openActionAsset && (
+          <div className="py-1 text-xs text-gray-200">
+            <button
+              onClick={() => handleOpenDetail(openActionAsset.id)}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left text-gray-200 hover:text-white"
+            >
+              <Icon icon="mdi:eye-outline" className="w-4 h-4 text-gray-300" />
+              <span>View</span>
+            </button>
+            <button
+              onClick={() => {
+                navigate(`/dashboard/assets/${openActionAsset.id}/edit`);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left text-gray-200 hover:text-white"
+            >
+              <Icon icon="mdi:pencil-outline" className="w-4 h-4 text-gray-300" />
+              <span>Edit</span>
+            </button>
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setStatusMenuForId((current) =>
+                    current === openActionAsset.id ? null : openActionAsset.id,
+                  );
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left text-gray-200 hover:text-white"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Icon
+                    icon="mdi:swap-horizontal"
+                    className="w-4 h-4 text-gray-300"
+                  />
+                  <span>Update Status</span>
+                </span>
+                <Icon
+                  icon="mdi:chevron-right"
+                  className="w-4 h-4 text-gray-400"
+                />
+              </button>
+              {statusMenuForId === openActionAsset.id && (
+                <div
+                  ref={statusMenuRef}
+                  className="absolute top-0 right-full mr-1 w-40 bg-[#001219] border border-[#0A4D66]/60 rounded-md shadow-2xl z-50"
+                >
+                  {STATUS_OPTIONS.map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => {
+                        handleChangeStatus(openActionAsset.id, status);
+                        setOpenActionId(null);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white"
+                    >
+                      <span>{formatStatus(status)}</span>
+                      {openActionAsset.serviceability_status === status && (
+                        <Icon
+                          icon="mdi:check"
+                          className="w-4 h-4 text-emerald-400"
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => {
+                navigate(`/dashboard/assets/${openActionAsset.id}`, {
+                  state: { from: "/dashboard/assets", fromLabel: "Assets", tab: "flight-logs" },
+                });
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left text-gray-200 hover:text-white"
+            >
+              <Icon icon="mdi:clock-outline" className="w-4 h-4 text-gray-300" />
+              <span>Log Flight Hrs</span>
+            </button>
+            <button
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+              onClick={() => handleDeleteAsset(openActionAsset.id, openActionAsset.name)}
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              <span>Delete</span>
+            </button>
+          </div>
+        )}
+      </FloatingActionMenu>
 
       <ImportCsvModal
         open={isImportOpen}

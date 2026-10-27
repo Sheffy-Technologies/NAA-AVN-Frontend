@@ -257,6 +257,22 @@ const SparesRequestEditor = ({ request, nav }: { request: SparesRequest; nav: Tr
     }
   };
 
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!paperRef.current || isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      await downloadPaperPdf(paperRef.current, safeFileName(request.request_number));
+      dispatch(showToast({ message: "PDF downloaded successfully.", type: "success" }));
+    } catch (e) {
+      console.error("PDF download error:", e);
+      dispatch(showToast({ message: "Failed to download PDF. Please try again.", type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   const remove = async () => {
     try {
       await deleteRequest(request.id).unwrap();
@@ -375,7 +391,12 @@ const SparesRequestEditor = ({ request, nav }: { request: SparesRequest; nav: Tr
         <Button size="sm" variant="secondary" onClick={() => printPaper(paperRef.current, request.request_number)}>
           Print
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => downloadPaperPdf(paperRef.current, safeFileName(request.request_number))}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleDownloadPdf}
+          isLoading={isDownloadingPdf}
+        >
           Download PDF
         </Button>
         {perms.has("spares-requests.delete") && (

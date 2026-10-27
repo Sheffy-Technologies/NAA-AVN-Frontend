@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import { PersonnelModuleTabs } from "../components/PersonnelModuleTabs";
 import { RegisterCourseModal } from "../components/RegisterCourseModal";
 import { EditCourseModal } from "../components/EditCourseModal";
@@ -17,7 +18,6 @@ import { useGetUnitsQuery } from "@/shared/api/units";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
-import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { useAppSelector } from "@/app/store";
 import { useGetActiveApprovalModulesQuery } from "@/features/approvals/api";
 import { ApprovalDialog } from "@/features/approvals/components/ApprovalPanel";
@@ -56,8 +56,7 @@ export const CoursePage = () => {
   const canViewApprovals = useAppSelector((s) => (s.auth.user?.permissions ?? []).includes("approvals.viewAny"));
   const { data: activeApprovalModules = [] } = useGetActiveApprovalModulesQuery(undefined, { skip: !canViewApprovals });
   const coursesNeedApproval = activeApprovalModules.includes("courses");
-  const actionMenuRef = useRef<HTMLTableCellElement>(null);
-  useClickOutside(actionMenuRef, () => setOpenActionId(null), openActionId !== null);
+  const actionButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const { data: units = [] } = useGetUnitsQuery();
   const { data: ranks = [] } = useGetPersonnelRanksQuery();
@@ -88,6 +87,14 @@ export const CoursePage = () => {
       return name.includes(q) || c.title.toLowerCase().includes(q);
     });
   }, [courses, search]);
+
+  const openActionCourse = useMemo(
+    () =>
+      openActionId
+        ? (filteredCourses.find((c) => c.id === openActionId) ?? null)
+        : null,
+    [filteredCourses, openActionId],
+  );
 
   return (
     <div className="px-2 sm:px-0">
@@ -246,72 +253,23 @@ export const CoursePage = () => {
                         {course.status}
                       </span>
                     </td>
-                    <td
-                      className="relative px-4 sm:px-6 py-3 text-right"
-                      ref={openActionId === course.id ? actionMenuRef : undefined}
-                    >
+                    <td className="px-4 sm:px-6 py-3 text-right">
                       <button
                         type="button"
+                        ref={openActionId === course.id ? actionButtonRef : undefined}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setOpenActionId((c) => (c === course.id ? null : course.id));
+                          if (openActionId === course.id) {
+                            setOpenActionId(null);
+                          } else {
+                            actionButtonRef.current = e.currentTarget;
+                            setOpenActionId(course.id);
+                          }
                         }}
                         className="inline-flex items-center justify-center w-7 h-7 rounded-full hover:bg-[#0A4D66]/40 text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#7FD5FF]/50"
                       >
                         <Icon icon="mdi:dots-vertical" className="w-4 h-4" />
                       </button>
-                      {openActionId === course.id && (
-                        <div className="absolute right-4 top-9 z-20 w-40 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
-                          <div className="py-1 text-xs text-gray-200">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigate(`/dashboard/personnel/${course.personnel_id}`);
-                                setOpenActionId(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                            >
-                              <Icon icon="mdi:account-outline" className="w-4 h-4" />
-                              View Personnel
-                            </button>
-                            {coursesNeedApproval && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setApprovalCourseId(course.id);
-                                  setOpenActionId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon icon="mdi:file-sign" className="w-4 h-4" />
-                                Approval
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingCourse(course);
-                                setOpenActionId(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                            >
-                              <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleDeleteCourse(course.id);
-                                setOpenActionId(null);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                            >
-                              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </td>
                   </tr>
                 ))
@@ -342,6 +300,64 @@ export const CoursePage = () => {
       />
 
       <EditCourseModal course={editingCourse} onClose={() => setEditingCourse(null)} />
+
+      <FloatingActionMenu
+        open={openActionId !== null && openActionCourse !== null}
+        anchorRef={actionButtonRef}
+        onClose={() => setOpenActionId(null)}
+        widthClassName="w-40"
+      >
+        {openActionCourse && (
+          <div className="py-1 text-xs text-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                navigate(`/dashboard/personnel/${openActionCourse.personnel_id}`);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:account-outline" className="w-4 h-4" />
+              View Personnel
+            </button>
+            {coursesNeedApproval && (
+              <button
+                type="button"
+                onClick={() => {
+                  setApprovalCourseId(openActionCourse.id);
+                  setOpenActionId(null);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+              >
+                <Icon icon="mdi:file-sign" className="w-4 h-4" />
+                Approval
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingCourse(openActionCourse);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDeleteCourse(openActionCourse.id);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              Delete
+            </button>
+          </div>
+        )}
+      </FloatingActionMenu>
     </div>
   );
 };
