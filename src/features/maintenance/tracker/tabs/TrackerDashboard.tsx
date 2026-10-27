@@ -4,7 +4,7 @@ import { Button } from "../components/TButton";
 import { InfoTip } from "@/shared/ui/tooltip/InfoTip";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
-import { useUpdateTrackerCountersMutation, type TrackerFleetRow, type TrackerItem, type TrackerSheet, type TrackerStatus } from "../api";
+import { useUpdateTrackerCountersMutation, type TrackerItem, type TrackerSheet, type TrackerStatus } from "../api";
 import { COUNTER_HELP, STATUS_HELP, STATUS_LABEL, apiError, fmt, fmtDate, remainingText, today, useTrackerPermissions } from "../trackerHelpers";
 import { StatusPill } from "../trackerUi";
 import { TrackerItemModal } from "../components/TrackerItemModal";
@@ -173,17 +173,7 @@ const CountersForm = ({ sheet, nav }: { sheet: TrackerSheet; nav: TrackerNav }) 
   );
 };
 
-export const TrackerDashboard = ({
-  sheet,
-  fleet,
-  nav,
-  onSelectAircraft,
-}: {
-  sheet: TrackerSheet;
-  fleet: TrackerFleetRow[];
-  nav: TrackerNav;
-  onSelectAircraft: (id: number) => void;
-}) => {
+export const TrackerDashboard = ({ sheet, nav }: { sheet: TrackerSheet; nav: TrackerNav }) => {
   const [openItem, setOpenItem] = useState<TrackerItem | null>(null);
   const counters = sheet.counters;
 
@@ -206,37 +196,6 @@ export const TrackerDashboard = ({
 
   return (
     <div>
-      {fleet.length > 1 && (
-        <>
-          <h2>
-            Fleet
-            <InfoTip title="Fleet">Every aircraft with its total time and how many tracker items are overdue or due soon. Click one to open its tracker.</InfoTip>
-          </h2>
-          <div className="mt-cards">
-            {fleet.map((a) => (
-              <Card
-                key={a.id}
-                selected={a.id === sheet.asset.id}
-                onClick={() => onSelectAircraft(a.id)}
-                label={a.registration}
-                value={
-                  <>
-                    {fmt(a.counters.airframe_hours)} hrs
-                    <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4, fontSize: 12 }}>
-                      <StatusPill status="overdue">{a.counts.overdue} overdue</StatusPill>
-                      <StatusPill status="due_soon">{a.counts.due_soon} due soon</StatusPill>
-                    </span>
-                    <span className="mt-sub" style={{ display: "block", fontWeight: 400 }}>
-                      {a.open_work_orders} open work orders
-                    </span>
-                  </>
-                }
-              />
-            ))}
-          </div>
-        </>
-      )}
-
       <div className="mt-cards">
         <Card label="A/C total time" value={fmt(counters.airframe_hours)} help={COUNTER_HELP.airframe_hours} />
         <Card label="Engine total time" value={fmt(counters.engine_hours)} help={COUNTER_HELP.engine_hours} />

@@ -193,7 +193,7 @@ export const MaintenanceTracker = () => {
           <div className="mt-empty">Loading tracker…</div>
         ) : (
           <>
-            {view === "dashboard" && sheet && <TrackerDashboard sheet={sheet} fleet={fleet} nav={nav} onSelectAircraft={selectAircraft} />}
+            {view === "dashboard" && sheet && <TrackerDashboard sheet={sheet} nav={nav} />}
             {(view === "component" || view === "engine" || view === "inspection") && sheet && (
               <TrackerItemsTab key={view} category={view} sheet={sheet} nav={nav} />
             )}
