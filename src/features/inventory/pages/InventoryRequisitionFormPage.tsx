@@ -83,7 +83,7 @@ export const InventoryRequisitionFormPage = () => {
   }, [expenseCategories]);
 
   const handleExit = () => {
-    navigate("/dashboard/inventory", {
+    navigate("/dashboard/inventory?tab=requisitions", {
       state: { inventoryTab: "Requisitions" },
     });
   };
@@ -232,7 +232,10 @@ export const InventoryRequisitionFormPage = () => {
     <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
         <div className="flex items-center gap-3">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton
+            fallbackUrl="/dashboard/inventory?tab=requisitions"
+            label="Back to Requisitions"
+          />
           <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
             ADD REQUEST
           </h1>

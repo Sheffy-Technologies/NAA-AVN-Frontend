@@ -917,7 +917,7 @@ export const AircraftSparePartsForm = ({
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <BackButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} />
+          <BackButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Back to Stock" />
           <div>
             <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
               <span>{mode === "create" ? "Add Stock — Aircraft Spare Parts" : "Edit Stock — Aircraft Spare Parts"}</span>
@@ -932,7 +932,7 @@ export const AircraftSparePartsForm = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <CancelButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} label="Cancel" size="md" onCancel={onBack} />
+          <CancelButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Cancel" size="md" onCancel={onBack} />
           <button
             type="button"
             onClick={handleProceedToReview}
@@ -2144,7 +2144,7 @@ export const AircraftSparePartsForm = ({
 
       {/* Persistent Form Footer with Review & Save */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-[#0A4D66]/30">
-        <CancelButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} label="Cancel" size="md" />
+        <CancelButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Cancel" size="md" />
         <button
           type="button"
           onClick={handleProceedToReview}

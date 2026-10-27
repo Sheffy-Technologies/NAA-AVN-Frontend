@@ -429,7 +429,7 @@ export const ProcurementQuotationsTab: React.FC = () => {
                       onClick={(e) =>
                         onInteractiveRowClick(e, () =>
                           navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`, {
-                            state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                            state: { from: "/dashboard/inventory?tab=procurement&subtab=quotations", fromLabel: "Quotations" },
                           }),
                         )
                       }
@@ -454,7 +454,7 @@ export const ProcurementQuotationsTab: React.FC = () => {
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`, {
-                              state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                              state: { from: "/dashboard/inventory?tab=procurement&subtab=quotations", fromLabel: "Quotations" },
                             });
                           }}
                           className="font-mono text-sky-400 hover:underline"
@@ -518,7 +518,9 @@ export const ProcurementQuotationsTab: React.FC = () => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`);
+                              navigate(`/dashboard/inventory/rfq/${quote.rfq_id}`, {
+                                state: { from: "/dashboard/inventory?tab=procurement&subtab=quotations", fromLabel: "Quotations" },
+                              });
                             }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-sky-400 text-[11px] font-semibold transition-colors"
                             title="View RFQ details"
@@ -581,7 +583,7 @@ export const ProcurementQuotationsTab: React.FC = () => {
                       onClick={(e) =>
                         onInteractiveRowClick(e, () =>
                           navigate(`/dashboard/inventory/rfq/${rfq.id}`, {
-                            state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                            state: { from: "/dashboard/inventory?tab=procurement&subtab=quotations", fromLabel: "Quotations" },
                           }),
                         )
                       }
@@ -635,7 +637,7 @@ export const ProcurementQuotationsTab: React.FC = () => {
                             onClick={(e) => {
                               e.stopPropagation();
                               navigate(`/dashboard/inventory/rfq/${rfq.id}`, {
-                                state: { from: "/dashboard/inventory", fromLabel: "Quotations" },
+                                state: { from: "/dashboard/inventory?tab=procurement&subtab=quotations", fromLabel: "Quotations" },
                               });
                             }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-sky-400 text-[11px] font-semibold transition-colors"

@@ -977,7 +977,7 @@ const InventoryFormContent = ({
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <BackButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} />
+          <BackButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Back to Stock" />
           <div>
             <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               {pageTitle}
@@ -985,7 +985,7 @@ const InventoryFormContent = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <CancelButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} label="Cancel" size="md" />
+          <CancelButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Cancel" size="md" />
           <button
             type="button"
             onClick={() => handleSubmitInternal(true)}
@@ -2243,7 +2243,7 @@ const InventoryFormContent = ({
           </strong>
         </div>
         <div className="flex items-center gap-3">
-          <CancelButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} label="Cancel" size="md" />
+          <CancelButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Cancel" size="md" />
           <button
             type="button"
             onClick={() => handleSubmitInternal(true)}
@@ -2341,14 +2341,14 @@ export const InventoryFormPage = () => {
     useUpdateInventoryMutation();
 
   const handleBack = () => {
-    navigate("/dashboard/inventory");
+    navigate("/dashboard/inventory?tab=stock");
   };
 
   if (mode === "edit" && !isInventoryLoading && isInventoryError) {
     return (
       <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton fallbackUrl="/dashboard/inventory?tab=stock" label="Back to Stock" />
           <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
             Edit Stock
           </h1>
@@ -2364,7 +2364,7 @@ export const InventoryFormPage = () => {
     return (
       <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton fallbackUrl="/dashboard/inventory?tab=stock" label="Back to Stock" />
           <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
             Edit Stock
           </h1>

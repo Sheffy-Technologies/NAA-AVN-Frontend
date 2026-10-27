@@ -306,7 +306,7 @@ export default function PurchaseOrderFormPage() {
 
     try {
       await createPurchaseOrder(payload).unwrap();
-      navigate("/dashboard/inventory/purchase-orders");
+      navigate("/dashboard/inventory?tab=procurement&subtab=purchase-orders");
     } catch (err: unknown) {
       const responseError = err as { data?: { message?: string } };
       setError(responseError?.data?.message || "Failed to create purchase order.");
@@ -327,8 +327,9 @@ export default function PurchaseOrderFormPage() {
             fallbackUrl={
               initialRfqId
                 ? `/dashboard/inventory/rfq/${initialRfqId}`
-                : "/dashboard/inventory/purchase-orders"
+                : "/dashboard/inventory?tab=procurement&subtab=purchase-orders"
             }
+            label={initialRfqId ? "Back to RFQ" : "Back to Purchase Orders"}
           />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">

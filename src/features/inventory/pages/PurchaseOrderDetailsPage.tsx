@@ -248,7 +248,10 @@ export default function PurchaseOrderDetailsPage() {
         <Icon icon="mdi:alert-circle-outline" className="w-8 h-8 mx-auto mb-2 text-red-500" />
         <p className="font-semibold text-sm">Failed to load purchase order details.</p>
         <div className="mt-4">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton
+            fallbackUrl="/dashboard/inventory?tab=procurement&subtab=purchase-orders"
+            label="Back to Purchase Orders"
+          />
         </div>
       </div>
     );
@@ -276,7 +279,10 @@ export default function PurchaseOrderDetailsPage() {
         isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-lg shadow-black/20" : "bg-white border-slate-200 shadow-sm"
       )}>
         <div className="flex items-center gap-4">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton
+            fallbackUrl="/dashboard/inventory?tab=procurement&subtab=purchase-orders"
+            label="Back to Purchase Orders"
+          />
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">

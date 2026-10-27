@@ -296,7 +296,7 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
                     onClick={(e) =>
                       onInteractiveRowClick(e, () =>
                         navigate(`/dashboard/inventory/purchase-orders/${order.id}`, {
-                          state: { from: "/dashboard/inventory", fromLabel: "Purchase Orders" },
+                          state: { from: "/dashboard/inventory?tab=procurement&subtab=purchase-orders", fromLabel: "Purchase Orders" },
                         }),
                       )
                     }
@@ -384,7 +384,7 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
                           onClick={(e) => {
                             e.stopPropagation();
                             navigate(`/dashboard/inventory/purchase-orders/${order.id}`, {
-                              state: { from: "/dashboard/inventory", fromLabel: "Purchase Orders" },
+                              state: { from: "/dashboard/inventory?tab=procurement&subtab=purchase-orders", fromLabel: "Purchase Orders" },
                             });
                           }}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-sky-400 text-[11px] font-semibold transition-colors"

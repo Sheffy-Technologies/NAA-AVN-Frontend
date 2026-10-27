@@ -262,7 +262,10 @@ export function RfqDetailsPage() {
       )}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
-            <BackButton fallbackUrl="/dashboard/inventory" />
+            <BackButton
+              fallbackUrl="/dashboard/inventory?tab=procurement&subtab=quotations"
+              label="Back to Quotations"
+            />
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">

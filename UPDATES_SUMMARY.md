@@ -103,7 +103,35 @@ The overview dashboard reported mismatched fleet statistics inconsistent with th
 
 ---
 
-## 5. Verification & Quality Assurance
+## 5. Context-Aware Back Navigation & Subtab State Preservation (RFQ, Procurement, Requisitions, Inventory)
+
+### Problem
+When navigating to subpages or detail views (such as **RFQ Details**, **Purchase Orders**, **Procurement Lifecycle**, **Requisitions**, or **Stock Info**) and clicking the "Back" or "Cancel" button, users were kicked back to the generic root hub (`/dashboard/inventory` Overview tab). This caused users to completely lose track of the previous page, subtab (e.g. *Quotations*, *Purchase Orders*, *Pipeline*), filters, search terms, and pagination.
+
+### Solution & Changes
+- **Core Navigation Hook (`src/shared/utils/navigationContext.ts`):**
+  - Updated `useNavigationContext` to prioritize true browser session history (`canGoBackInHistory` checking `window.history.state.idx > 0` or non-default router keys).
+  - Calling `navigateBack()` now executes `navigate(-1)`, restoring the exact prior URL including query parameters (`?tab=procurement&subtab=quotations`, etc.), active filters, and scroll position.
+  - Safe fallbacks are used if the user landed via direct link or bookmarks.
+- **Cancel Button Component (`src/shared/ui/button/CancelButton.tsx`):**
+  - Integrated `CancelButton` with `useNavigationContext(fallbackUrl)` so cancellation respects previous page history instead of hard-redirecting to root hubs.
+- **Inventory & Procurement Hub State Sync (`src/features/inventory/pages/InventoryPage.tsx`):**
+  - Added `location.search` listener inside `useEffect` so popstate/back navigation immediately activates the exact `activeTab` (`tab` parameter) and `activeProcurementSubTab` (`subtab` parameter).
+  - Updated all navigate calls (`handleOpenRfqDetails`, `handleOpenDetail`, `handleOpenEdit`, table row clicks, grid cards, and requisitions) to pass the full query path (`location.pathname + location.search`) in `state.from`.
+- **Subtab-Preserving Back Navigation Across Detail & Form Pages:**
+  - **RFQ Details (`src/features/inventory/pages/RfqDetailsPage.tsx`):** Set `fallbackUrl="/dashboard/inventory?tab=procurement&subtab=quotations"` and `label="Back to Quotations"`.
+  - **Procurement Quotations Tab (`src/features/inventory/components/ProcurementQuotationsTab.tsx`):** Updated row clicks and detail buttons to pass `/dashboard/inventory?tab=procurement&subtab=quotations` in `state.from`.
+  - **Procurement Purchase Orders Tab (`src/features/inventory/components/ProcurementPurchaseOrdersTab.tsx`):** Updated row clicks and view buttons to pass `/dashboard/inventory?tab=procurement&subtab=purchase-orders` in `state.from`.
+  - **Purchase Order Details (`src/features/inventory/pages/PurchaseOrderDetailsPage.tsx`):** Set `fallbackUrl="/dashboard/inventory?tab=procurement&subtab=purchase-orders"` and `label="Back to Purchase Orders"`.
+  - **Create Purchase Order Form (`src/features/inventory/pages/PurchaseOrderFormPage.tsx`):** Updated `BackButton` and post-submit redirect to return to `/dashboard/inventory?tab=procurement&subtab=purchase-orders` (or linked RFQ if created from quote).
+  - **Procurement Lifecycle (`src/features/inventory/pages/ProcurementLifecyclePage.tsx`):** Set `fallbackUrl="/dashboard/inventory?tab=procurement&subtab=pipeline"` and preserved hash stage state when navigating to PO details.
+  - **Requisition Details & Forms (`InventoryRequisitionDetailsPage.tsx`, `InventoryRequisitionFormPage.tsx`):** Set `fallbackUrl="/dashboard/inventory?tab=requisitions"` and `label="Back to Requisitions"`.
+  - **Stock Info & Forms (`InventoryInfoPage.tsx`, `InventoryFormPage.tsx`, `AircraftSparePartsForm.tsx`):** Set `fallbackUrl="/dashboard/inventory?tab=stock"` and `label="Back to Stock"`.
+  - **Supplier Addition (`AddSupplierPage.tsx`):** Set `fallbackUrl="/dashboard/inventory?tab=suppliers"` and `label="Back to Suppliers"`.
+
+---
+
+## 6. Verification & Quality Assurance
 
 - **Build Check:** Ran `npx tsc -b` with 0 compiler errors across the entire codebase.
-- **Git Branch Check:** Confirmed target branch is `feature/maintenance` (not `main`).
+- **Git Branch Check:** Confirmed target branch is `feature/maintenance` (never pushed to `main`).

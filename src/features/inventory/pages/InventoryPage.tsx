@@ -570,8 +570,44 @@ export const InventoryPage = () => {
       } else if (nextTab === "Issues" || nextTab === "Issue") {
         setActiveTab("Issues");
       }
+    } else {
+      const params = new URLSearchParams(location.search);
+      const tabParam = params.get("tab")?.toLowerCase();
+      if (tabParam === "overview") {
+        setActiveTab("Overview");
+      } else if (tabParam === "stock" || tabParam === "stocks") {
+        setActiveTab("Stock");
+      } else if (tabParam === "requisitions" || tabParam === "requisition") {
+        setActiveTab("Requisitions");
+      } else if (
+        tabParam === "procurement" ||
+        tabParam === "parts" ||
+        tabParam === "purchase-orders"
+      ) {
+        setActiveTab("Procurement");
+      } else if (tabParam === "suppliers" || tabParam === "supplier") {
+        setActiveTab("Suppliers");
+      } else if (tabParam === "stores" || tabParam === "store") {
+        setActiveTab("Stores");
+      } else if (tabParam === "issues" || tabParam === "issue") {
+        setActiveTab("Issues");
+      }
+
+      const subtabParam = params.get("subtab")?.toLowerCase() as ProcurementSubTabKey | null;
+      const validSubTabs: ProcurementSubTabKey[] = [
+        "overview",
+        "pipeline",
+        "part-requisitions",
+        "quotations",
+        "purchase-orders",
+        "stock-received",
+        "stock-issued",
+      ];
+      if (subtabParam && validSubTabs.includes(subtabParam)) {
+        setActiveProcurementSubTab(subtabParam);
+      }
     }
-  }, [location.state]);
+  }, [location.state, location.search]);
 
   const handleTabChange = (tabId: (typeof INVENTORY_TABS)[number]["id"]) => {
     setActiveTab(tabId);
@@ -1149,7 +1185,7 @@ export const InventoryPage = () => {
 
   const handleOpenRfqDetails = (rfqId: number) => {
     navigate(`/dashboard/inventory/rfq/${rfqId}`, {
-      state: { from: "/dashboard/inventory", fromLabel: "Inventory Procurement" },
+      state: { from: location.pathname + location.search, fromLabel: "Inventory Procurement" },
     });
   };
 
@@ -1207,14 +1243,14 @@ export const InventoryPage = () => {
 
   const handleOpenDetail = (id: number) => {
     navigate(`/dashboard/inventory/${id}`, {
-      state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+      state: { from: location.pathname + location.search, fromLabel: "Inventory" },
     });
     setOpenActionId(null);
   };
 
   const handleOpenEdit = (id: number) => {
     navigate(`/dashboard/inventory/${id}/edit`, {
-      state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+      state: { from: location.pathname + location.search, fromLabel: "Inventory" },
     });
     setOpenActionId(null);
   };
@@ -1854,7 +1890,7 @@ export const InventoryPage = () => {
                         return;
                       }
                       navigate(`/dashboard/inventory/${row.id}`, {
-                        state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+                        state: { from: location.pathname + location.search, fromLabel: "Inventory" },
                       });
                     }}
                     className={cn(
@@ -1954,7 +1990,7 @@ export const InventoryPage = () => {
                       onClick={(e) =>
                         onInteractiveRowClick(e, () =>
                           navigate(`/dashboard/inventory/${row.id}`, {
-                            state: { from: "/dashboard/inventory", fromLabel: "Inventory" },
+                            state: { from: location.pathname + location.search, fromLabel: "Inventory" },
                           }),
                         )
                       }
@@ -2309,7 +2345,7 @@ export const InventoryPage = () => {
                                 navigate(
                                   `/dashboard/inventory/requisitions/${requisition.id}`,
                                   {
-                                    state: { from: "/dashboard/inventory", fromLabel: "Inventory Requisitions" },
+                                    state: { from: location.pathname + location.search, fromLabel: "Inventory Requisitions" },
                                   },
                                 ),
                               )
@@ -2389,7 +2425,7 @@ export const InventoryPage = () => {
                                   navigate(
                                     `/dashboard/inventory/requisitions/${requisition.id}`,
                                     {
-                                      state: { from: "/dashboard/inventory", fromLabel: "Inventory Requisitions" },
+                                      state: { from: location.pathname + location.search, fromLabel: "Inventory Requisitions" },
                                     },
                                   );
                                 }}
@@ -2441,7 +2477,7 @@ export const InventoryPage = () => {
                           navigate(
                             `/dashboard/inventory/requisitions/${requisition.id}`,
                             {
-                              state: { from: "/dashboard/inventory", fromLabel: "Inventory Requisitions" },
+                              state: { from: location.pathname + location.search, fromLabel: "Inventory Requisitions" },
                             },
                           )
                         }

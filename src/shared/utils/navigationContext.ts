@@ -87,23 +87,36 @@ export const useNavigationContext = (fallbackUrl?: string) => {
   const destination = getReturnDestination(location, fallbackUrl);
 
   const navigateBack = (options?: NavigateOptions) => {
+    // 1. If browser history has a valid prior step in the current session,
+    // navigate(-1) returns to the exact prior URL (including query parameters,
+    // active tab/subtab, filters, pagination, and scroll position).
+    const canGoBackInHistory = Boolean(
+      (typeof window !== "undefined" &&
+        window.history.state &&
+        typeof window.history.state.idx === "number" &&
+        window.history.state.idx > 0) ||
+      (location.key && location.key !== "default")
+    );
+
+    if (canGoBackInHistory) {
+      navigate(-1);
+      return;
+    }
+
+    // 2. Direct entry / refresh fallback: if user arrived via direct link or refreshed,
+    // use explicit return path from location state or query parameter if available
     if (destination.hasExplicitContext && destination.path) {
       navigate(destination.path, options);
       return;
     }
 
-    // If browser history has a valid prior step in current session
-    if (window.history.state && typeof window.history.state.idx === "number" && window.history.state.idx > 0) {
-      navigate(-1);
-      return;
-    }
-
-    // Direct entry fallback
+    // 3. Fallback URL
     if (destination.path) {
       navigate(destination.path, options);
       return;
     }
 
+    // 4. Default fallback
     navigate(-1);
   };
 
