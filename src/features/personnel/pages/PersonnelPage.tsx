@@ -22,6 +22,7 @@ import { useGetUnitsQuery, type Unit } from "@/shared/api/units";
 import { Checkbox } from "@/shared/ui/checkbox/Checkbox";
 import { useClickOutside } from "@/shared/hooks/useClickOutside";
 import { onInteractiveRowClick, onInteractiveRowKeyDown } from "@/shared/utils/onInteractiveRowClick";
+import { FloatingActionMenu } from "@/shared/ui/menu/FloatingActionMenu";
 import {
   ImportCsvModal,
   type ImportCsvField,
@@ -326,7 +327,7 @@ export const PersonnelPage = () => {
   >(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const filterBarRef = useRef<HTMLDivElement>(null);
-  const actionMenuRef = useRef<HTMLTableCellElement>(null);
+  const actionButtonRef = useRef<HTMLButtonElement | null>(null);
   const displayedPersonnel = useMemo(() => {
     let result = mappedPersonnel;
     if (!unitFilter.all && unitFilter.selected.length > 0) {
@@ -390,6 +391,14 @@ export const PersonnelPage = () => {
     );
   }, [displayedPersonnel, flightStatusFilter, searchQuery]);
 
+  const openActionPerson = useMemo(
+    () =>
+      openActionId
+        ? (filteredPersonnel.find((p) => p.id === openActionId) ?? null)
+        : null,
+    [filteredPersonnel, openActionId],
+  );
+
   const stats = useMemo(() => {
     return filteredPersonnel.reduce(
       (acc, p) => {
@@ -423,19 +432,6 @@ export const PersonnelPage = () => {
     },
     !!openFilterMenu || showMobileFilters,
   );
-  useClickOutside(
-    actionMenuRef,
-    () => {
-      setOpenActionId(null);
-      setStatusMenuForId(null);
-    },
-    openActionId !== null || statusMenuForId !== null,
-  );
-
-  const handleToggleActions = (id: string) => {
-    setStatusMenuForId(null);
-    setOpenActionId((current) => (current === id ? null : id));
-  };
 
   const [updatePersonnel] = useUpdatePersonnelMutation();
   const [deletePersonnel] = useDeletePersonnelMutation();
@@ -1112,15 +1108,20 @@ export const PersonnelPage = () => {
                           <span className="text-white">{p.status}</span>
                         </div>
                       </td>
-                      <td
-                        className="relative px-4 sm:px-6 py-3 align-middle text-right"
-                        ref={openActionId === p.id ? actionMenuRef : undefined}
-                      >
+                      <td className="px-4 sm:px-6 py-3 align-middle text-right">
                         <button
                           type="button"
+                          ref={openActionId === p.id ? actionButtonRef : undefined}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleToggleActions(p.id);
+                            if (openActionId === p.id) {
+                              setOpenActionId(null);
+                              setStatusMenuForId(null);
+                            } else {
+                              actionButtonRef.current = e.currentTarget;
+                              setOpenActionId(p.id);
+                              setStatusMenuForId(null);
+                            }
                           }}
                           title="Open personnel actions"
                           aria-label="Open personnel actions"
@@ -1128,106 +1129,6 @@ export const PersonnelPage = () => {
                         >
                           <Icon icon="mdi:dots-vertical" className="w-5 h-5" />
                         </button>
-
-                        {openActionId === p.id && (
-                          <div className="absolute right-4 top-10 z-20 w-48 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
-                            <div className="py-1 text-xs text-gray-200">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenDetail(p.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:eye-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>View</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  navigate(`/dashboard/personnel/${p.id}/edit`)
-                                }
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:pencil-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Edit</span>
-                              </button>
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setStatusMenuForId((current) =>
-                                      current === p.id ? null : p.id,
-                                    )
-                                  }
-                                  className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                                >
-                                  <span className="inline-flex items-center gap-2">
-                                    <Icon
-                                      icon="mdi:swap-horizontal"
-                                      className="w-4 h-4 text-gray-300"
-                                    />
-                                    <span>Update Status</span>
-                                  </span>
-                                  <Icon
-                                    icon="mdi:chevron-right"
-                                    className="w-4 h-4 text-gray-400"
-                                  />
-                                </button>
-
-                                {statusMenuForId === p.id && (
-                                  <div className="absolute top-0 right-full mr-1 w-32 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
-                                    {(
-                                      ["Active", "Grounded", "Medical"] as const
-                                    ).map((status) => (
-                                      <button
-                                        key={status}
-                                        type="button"
-                                        onClick={() =>
-                                          handleChangeStatus(p.id, status)
-                                        }
-                                        className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#0A4D66]/40"
-                                      >
-                                        <span>{status}</span>
-                                        {p.status === status && (
-                                          <Icon
-                                            icon="mdi:check"
-                                            className="w-4 h-4 text-emerald-400"
-                                          />
-                                        )}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
-                              >
-                                <Icon
-                                  icon="mdi:download-outline"
-                                  className="w-4 h-4 text-gray-300"
-                                />
-                                <span>Download</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeletePersonnel(p.id, p.name)}
-                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
-                              >
-                                <Icon
-                                  icon="mdi:trash-can-outline"
-                                  className="w-4 h-4"
-                                />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        )}
                       </td>
                     </tr>
                   ))
@@ -1371,6 +1272,124 @@ export const PersonnelPage = () => {
         onImportRow={handleImportPersonnelRow}
         onClose={() => setIsImportOpen(false)}
       />
+
+      <FloatingActionMenu
+        open={openActionId !== null && openActionPerson !== null}
+        anchorRef={actionButtonRef}
+        onClose={() => {
+          setOpenActionId(null);
+          setStatusMenuForId(null);
+        }}
+        widthClassName="w-48"
+      >
+        {openActionPerson && (
+          <div className="py-1 text-xs text-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                handleOpenDetail(openActionPerson.id);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:eye-outline" className="w-4 h-4 text-gray-300" />
+              <span>View</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                navigate(`/dashboard/personnel/${openActionPerson.id}/edit`);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon
+                icon="mdi:pencil-outline"
+                className="w-4 h-4 text-gray-300"
+              />
+              <span>Edit</span>
+            </button>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() =>
+                  setStatusMenuForId((current) =>
+                    current === openActionPerson.id
+                      ? null
+                      : openActionPerson.id,
+                  )
+                }
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Icon
+                    icon="mdi:swap-horizontal"
+                    className="w-4 h-4 text-gray-300"
+                  />
+                  <span>Update Status</span>
+                </span>
+                <Icon
+                  icon="mdi:chevron-right"
+                  className="w-4 h-4 text-gray-400"
+                />
+              </button>
+
+              {statusMenuForId === openActionPerson.id && (
+                <div className="absolute top-0 right-full mr-1 w-32 bg-[#001219] border border-[#0A4D66]/50 rounded-md shadow-xl">
+                  {(["Active", "Grounded", "Medical"] as const).map(
+                    (status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => {
+                          handleChangeStatus(openActionPerson.id, status);
+                          setOpenActionId(null);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-left text-xs hover:bg-[#0A4D66]/40"
+                      >
+                        <span>{status}</span>
+                        {openActionPerson.status === status && (
+                          <Icon
+                            icon="mdi:check"
+                            className="w-4 h-4 text-emerald-400"
+                          />
+                        )}
+                      </button>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon
+                icon="mdi:download-outline"
+                className="w-4 h-4 text-gray-300"
+              />
+              <span>Download</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                handleDeletePersonnel(
+                  openActionPerson.id,
+                  openActionPerson.name,
+                );
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-red-900/40 text-left text-red-400"
+            >
+              <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+              <span>Delete</span>
+            </button>
+          </div>
+        )}
+      </FloatingActionMenu>
     </div>
   );
 };

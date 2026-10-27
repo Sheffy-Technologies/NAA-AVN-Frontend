@@ -33,12 +33,35 @@ const Card = ({ label, value, help, onClick, selected }: { label: React.ReactNod
   );
 };
 
-const ItemList = ({ title, help, items, empty, onOpen }: { title: string; help: string; items: TrackerItem[]; empty: string; onOpen: (item: TrackerItem) => void }) => (
+const ItemList = ({
+  title,
+  help,
+  items,
+  empty,
+  onOpen,
+  onViewAll,
+  viewAllText,
+}: {
+  title: string;
+  help: string;
+  items: TrackerItem[];
+  empty: string;
+  onOpen: (item: TrackerItem) => void;
+  onViewAll?: () => void;
+  viewAllText?: string;
+}) => (
   <div className="mt-card">
-    <h2>
-      {title}
-      <InfoTip title={title}>{help}</InfoTip>
-    </h2>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+      <h2 style={{ margin: 0 }}>
+        {title}
+        <InfoTip title={title}>{help}</InfoTip>
+      </h2>
+      {onViewAll && (
+        <button type="button" className="mt-link" style={{ fontSize: 12 }} onClick={onViewAll}>
+          {viewAllText || "View in tracker →"}
+        </button>
+      )}
+    </div>
     {items.length === 0 ? (
       <div className="mt-empty">{empty}</div>
     ) : (
@@ -241,14 +264,54 @@ export const TrackerDashboard = ({
         ))}
       </div>
 
+      {/* Coming Due Filter Shortcuts */}
+      <div className="mt-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "8px 12px" }}>
+          <span className="mt-sub" style={{ fontWeight: 600 }}>Quick filter components coming due:</span>
+          <div className="mt-chips" style={{ margin: 0, alignItems: "center" }}>
+            {[
+              { id: "hrs_50", label: "≤ 50 hrs" },
+              { id: "hrs_100", label: "≤ 100 hrs" },
+              { id: "hrs_200", label: "≤ 200 hrs" },
+              { id: "cal_1m", label: "≤ 1 month" },
+              { id: "cal_2m", label: "≤ 2 months" },
+              { id: "cal_3m", label: "≤ 3 months" },
+              { id: "cal_6m", label: "≤ 6 months" },
+              { id: "cal_1y", label: "≤ 1 year" },
+            ].map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                className="mt-pill soon"
+                style={{ cursor: "pointer", border: "1px solid var(--so)", background: "var(--sob)", color: "var(--so)", padding: "3px 10px", fontSize: 12 }}
+                onClick={() => nav.go("component", { due: chip.id })}
+                title={`Filter components coming due in ${chip.label}`}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className="mt-two">
-        <ItemList title="Needs attention" help="Overdue, due soon and watch items, most urgent first." items={attention} empty="Nothing is due." onOpen={setOpenItem} />
+        <ItemList
+          title="Needs attention"
+          help="Overdue, due soon and watch items, most urgent first."
+          items={attention}
+          empty="Nothing is due."
+          onOpen={setOpenItem}
+          onViewAll={() => nav.go("component", { status: "due_soon" })}
+          viewAllText="View all due soon →"
+        />
         <ItemList
           title="Next due by flight hours"
           help="Items running on hours (parts and inspections) with the least time left."
           items={byHours}
           empty="No hour-tracked items."
           onOpen={setOpenItem}
+          onViewAll={() => nav.go("component", { due: "hrs_100" })}
+          viewAllText="Filter ≤ 100 hrs →"
         />
         <ItemList
           title="Next due by calendar"
@@ -256,6 +319,8 @@ export const TrackerDashboard = ({
           items={byCalendar}
           empty="No calendar items."
           onOpen={setOpenItem}
+          onViewAll={() => nav.go("component", { due: "cal_1m" })}
+          viewAllText="Filter ≤ 1 mo →"
         />
         <CountersForm key={`${sheet.asset.id}-${JSON.stringify(counters)}`} sheet={sheet} nav={nav} />
       </div>

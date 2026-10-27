@@ -169,11 +169,19 @@ export const loadImage = (url: string): Promise<LoadedImage> => {
   return pending;
 };
 
+import { ARMY_LOGO_DATA_URL, NA_AVN_LOGO_DATA_URL } from "@/features/inventory/components/purchaseOrderLogos";
+
+const toLoadedFromDataUrl = (dataUrl: string): LoadedImage => ({
+  dataUrl,
+  base64: dataUrl.slice(dataUrl.indexOf(",") + 1),
+  extension: dataUrl.startsWith("data:image/png") ? "png" : "jpeg",
+});
+
 /** Loads both logos; a missing logo leaves its slot empty rather than failing the export. */
 export const loadLogos = async () => {
   const [left, right] = await Promise.all([
-    loadImage(NAAVN_LOGOS.left).catch(() => null),
-    loadImage(NAAVN_LOGOS.right).catch(() => null),
+    loadImage(NAAVN_LOGOS.left).catch(() => toLoadedFromDataUrl(ARMY_LOGO_DATA_URL)),
+    loadImage(NAAVN_LOGOS.right).catch(() => toLoadedFromDataUrl(NA_AVN_LOGO_DATA_URL)),
   ]);
   return { left, right };
 };

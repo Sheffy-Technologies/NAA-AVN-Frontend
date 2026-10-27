@@ -213,6 +213,20 @@ const WorkpackEditor = ({ wo, sheet, nav }: { wo: Workpack; sheet: TrackerSheet;
   const [dirty, setDirty] = useState(false);
   const [target, setTarget] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!paperRef.current) return;
+    setIsDownloadingPdf(true);
+    try {
+      await downloadPaperPdf(paperRef.current, safeFileName(wo.work_order_number ?? `work-order-${wo.id}`));
+      dispatch(showToast({ message: "PDF downloaded successfully.", type: "success" }));
+    } catch (e) {
+      dispatch(showToast({ message: apiError(e, "Could not generate PDF. Please try again."), type: "error" }));
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   const closed = wo.status === "completed";
   const locked = closed || !perms.canEditWo;
@@ -390,7 +404,7 @@ const WorkpackEditor = ({ wo, sheet, nav }: { wo: Workpack; sheet: TrackerSheet;
         <Button size="sm" variant="secondary" onClick={() => printPaper(paperRef.current, wo.work_order_number ?? "Work order")}>
           Print
         </Button>
-        <Button size="sm" variant="secondary" onClick={() => downloadPaperPdf(paperRef.current, safeFileName(wo.work_order_number ?? `work-order-${wo.id}`))}>
+        <Button size="sm" variant="secondary" onClick={handleDownloadPdf} isLoading={isDownloadingPdf}>
           Download PDF
         </Button>
         {!locked && (
