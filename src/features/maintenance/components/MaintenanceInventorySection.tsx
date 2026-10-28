@@ -6,23 +6,34 @@ import { useTheme } from "@/context/ThemeContext";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { MetricCard } from "@/shared/ui/metric/MetricCard";
 import {
-  useGetInventoriesQuery,
-  useGetInventoryRequisitionsQuery,
   useGetStockMovementsQuery,
   useGetPurchaseOrdersQuery,
   useGetSuppliersQuery,
   useGetStoresQuery,
 } from "@/features/inventory/api";
 import {
+  useGetHubDrawsQuery,
+  useGetHubStockQuery,
+  useGetSparesRequestsQuery,
+  type HubStockItem,
+} from "@/features/maintenance/tracker/api";
+import {
+  DrawToWorkOrderDialog,
+  HubDrawsPanel,
+  HubRequestsPanel,
+  RequestPartsDialog,
+} from "./MaintenanceHubParts";
+import { useHubPermissions } from "./hubPermissions";
+import {
   ProcurementSection,
   type ProcurementSubTabKey,
 } from "@/features/inventory/components/ProcurementSection";
 import { onInteractiveRowClick } from "@/features/inventory/inventoryUtils";
-import { useGetUnitsQuery } from "@/shared/api/units";
 
 export type MaintenanceInventorySubTab =
   | "stocks"
   | "requisitions"
+  | "parts-used"
   | "procurement"
   | "suppliers"
   | "parts-requisitions"
@@ -38,9 +49,9 @@ export const MaintenanceInventorySection = ({
   const navigate = useNavigate();
   const { isDark } = useTheme();
 
-  // Primary subtab inside Maintenance Hub Inventory: stocks | requisitions | procurement | suppliers
+  // Primary subtab: Hub stock | parts requests (NAAVN-007) | parts used on work orders | procurement | suppliers
   const [activeSubTab, setActiveSubTab] = useState<
-    "stocks" | "requisitions" | "procurement" | "suppliers"
+    "stocks" | "requisitions" | "parts-used" | "procurement" | "suppliers"
   >(() => {
     if (
       initialSubTab === "parts-requisitions" ||
@@ -50,6 +61,7 @@ export const MaintenanceInventorySection = ({
       return "procurement";
     }
     if (initialSubTab === "requisitions") return "requisitions";
+    if (initialSubTab === "parts-used") return "parts-used";
     if (initialSubTab === "suppliers") return "suppliers";
     return "stocks";
   });
@@ -81,6 +93,8 @@ export const MaintenanceInventorySection = ({
       setActiveSubTab("procurement");
     } else if (initialSubTab === "requisitions") {
       setActiveSubTab("requisitions");
+    } else if (initialSubTab === "parts-used") {
+      setActiveSubTab("parts-used");
     } else if (initialSubTab === "suppliers") {
       setActiveSubTab("suppliers");
     } else if (initialSubTab === "stocks") {
@@ -88,44 +102,62 @@ export const MaintenanceInventorySection = ({
     }
   }, [initialSubTab]);
 
-  // Queries
-  const { data: allInventories = [], isLoading: isInventoryLoading } =
-    useGetInventoriesQuery();
-  const { data: stores = [] } = useGetStoresQuery();
+  // Queries. Maintenance staff see only the Maintenance Hub's own stock
+  // (GET /maintenance-store/stock); the procurement and supplier tabs only
+  // load for users who hold those permissions.
+  const hub = useHubPermissions();
+  const canProcure = hub.has("purchase-orders.viewAny");
+  const canSeeSuppliers = hub.has("suppliers.viewAny");
+  const canSeeRequests = hub.has("spares-requests.viewAny");
+  const canOpenInventory = hub.has("inventories.view");
+  const [requestingParts, setRequestingParts] = useState(false);
+  const [drawingItem, setDrawingItem] = useState<HubStockItem | null>(null);
 
-  const maintenanceStore = useMemo(() => {
-    return stores.find(
-      (s) => s.code === "MNT-HUB" || s.name.toLowerCase().includes("maintenance"),
-    );
-  }, [stores]);
-
-  const inventories = useMemo(() => {
-    if (!maintenanceStore) {
-      return allInventories;
-    }
-    return allInventories.filter((i) => i.store_id === maintenanceStore.id);
-  }, [allInventories, maintenanceStore]);
-
-  const { data: requisitions = [], isLoading: isRequisitionsLoading } =
-    useGetInventoryRequisitionsQuery();
-  const { data: stockMovements = [] } = useGetStockMovementsQuery();
-  const { data: purchaseOrders = [] } = useGetPurchaseOrdersQuery();
+  const { data: inventories = [], isLoading: isInventoryLoading } =
+    useGetHubStockQuery(undefined, { skip: !hub.canView });
+  const { data: stores = [] } = useGetStoresQuery(undefined, {
+    skip: !hub.has("inventories.create"),
+  });
+  const maintenanceStore = useMemo(
+    () => stores.find((s) => s.code === "MNT-HUB"),
+    [stores],
+  );
+  const { data: hubRequests = [] } = useGetSparesRequestsQuery(undefined, {
+    skip: !canSeeRequests,
+  });
+  const { data: hubDraws = [] } = useGetHubDrawsQuery(undefined, {
+    skip: !hub.canView,
+  });
+  const { data: stockMovements = [] } = useGetStockMovementsQuery(undefined, {
+    skip: !canProcure,
+  });
+  const { data: purchaseOrders = [] } = useGetPurchaseOrdersQuery(undefined, {
+    skip: !canProcure,
+  });
   const { data: suppliers = [], isLoading: isSuppliersLoading } =
-    useGetSuppliersQuery();
-  const { data: units = [] } = useGetUnitsQuery();
+    useGetSuppliersQuery(undefined, { skip: !canSeeSuppliers });
 
   const SUB_TABS = [
     {
       id: "stocks" as const,
-      label: "Maintenance Spares & Stocks",
+      label: "Maintenance Hub Stock",
       icon: "mdi:cube-outline",
       badge: inventories.length,
+      visible: hub.canView,
     },
     {
       id: "requisitions" as const,
-      label: "Internal Requisitions",
+      label: "Parts Requests",
       icon: "mdi:file-document-outline",
-      badge: requisitions.length,
+      badge: hubRequests.length,
+      visible: canSeeRequests,
+    },
+    {
+      id: "parts-used" as const,
+      label: "Parts Used on Work Orders",
+      icon: "mdi:wrench-clock",
+      badge: hubDraws.length,
+      visible: hub.canView,
     },
     {
       id: "procurement" as const,
@@ -134,14 +166,21 @@ export const MaintenanceInventorySection = ({
       badge:
         stockMovements.filter((m) => m.work_order_id).length +
         purchaseOrders.length,
+      visible: canProcure,
     },
     {
       id: "suppliers" as const,
       label: "Certified MRO Suppliers",
       icon: "mdi:truck-delivery-outline",
       badge: suppliers.length,
+      visible: canSeeSuppliers,
     },
-  ];
+  ].filter((t) => t.visible);
+
+  // A tab the user can't see falls back to the first one they can.
+  const shownSubTab = SUB_TABS.some((t) => t.id === activeSubTab)
+    ? activeSubTab
+    : (SUB_TABS[0]?.id ?? "stocks");
 
   // Helper date format
   const formatDate = (val?: string | null) => {
@@ -234,21 +273,6 @@ export const MaintenanceInventorySection = ({
     });
   }, [inventories, searchQuery, selectedStore, stockStatusFilter]);
 
-  // Filtered Internal Requisitions
-  const filteredRequisitions = useMemo(() => {
-    return requisitions.filter((r) => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      const unitName =
-        units.find((u) => u.id === r.requesting_unit_id)?.name || "";
-      return (
-        String(r.id).includes(q) ||
-        r.status.toLowerCase().includes(q) ||
-        unitName.toLowerCase().includes(q)
-      );
-    });
-  }, [requisitions, searchQuery, units]);
-
   // Filtered Suppliers
   const filteredSuppliers = useMemo(() => {
     return suppliers.filter((s) => {
@@ -289,7 +313,7 @@ export const MaintenanceInventorySection = ({
         <AppTabs
           variant="segmented"
           tabs={SUB_TABS}
-          activeTab={activeSubTab}
+          activeTab={shownSubTab}
           onChange={(tab) => {
             setActiveSubTab(tab as typeof activeSubTab);
             setSearchQuery("");
@@ -299,7 +323,17 @@ export const MaintenanceInventorySection = ({
 
         {/* Global Action Shortcut for Inventory */}
         <div className="flex items-center gap-2">
-          {activeSubTab === "stocks" && (
+          {(shownSubTab === "stocks" || shownSubTab === "requisitions") && hub.canRequest && (
+            <button
+              type="button"
+              onClick={() => setRequestingParts(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 shadow transition-colors"
+            >
+              <Icon icon="mdi:cart-plus" className="w-4 h-4" />
+              <span>Request parts</span>
+            </button>
+          )}
+          {shownSubTab === "stocks" && hub.has("inventories.create") && (
             <button
               type="button"
               onClick={() =>
@@ -316,18 +350,7 @@ export const MaintenanceInventorySection = ({
             </button>
           )}
 
-          {activeSubTab === "requisitions" && (
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard/inventory/requisitions/new")}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0A4D66] text-white hover:bg-[#083c50] shadow transition-colors"
-            >
-              <Icon icon="mdi:plus" className="w-4 h-4" />
-              <span>New Requisition</span>
-            </button>
-          )}
-
-          {activeSubTab === "suppliers" && (
+          {shownSubTab === "suppliers" && (
             <button
               type="button"
               onClick={() => navigate("/dashboard/inventory/suppliers/new")}
@@ -341,7 +364,7 @@ export const MaintenanceInventorySection = ({
       </div>
 
       {/* 5 Inventory Key Metric Cards (Only on Stocks tab) */}
-      {activeSubTab === "stocks" && (
+      {shownSubTab === "stocks" && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <MetricCard
             label="Total Items"
@@ -405,7 +428,7 @@ export const MaintenanceInventorySection = ({
       )}
 
       {/* Filter and Control Bar (For Stocks, Requisitions, and Suppliers) */}
-      {activeSubTab !== "procurement" && (
+      {shownSubTab !== "procurement" && (
         <div
           className={cn(
             "flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-3 rounded-xl border",
@@ -426,7 +449,7 @@ export const MaintenanceInventorySection = ({
               />
               <input
                 type="text"
-                placeholder={`Search in ${SUB_TABS.find((t) => t.id === activeSubTab)?.label}...`}
+                placeholder={`Search in ${SUB_TABS.find((t) => t.id === shownSubTab)?.label}...`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={cn(
@@ -439,7 +462,7 @@ export const MaintenanceInventorySection = ({
             </div>
 
             {/* Store Filter (Only on Stocks tab) */}
-            {activeSubTab === "stocks" && (
+            {shownSubTab === "stocks" && (
               <select
                 value={selectedStore}
                 onChange={(e) => setSelectedStore(e.target.value)}
@@ -462,7 +485,7 @@ export const MaintenanceInventorySection = ({
 
           {/* View Mode & Export */}
           <div className="flex items-center gap-2 self-end sm:self-auto">
-            {activeSubTab === "stocks" && (
+            {shownSubTab === "stocks" && (
               <div
                 className={cn(
                   "flex items-center space-x-1 p-1 rounded-lg border",
@@ -512,7 +535,7 @@ export const MaintenanceInventorySection = ({
             <button
               type="button"
               onClick={() => {
-                if (activeSubTab === "stocks") {
+                if (shownSubTab === "stocks") {
                   handleExportCsv(
                     "maintenance-stocks.csv",
                     [
@@ -534,18 +557,39 @@ export const MaintenanceInventorySection = ({
                       s.measurement_unit,
                     ]),
                   );
-                } else if (activeSubTab === "requisitions") {
+                } else if (shownSubTab === "requisitions") {
                   handleExportCsv(
-                    "maintenance-requisitions.csv",
-                    ["Req ID", "Requesting Unit", "Status", "Created At"],
-                    filteredRequisitions.map((r) => [
-                      r.id,
-                      r.requesting_unit_id ?? "-",
-                      r.status,
-                      formatDate(r.created_at),
+                    "maintenance-parts-requests.csv",
+                    ["Request", "Date", "Status", "Part Number", "Description", "Quantity", "Issued to Hub", "Work Order"],
+                    hubRequests.flatMap((r) =>
+                      r.lines.map((l) => [
+                        r.request_number,
+                        formatDate(r.request_date),
+                        r.status,
+                        l.part_number ?? "",
+                        l.description ?? "",
+                        l.quantity ?? 0,
+                        l.issued_quantity ?? 0,
+                        l.work_order?.work_order_number ?? "",
+                      ]),
+                    ),
+                  );
+                } else if (shownSubTab === "parts-used") {
+                  handleExportCsv(
+                    "maintenance-parts-used.csv",
+                    ["Date", "Part Number", "Description", "Work Order", "Drawn", "Returned", "By", "Note"],
+                    hubDraws.map((d) => [
+                      formatDate(d.movement_date ?? d.created_at),
+                      d.part_number ?? "",
+                      d.description ?? "",
+                      d.work_order_number ?? "",
+                      d.quantity,
+                      d.returned_quantity,
+                      d.drawn_by ?? "",
+                      d.note ?? "",
                     ]),
                   );
-                } else if (activeSubTab === "suppliers") {
+                } else if (shownSubTab === "suppliers") {
                   handleExportCsv(
                     "maintenance-suppliers.csv",
                     ["ID", "Name", "Phone Number", "Email", "Address"],
@@ -574,7 +618,7 @@ export const MaintenanceInventorySection = ({
       )}
 
       {/* SUBTAB 1: STOCKS */}
-      {activeSubTab === "stocks" && (
+      {shownSubTab === "stocks" && (
         <div
           className={cn(
             "rounded-xl border p-4",
@@ -628,14 +672,16 @@ export const MaintenanceInventorySection = ({
                     return (
                       <tr
                         key={item.id}
-                        title="Click to view stock item details"
+                        title={canOpenInventory ? "Click to view stock item details" : undefined}
                         onClick={(e) =>
+                          canOpenInventory &&
                           onInteractiveRowClick(e, () =>
                             navigate(`/dashboard/inventory/${item.id}`),
                           )
                         }
                         className={cn(
-                          "transition-colors cursor-pointer",
+                          "transition-colors",
+                          canOpenInventory && "cursor-pointer",
                           isDark
                             ? "hover:bg-[#001825]/80 text-gray-200"
                             : "hover:bg-sky-50/80 text-slate-700",
@@ -668,17 +714,31 @@ export const MaintenanceInventorySection = ({
                             {isLow ? "Low Stock" : "Sufficient"}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/dashboard/inventory/${item.id}`);
-                            }}
-                            className="text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-semibold text-xs"
-                          >
-                            View
-                          </button>
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap space-x-3">
+                          {hub.canUse && item.current_stock > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDrawingItem(item);
+                              }}
+                              className="text-emerald-500 hover:underline font-semibold text-xs"
+                            >
+                              Use on work order
+                            </button>
+                          )}
+                          {canOpenInventory && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/dashboard/inventory/${item.id}`);
+                              }}
+                              className="text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-semibold text-xs"
+                            >
+                              View
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -732,16 +792,27 @@ export const MaintenanceInventorySection = ({
                         <div>Min Reorder: {item.re_order_level}</div>
                       </div>
                     </div>
-                    <div className="mt-4 pt-3 border-t border-[#0A4D66]/20 dark:border-[#0A4D66]/20 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigate(`/dashboard/inventory/${item.id}`)
-                        }
-                        className="text-xs font-semibold text-[#0A4D66] dark:text-[#7FD5FF] hover:underline"
-                      >
-                        Details →
-                      </button>
+                    <div className="mt-4 pt-3 border-t border-[#0A4D66]/20 dark:border-[#0A4D66]/20 flex justify-end gap-3">
+                      {hub.canUse && item.current_stock > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setDrawingItem(item)}
+                          className="text-xs font-semibold text-emerald-500 hover:underline"
+                        >
+                          Use on work order
+                        </button>
+                      )}
+                      {canOpenInventory && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate(`/dashboard/inventory/${item.id}`)
+                          }
+                          className="text-xs font-semibold text-[#0A4D66] dark:text-[#7FD5FF] hover:underline"
+                        >
+                          Details →
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -751,8 +822,8 @@ export const MaintenanceInventorySection = ({
         </div>
       )}
 
-      {/* SUBTAB 2: INTERNAL REQUISITIONS */}
-      {activeSubTab === "requisitions" && (
+      {/* SUBTAB 2: PARTS REQUESTS (NAAVN-007 spares requests for the Hub) */}
+      {shownSubTab === "requisitions" && (
         <div
           className={cn(
             "rounded-xl border p-4",
@@ -761,117 +832,26 @@ export const MaintenanceInventorySection = ({
               : "bg-white border-slate-200 text-slate-800 shadow-sm",
           )}
         >
-          {isRequisitionsLoading ? (
-            <div
-              className={cn(
-                "text-xs py-10 text-center",
-                isDark ? "text-gray-400" : "text-slate-500",
-              )}
-            >
-              Loading internal requisitions...
-            </div>
-          ) : filteredRequisitions.length === 0 ? (
-            <div
-              className={cn(
-                "text-xs py-10 text-center",
-                isDark ? "text-gray-400" : "text-slate-500",
-              )}
-            >
-              No internal requisitions found.
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr
-                    className={cn(
-                      "text-left border-b font-semibold uppercase tracking-wider",
-                      isDark
-                        ? "text-gray-400 border-[#0A4D66]/40"
-                        : "text-slate-500 border-slate-200",
-                    )}
-                  >
-                    <th className="py-2.5 px-3">Req ID</th>
-                    <th className="py-2.5 px-3">Requesting Location / Unit</th>
-                    <th className="py-2.5 px-3">Total Value</th>
-                    <th className="py-2.5 px-3">Date</th>
-                    <th className="py-2.5 px-3">Status</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#0A4D66]/20 dark:divide-[#0A4D66]/20 divide-slate-100">
-                  {filteredRequisitions.map((req) => (
-                    <tr
-                      key={req.id}
-                      title="Click to view requisition details"
-                      onClick={(e) =>
-                        onInteractiveRowClick(e, () =>
-                          navigate(
-                            `/dashboard/inventory/requisitions/${req.id}`,
-                          ),
-                        )
-                      }
-                      className={cn(
-                        "transition-colors cursor-pointer",
-                        isDark
-                          ? "hover:bg-[#001825]/80 text-gray-200"
-                          : "hover:bg-sky-50/80 text-slate-700",
-                      )}
-                    >
-                      <td className="py-2.5 px-3 font-semibold text-[#0A4D66] dark:text-[#7FD5FF]">
-                        #{req.id}
-                      </td>
-                      <td className="py-2.5 px-3 font-medium">
-                        {units.find((u) => u.id === req.requesting_unit_id)
-                          ?.name || `Unit #${req.requesting_unit_id ?? "-"}`}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        {req.total_cost
-                          ? `₦${Number(req.total_cost).toLocaleString()}`
-                          : "-"}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        {formatDate(req.created_at)}
-                      </td>
-                      <td className="py-2.5 px-3">
-                        <span
-                          className={cn(
-                            "px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border",
-                            req.status === "approved"
-                              ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                              : req.status === "rejected"
-                                ? "bg-red-500/10 text-red-400 border-red-500/30"
-                                : "bg-amber-500/10 text-amber-400 border-amber-500/30",
-                          )}
-                        >
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(
-                              `/dashboard/inventory/requisitions/${req.id}`,
-                            );
-                          }}
-                          className="text-[#0A4D66] dark:text-[#7FD5FF] hover:underline font-semibold"
-                        >
-                          View Details
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <HubRequestsPanel search={searchQuery} />
+        </div>
+      )}
+
+      {/* SUBTAB 3: PARTS USED (Hub stock drawn onto work orders) */}
+      {shownSubTab === "parts-used" && (
+        <div
+          className={cn(
+            "rounded-xl border p-4",
+            isDark
+              ? "bg-[#001219] border-[#0A4D66]/40 text-white"
+              : "bg-white border-slate-200 text-slate-800 shadow-sm",
           )}
+        >
+          <HubDrawsPanel search={searchQuery} />
         </div>
       )}
 
       {/* SUBTAB 3: PROCUREMENT HUB (Consolidated Lifecycle) */}
-      {activeSubTab === "procurement" && (
+      {shownSubTab === "procurement" && (
         <ProcurementSection
           activeSubTab={procurementSubTab}
           onSelectSubTab={setProcurementSubTab}
@@ -882,7 +862,7 @@ export const MaintenanceInventorySection = ({
       )}
 
       {/* SUBTAB 4: CERTIFIED MRO SUPPLIERS */}
-      {activeSubTab === "suppliers" && (
+      {shownSubTab === "suppliers" && (
         <div
           className={cn(
             "rounded-xl border p-4",
@@ -958,6 +938,13 @@ export const MaintenanceInventorySection = ({
           )}
         </div>
       )}
+      {requestingParts && (
+        <RequestPartsDialog
+          onClose={() => setRequestingParts(false)}
+          onSubmitted={() => setActiveSubTab("requisitions")}
+        />
+      )}
+      {drawingItem && <DrawToWorkOrderDialog item={drawingItem} onClose={() => setDrawingItem(null)} />}
     </div>
   );
 };

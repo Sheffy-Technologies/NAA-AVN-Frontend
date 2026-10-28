@@ -63,6 +63,8 @@ const NAV_ITEMS: NavItem[] = [
       "dashboard.maintenance.view",
       "work-orders.viewAny",
       "maintenance-programs.viewAny",
+      "maintenance-store.view",
+      "maintenance-store.issue",
     ],
   },
   {

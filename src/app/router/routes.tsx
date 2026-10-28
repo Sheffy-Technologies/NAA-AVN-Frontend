@@ -1095,7 +1095,7 @@ export const router = createBrowserRouter([
           <Suspense fallback={loadingElement}>
             <MaintenancePage />
           </Suspense>
-        ), MAINTENANCE_ROUTE_PERMISSIONS),
+        ), [...MAINTENANCE_ROUTE_PERMISSIONS, "maintenance-store.view", "maintenance-store.issue"]),
       },
       {
         path: "users",
