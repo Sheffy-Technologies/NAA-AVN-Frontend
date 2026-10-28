@@ -131,7 +131,33 @@ When navigating to subpages or detail views (such as **RFQ Details**, **Purchase
 
 ---
 
-## 6. Verification & Quality Assurance
+## 7. Optional Serial Numbers Across All Inventory Units & Quantities
+
+### Problem
+Previously, when receiving multiple units of a component (e.g. 6 units or 50 units in `AircraftSparePartsForm.tsx`), each individual unit card enforced mandatory serial numbers with `Serial number is required for Unit #N` red validation errors. This blocked users from checking in batches where serial numbers are unassigned, untracked, or stamped on only a subset of units.
+
+### Solution & Changes
+- **Frontend Form Validation (`src/features/inventory/components/AircraftSparePartsForm.tsx` & `InventoryFormPage.tsx`):**
+  - Removed mandatory serial number validation loops across all units.
+  - Retained intra-batch duplicate detection strictly for non-empty serial numbers (blank units are never treated as duplicates of each other).
+  - Updated unit card labels to `Serial Number (Optional)` and removed HTML `required` attributes.
+  - Updated Section 2 badge from `"{qty} Serialized Units Required"` to `"{qty} Units Breakdown"`.
+  - Updated Review step table to display `Unassigned` instead of red `Missing` for blank serial numbers.
+  - Updated payload assembly to serialize `serial_number: null` for blank units, with parent item `serial_number` taking the first available serial or `null`.
+- **Type Definitions (`src/features/inventory/api.ts` & `InventoryInfoPage.tsx`):**
+  - Updated `InventorySerializedUnit.serial_number` to `string | null | undefined`.
+  - Added null-safe guards for clipboard copying of serial numbers in `InventoryInfoPage.tsx`.
+- **Backend Validation & Storage (`app/Http/Controllers/InventoryController.php`):**
+  - Changed validation rule `'units.*.serial_number'` from `required_with:units` to `sometimes|nullable|string|max:255` in both `store` and `update` methods.
+  - Filtered out empty strings before running database and intra-batch uniqueness checks so blank units pass smoothly.
+  - Stored `serial_number => !empty($u['serial_number']) ? trim($u['serial_number']) : null`.
+- **Database Schema Migration (`database/migrations/2026_10_28_000001_make_serial_number_nullable_in_inventory_units_table.php`):**
+  - Added migration altering `inventory_units.serial_number` to `nullable()`.
+
+---
+
+## 8. Verification & Quality Assurance
 
 - **Build Check:** Ran `npx tsc -b` with 0 compiler errors across the entire codebase.
-- **Git Branch Check:** Confirmed target branch is `feature/maintenance` (never pushed to `main`).
+- **Git Branch Check:** Confirmed target branch is `feature/maintenance` on both Frontend and Backend (never pushed to `main`).
+
