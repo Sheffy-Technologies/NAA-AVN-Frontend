@@ -442,20 +442,18 @@ export const AircraftSparePartsForm = ({
         "Please select whether this component requires individual serial-number tracking";
     }
 
-    // If serialized tracking is YES, all units must have non-empty unique serial numbers
+    // Serials are completely optional! If serialized tracking is YES, validate duplicates only for entered non-empty serials
     if (requiresSerialTracking === true) {
       values.units.forEach((u, idx) => {
         const s = u.serial_number.trim();
-        if (!s) {
-          newUnitErrors[idx] = `Serial number is required for Unit #${idx + 1}`;
-        } else if (duplicateSerialSet.has(s.toLowerCase())) {
+        if (s && duplicateSerialSet.has(s.toLowerCase())) {
           newUnitErrors[idx] = `Duplicate serial number "${s}" in batch`;
         }
       });
 
       if (duplicateSerialSet.size > 0) {
         newErrors.serial_number =
-          "Duplicate serial numbers detected. Each unit must possess a distinct serial number.";
+          "Duplicate serial numbers detected. Entered serial numbers must be distinct.";
       }
     }
 
@@ -746,7 +744,11 @@ export const AircraftSparePartsForm = ({
                             UNIT {idx + 1}
                           </td>
                           <td className="p-2.5 font-bold text-slate-900 dark:text-white">
-                            {u.serial_number || <span className="text-red-500 italic">Missing</span>}
+                            {u.serial_number ? (
+                              u.serial_number
+                            ) : (
+                              <span className="text-slate-400 font-sans font-normal italic">Unassigned</span>
+                            )}
                           </td>
                           <td className="p-2.5">
                             <span className={cn(isPnDiff ? "text-amber-600 dark:text-amber-400 font-bold" : "text-slate-600 dark:text-gray-400")}>
@@ -1444,7 +1446,7 @@ export const AircraftSparePartsForm = ({
             <span>2. ITEM IDENTIFICATION</span>
             {requiresSerialTracking === true && (
               <span className="rounded bg-indigo-100 dark:bg-indigo-950 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
-                {qtyNumeric} Serialized Units Required
+                {qtyNumeric} Units Breakdown
               </span>
             )}
           </div>
@@ -1470,7 +1472,7 @@ export const AircraftSparePartsForm = ({
                   }}
                   className="w-4 h-4 text-[#0369A1] focus:ring-[#0369A1]"
                 />
-                <span>Yes — Each unit has an individual serial number</span>
+                <span>Yes — Track individual unit cards (Serials optional)</span>
               </label>
 
               <label className="flex items-center gap-2.5 cursor-pointer text-xs sm:text-sm font-medium text-slate-800 dark:text-gray-200">
@@ -1754,10 +1756,10 @@ export const AircraftSparePartsForm = ({
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {/* Serial Number (Always visible and mandatory) */}
+                        {/* Serial Number (Optional) */}
                         <div className="space-y-1">
                           <label className="text-xs font-semibold text-slate-700 dark:text-gray-300">
-                            Serial Number <span className="text-red-500">*</span>
+                            Serial Number <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
                           </label>
                           <input
                             type="text"
@@ -1770,8 +1772,7 @@ export const AircraftSparePartsForm = ({
                               "font-mono font-medium",
                               (isDup || errMessage) && "border-red-500 focus:border-red-500 focus:ring-red-500/30",
                             )}
-                            placeholder={`Enter serial number for Unit ${idx + 1}`}
-                            required
+                            placeholder={`Enter serial number for Unit ${idx + 1} (optional)`}
                           />
                           {errMessage && (
                             <p className="text-[10px] text-red-500 font-medium">{errMessage}</p>

@@ -823,8 +823,10 @@ export const InventoryInfoPage = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText(u.serial_number);
-                                    dispatch(showToast({ message: `Copied ${u.serial_number}`, type: "success" }));
+                                    if (u.serial_number) {
+                                      navigator.clipboard.writeText(u.serial_number);
+                                      dispatch(showToast({ message: `Copied ${u.serial_number}`, type: "success" }));
+                                    }
                                   }}
                                   title="Copy Serial Number"
                                   className="text-slate-400 hover:text-sky-500 p-0.5 rounded transition-colors"
