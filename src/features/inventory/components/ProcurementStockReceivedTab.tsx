@@ -274,6 +274,10 @@ export const ProcurementStockReceivedTab: React.FC = () => {
                     <td className="px-4 py-3 text-[var(--theme-text-secondary)]">
                       <Link
                         to={`/dashboard/inventory/purchase-orders/${grn.purchase_order_id}`}
+                        state={{
+                          from: "/dashboard/inventory?tab=procurement&subtab=stock-received",
+                          fromLabel: "Stock Received",
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         className="font-mono text-sky-400 hover:underline inline-flex items-center gap-1"
                       >
@@ -314,7 +318,12 @@ export const ProcurementStockReceivedTab: React.FC = () => {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/dashboard/inventory/purchase-orders/${grn.purchase_order_id}`);
+                            navigate(`/dashboard/inventory/purchase-orders/${grn.purchase_order_id}`, {
+                              state: {
+                                from: "/dashboard/inventory?tab=procurement&subtab=stock-received",
+                                fromLabel: "Stock Received",
+                              },
+                            });
                           }}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-sky-400 text-[11px] font-semibold transition-colors"
                           title="View Linked PO"

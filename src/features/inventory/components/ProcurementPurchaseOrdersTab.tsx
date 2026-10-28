@@ -240,6 +240,10 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
 
             <Link
               to="/dashboard/inventory/purchase-orders/new"
+              state={{
+                from: "/dashboard/inventory?tab=procurement&subtab=purchase-orders",
+                fromLabel: "Purchase Orders",
+              }}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#0369A1] hover:bg-[#0369A1]/90 text-white shadow-sm transition-colors whitespace-nowrap"
             >
               <Icon icon="mdi:cart-plus" className="w-4 h-4" />
@@ -305,7 +309,7 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
                     <td className="px-4 py-3 font-bold text-[var(--theme-text-primary)]">
                       <Link
                         to={`/dashboard/inventory/purchase-orders/${order.id}`}
-                        state={{ from: "/dashboard/inventory", fromLabel: "Purchase Orders" }}
+                        state={{ from: "/dashboard/inventory?tab=procurement&subtab=purchase-orders", fromLabel: "Purchase Orders" }}
                         onClick={(e) => e.stopPropagation()}
                         className="hover:text-sky-400 hover:underline"
                       >

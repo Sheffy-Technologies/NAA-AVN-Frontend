@@ -156,8 +156,48 @@ Previously, when receiving multiple units of a component (e.g. 6 units or 50 uni
 
 ---
 
-## 8. Verification & Quality Assurance
+## 8. Back-Flow Context Preservation & Physical Print Capabilities for RFQ & Purchase Orders
+
+### Problem
+1. **Lost Navigation State:**
+   - Navigating to RFQ Details, Purchase Order Details, or Create Purchase Order from subtabs (e.g. Kanban Pipeline, Quotations, Stock Received, Consignments, or Overview) lost track of the caller's active subtab.
+   - Clicking "Back" or "Cancel" kicked the user out to the default root tab (`/dashboard/inventory`) or lost their active pipeline stage.
+   - In `PurchaseOrderFormPage.tsx`, on submit it hardcoded `navigate('/dashboard/inventory?tab=procurement&subtab=purchase-orders')` even when launched from an RFQ or Kanban pipeline, and lacked a bottom `CancelButton`.
+2. **Broken/Missing Printing on RFQ & Purchase Orders:**
+   - Unlike Spares Requests and Work Orders (which have clean 1-click physical printing via popup windows), RFQ and PO lacked top toolbar "Print" buttons.
+   - Inside their preview modals, "Print Form" called `window.print()` directly on the active document, which attempted to print the dark theme dashboard shell (sidebars, modal backdrop, scroll containers) or failed because offscreen printable documents were hidden.
+
+### Solution & Changes
+- **Shared Isolated Print Utility (`src/shared/utils/printElement.ts`):**
+  - Created a dedicated `printElement(element, documentTitle)` utility based on the proven tracker print pattern.
+  - Clones the target printable document into an isolated browser window with clean A4 `@page` print styles, transfers dynamic inputs/textareas, strips `.noprint` chrome, and initiates native browser print dialog immediately.
+- **RFQ Print & Back Navigation (`src/features/inventory/pages/RfqDetailsPage.tsx`):**
+  - Added direct **Print** button in the executive action toolbar next to "Preview Document".
+  - Connected the preview modal's "Print Form" button to `handlePrint()` (using `printElement`).
+  - Updated `handleCreatePO()` to pass `state: { from: location.pathname + location.search, fromLabel: 'RFQ #' + (rfq.rfq_number || id) }`.
+- **Purchase Order Print & Back Navigation (`src/features/inventory/pages/PurchaseOrderDetailsPage.tsx`):**
+  - Added direct **Print** button in the executive action toolbar.
+  - Connected the preview modal's "Print Form" button to `handlePrint()` (using `printElement`).
+  - Supported dynamic return paths in `BackButton` to return seamlessly to originating RFQ, Overview, Kanban, or Shipments tabs.
+- **Purchase Order Form Navigation (`src/features/inventory/pages/PurchaseOrderFormPage.tsx`):**
+  - Added dynamic `returnUrl` resolution honoring `location.state.from`, falling back to originating RFQ or the PO list.
+  - Added bottom `CancelButton` alongside `Create Purchase Order`.
+  - Updated post-submission redirect to return to `returnUrl`.
+- **Procurement Pipeline & Subtab Callers Updated with Router State:**
+  - `ProcurementPurchaseOrdersTab.tsx`: "Create Purchase Order" link and table links now carry `state: { from, fromLabel }`.
+  - `ProcurementQuotationsTab.tsx`: "Create PO" action button now carries `state: { from, fromLabel }`.
+  - `ProcurementOverviewTab.tsx`: "Create Purchase Order" button, "View PO" button/row click, "View RFQ" button/row click, and shipment PO clicks now carry `state: { from, fromLabel }`.
+  - `ProcurementPipelineKanbanTab.tsx`: Drag-and-drop PO generation, stage actions, "Inspect RFQ", "Generate PO", and "View PO" card buttons now carry `state: { from, fromLabel }`.
+  - `ProcurementStockReceivedTab.tsx`: Linked PO table links and inspect actions carry `state: { from, fromLabel }`.
+  - `ProcurementShipmentsTab.tsx` & `ShipmentDetailsModal.tsx`: Linked PO links carry `state: { from, fromLabel }`.
+  - `InventoryOverviewTab.tsx`: "Create Purchase Order" and "Procure" buttons carry `state: { from, fromLabel }`.
+  - `PurchaseOrdersPage.tsx`: Standalone page creation and row links carry `state: { from, fromLabel }`.
+
+---
+
+## 9. Verification & Quality Assurance
 
 - **Build Check:** Ran `npx tsc -b` with 0 compiler errors across the entire codebase.
 - **Git Branch Check:** Confirmed target branch is `feature/maintenance` on both Frontend and Backend (never pushed to `main`).
+
 

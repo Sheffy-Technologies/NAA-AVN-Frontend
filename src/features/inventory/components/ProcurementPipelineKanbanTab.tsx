@@ -373,6 +373,12 @@ export const ProcurementPipelineKanbanTab: React.FC<
           refetchQuotations();
           navigate(
             `/dashboard/inventory/purchase-orders/new?rfq_id=${quote.rfq_id}&supplier_id=${quote.supplier_id}`,
+            {
+              state: {
+                from: "/dashboard/inventory?tab=procurement&subtab=kanban",
+                fromLabel: "Procurement Pipeline",
+              },
+            },
           );
         } catch {
           dispatch(
@@ -385,6 +391,12 @@ export const ProcurementPipelineKanbanTab: React.FC<
       } else {
         navigate(
           `/dashboard/inventory/purchase-orders/new?rfq_id=${quote.rfq_id}&supplier_id=${quote.supplier_id}`,
+          {
+            state: {
+              from: "/dashboard/inventory?tab=procurement&subtab=kanban",
+              fromLabel: "Procurement Pipeline",
+            },
+          },
         );
       }
       return;
@@ -611,7 +623,12 @@ export const ProcurementPipelineKanbanTab: React.FC<
         break;
 
       case "purchase-orders":
-        navigate("/dashboard/inventory/purchase-orders/new");
+        navigate("/dashboard/inventory/purchase-orders/new", {
+          state: {
+            from: "/dashboard/inventory?tab=procurement&subtab=kanban",
+            fromLabel: "Procurement Pipeline",
+          },
+        });
         break;
 
       case "goods-received":
@@ -643,7 +660,12 @@ export const ProcurementPipelineKanbanTab: React.FC<
               type: "info",
             }),
           );
-          navigate("/dashboard/inventory/purchase-orders/new");
+          navigate("/dashboard/inventory/purchase-orders/new", {
+            state: {
+              from: "/dashboard/inventory?tab=procurement&subtab=kanban",
+              fromLabel: "Procurement Pipeline",
+            },
+          });
         }
         break;
 
@@ -954,7 +976,12 @@ export const ProcurementPipelineKanbanTab: React.FC<
                             <button
                               type="button"
                               onClick={() =>
-                                navigate(`/dashboard/inventory/rfq/${rfq.id}`)
+                                navigate(`/dashboard/inventory/rfq/${rfq.id}`, {
+                                  state: {
+                                    from: "/dashboard/inventory?tab=procurement&subtab=kanban",
+                                    fromLabel: "Procurement Pipeline",
+                                  },
+                                })
                               }
                               className="text-slate-400 hover:text-slate-200 underline"
                             >
@@ -1088,6 +1115,12 @@ export const ProcurementPipelineKanbanTab: React.FC<
                               onClick={() =>
                                 navigate(
                                   `/dashboard/inventory/purchase-orders/new?rfq_id=${quote.rfq_id}&supplier_id=${quote.supplier_id}`,
+                                  {
+                                    state: {
+                                      from: "/dashboard/inventory?tab=procurement&subtab=kanban",
+                                      fromLabel: "Procurement Pipeline",
+                                    },
+                                  },
                                 )
                               }
                               className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold hover:underline"
@@ -1153,6 +1186,12 @@ export const ProcurementPipelineKanbanTab: React.FC<
                               onClick={() =>
                                 navigate(
                                   `/dashboard/inventory/purchase-orders/${po.id}`,
+                                  {
+                                    state: {
+                                      from: "/dashboard/inventory?tab=procurement&subtab=kanban",
+                                      fromLabel: "Procurement Pipeline",
+                                    },
+                                  },
                                 )
                               }
                               className="text-slate-400 hover:text-slate-200 underline"

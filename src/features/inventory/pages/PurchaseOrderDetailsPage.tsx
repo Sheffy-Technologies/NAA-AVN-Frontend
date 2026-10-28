@@ -8,6 +8,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
+import { printElement } from "@/shared/utils/printElement";
 import { useTheme } from "@/context/ThemeContext";
 import {
   useCreateGoodsReceivedNoteMutation,
@@ -173,6 +174,11 @@ export default function PurchaseOrderDetailsPage() {
       `NAAVN PO ${order?.id ?? ""}${order?.supplier?.name ? ` ${order.supplier.name}` : ""}`,
     );
 
+  const handlePrint = () => {
+    if (!printDocumentRef.current || !order) return;
+    printElement(printDocumentRef.current, `NAAVN-006_PO_${order.id}`);
+  };
+
   const handleDownloadPdf = async () => {
     if (!printDocumentRef.current || !order || isDownloadingPdf) return;
 
@@ -322,6 +328,20 @@ export default function PurchaseOrderDetailsPage() {
           >
             <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-sky-500" />
             Preview Form
+          </button>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className={cn(
+              "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all shadow-xs",
+              isDark
+                ? "border-sky-500/30 bg-[#001825] text-sky-400 hover:bg-slate-800"
+                : "border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100"
+            )}
+            title="Print Purchase Order directly (NAAVN-006)"
+          >
+            <Icon icon="mdi:printer" className="w-4 h-4" />
+            Print
           </button>
           <button
             type="button"
@@ -870,7 +890,7 @@ export default function PurchaseOrderDetailsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrint}
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
                 >
                   <Icon icon="mdi:printer" className="h-4 w-4" />

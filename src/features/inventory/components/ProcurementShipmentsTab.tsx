@@ -471,6 +471,10 @@ export const ProcurementShipmentsTab: React.FC = () => {
                           {s.purchase_order_id ? (
                             <Link
                               to={`/dashboard/inventory/purchase-orders/${s.purchase_order_id}`}
+                              state={{
+                                from: "/dashboard/inventory?tab=procurement&subtab=shipments",
+                                fromLabel: "Consignments & Shipments",
+                              }}
                               onClick={(e) => e.stopPropagation()}
                               className="font-semibold text-sky-500 hover:underline inline-flex items-center gap-1"
                             >

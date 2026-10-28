@@ -62,6 +62,7 @@ export default function PurchaseOrdersPage() {
         <h1 className="text-2xl font-bold text-white">Purchase Orders</h1>
         <Link
           to="/dashboard/inventory/purchase-orders/new"
+          state={{ from: "/dashboard/inventory/purchase-orders", fromLabel: "Purchase Orders" }}
           className="inline-flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 text-white text-xs font-semibold shadow hover:bg-emerald-700 transition-colors"
         >
           <Icon icon="mdi:cart-plus" className="w-4 h-4" />
@@ -87,6 +88,7 @@ export default function PurchaseOrdersPage() {
                 <div className="flex items-center gap-3 rounded border border-[#0A4D66]/40 px-4 py-3 hover:bg-[#0A4D66]/20 transition-colors">
                   <Link
                     to={`/dashboard/inventory/purchase-orders/${order.id}`}
+                    state={{ from: "/dashboard/inventory/purchase-orders", fromLabel: "Purchase Orders" }}
                     className="flex min-w-0 flex-1 items-center justify-between"
                   >
                     <span className="truncate text-white">{order.name || `PO #${order.id}`}</span>

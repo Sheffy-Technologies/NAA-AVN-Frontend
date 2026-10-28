@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import {
   type ProcurementBudget,
   type ProcurementCurrency,
@@ -16,7 +16,7 @@ import {
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useTheme } from "@/context/ThemeContext";
-import { BackButton } from "@/shared/ui/button";
+import { BackButton, CancelButton } from "@/shared/ui/button";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { NewInventoryItemFields } from "../components/NewInventoryItemFields";
 import {
@@ -59,9 +59,20 @@ type PurchaseOrderItemPayload = {
 
 export default function PurchaseOrderFormPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const initialRfqId = searchParams.get("rfq_id") ?? "";
   const initialBidId = searchParams.get("bid_id") ?? "";
+
+  const locationState = location.state as { from?: string; fromLabel?: string } | null;
+  const returnUrl =
+    locationState?.from ||
+    (initialRfqId
+      ? `/dashboard/inventory/rfq/${initialRfqId}`
+      : "/dashboard/inventory?tab=procurement&subtab=purchase-orders");
+  const returnLabel =
+    locationState?.fromLabel ||
+    (initialRfqId ? "Back to RFQ" : "Back to Purchase Orders");
 
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
@@ -306,7 +317,7 @@ export default function PurchaseOrderFormPage() {
 
     try {
       await createPurchaseOrder(payload).unwrap();
-      navigate("/dashboard/inventory?tab=procurement&subtab=purchase-orders");
+      navigate(returnUrl);
     } catch (err: unknown) {
       const responseError = err as { data?: { message?: string } };
       setError(responseError?.data?.message || "Failed to create purchase order.");
@@ -324,12 +335,8 @@ export default function PurchaseOrderFormPage() {
       )}>
         <div className="flex items-center gap-3">
           <BackButton
-            fallbackUrl={
-              initialRfqId
-                ? `/dashboard/inventory/rfq/${initialRfqId}`
-                : "/dashboard/inventory?tab=procurement&subtab=purchase-orders"
-            }
-            label={initialRfqId ? "Back to RFQ" : "Back to Purchase Orders"}
+            fallbackUrl={returnUrl}
+            label={returnLabel}
           />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -829,6 +836,7 @@ export default function PurchaseOrderFormPage() {
         )}
 
         <div className="flex items-center justify-end gap-3 pt-2">
+          <CancelButton fallbackUrl={returnUrl} />
           <button
             type="submit"
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold shadow-md shadow-emerald-600/20 disabled:opacity-60 transition-all"

@@ -506,7 +506,12 @@ export const ProcurementQuotationsTab: React.FC = () => {
                                   supplier_id: String(quote.supplier_id),
                                   unit_price: String(quote.total_amount ?? ""),
                                 });
-                                navigate(`/dashboard/inventory/purchase-orders/new?${params.toString()}`);
+                                navigate(`/dashboard/inventory/purchase-orders/new?${params.toString()}`, {
+                                  state: {
+                                    from: "/dashboard/inventory?tab=procurement&subtab=quotations",
+                                    fromLabel: "Quotations",
+                                  },
+                                });
                               }}
                               className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#0369A1] hover:bg-[#0369A1]/90 text-white text-[11px] font-bold shadow-xs transition-colors"
                             >
