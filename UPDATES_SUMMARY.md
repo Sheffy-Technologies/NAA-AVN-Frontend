@@ -195,9 +195,43 @@ Previously, when receiving multiple units of a component (e.g. 6 units or 50 uni
 
 ---
 
-## 9. Verification & Quality Assurance
+---
 
-- **Build Check:** Ran `npx tsc -b` with 0 compiler errors across the entire codebase.
+## 10. Aviation Spares Form Layout Standardization Across Purchase Orders, Stock Issuance, & Receipts (GRN)
+
+### Problem
+The user requested standardizing forms across **Stock Issuance, Receipts (GRN), and Purchase Orders (PO)** to mirror the comprehensive aviation form architecture and executive layout established in `ADD STOCK — AIRCRAFT SPARE PARTS [AVIATION SPARES WORKFLOW]`. Previously:
+1. Registering new inventory items inside Purchase Orders lacked key aviation traceability attributes (Alt P/N, ATA chapter, CAGE code, NSN, Manufacturer, and Special Storage Environment).
+2. Stock Issuance (`StockIssueFormPage.tsx`) was a rudimentary form that lacked rich aviation fields, store badges, and individual serialized unit selection.
+3. Receipts / Goods Received Notes (GRN) modals in `ProcurementStockReceivedTab.tsx` and `PurchaseOrderDetailsPage.tsx` lacked the executive aviation layout and structured line inspection breakdowns.
+
+### Solution & Changes
+- **Backend Purchase Order Non-Catalogue Inventory Handler (`app/Http/Controllers/PurchaseOrderController.php`):**
+  - Expanded `$newInventoryRules` and `createInventoryForItem()` to validate and persist aviation specifications:
+    - `alternate_support_part_no`, `nsn`, `cage_code`, `ata_chapter`, `ata_chapter_id`, `manufacturer`, `special_storage`, `asset_id`.
+- **Frontend Inventory Types & Payload Serialization (`src/features/inventory/newInventoryItem.ts`):**
+  - Updated `NewInventoryDraft` and `NewInventoryPayload` interfaces to include all aviation specifications.
+  - Updated `toNewInventoryPayload` and `toCreateInventoryPayload` with null-safe type casting and defaults.
+- **Purchase Order New Item Card Grid (`src/features/inventory/components/NewInventoryItemFields.tsx`):**
+  - Rebuilt into the standardized **"1. COMMON PART INFORMATION [SHARED SPECIFICATIONS]"** card grid matching `AircraftSparePartsForm`.
+  - Added Part Name/Description, Part Number (P/N), Alternate Part Number (Alt P/N), Manufacturer (MFR), ATA Chapter, NATO Stock Number (NSN), CAGE Code, Storage Environment dropdown, Unit Cost, UOM, Re-Order Level, and optional Serial Number.
+- **Stock Issuance Form Upgrade (`src/features/stock-issues/pages/StockIssueFormPage.tsx`):**
+  - Rebuilt the entire form into the executive Aviation Spares Workflow architecture:
+    - **Header:** Executive command bar with `BackButton`, `CancelButton`, status badges, and action buttons.
+    - **Top Bar:** Sending Unit (Source) badge, Receiving Unit selector, Date of Issue, and searchable Stock Ledger Item selector.
+    - **Section 1: COMMON PART INFORMATION [SHARED SPECIFICATIONS]:** Auto-populates and allows editing description, P/N, Alt P/N, MFR, ATA Chapter, NSN, CAGE Code, Storage Environment, available quantity badge, and Quantity to Issue.
+    - **Section 2: UNIT & SERIAL NUMBER DISPATCH:** Displays interactive unit badges for serialized stock items, allowing the issuing officer to select exactly which serialized units are dispatched.
+    - **Section 3: MILITARY AUTHORIZATION & TRANSFER DETAILS:** Authorizing Officer & Receiving Officer selectors with military rank/service numbers, plus detailed remarks / purpose of issue.
+    - **Section 4: SUPPORTING VOUCHER DOCUMENTS:** Document upload rows for issue voucher photos, AFG/1033 vouchers, and airworthiness certificates.
+- **Goods Received Note (GRN) Modals Upgrade (`ProcurementStockReceivedTab.tsx` & `PurchaseOrderDetailsPage.tsx`):**
+  - Upgraded the GRN creation and review modals with the "Aviation Stores" workflow badge, vendor delivery windows, delivered items batch cards, and acceptance inspection notes.
+
+---
+
+## 11. Verification & Quality Assurance
+
+- **Build Check:** Ran `npx tsc --noEmit` and `npx tsc -b` with 0 compiler errors across the entire frontend codebase.
 - **Git Branch Check:** Confirmed target branch is `feature/maintenance` on both Frontend and Backend (never pushed to `main`).
+
 
 

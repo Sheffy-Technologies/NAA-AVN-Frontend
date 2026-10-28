@@ -344,20 +344,32 @@ export const ProcurementStockReceivedTab: React.FC = () => {
       {isNewGrnModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className={cn(
-            "w-full max-w-xl rounded-xl border p-6 shadow-xl space-y-4",
-            isDark ? "bg-[#001219] border-[#0A4D66] text-white" : "bg-white border-slate-200 text-slate-800",
+            "w-full max-w-2xl rounded-2xl border p-6 shadow-2xl space-y-5 animate-in fade-in-50 zoom-in-95",
+            isDark ? "bg-[#001219] border-[#0A4D66]/60 text-white" : "bg-white border-slate-200 text-slate-800",
           )}>
-            <div className="flex items-center justify-between pb-3 border-b border-[#0A4D66]/30">
-              <div className="flex items-center gap-2">
-                <Icon icon="mdi:package-check" className="w-5 h-5 text-teal-400" />
-                <h3 className="font-bold text-sm text-[var(--theme-text-primary)]">
-                  Receive Stock — Goods Received Note (GRN)
-                </h3>
+            <div className="flex items-center justify-between pb-3.5 border-b border-[#0A4D66]/30">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                  <Icon icon="mdi:package-variant-closed-check" className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-[var(--theme-text-primary)] uppercase tracking-wider">
+                      Receive Stock — Goods Received Note (GRN)
+                    </h3>
+                    <span className="rounded bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                      Aviation Stores
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[var(--theme-text-muted)] mt-0.5">
+                    Log receipt of procured spares into NA AVN inventory with batch and inspection records.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsNewGrnModalOpen(false)}
-                className="text-[var(--theme-text-muted)] hover:text-white"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-white/5 transition-colors"
               >
                 <Icon icon="mdi:close" className="w-5 h-5" />
               </button>
@@ -366,14 +378,14 @@ export const ProcurementStockReceivedTab: React.FC = () => {
             <form onSubmit={handleCreateGrn} className="space-y-4 text-xs">
               <div>
                 <label className="block font-semibold mb-1 text-[var(--theme-text-secondary)]">
-                  Select Purchase Order *
+                  Purchase Order Reference <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={selectedPoId}
                   onChange={(e) => handleSelectPo(e.target.value)}
                   required
                   className={cn(
-                    "w-full rounded-lg px-3 py-2 border focus:outline-none",
+                    "w-full rounded-lg px-3 py-2 border focus:outline-none transition-colors",
                     isDark ? "bg-[#001825] border-[#0A4D66]/60 text-white" : "bg-slate-50 border-slate-300 text-slate-800",
                   )}
                 >
@@ -387,39 +399,46 @@ export const ProcurementStockReceivedTab: React.FC = () => {
               </div>
 
               {selectedPo && (
-                <div className="p-3 rounded-lg border border-[#0A4D66]/30 bg-[#001825]/50">
-                  <div className="font-semibold text-[var(--theme-text-primary)]">
-                    Vendor: {selectedPo.supplier?.name || "N/A"}
+                <div className="p-3.5 rounded-xl border border-sky-500/20 bg-sky-500/5 grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Vendor / Supplier</span>
+                    <span className="font-bold text-slate-900 dark:text-white">{selectedPo.supplier?.name || "N/A"}</span>
                   </div>
-                  <div className="text-[11px] text-[var(--theme-text-muted)] mt-0.5">
-                    Order Date: {formatDateShort(selectedPo.order_date)} | Expected Delivery: {formatDateShort(selectedPo.expected_date_of_delivery)}
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Delivery Window</span>
+                    <span className="text-slate-700 dark:text-gray-300 font-mono">
+                      {formatDateShort(selectedPo.order_date)} → {formatDateShort(selectedPo.expected_date_of_delivery)}
+                    </span>
                   </div>
                 </div>
               )}
 
               {grnLineItems.length > 0 && (
-                <div>
-                  <label className="block font-semibold mb-2 text-[var(--theme-text-secondary)]">
-                    Delivered Items & Batch Assignments *
-                  </label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold uppercase tracking-wider text-[11px] text-[var(--theme-text-secondary)]">
+                      Delivered Items &amp; Batch Traceability
+                    </label>
+                    <span className="text-[10px] text-slate-400">{grnLineItems.length} items to receive</span>
+                  </div>
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                     {grnLineItems.map((line, idx) => (
                       <div
                         key={line.purchase_order_item_id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg border border-[var(--theme-border-em)] bg-[var(--theme-bg-panel)]"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border border-slate-200/80 dark:border-[#0A4D66]/40 bg-slate-50/70 dark:bg-[#001825]/80"
                       >
                         <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-[var(--theme-text-primary)] truncate">
+                          <div className="font-bold text-slate-900 dark:text-white truncate">
                             {line.part_name}
                           </div>
-                          <div className="text-[10px] text-[var(--theme-text-muted)]">
-                            Ordered: {line.quantity_ordered}
+                          <div className="text-[10px] text-slate-500 dark:text-gray-400 mt-0.5">
+                            Quantity Ordered: <span className="font-semibold text-sky-600 dark:text-sky-400">{line.quantity_ordered}</span>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <div>
-                            <span className="text-[10px] text-[var(--theme-text-muted)] block">Qty Received:</span>
+                            <span className="text-[10px] font-semibold text-slate-500 dark:text-gray-400 block mb-1">Qty Received</span>
                             <input
                               type="number"
                               min="1"
@@ -434,14 +453,14 @@ export const ProcurementStockReceivedTab: React.FC = () => {
                                 );
                               }}
                               className={cn(
-                                "w-16 rounded px-2 py-1 text-center font-bold border",
-                                isDark ? "bg-[#001825] border-[#0A4D66] text-white" : "bg-white border-slate-300 text-slate-800",
+                                "w-20 rounded-lg px-2.5 py-1.5 text-center font-bold text-xs border focus:outline-none focus:ring-1 focus:ring-sky-500",
+                                isDark ? "bg-[#001219] border-[#0A4D66] text-white" : "bg-white border-slate-300 text-slate-800",
                               )}
                             />
                           </div>
 
                           <div>
-                            <span className="text-[10px] text-[var(--theme-text-muted)] block">Batch / Lot:</span>
+                            <span className="text-[10px] font-semibold text-slate-500 dark:text-gray-400 block mb-1">Batch / Lot #</span>
                             <input
                               type="text"
                               value={line.batch_number}
@@ -454,8 +473,8 @@ export const ProcurementStockReceivedTab: React.FC = () => {
                                 );
                               }}
                               className={cn(
-                                "w-28 rounded px-2 py-1 text-xs border",
-                                isDark ? "bg-[#001825] border-[#0A4D66] text-white" : "bg-white border-slate-300 text-slate-800",
+                                "w-32 rounded-lg px-2.5 py-1.5 text-xs font-mono border focus:outline-none focus:ring-1 focus:ring-sky-500",
+                                isDark ? "bg-[#001219] border-[#0A4D66] text-white" : "bg-white border-slate-300 text-slate-800",
                               )}
                             />
                           </div>
@@ -468,40 +487,54 @@ export const ProcurementStockReceivedTab: React.FC = () => {
 
               <div>
                 <label className="block font-semibold mb-1 text-[var(--theme-text-secondary)]">
-                  Delivery Inspection & Acceptance Notes
+                  Delivery Inspection &amp; Acceptance Notes
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Record delivery waybill, packing slip number, condition on delivery..."
+                  placeholder="Record delivery waybill, packing slip number, certificate of conformance (CoC), condition on delivery..."
                   value={grnNotes}
                   onChange={(e) => setGrnNotes(e.target.value)}
                   className={cn(
-                    "w-full rounded-lg px-3 py-2 border focus:outline-none",
-                    isDark ? "bg-[#001825] border-[#0A4D66]/60 text-white" : "bg-slate-50 border-slate-300 text-slate-800",
+                    "w-full rounded-lg px-3 py-2 border focus:outline-none transition-colors",
+                    isDark ? "bg-[#001825] border-[#0A4D66]/60 text-white placeholder-gray-500" : "bg-slate-50 border-slate-300 text-slate-800 placeholder-slate-400",
                   )}
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-[#0A4D66]/20">
+              <div className="flex justify-end gap-2.5 pt-3 border-t border-[#0A4D66]/20">
                 <button
                   type="button"
                   onClick={() => setIsNewGrnModalOpen(false)}
-                  className="px-4 py-1.5 rounded-lg border border-[var(--theme-border-em)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-bg-panel)]"
+                  className="px-4 py-2 rounded-lg border border-[var(--theme-border-em)] text-xs font-semibold text-[var(--theme-text-secondary)] hover:bg-[var(--theme-bg-panel)] transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPostingGrn || !selectedPoId || grnLineItems.length === 0}
-                  className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold transition-colors disabled:opacity-50"
+                  className={cn(
+                    "inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-xs font-bold bg-[#0369A1] hover:bg-[#025682] text-white shadow-sm transition-colors",
+                    (isPostingGrn || !selectedPoId || grnLineItems.length === 0) && "opacity-60 cursor-not-allowed",
+                  )}
                 >
-                  {isPostingGrn ? "Posting Receipt..." : "Confirm & Post GRN"}
+                  {isPostingGrn ? (
+                    <>
+                      <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
+                      <span>Posting GRN...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Icon icon="mdi:check-all" className="w-4 h-4" />
+                      <span>Confirm Stock Receipt</span>
+                    </>
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
 
       {/* MODAL 2: INSPECT GRN DETAILS */}
       {selectedGrnForDetails && (

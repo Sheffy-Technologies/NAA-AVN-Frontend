@@ -514,15 +514,20 @@ export default function PurchaseOrderDetailsPage() {
         )}>
           <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-[#0A4D66]/40">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                <Icon icon="mdi:clipboard-check-outline" className="w-5 h-5" />
+              <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                <Icon icon="mdi:package-variant-closed-check" className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Stock Received (Goods Received Note)
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Verify arrived quantities and confirm stock entry into NAA inventory.
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Receive Stock — Goods Received Note (GRN)
+                  </h3>
+                  <span className="rounded bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                    Aviation Stores
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Verify arrived quantities and confirm component stock intake into NA AVN inventory ledger.
                 </p>
               </div>
             </div>
