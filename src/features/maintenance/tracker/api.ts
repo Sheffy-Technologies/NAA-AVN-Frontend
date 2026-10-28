@@ -1,4 +1,5 @@
 import { maintenanceApi } from "@/features/maintenance/api";
+import type { InventoryItem } from "@/features/inventory/api";
 
 /*
  * Maintenance tracker (Maintenance Hub → Maintenance → Maintenance Tracking).
@@ -240,6 +241,8 @@ export type SparesRequestLine = SpareLine & {
   aircraft_registration: string | null;
   work_order_id: number | null;
   work_order?: { id: number; work_order_number: string | null } | null;
+  /** How much stores has moved into the Maintenance Hub against this line. */
+  issued_quantity?: number;
 };
 
 export type SparesRequest = {
@@ -274,6 +277,37 @@ export type SparesRequestUpdate = Partial<{
   aviation_engineer_signature: string | null;
   lines: Partial<SparesRequestLine>[];
 }>;
+
+// ---- Maintenance Hub store ----
+
+/** A Maintenance Hub stock line: an inventory row in the MNT-HUB store, same shape as /inventories. */
+export type HubStockItem = InventoryItem & { unit?: { id: number; name: string } | null };
+
+/** General Store stock the Hub can request: identity and quantity only. */
+export type HubCatalogueItem = {
+  part_number: string | null;
+  description: string | null;
+  nsn: string | null;
+  measurement_unit: string | null;
+  available: number;
+};
+
+/** Hub stock drawn onto a work order. */
+export type HubDraw = {
+  id: number;
+  inventory_id: number;
+  part_number: string | null;
+  description: string | null;
+  measurement_unit: string | null;
+  quantity: number;
+  returned_quantity: number;
+  work_order_id: number | null;
+  work_order_number: string | null;
+  note: string | null;
+  drawn_by: string | null;
+  movement_date: string | null;
+  created_at: string;
+};
 
 // ---- Spares catalog ----
 
@@ -418,7 +452,7 @@ const SHEET = (assetId: number) => ({ type: "TrackerSheet" as const, id: assetId
 
 export const trackerApi = maintenanceApi
   .enhanceEndpoints({
-    addTagTypes: ["TrackerOptions", "TrackerSheet", "TrackerFleet", "TrackerLogs", "TrackerWorkOrders", "SparesRequests", "PartCatalog", "TrackerStock", "TrackerVouchers", "TrackerFlights", "TrackerDocuments"],
+    addTagTypes: ["HubStock", "HubDraws", "TrackerOptions", "TrackerSheet", "TrackerFleet", "TrackerLogs", "TrackerWorkOrders", "SparesRequests", "PartCatalog", "TrackerStock", "TrackerVouchers", "TrackerFlights", "TrackerDocuments"],
   })
   .injectEndpoints({
     endpoints: (builder) => ({
@@ -541,6 +575,32 @@ export const trackerApi = maintenanceApi
       issueVoucherFromRequest: builder.mutation<Voucher, { id: number; unit_id: number; receiving_unit_id: number }>({
         query: ({ id, ...data }) => ({ url: `/spares-requests/${id}/issue-voucher`, method: "POST", data }),
         invalidatesTags: (_r, _e, { id }) => [{ type: "SparesRequests", id }, "SparesRequests", "TrackerVouchers"],
+      }),
+
+      // Maintenance Hub store
+      getHubStock: builder.query<HubStockItem[], { q?: string } | void>({
+        query: (params) => ({ url: "/maintenance-store/stock", method: "GET", params: params || undefined }),
+        providesTags: ["HubStock"],
+      }),
+      getHubCatalogue: builder.query<HubCatalogueItem[], { q?: string } | void>({
+        query: (params) => ({ url: "/maintenance-store/catalogue", method: "GET", params: params || undefined }),
+        providesTags: ["HubStock"],
+      }),
+      getHubDraws: builder.query<HubDraw[], { work_order_id?: number } | void>({
+        query: (params) => ({ url: "/maintenance-store/draws", method: "GET", params: params || undefined }),
+        providesTags: ["HubDraws"],
+      }),
+      drawFromHub: builder.mutation<unknown, { inventory_id: number; work_order_id: number; quantity: number; note?: string | null }>({
+        query: (data) => ({ url: "/maintenance-store/draws", method: "POST", data }),
+        invalidatesTags: ["HubStock", "HubDraws"],
+      }),
+      returnHubDraw: builder.mutation<unknown, { id: number; quantity: number; note?: string | null }>({
+        query: ({ id, ...data }) => ({ url: `/maintenance-store/draws/${id}/return`, method: "POST", data }),
+        invalidatesTags: ["HubStock", "HubDraws"],
+      }),
+      issueToHub: builder.mutation<SparesRequest, { id: number; lines: { line_id: number; quantity: number }[] }>({
+        query: ({ id, ...data }) => ({ url: `/spares-requests/${id}/issue-to-hub`, method: "POST", data }),
+        invalidatesTags: (_r, _e, { id }) => [{ type: "SparesRequests", id }, "SparesRequests", "HubStock", "TrackerStock"],
       }),
 
       // Spares catalog
@@ -668,6 +728,12 @@ export const {
   useDeleteSparesRequestMutation,
   useFileSparesRequestMutation,
   useIssueVoucherFromRequestMutation,
+  useGetHubStockQuery,
+  useGetHubCatalogueQuery,
+  useGetHubDrawsQuery,
+  useDrawFromHubMutation,
+  useReturnHubDrawMutation,
+  useIssueToHubMutation,
   useGetPartCatalogQuery,
   useCreateCatalogItemMutation,
   useUpdateCatalogItemMutation,

@@ -23,7 +23,10 @@ export const EditOperationPage = () => {
     if (!id) return;
 
     try {
-      await updateOperation({ id, data: payload }).unwrap();
+      const saved = await updateOperation({ id, data: payload }).unwrap();
+      if (saved.airworthiness_warning) {
+        dispatch(showToast({ message: saved.airworthiness_warning.message, type: "warning" }));
+      }
       navigate(`/dashboard/operations/${id}`);
     } catch (error) {
       console.error("Failed to update operation:", error);

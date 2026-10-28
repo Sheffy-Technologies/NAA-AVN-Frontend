@@ -317,6 +317,15 @@ export type AfterActionReport = CreateAfterActionReportRequest & {
 
 export type Operation = {
   id: number;
+  /**
+   * Set on a create/update response when a flight was saved with aircraft
+   * grounded for maintenance. The save isn't refused (operations are often
+   * entered after they were flown); it's warned about and audited.
+   */
+  airworthiness_warning?: {
+    message: string;
+    grounded_assets: { asset_id: number; name: string; tail_number: string | null; reasons: string[] }[];
+  } | null;
   unit_id: number;
   operation_type_id: number | null;
   operation_category_id: number | null;
