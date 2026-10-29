@@ -568,6 +568,32 @@ export const OperationForm = ({
     setTargetFromLatLon("arrival", latStr, lngStr);
   };
 
+  const handleDepartureClear = () => {
+    setFormData((prev) => ({
+      ...prev,
+      departure_latitude: "",
+      departure_longitude: "",
+      departure_mgrs: "",
+      departure_dms_lat: "",
+      departure_dms_lng: "",
+    }));
+    setCoordinateErrors((prev) => ({ ...prev, departure: "" }));
+    setActiveMapTarget("departure");
+  };
+
+  const handleArrivalClear = () => {
+    setFormData((prev) => ({
+      ...prev,
+      arrival_latitude: "",
+      arrival_longitude: "",
+      arrival_mgrs: "",
+      arrival_dms_lat: "",
+      arrival_dms_lng: "",
+    }));
+    setCoordinateErrors((prev) => ({ ...prev, arrival: "" }));
+    setActiveMapTarget("arrival");
+  };
+
   const updateWaypointLatLon = (
     index: number,
     axis: CoordinateAxis,
@@ -1289,6 +1315,8 @@ export const OperationForm = ({
               onWaypointRename={updateWaypointName}
               onDepartureMove={handleDepartureMove}
               onArrivalMove={handleArrivalMove}
+              onDepartureClear={handleDepartureClear}
+              onArrivalClear={handleArrivalClear}
             />
 
             {/* Departure and Arrival Coordinate Inputs */}
@@ -1694,18 +1722,30 @@ export const OperationForm = ({
                   arrivalLon={formData.arrival_longitude || undefined}
                   flightDate={formData.start_date}
                   flightTime={formData.start_time}
+                  onSelectDepartureAirport={(airport) => {
+                    handleDepartureMove(airport.lat, airport.lon);
+                  }}
+                  onSelectArrivalAirport={(airport) => {
+                    handleArrivalMove(airport.lat, airport.lon);
+                  }}
                 />
               ) : (
                 <div className="space-y-4">
                   <div className="rounded-xl border border-dashed border-[#0A4D66]/60 bg-[#001825]/40 p-4 text-xs text-gray-400">
                     Showing Command Headquarters (DNAA Abuja) and Operations Hub (DNMA Maiduguri) METAR baseline for{" "}
                     <span className="text-[#7FD5FF] font-semibold">{formData.start_date || "selected date"}</span>.
-                    Plot departure and arrival points on the map above to target specific route airfields.
+                    Plot departure and arrival points on the map above, or use the search field below to check weather at Lagos, Kaduna, or any airfield.
                   </div>
                   <WeatherBriefingCard
                     stations="DNAA,DNMA"
                     flightDate={formData.start_date}
                     flightTime={formData.start_time}
+                    onSelectDepartureAirport={(airport) => {
+                      handleDepartureMove(airport.lat, airport.lon);
+                    }}
+                    onSelectArrivalAirport={(airport) => {
+                      handleArrivalMove(airport.lat, airport.lon);
+                    }}
                   />
                 </div>
               )}
@@ -1968,24 +2008,6 @@ export const OperationForm = ({
                   </div>
                 </div>
               ))}
-            </div>
-
-            {/* Integrated Pre-Flight Fuel Calculation & Unit Inventory Status */}
-            <div className="pt-2">
-              <MissionPlanningCard
-                variant="fuel-only"
-                departureLat={formData.departure_latitude}
-                departureLng={formData.departure_longitude}
-                arrivalLat={formData.arrival_latitude}
-                arrivalLng={formData.arrival_longitude}
-                waypoints={waypoints}
-                unitId={formData.unit_id}
-                operationName={formData.name}
-                operationDate={formData.start_date}
-                aircraftCount={assets.length}
-                isEditable={true}
-                onPlanningChange={setMissionPlan}
-              />
             </div>
           </div>
         </section>

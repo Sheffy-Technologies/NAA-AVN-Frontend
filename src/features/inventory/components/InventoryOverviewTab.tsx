@@ -13,8 +13,11 @@ import {
   useGetStockMovementsQuery,
   useGetSuppliersQuery,
   useGetExpenseCategoriesQuery,
+  useUpdateInventoryMutation,
   type InventoryItem,
 } from "../api";
+import { useAppDispatch } from "@/shared/hooks/redux";
+import { showToast } from "@/shared/store/toastSlice";
 import {
   formatDateShort,
   formatCategoryName,
@@ -38,6 +41,40 @@ export const InventoryOverviewTab: React.FC<InventoryOverviewTabProps> = ({
 }) => {
   const { isDark } = useTheme();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const [updateInventory, { isLoading: isQuarantining }] =
+    useUpdateInventoryMutation();
+
+  const handleQuarantineItem = async (
+    e: React.MouseEvent,
+    item: InventoryItem,
+  ) => {
+    e.stopPropagation();
+    try {
+      await updateInventory({
+        id: item.id,
+        body: {
+          store: "quarantine",
+          remark: item.remark
+            ? `${item.remark} | Quarantined due to expired shelf life`
+            : "Quarantined due to expired shelf life",
+        },
+      }).unwrap();
+      dispatch(
+        showToast({
+          message: `Item ${item.part_number} moved to Quarantine. Alert cleared.`,
+          type: "success",
+        }),
+      );
+    } catch {
+      dispatch(
+        showToast({
+          message: `Failed to quarantine item ${item.part_number}.`,
+          type: "error",
+        }),
+      );
+    }
+  };
 
   // Queries
   const { data: inventories = [] } =
@@ -84,26 +121,34 @@ export const InventoryOverviewTab: React.FC<InventoryOverviewTabProps> = ({
         serializedCount++;
       }
 
-      // Critical (Out of stock / AOG risk)
-      if (currentStock <= 0) {
+      // Critical (Out of stock / AOG risk for active stock items with reorder threshold)
+      if (reorderLevel > 0 && currentStock <= 0) {
         criticalStockCount++;
         criticalItems.push(item);
       }
       // Low stock (reorder reached, but > 0)
-      else if (currentStock <= reorderLevel) {
+      else if (reorderLevel > 0 && currentStock <= reorderLevel) {
         lowStockCount++;
         lowStockItems.push(item);
       }
 
       // Expiry checks
       if (item.expiry_date) {
+        const isQuarantined =
+          item.store === "quarantine" ||
+          (item.store_location?.name ?? "").toLowerCase().includes("quarantine");
         const expDate = new Date(item.expiry_date);
         if (!Number.isNaN(expDate.getTime())) {
+          // Only alert if physical stock is on hand AND not yet quarantined
           if (expDate <= now) {
-            expiredCount++;
-            expiredItems.push(item);
+            if (currentStock > 0 && !isQuarantined) {
+              expiredCount++;
+              expiredItems.push(item);
+            }
           } else if (expDate <= in60Days) {
-            expiringSoonCount++;
+            if (currentStock > 0 && !isQuarantined) {
+              expiringSoonCount++;
+            }
           }
         }
       }
@@ -647,9 +692,15 @@ export const InventoryOverviewTab: React.FC<InventoryOverviewTabProps> = ({
                     Expired on {formatDateShort(item.expiry_date)}
                   </div>
                 </div>
-                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0 self-center">
+                <button
+                  type="button"
+                  disabled={isQuarantining}
+                  onClick={(e) => handleQuarantineItem(e, item)}
+                  className="px-2.5 py-1 text-[11px] rounded font-bold bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white shrink-0 shadow-sm transition-all cursor-pointer"
+                  title="Move item to Quarantine store and clear alert"
+                >
                   Quarantine
-                </span>
+                </button>
               </div>
             ))}
 

@@ -7,6 +7,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import {
   useGetInventoryByIdQuery,
   useUpdateInventoryStockMutation,
+  useUpdateInventoryMutation,
   useDeleteInventoryMutation,
   type InventoryItem,
 } from "@/features/inventory/api";
@@ -318,6 +319,36 @@ export const InventoryInfoPage = () => {
   });
 
   const [deleteInventory, { isLoading: isDeleting }] = useDeleteInventoryMutation();
+  const [updateInventory, { isLoading: isQuarantining }] = useUpdateInventoryMutation();
+
+  const handleQuarantineItem = async () => {
+    if (!inventory?.id) return;
+    try {
+      await updateInventory({
+        id: inventory.id,
+        body: {
+          store: "quarantine",
+          remark: inventory.remark
+            ? `${inventory.remark} | Quarantined due to expired shelf life`
+            : "Quarantined due to expired shelf life",
+        },
+      }).unwrap();
+      refetch();
+      dispatch(
+        showToast({
+          message: `Item ${inventory.part_number} moved to Quarantine.`,
+          type: "success",
+        }),
+      );
+    } catch {
+      dispatch(
+        showToast({
+          message: "Failed to quarantine item.",
+          type: "error",
+        }),
+      );
+    }
+  };
 
   const stockLevelColor = useMemo(
     () => (inventory ? mapStockLevelColor(inventory.stock_level) : "text-slate-700 dark:text-gray-300"),
@@ -490,6 +521,20 @@ export const InventoryInfoPage = () => {
               <Icon icon="mdi:trash-can-outline" className="w-4 h-4 text-red-600 dark:text-red-400" />
               <span className="font-semibold">Delete</span>
             </button>
+            {inventory.expiry_date &&
+              new Date(inventory.expiry_date) <= new Date() &&
+              inventory.store !== "quarantine" && (
+                <button
+                  type="button"
+                  onClick={handleQuarantineItem}
+                  disabled={isQuarantining}
+                  title="Move item to Quarantine store"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold border border-rose-400 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-rose-500"
+                >
+                  <Icon icon="mdi:shield-alert" className="w-4 h-4 text-white" />
+                  <span>Quarantine</span>
+                </button>
+              )}
             <button
               type="button"
               onClick={() => setIsUpdateStockModalOpen(true)}

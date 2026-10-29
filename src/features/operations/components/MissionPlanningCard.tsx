@@ -9,9 +9,6 @@ import {
   calculateIcaoFuelHierarchy,
   NIGERIA_AERONAUTICAL_DATABASE,
   type RouteFix,
-  type NavLogSummary,
-  type TacticalCriticalPoints,
-  type IcaoFuelHierarchy,
 } from "../utils/navigationEngine";
 import { calculateBearing } from "../utils/coordinates";
 
@@ -67,6 +64,202 @@ export const MISSION_EQUIPMENT_OPTIONS: Array<{
   },
 ];
 
+export type FuelBurnUnit = "pds_hr" | "kg_hr" | "l_hr" | "gph";
+export type AirspeedMode = "TAS" | "IAS";
+export type AircraftProfileId =
+  | "aw109"
+  | "bell412"
+  | "mi171"
+  | "da42"
+  | "super_tucano"
+  | "custom";
+
+export interface AircraftProfilePreset {
+  id: AircraftProfileId;
+  name: string;
+  designation: string;
+  category: "Light Twin Turbine" | "Medium Utility" | "Heavy Assault" | "ISR Twin Piston" | "Turboprop Strike" | "Custom";
+  defaultIasKts: number;
+  defaultTasKts: number;
+  defaultAltitudeFt: number;
+  defaultBurnRatePds: number; // in Pds/hr
+  emptyWeightKg: number;
+  maxTakeoffWeightKg: number;
+  defaultConfig: MissionEquipmentConfig;
+  description: string;
+}
+
+export const AIRCRAFT_PROFILES: AircraftProfilePreset[] = [
+  {
+    id: "aw109",
+    name: "AgustaWestland AW109LUH",
+    designation: "Light Utility / Armed Scout Helicopter",
+    category: "Light Twin Turbine",
+    defaultIasKts: 120,
+    defaultTasKts: 130,
+    defaultAltitudeFt: 4500,
+    defaultBurnRatePds: 425, // ~240 L/h Jet A-1
+    emptyWeightKg: 2100,
+    maxTakeoffWeightKg: 3175,
+    defaultConfig: "slick_transport",
+    description: "Twin-engine light utility helicopter used for tactical scout, armed escort, and MEDEVAC.",
+  },
+  {
+    id: "bell412",
+    name: "Bell 412EP Sentinel",
+    designation: "Medium Tactical Transport Helicopter",
+    category: "Medium Utility",
+    defaultIasKts: 115,
+    defaultTasKts: 125,
+    defaultAltitudeFt: 5000,
+    defaultBurnRatePds: 680, // ~384 L/h Jet A-1
+    emptyWeightKg: 3200,
+    maxTakeoffWeightKg: 5400,
+    defaultConfig: "slick_transport",
+    description: "Four-blade medium utility helicopter for tactical troop insertion, CSAR, and utility transport.",
+  },
+  {
+    id: "mi171",
+    name: "Mil Mi-171Sh / Mi-35M",
+    designation: "Heavy Assault & Combat Transport Helicopter",
+    category: "Heavy Assault",
+    defaultIasKts: 115,
+    defaultTasKts: 125,
+    defaultAltitudeFt: 4000,
+    defaultBurnRatePds: 1450, // ~818 L/h Jet A-1
+    emptyWeightKg: 7400,
+    maxTakeoffWeightKg: 13000,
+    defaultConfig: "cas_rockets",
+    description: "Heavy multi-role assault helicopter capable of carrying 24 assault troops or heavy rocket pylons.",
+  },
+  {
+    id: "da42",
+    name: "Diamond DA42 MPP Guardian",
+    designation: "Tactical Aerial Reconnaissance / ISR",
+    category: "ISR Twin Piston",
+    defaultIasKts: 135,
+    defaultTasKts: 152,
+    defaultAltitudeFt: 6500,
+    defaultBurnRatePds: 90, // ~51 L/h Jet A-1
+    emptyWeightKg: 1410,
+    maxTakeoffWeightKg: 1999,
+    defaultConfig: "isr_recon",
+    description: "Multi-purpose sensor platform with ultra-low fuel burn, long endurance loiter, and EO/IR turret.",
+  },
+  {
+    id: "super_tucano",
+    name: "A-29 Super Tucano",
+    designation: "Light Attack & Armed Reconnaissance Turboprop",
+    category: "Turboprop Strike",
+    defaultIasKts: 235,
+    defaultTasKts: 265,
+    defaultAltitudeFt: 10000,
+    defaultBurnRatePds: 460, // ~260 L/h Jet A-1
+    emptyWeightKg: 3200,
+    maxTakeoffWeightKg: 5400,
+    defaultConfig: "armed_escort",
+    description: "Single-engine turboprop light attack aircraft for CAS, border surveillance, and counter-insurgency.",
+  },
+  {
+    id: "custom",
+    name: "Custom / Mission-Specific Airframe",
+    designation: "User-Defined Tactical Profile",
+    category: "Custom",
+    defaultIasKts: 120,
+    defaultTasKts: 120,
+    defaultAltitudeFt: 5000,
+    defaultBurnRatePds: 425,
+    emptyWeightKg: 2100,
+    maxTakeoffWeightKg: 3500,
+    defaultConfig: "slick_transport",
+    description: "Custom airframe configuration with manual weight, speed, and fuel rate parameters.",
+  },
+];
+
+export const FUEL_UNIT_LABELS: Record<FuelBurnUnit, { short: string; label: string; perLiter: number }> = {
+  pds_hr: { short: "Pds/hr", label: "Pounds per hour (Pds/hr)", perLiter: 1.7725 },
+  kg_hr: { short: "kg/hr", label: "Kilograms per hour (kg/hr)", perLiter: 0.804 },
+  l_hr: { short: "L/h", label: "Liters per hour (L/h)", perLiter: 1.0 },
+  gph: { short: "GPH", label: "Gallons per hour (US GPH)", perLiter: 0.264172 },
+};
+
+/** Convert any fuel flow rate to Liters per hour (L/h) based on Jet A-1 density */
+export const convertBurnRateToLph = (val: number, unit: FuelBurnUnit): number => {
+  if (!val || val <= 0) return 0;
+  switch (unit) {
+    case "pds_hr":
+      return Math.round((val / 1.7725) * 10) / 10;
+    case "kg_hr":
+      return Math.round((val / 0.804) * 10) / 10;
+    case "gph":
+      return Math.round((val * 3.78541) * 10) / 10;
+    case "l_hr":
+    default:
+      return val;
+  }
+};
+
+/** Convert Liters to a target fuel unit */
+export const convertLitersToUnit = (liters: number, unit: FuelBurnUnit): number => {
+  if (!liters || liters <= 0) return 0;
+  switch (unit) {
+    case "pds_hr":
+      return Math.round(liters * 1.7725);
+    case "kg_hr":
+      return Math.round(liters * 0.804);
+    case "gph":
+      return Math.round((liters / 3.78541) * 10) / 10;
+    case "l_hr":
+    default:
+      return Math.round(liters);
+  }
+};
+
+/** Convert a burn rate from one unit to another */
+export const convertBurnRateBetweenUnits = (
+  val: number,
+  fromUnit: FuelBurnUnit,
+  toUnit: FuelBurnUnit
+): number => {
+  if (fromUnit === toUnit) return val;
+  const lph = convertBurnRateToLph(val, fromUnit);
+  switch (toUnit) {
+    case "pds_hr":
+      return Math.round(lph * 1.7725);
+    case "kg_hr":
+      return Math.round(lph * 0.804);
+    case "gph":
+      return Math.round((lph / 3.78541) * 10) / 10;
+    case "l_hr":
+    default:
+      return Math.round(lph);
+  }
+};
+
+/** Compute True Airspeed (TAS) from Indicated Airspeed (IAS) and pressure altitude (ft) */
+export const computeTasFromIas = (iasKts: number, altitudeFt: number): number => {
+  if (!iasKts || iasKts <= 0) return 0;
+  const alt = Math.max(0, altitudeFt || 0);
+  // Standard rule of thumb: ~+2% TAS per 1,000 ft altitude
+  return Math.round(iasKts * (1 + (alt / 1000) * 0.02));
+};
+
+export interface MissionAircraftState {
+  id: string; // "ac-1", "ac-2", ...
+  callsign: string;
+  profileId: AircraftProfileId;
+  speedMode: AirspeedMode;
+  iasKts: number;
+  tasKts: number;
+  altitudeFt: number;
+  fuelUnit: FuelBurnUnit;
+  burnRateInput: number; // Value in fuelUnit
+  equipmentConfig: MissionEquipmentConfig;
+  payloadKg: number;
+  emptyWeightKg: number;
+  maxTakeoffWeightKg: number;
+}
+
 export type MissionPlanningData = {
   totalDistanceNm: number;
   totalDistanceKm: number;
@@ -93,6 +286,27 @@ export type MissionPlanningData = {
   contingencyFuelLiters?: number;
   alternateFuelLiters?: number;
   minimumBlockFuelLiters?: number;
+  // Multi-unit & Airframe additions
+  fuelUnit?: FuelBurnUnit;
+  burnRateInUnit?: number;
+  airspeedMode?: AirspeedMode;
+  indicatedAirspeedKts?: number;
+  cruiseAltitudeFt?: number;
+  aircraftProfiles?: Array<{
+    callsign: string;
+    profileId: string;
+    speedMode: AirspeedMode;
+    cruiseSpeedKts: number;
+    fuelUnit: FuelBurnUnit;
+    burnRateInput: number;
+    burnRateLph: number;
+    totalRampFuelLiters: number;
+    tripFuelLiters: number;
+    totalRampFuelPds: number;
+    tripFuelPds: number;
+    takeoffWeightKg: number;
+    isOverweight: boolean;
+  }>;
 };
 
 type MissionPlanningCardProps = {
@@ -120,7 +334,7 @@ type MissionPlanningCardProps = {
 /**
  * Direct Freeform Number Input:
  * Replaces sliders and fixed-step progression pickers so pilots and tactical dispatchers
- * can type exact meteorological or performance figures (e.g. 13 kts, 047°, 235 L/h)
+ * can type exact meteorological or performance figures (e.g. 13 kts, 047°, 425 Pds/h)
  * directly from the keyboard without sliders, steppers, or auto-coercion jumps.
  */
 interface DirectNumberInputProps {
@@ -129,6 +343,7 @@ interface DirectNumberInputProps {
   min?: number;
   max?: number;
   unit?: string;
+  unitElement?: React.ReactNode;
   placeholder?: string;
   disabled?: boolean;
   className?: string;
@@ -141,6 +356,7 @@ const DirectNumberInput = ({
   min = 0,
   max,
   unit,
+  unitElement,
   placeholder,
   disabled = false,
   className = "",
@@ -204,14 +420,16 @@ const DirectNumberInput = ({
         disabled={disabled}
         placeholder={placeholder}
         className={`w-full bg-[#001825] border border-[#0A4D66]/60 rounded-lg px-3 py-2 text-sm font-mono text-white placeholder-gray-600 focus:outline-none focus:border-[#7FD5FF] focus:ring-1 focus:ring-[#7FD5FF]/50 disabled:opacity-50 ${
-          unit ? "pr-14" : ""
+          unitElement ? "pr-24" : unit ? "pr-14" : ""
         } ${className}`}
       />
-      {unit && (
+      {unitElement ? (
+        <div className="absolute right-1.5 flex items-center">{unitElement}</div>
+      ) : unit ? (
         <span className="absolute right-3 text-xs font-mono font-semibold text-[#7FD5FF] pointer-events-none select-none">
           {unit}
         </span>
-      )}
+      ) : null}
     </div>
   );
 };
@@ -233,9 +451,7 @@ export const MissionPlanningCard = ({
   onPlanningChange,
   className = "",
 }: MissionPlanningCardProps) => {
-  // Navigation & Flight Performance Parameters
-  const [cruiseSpeedKts, setCruiseSpeedKts] = useState<number>(120); // True Airspeed (TAS)
-  const [burnRateLph, setBurnRateLph] = useState<number>(240); // 240 L/hr light twin turbine
+  // Navigation & Meteorological Parameters
   const [windDirectionDeg, setWindDirectionDeg] = useState<number>(60); // 060° Harmattan/NE Trade wind typical
   const [windSpeedKts, setWindSpeedKts] = useState<number>(15); // 15 kts
   const [magneticVarDeg] = useState<number>(-2.0); // Nigeria -2° West declination
@@ -243,11 +459,64 @@ export const MissionPlanningCard = ({
   const [isIfrReserve, setIsIfrReserve] = useState<boolean>(false); // 30m VFR vs 45m IFR
   const [extraDiscretionaryFuelL, setExtraDiscretionaryFuelL] = useState<number>(50); // 50L tactical buffer
 
-  // Weight & Balance State
-  const [equipmentConfig, setEquipmentConfig] = useState<MissionEquipmentConfig>("slick_transport");
-  const [payloadKg, setPayloadKg] = useState<number>(300);
-  const [emptyWeightKg] = useState<number>(2100);
-  const [maxTakeoffWeightKg] = useState<number>(3175);
+  // Multi-Aircraft & Airframe Formation State
+  const initialAircraftCount = Math.max(1, Number(aircraftCount) || 1);
+
+  const createDefaultAircraft = (
+    index: number,
+    profileId: AircraftProfileId = "aw109"
+  ): MissionAircraftState => {
+    const profile =
+      AIRCRAFT_PROFILES.find((p) => p.id === profileId) || AIRCRAFT_PROFILES[0];
+    const callsignPrefix =
+      index === 0
+        ? "NAA-01 (Lead)"
+        : index === 1
+        ? "NAA-02 (Escort)"
+        : `NAA-0${index + 1}`;
+    return {
+      id: `ac-${index + 1}`,
+      callsign: callsignPrefix,
+      profileId: profile.id,
+      speedMode: "TAS",
+      iasKts: profile.defaultIasKts,
+      tasKts: profile.defaultTasKts,
+      altitudeFt: profile.defaultAltitudeFt,
+      fuelUnit: "pds_hr", // Default to Pounds per hour (Pds/hr) as requested for Jet A-1!
+      burnRateInput: profile.defaultBurnRatePds,
+      equipmentConfig: index === 1 ? "armed_escort" : profile.defaultConfig,
+      payloadKg: index === 1 ? 200 : 300,
+      emptyWeightKg: profile.emptyWeightKg,
+      maxTakeoffWeightKg: profile.maxTakeoffWeightKg,
+    };
+  };
+
+  const [aircraftList, setAircraftList] = useState<MissionAircraftState[]>(() => {
+    const list: MissionAircraftState[] = [];
+    for (let i = 0; i < initialAircraftCount; i++) {
+      list.push(createDefaultAircraft(i, i === 1 ? "aw109" : "aw109"));
+    }
+    return list;
+  });
+
+  const [selectedAircraftIdx, setSelectedAircraftIdx] = useState<number>(0);
+  const [formationSync, setFormationSync] = useState<boolean>(true);
+
+  // Sync aircraftList length with aircraftCount prop from parent
+  useEffect(() => {
+    const targetCount = Math.max(1, Number(aircraftCount) || 1);
+    setAircraftList((prev) => {
+      if (prev.length === targetCount) return prev;
+      if (prev.length < targetCount) {
+        const added: MissionAircraftState[] = [...prev];
+        for (let i = prev.length; i < targetCount; i++) {
+          added.push(createDefaultAircraft(i, "aw109"));
+        }
+        return added;
+      }
+      return prev.slice(0, targetCount);
+    });
+  }, [aircraftCount]);
 
   // Active View Tab in "all" variant
   const [activeTab, setActiveTab] = useState<
@@ -343,110 +612,267 @@ export const MissionPlanningCard = ({
 
   const hasRouteCoordinates = routeFixes.length >= 2;
 
-  // Baseline Initial Fuel on Board estimation for NavLog decrement (1,000L or 4.5h endurance)
-  const estimatedInitialFobL = Math.round(burnRateLph * 4.0);
+  // Aircraft Calculations & Fleet Aggregation
+  const aircraftCalculations = useMemo(() => {
+    const dep = routeFixes.length >= 2 ? routeFixes[0] : null;
+    const arr = routeFixes.length >= 2 ? routeFixes[routeFixes.length - 1] : null;
+    const directCourseDeg =
+      dep && arr
+        ? calculateBearing(dep.latitude, dep.longitude, arr.latitude, arr.longitude)
+        : 0;
 
-  // Compute Full Tactical NavLog (Dead-Reckoning with Wind Vectors)
-  const navLogSummary: NavLogSummary = useMemo(() => {
-    return generateTacticalNavLog(
-      routeFixes,
-      cruiseSpeedKts,
-      windDirectionDeg,
-      windSpeedKts,
-      burnRateLph,
-      estimatedInitialFobL,
-      magneticVarDeg
-    );
+    // AC 1 lead TAS for formation sync
+    const leadAc = aircraftList[0];
+    const leadEffectiveTas = leadAc
+      ? leadAc.speedMode === "IAS"
+        ? computeTasFromIas(leadAc.iasKts, leadAc.altitudeFt)
+        : Math.max(1, leadAc.tasKts || 120)
+      : 120;
+
+    // Destination coordinates for Alternate calculations
+    const destCoords =
+      routeFixes.length >= 2
+        ? {
+            lat: routeFixes[routeFixes.length - 1].latitude,
+            lng: routeFixes[routeFixes.length - 1].longitude,
+          }
+        : null;
+
+    return aircraftList.map((ac, idx) => {
+      // Effective TAS: formation flight locks wingmen to lead's TAS so ETEs match
+      let effectiveTas: number;
+      if (formationSync && idx > 0) {
+        effectiveTas = leadEffectiveTas;
+      } else {
+        effectiveTas =
+          ac.speedMode === "IAS"
+            ? computeTasFromIas(ac.iasKts, ac.altitudeFt)
+            : Math.max(1, ac.tasKts || 120);
+      }
+
+      // Convert entered burn rate to normalized Liters per hour (L/h)
+      const burnRateLph = Math.max(1, convertBurnRateToLph(ac.burnRateInput, ac.fuelUnit));
+      const estimatedInitialFobL = Math.round(burnRateLph * 4.0);
+
+      // Dead-Reckoning NavLog
+      const navLog = generateTacticalNavLog(
+        routeFixes,
+        effectiveTas,
+        windDirectionDeg,
+        windSpeedKts,
+        burnRateLph,
+        estimatedInitialFobL,
+        magneticVarDeg
+      );
+
+      // Corridor Wind Triangle
+      const corridorWind =
+        dep && arr
+          ? calculateWindTriangle(
+              effectiveTas,
+              windDirectionDeg,
+              windSpeedKts,
+              directCourseDeg,
+              magneticVarDeg
+            )
+          : null;
+
+      // ICAO 6-Tier Fuel Hierarchy
+      const icao = calculateIcaoFuelHierarchy(
+        navLog.totalEnrouteFuelLiters,
+        burnRateLph,
+        destCoords,
+        selectedAlternateId,
+        extraDiscretionaryFuelL,
+        isIfrReserve
+      );
+
+      // Tactical Critical Points
+      const cp = calculateTacticalCriticalPoints(
+        routeFixes,
+        effectiveTas,
+        windDirectionDeg,
+        windSpeedKts,
+        icao.totalRampFuelL,
+        burnRateLph,
+        icao.finalReserveFuelL
+      );
+
+      // Weight & Balance for this airframe
+      const cfg =
+        MISSION_EQUIPMENT_OPTIONS.find((opt) => opt.id === ac.equipmentConfig) ||
+        MISSION_EQUIPMENT_OPTIONS[0];
+      const fuelWeightKg = Math.round(icao.totalRampFuelL * 0.804);
+      const crewWeightKg = 170; // 2 pilots @ 85 kg
+      const takeoffWeightKg =
+        ac.emptyWeightKg +
+        cfg.weightKg +
+        fuelWeightKg +
+        crewWeightKg +
+        Number(ac.payloadKg || 0);
+      const isOverweight = takeoffWeightKg > ac.maxTakeoffWeightKg;
+
+      // Fuel in airframe's chosen unit
+      const rampFuelInUnit = convertLitersToUnit(icao.totalRampFuelL, ac.fuelUnit);
+      const tripFuelInUnit = convertLitersToUnit(icao.tripFuelL, ac.fuelUnit);
+      const reserveFuelInUnit = convertLitersToUnit(icao.finalReserveFuelL, ac.fuelUnit);
+
+      return {
+        aircraft: ac,
+        effectiveTas,
+        burnRateLph,
+        navLog,
+        corridorWind,
+        icao,
+        cp,
+        cfg,
+        fuelWeightKg,
+        takeoffWeightKg,
+        isOverweight,
+        rampFuelInUnit,
+        tripFuelInUnit,
+        reserveFuelInUnit,
+      };
+    });
   }, [
+    aircraftList,
+    formationSync,
     routeFixes,
-    cruiseSpeedKts,
     windDirectionDeg,
     windSpeedKts,
-    burnRateLph,
-    estimatedInitialFobL,
     magneticVarDeg,
-  ]);
-
-  // Overall Direct Corridor Wind Triangle Analysis
-  const corridorWindAnalysis = useMemo(() => {
-    if (routeFixes.length < 2) return null;
-    const dep = routeFixes[0];
-    const arr = routeFixes[routeFixes.length - 1];
-    const directCourseDeg = calculateBearing(dep.latitude, dep.longitude, arr.latitude, arr.longitude);
-    return calculateWindTriangle(cruiseSpeedKts, windDirectionDeg, windSpeedKts, directCourseDeg, magneticVarDeg);
-  }, [routeFixes, cruiseSpeedKts, windDirectionDeg, windSpeedKts, magneticVarDeg]);
-
-  // Destination coordinates for Alternate calculations
-  const destinationCoords = useMemo(() => {
-    if (routeFixes.length >= 2) {
-      const last = routeFixes[routeFixes.length - 1];
-      return { lat: last.latitude, lng: last.longitude };
-    }
-    return null;
-  }, [routeFixes]);
-
-  // Compute ICAO 6-Tier Fuel Hierarchy
-  const icaoFuel: IcaoFuelHierarchy = useMemo(() => {
-    return calculateIcaoFuelHierarchy(
-      navLogSummary.totalEnrouteFuelLiters,
-      burnRateLph,
-      destinationCoords,
-      selectedAlternateId,
-      extraDiscretionaryFuelL,
-      isIfrReserve
-    );
-  }, [
-    navLogSummary.totalEnrouteFuelLiters,
-    burnRateLph,
-    destinationCoords,
     selectedAlternateId,
     extraDiscretionaryFuelL,
     isIfrReserve,
   ]);
 
-  // Compute Tactical Critical Points (ETP & PNR)
-  const criticalPoints: TacticalCriticalPoints = useMemo(() => {
-    return calculateTacticalCriticalPoints(
-      routeFixes,
-      cruiseSpeedKts,
-      windDirectionDeg,
-      windSpeedKts,
-      icaoFuel.totalRampFuelL,
-      burnRateLph,
-      icaoFuel.finalReserveFuelL
+  // Combined Fleet Fuel Totals across all airframes
+  const fleetTotals = useMemo(() => {
+    const totalRampFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.totalRampFuelL,
+      0
     );
-  }, [
-    routeFixes,
-    cruiseSpeedKts,
-    windDirectionDeg,
-    windSpeedKts,
-    icaoFuel.totalRampFuelL,
-    burnRateLph,
-    icaoFuel.finalReserveFuelL,
-  ]);
+    const totalTripFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.tripFuelL,
+      0
+    );
+    const totalTaxiFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.taxiFuelL,
+      0
+    );
+    const totalReserveFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.finalReserveFuelL,
+      0
+    );
+    const totalContingencyFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.contingencyFuelL,
+      0
+    );
+    const totalAlternateFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.alternateFuelL,
+      0
+    );
+    const totalMinBlockFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.minimumBlockFuelL,
+      0
+    );
+    const totalExtraFuelL = aircraftCalculations.reduce(
+      (sum, item) => sum + item.icao.extraFuelL,
+      0
+    );
+    const totalFuelWeightKg = Math.round(totalRampFuelL * 0.804);
+    const totalFuelPds = Math.round(totalRampFuelL * 1.7725);
 
-  // Fleet Totals
-  const fleetTotalFuelLiters = icaoFuel.totalRampFuelL * effectiveAircraftCount;
-  const fleetFuelWeightKg = Math.round(fleetTotalFuelLiters * 0.804);
-  const fleetTripFuelLiters = icaoFuel.tripFuelL * effectiveAircraftCount;
-  const fleetTaxiFuelLiters = icaoFuel.taxiFuelL * effectiveAircraftCount;
-  const fleetReserveFuelLiters = icaoFuel.finalReserveFuelL * effectiveAircraftCount;
+    return {
+      totalRampFuelL,
+      totalTripFuelL,
+      totalTaxiFuelL,
+      totalReserveFuelL,
+      totalContingencyFuelL,
+      totalAlternateFuelL,
+      totalMinBlockFuelL,
+      totalExtraFuelL,
+      totalFuelWeightKg,
+      totalFuelPds,
+    };
+  }, [aircraftCalculations]);
 
-  // Weight & Balance
-  const selectedConfig =
-    MISSION_EQUIPMENT_OPTIONS.find((opt) => opt.id === equipmentConfig) ||
-    MISSION_EQUIPMENT_OPTIONS[0];
+  // Selected Airframe & Backward-Compatible Aliases
+  const safeIdx = Math.min(selectedAircraftIdx, Math.max(0, aircraftList.length - 1));
+  const activeAc = aircraftList[safeIdx] || aircraftList[0];
+  const activeCalc = aircraftCalculations[safeIdx] || aircraftCalculations[0];
 
-  const fuelWeightKg = Math.round(icaoFuel.totalRampFuelL * 0.804);
-  const crewWeightKg = 170; // 2 pilots @ 85 kg
-  const takeoffWeightKg =
-    emptyWeightKg +
-    selectedConfig.weightKg +
-    fuelWeightKg +
-    crewWeightKg +
-    Number(payloadKg || 0);
+  const navLogSummary =
+    activeCalc?.navLog || generateTacticalNavLog([], 120, 60, 15, 240, 960, -2);
+  const corridorWindAnalysis = activeCalc?.corridorWind;
+  const icaoFuel =
+    activeCalc?.icao ||
+    calculateIcaoFuelHierarchy(0, 240, null, selectedAlternateId, 50, false);
+  const criticalPoints =
+    activeCalc?.cp ||
+    calculateTacticalCriticalPoints([], 120, 60, 15, 500, 240, 120);
 
-  const isOverweight = takeoffWeightKg > maxTakeoffWeightKg;
+  const cruiseSpeedKts = activeCalc?.effectiveTas || 120;
+  const burnRateLph = activeCalc?.burnRateLph || 240;
+  const fleetTotalFuelLiters = fleetTotals.totalRampFuelL;
+  const fleetFuelWeightKg = fleetTotals.totalFuelWeightKg;
+  const fleetTripFuelLiters = fleetTotals.totalTripFuelL;
+  const fleetTaxiFuelLiters = fleetTotals.totalTaxiFuelL;
+  const fleetReserveFuelLiters = fleetTotals.totalReserveFuelL;
+  const takeoffWeightKg = activeCalc?.takeoffWeightKg || 0;
+  const maxTakeoffWeightKg = activeAc?.maxTakeoffWeightKg || 3175;
+  const isOverweight = activeCalc?.isOverweight || false;
+  const emptyWeightKg = activeAc?.emptyWeightKg || 2100;
+  const selectedConfig = activeCalc?.cfg || MISSION_EQUIPMENT_OPTIONS[0];
+  const payloadKg = activeAc?.payloadKg || 300;
+  const equipmentConfig = activeAc?.equipmentConfig || "slick_transport";
+  const fuelWeightKg = activeCalc?.fuelWeightKg || Math.round(icaoFuel.totalRampFuelL * 0.804);
+  const crewWeightKg = 170;
+
+  // Airframe Mutation Helpers
+  const updateSelectedAircraft = (partial: Partial<MissionAircraftState>) => {
+    setAircraftList((prev) => {
+      const next = [...prev];
+      if (next[safeIdx]) {
+        next[safeIdx] = { ...next[safeIdx], ...partial };
+      }
+      return next;
+    });
+  };
+
+  const handleSelectProfile = (profileId: AircraftProfileId) => {
+    const profile =
+      AIRCRAFT_PROFILES.find((p) => p.id === profileId) || AIRCRAFT_PROFILES[0];
+    const currentUnit = activeAc.fuelUnit;
+    const convertedBurn = convertBurnRateBetweenUnits(
+      profile.defaultBurnRatePds,
+      "pds_hr",
+      currentUnit
+    );
+
+    updateSelectedAircraft({
+      profileId,
+      iasKts: profile.defaultIasKts,
+      tasKts: profile.defaultTasKts,
+      altitudeFt: profile.defaultAltitudeFt,
+      burnRateInput: convertedBurn,
+      emptyWeightKg: profile.emptyWeightKg,
+      maxTakeoffWeightKg: profile.maxTakeoffWeightKg,
+      equipmentConfig: profile.defaultConfig,
+    });
+  };
+
+  const handleFuelUnitChange = (newUnit: FuelBurnUnit) => {
+    const converted = convertBurnRateBetweenUnits(
+      activeAc.burnRateInput,
+      activeAc.fuelUnit,
+      newUnit
+    );
+    updateSelectedAircraft({
+      fuelUnit: newUnit,
+      burnRateInput: converted,
+    });
+  };
 
   // Synchronize to Parent Callback
   useEffect(() => {
@@ -476,6 +902,26 @@ export const MissionPlanningCard = ({
         contingencyFuelLiters: icaoFuel.contingencyFuelL,
         alternateFuelLiters: icaoFuel.alternateFuelL,
         minimumBlockFuelLiters: icaoFuel.minimumBlockFuelL,
+        fuelUnit: activeAc.fuelUnit,
+        burnRateInUnit: activeAc.burnRateInput,
+        airspeedMode: activeAc.speedMode,
+        indicatedAirspeedKts: activeAc.iasKts,
+        cruiseAltitudeFt: activeAc.altitudeFt,
+        aircraftProfiles: aircraftCalculations.map((calc) => ({
+          callsign: calc.aircraft.callsign,
+          profileId: calc.aircraft.profileId,
+          speedMode: calc.aircraft.speedMode,
+          cruiseSpeedKts: calc.effectiveTas,
+          fuelUnit: calc.aircraft.fuelUnit,
+          burnRateInput: calc.aircraft.burnRateInput,
+          burnRateLph: calc.burnRateLph,
+          totalRampFuelLiters: calc.icao.totalRampFuelL,
+          tripFuelLiters: calc.icao.tripFuelL,
+          totalRampFuelPds: calc.rampFuelInUnit,
+          tripFuelPds: calc.tripFuelInUnit,
+          takeoffWeightKg: calc.takeoffWeightKg,
+          isOverweight: calc.isOverweight,
+        })),
       });
     }
   }, [
@@ -497,6 +943,8 @@ export const MissionPlanningCard = ({
     windSpeedKts,
     criticalPoints.etpDistanceNm,
     criticalPoints.pnrDistanceNm,
+    activeAc,
+    aircraftCalculations,
     onPlanningChange,
   ]);
 
@@ -530,6 +978,7 @@ export const MissionPlanningCard = ({
   // Sub-render: Flight Controls (Winds Aloft & Performance)
   const renderFlightControls = () => (
     <div className="rounded-xl border border-[#0A4D66]/40 bg-[#001825]/90 p-4 space-y-4 print:hidden">
+      {/* Flight Controls Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0A4D66]/20 pb-2">
         <div className="flex items-center gap-2">
           <Icon icon="mdi:weather-windy" className="w-4 h-4 text-[#7FD5FF]" />
@@ -537,11 +986,163 @@ export const MissionPlanningCard = ({
             Winds Aloft &amp; Airframe Cruise Performance (Tactical Vector Engine)
           </h4>
         </div>
-        <span className="text-[11px] font-mono text-[#7FD5FF]">
-          Avg GS: <strong className="text-white">{navLogSummary.averageGroundSpeedKts} kts</strong> (TAS {cruiseSpeedKts} kts)
-        </span>
+        <div className="flex items-center gap-3 text-[11px] font-mono">
+          <span className="text-[#7FD5FF]">
+            Avg GS: <strong className="text-white">{navLogSummary.averageGroundSpeedKts} kts</strong> (TAS {cruiseSpeedKts} kts)
+          </span>
+          <span className="text-gray-400">
+            Selected: <strong className="text-emerald-400">{activeAc.callsign}</strong>
+          </span>
+        </div>
       </div>
 
+      {/* Airframe Sortie Selector & Formation Management */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#001219]/90 border border-[#0A4D66]/50 rounded-lg p-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider flex items-center gap-1.5 mr-1">
+            <Icon icon="mdi:helicopter" className="w-3.5 h-3.5 text-[#7FD5FF]" />
+            Airframes:
+          </span>
+          {aircraftList.map((ac, idx) => {
+            const isLead = idx === 0;
+            const isSelected = safeIdx === idx;
+            const profile = AIRCRAFT_PROFILES.find((p) => p.id === ac.profileId);
+            return (
+              <button
+                key={ac.id}
+                type="button"
+                onClick={() => setSelectedAircraftIdx(idx)}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-semibold border transition-all ${
+                  isSelected
+                    ? "bg-[#0369A1] text-white border-[#7FD5FF] shadow-sm"
+                    : "bg-[#001825] text-gray-400 border-[#0A4D66]/30 hover:text-gray-200"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isLead ? "bg-[#F59E0B]" : "bg-[#7FD5FF]"
+                  }`}
+                />
+                <span>{ac.callsign || `AC #${idx + 1}`}</span>
+                <span className="text-[10px] opacity-75">
+                  ({profile?.name.split(" ")[0] || "Custom"})
+                </span>
+              </button>
+            );
+          })}
+
+          {isEditable && (
+            <button
+              type="button"
+              onClick={() => {
+                const nextIdx = aircraftList.length;
+                setAircraftList((prev) => [
+                  ...prev,
+                  createDefaultAircraft(nextIdx, "aw109"),
+                ]);
+                setSelectedAircraftIdx(nextIdx);
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-[#7FD5FF] bg-[#0A4D66]/20 border border-[#0A4D66]/40 hover:bg-[#0A4D66]/40 transition-colors"
+              title="Add wingman / escort aircraft to sortie"
+            >
+              <Icon icon="mdi:plus" className="w-3.5 h-3.5" />
+              <span>Add Aircraft</span>
+            </button>
+          )}
+
+          {isEditable && aircraftList.length > 1 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (aircraftList.length <= 1) return;
+                setAircraftList((prev) => prev.filter((_, i) => i !== safeIdx));
+                setSelectedAircraftIdx(0);
+              }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold text-red-400 bg-red-500/10 border border-red-500/30 hover:bg-red-500/20 transition-colors"
+              title="Remove selected aircraft"
+            >
+              <Icon icon="mdi:close" className="w-3.5 h-3.5" />
+              <span>Remove</span>
+            </button>
+          )}
+        </div>
+
+        {/* Formation Speed Sync Toggle */}
+        {aircraftList.length > 1 && (
+          <label className="flex items-center gap-2 cursor-pointer select-none text-xs">
+            <input
+              type="checkbox"
+              checked={formationSync}
+              onChange={(e) => setFormationSync(e.target.checked)}
+              disabled={!isEditable}
+              className="rounded border-[#0A4D66] bg-[#001825] text-[#0369A1] focus:ring-0 focus:ring-offset-0"
+            />
+            <span className="text-gray-300 font-medium">Formation Speed Sync</span>
+            <span className="text-[10px] font-mono text-[#7FD5FF]">
+              (Wingmen lock to Lead {aircraftCalculations[0]?.effectiveTas} kts TAS)
+            </span>
+          </label>
+        )}
+      </div>
+
+      {/* Selected Airframe Configuration Details Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-[#001825] border border-[#0A4D66]/40 rounded-lg p-3 text-xs">
+        <div>
+          <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+            Sortie Callsign / Identifier
+          </label>
+          <input
+            type="text"
+            value={activeAc.callsign}
+            onChange={(e) => updateSelectedAircraft({ callsign: e.target.value })}
+            disabled={!isEditable}
+            className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-[#7FD5FF]"
+            placeholder="e.g. NAA-01 (Lead)"
+          />
+        </div>
+
+        <div>
+          <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+            Airframe Model Profile
+          </label>
+          <select
+            value={activeAc.profileId}
+            onChange={(e) => handleSelectProfile(e.target.value as AircraftProfileId)}
+            disabled={!isEditable}
+            className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
+          >
+            {AIRCRAFT_PROFILES.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {p.category}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">
+            Tactical Mission Configuration
+          </label>
+          <select
+            value={activeAc.equipmentConfig}
+            onChange={(e) =>
+              updateSelectedAircraft({
+                equipmentConfig: e.target.value as MissionEquipmentConfig,
+              })
+            }
+            disabled={!isEditable}
+            className="w-full bg-[#001219] border border-[#0A4D66]/40 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#7FD5FF]"
+          >
+            {MISSION_EQUIPMENT_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label} (+{opt.weightKg} kg)
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* 4-Column Performance & Meteorological Controls Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {/* Wind Direction Input */}
         <div className="space-y-1.5">
@@ -578,40 +1179,263 @@ export const MissionPlanningCard = ({
           />
         </div>
 
-        {/* Planned TAS Input */}
+        {/* Airspeed with IAS / TAS Mode Toggle */}
         <div className="space-y-1.5">
-          <label className="flex items-center justify-between text-xs text-gray-400 font-medium">
-            <span>True Airspeed (TAS)</span>
-            <span className="text-[10px] text-gray-500 font-mono">Cruise</span>
-          </label>
-          <DirectNumberInput
-            value={cruiseSpeedKts}
-            onChange={setCruiseSpeedKts}
-            min={1}
-            max={600}
-            unit="kts"
-            placeholder="120"
-            disabled={!isEditable}
-          />
+          <div className="flex items-center justify-between text-xs text-gray-400 font-medium">
+            <span>Airspeed</span>
+            {/* IAS vs TAS switch */}
+            <div className="inline-flex rounded-md p-0.5 bg-[#001219] border border-[#0A4D66]/40 text-[10px] font-mono">
+              <button
+                type="button"
+                onClick={() => updateSelectedAircraft({ speedMode: "IAS" })}
+                disabled={!isEditable}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  activeAc.speedMode === "IAS"
+                    ? "bg-[#0369A1] text-white font-bold"
+                    : "text-gray-400 hover:text-white"
+                }`}
+                title="Indicated Airspeed (KIAS) with cruise altitude barometric conversion"
+              >
+                IAS
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSelectedAircraft({ speedMode: "TAS" })}
+                disabled={!isEditable}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  activeAc.speedMode === "TAS"
+                    ? "bg-[#0369A1] text-white font-bold"
+                    : "text-gray-400 hover:text-white"
+                }`}
+                title="Direct True Airspeed (KTAS)"
+              >
+                TAS
+              </button>
+            </div>
+          </div>
+
+          {activeAc.speedMode === "IAS" ? (
+            <div className="space-y-1">
+              <DirectNumberInput
+                value={activeAc.iasKts}
+                onChange={(val) => updateSelectedAircraft({ iasKts: val })}
+                min={30}
+                max={500}
+                unit="KIAS"
+                placeholder="120"
+                disabled={!isEditable}
+              />
+              <div className="flex items-center justify-between gap-1 text-[10px] font-mono">
+                <span className="text-gray-400">Cruise Alt:</span>
+                <div className="w-24">
+                  <DirectNumberInput
+                    value={activeAc.altitudeFt}
+                    onChange={(val) => updateSelectedAircraft({ altitudeFt: val })}
+                    min={0}
+                    max={45000}
+                    unit="ft"
+                    placeholder="5000"
+                    disabled={!isEditable}
+                    className="py-1 text-[11px]"
+                  />
+                </div>
+              </div>
+              <div className="text-[10px] font-mono text-[#7FD5FF]">
+                &bull; Density TAS: <strong>{activeCalc.effectiveTas} kts</strong>
+                {formationSync && safeIdx > 0 && (
+                  <span className="text-amber-300 ml-1">(Formation Synced)</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <DirectNumberInput
+                value={activeAc.tasKts}
+                onChange={(val) => updateSelectedAircraft({ tasKts: val })}
+                min={30}
+                max={600}
+                unit="KTAS"
+                placeholder="120"
+                disabled={!isEditable}
+              />
+              <div className="text-[10px] font-mono text-gray-400">
+                Direct True Airspeed (TAS)
+                {formationSync && safeIdx > 0 && (
+                  <span className="text-amber-300 block">
+                    &bull; Synced to Lead ({aircraftCalculations[0]?.effectiveTas} kts)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Burn Rate Input */}
+        {/* Jet A-1 Burn Rate with Multi-Unit Dropdown */}
         <div className="space-y-1.5">
-          <label className="flex items-center justify-between text-xs text-gray-400 font-medium">
+          <div className="flex items-center justify-between text-xs text-gray-400 font-medium">
             <span>Jet A-1 Burn Rate</span>
-            <span className="text-[10px] text-gray-500 font-mono">Rate</span>
-          </label>
+            <span className="text-[10px] font-mono text-emerald-400">
+              ~{activeCalc.burnRateLph} L/h
+            </span>
+          </div>
+
           <DirectNumberInput
-            value={burnRateLph}
-            onChange={setBurnRateLph}
+            value={activeAc.burnRateInput}
+            onChange={(val) => updateSelectedAircraft({ burnRateInput: val })}
             min={1}
-            max={5000}
-            unit="L/h"
-            placeholder="240"
+            max={20000}
+            placeholder="425"
             disabled={!isEditable}
+            unitElement={
+              <select
+                value={activeAc.fuelUnit}
+                onChange={(e) => handleFuelUnitChange(e.target.value as FuelBurnUnit)}
+                disabled={!isEditable}
+                className="bg-[#001219] text-[#7FD5FF] font-mono text-xs font-bold border border-[#0A4D66]/60 rounded px-1.5 py-1 focus:outline-none focus:border-[#7FD5FF] cursor-pointer"
+              >
+                <option value="pds_hr">Pds/hr</option>
+                <option value="kg_hr">kg/hr</option>
+                <option value="l_hr">L/h</option>
+                <option value="gph">GPH</option>
+              </select>
+            }
           />
+
+          {/* Live Conversion Subtext */}
+          <div className="text-[10px] font-mono text-gray-400 flex items-center justify-between">
+            <span>
+              {activeAc.fuelUnit !== "pds_hr" && (
+                <span className="text-amber-300">
+                  {convertLitersToUnit(activeCalc.burnRateLph, "pds_hr")} Pds/hr &bull;{" "}
+                </span>
+              )}
+              {Math.round(activeCalc.burnRateLph * 0.804)} kg/hr &bull;{" "}
+              {(activeCalc.burnRateLph / 3.78541).toFixed(1)} GPH
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* Multi-Airframe Comparison Matrix (Rendered when 2 or more aircraft in sortie) */}
+      {aircraftList.length > 1 && (
+        <div className="rounded-lg bg-[#001219]/90 border border-[#0A4D66]/50 p-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between border-b border-[#0A4D66]/30 pb-1.5">
+            <div className="flex items-center gap-2">
+              <Icon icon="mdi:vector-arrange-below" className="w-4 h-4 text-[#F59E0B]" />
+              <span className="text-[10px] uppercase font-bold tracking-wider text-white">
+                Multi-Airframe Sortie Matrix ({aircraftList.length} Aircraft Formation)
+              </span>
+            </div>
+            <span className="text-[11px] font-mono text-emerald-400">
+              Combined Fleet Ramp Fuel:{" "}
+              <strong>{fleetTotals.totalRampFuelL.toLocaleString()} L</strong> (~
+              {fleetTotals.totalFuelPds.toLocaleString()} Pds)
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
+            {aircraftCalculations.map((calc, idx) => {
+              const isLead = idx === 0;
+              return (
+                <div
+                  key={calc.aircraft.id}
+                  onClick={() => setSelectedAircraftIdx(idx)}
+                  className={`p-2.5 rounded-lg border cursor-pointer transition-all ${
+                    safeIdx === idx
+                      ? "bg-[#0A4D66]/30 border-[#7FD5FF]"
+                      : "bg-[#001825] border-[#0A4D66]/20 hover:border-[#0A4D66]/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          isLead ? "bg-[#F59E0B]" : "bg-[#7FD5FF]"
+                        }`}
+                      />
+                      {calc.aircraft.callsign}
+                    </span>
+                    <span className="text-[10px] font-mono text-gray-400 uppercase">
+                      {isLead ? "Lead" : `Wingman #${idx}`}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+                    <div className="bg-[#001219] p-1.5 rounded">
+                      <span className="text-[9px] text-gray-400 block uppercase">Airspeed</span>
+                      <span className="text-[#7FD5FF] font-bold">{calc.effectiveTas} kts TAS</span>
+                      <span className="text-[9px] text-gray-500 block">
+                        ({calc.aircraft.speedMode === "IAS" ? `${calc.aircraft.iasKts} KIAS` : "Direct TAS"})
+                      </span>
+                    </div>
+                    <div className="bg-[#001219] p-1.5 rounded">
+                      <span className="text-[9px] text-gray-400 block uppercase">Burn Rate</span>
+                      <span className="text-amber-400 font-bold">
+                        {calc.aircraft.burnRateInput}{" "}
+                        {FUEL_UNIT_LABELS[calc.aircraft.fuelUnit].short}
+                      </span>
+                      <span className="text-[9px] text-gray-500 block">~{calc.burnRateLph} L/h</span>
+                    </div>
+                    <div className="bg-[#001219] p-1.5 rounded">
+                      <span className="text-[9px] text-gray-400 block uppercase">Trip Fuel</span>
+                      <span className="text-white font-bold">{calc.icao.tripFuelL} L</span>
+                      <span className="text-[9px] text-gray-500 block">
+                        ~{convertLitersToUnit(calc.icao.tripFuelL, "pds_hr")} Pds
+                      </span>
+                    </div>
+                    <div className="bg-[#001219] p-1.5 rounded">
+                      <span className="text-[9px] text-gray-400 block uppercase">Ramp Fuel Req.</span>
+                      <span className="text-emerald-400 font-bold">{calc.icao.totalRampFuelL} L</span>
+                      <span className="text-[9px] text-gray-500 block">
+                        ~{convertLitersToUnit(calc.icao.totalRampFuelL, "pds_hr")} Pds
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Fleet Combined Card */}
+            <div className="p-2.5 rounded-lg border border-[#F59E0B]/40 bg-[#001219] flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-bold text-[#F59E0B] flex items-center gap-1.5">
+                    <Icon icon="mdi:gas-station" className="w-3.5 h-3.5" />
+                    Combined Fleet Requirement
+                  </span>
+                  <span className="text-[10px] font-mono text-gray-400">
+                    {aircraftList.length} Aircraft
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-tight mb-2">
+                  Total fuel load required at departure depot for complete multi-ship sortie.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+                <div className="bg-[#001825] p-1.5 rounded border border-[#0A4D66]/30">
+                  <span className="text-[9px] text-gray-400 block uppercase">Total Ramp Fuel</span>
+                  <span className="text-emerald-400 font-bold text-xs">
+                    {fleetTotals.totalRampFuelL.toLocaleString()} L
+                  </span>
+                  <span className="text-[9px] text-gray-400 block">
+                    ~{fleetTotals.totalFuelPds.toLocaleString()} Pds
+                  </span>
+                </div>
+                <div className="bg-[#001825] p-1.5 rounded border border-[#0A4D66]/30">
+                  <span className="text-[9px] text-gray-400 block uppercase">Total Fuel Weight</span>
+                  <span className="text-white font-bold text-xs">
+                    ~{fleetTotals.totalFuelWeightKg.toLocaleString()} kg
+                  </span>
+                  <span className="text-[9px] text-gray-400 block">
+                    ({fleetTotals.totalTripFuelL.toLocaleString()} L Trip)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Live Tactical Vector Triangle Resolution (E6B Computer Display) */}
       {corridorWindAnalysis && (
@@ -625,7 +1449,11 @@ export const MissionPlanningCard = ({
                 Direct Corridor Track &amp; Heading Solution
               </span>
               <span className="font-mono text-white text-xs">
-                Track: <strong className="text-[#7FD5FF]">{String(corridorWindAnalysis.trueCourseDeg).padStart(3, "0")}°T</strong> ({String(corridorWindAnalysis.magneticHeadingDeg).padStart(3, "0")}°M) &bull; Steering:{" "}
+                Track:{" "}
+                <strong className="text-[#7FD5FF]">
+                  {String(corridorWindAnalysis.trueCourseDeg).padStart(3, "0")}°T
+                </strong>{" "}
+                ({String(corridorWindAnalysis.magneticHeadingDeg).padStart(3, "0")}°M) &bull; Steering:{" "}
                 <strong className="text-emerald-400">{corridorWindAnalysis.driftDescription}</strong>
               </span>
             </div>
@@ -635,11 +1463,17 @@ export const MissionPlanningCard = ({
             <div className="flex items-center gap-1.5">
               <Icon
                 icon={corridorWindAnalysis.isHeadwind ? "mdi:arrow-down-bold" : "mdi:arrow-up-bold"}
-                className={`w-3.5 h-3.5 ${corridorWindAnalysis.isHeadwind ? "text-amber-400" : "text-emerald-400"}`}
+                className={`w-3.5 h-3.5 ${
+                  corridorWindAnalysis.isHeadwind ? "text-amber-400" : "text-emerald-400"
+                }`}
               />
               <span className="text-gray-300">
                 {corridorWindAnalysis.isHeadwind ? "Headwind" : "Tailwind"}:{" "}
-                <strong className={corridorWindAnalysis.isHeadwind ? "text-amber-400" : "text-emerald-400"}>
+                <strong
+                  className={
+                    corridorWindAnalysis.isHeadwind ? "text-amber-400" : "text-emerald-400"
+                  }
+                >
                   {Math.abs(corridorWindAnalysis.headwindKts)} kts
                 </strong>
               </span>
@@ -663,7 +1497,10 @@ export const MissionPlanningCard = ({
                   {corridorWindAnalysis.groundSpeedKts} kts
                 </strong>
                 <span className="text-gray-500 ml-1">
-                  ({corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts >= 0 ? `+${corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts}` : corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts} kts)
+                  ({corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts >= 0
+                    ? `+${corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts}`
+                    : corridorWindAnalysis.groundSpeedKts - cruiseSpeedKts}{" "}
+                  kts)
                 </span>
               </span>
             </div>
@@ -1064,91 +1901,301 @@ export const MissionPlanningCard = ({
                 <tr>
                   <th className="p-3">Fuel Component</th>
                   <th className="p-3">Calculation Basis</th>
-                  <th className="p-3 text-right">Per Airframe</th>
-                  <th className="p-3 text-right">Fleet Total ({effectiveAircraftCount} Sorties)</th>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <th key={calc.aircraft.id} className="p-3 text-right">
+                          {calc.aircraft.callsign}
+                        </th>
+                      ))}
+                      <th className="p-3 text-right text-emerald-400">
+                        Fleet Total ({aircraftList.length})
+                      </th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="p-3 text-right">Per Airframe</th>
+                      <th className="p-3 text-right">Fleet Total (1 Sortie)</th>
+                    </>
+                  )}
                   <th className="p-3 text-right">Weight (Jet A-1)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#0A4D66]/20 font-mono text-xs">
+                {/* 1. Taxi Fuel */}
                 <tr>
                   <td className="p-3 font-sans font-bold text-gray-200">1. Taxi &amp; APU Fuel</td>
-                  <td className="p-3 font-sans text-gray-400">Engine start, systems warm-up &amp; hover taxi check</td>
-                  <td className="p-3 text-right text-gray-200">{icaoFuel.taxiFuelL} L</td>
-                  <td className="p-3 text-right text-gray-200 font-bold">{fleetTaxiFuelLiters} L</td>
-                  <td className="p-3 text-right text-gray-500">~{Math.round(fleetTaxiFuelLiters * 0.804)} kg</td>
+                  <td className="p-3 font-sans text-gray-400">
+                    Engine start, systems warm-up &amp; hover taxi check
+                  </td>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <td key={calc.aircraft.id} className="p-3 text-right text-gray-200">
+                          {calc.icao.taxiFuelL} L
+                          <span className="text-[10px] text-gray-500 block">
+                            ~{convertLitersToUnit(calc.icao.taxiFuelL, "pds_hr")} Pds
+                          </span>
+                        </td>
+                      ))}
+                      <td className="p-3 text-right text-gray-200 font-bold">
+                        {fleetTotals.totalTaxiFuelL} L
+                        <span className="text-[10px] text-gray-400 block">
+                          ~{convertLitersToUnit(fleetTotals.totalTaxiFuelL, "pds_hr")} Pds
+                        </span>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right text-gray-200">
+                        {icaoFuel.taxiFuelL} L
+                        <span className="text-[10px] text-gray-500 block">
+                          ~{convertLitersToUnit(icaoFuel.taxiFuelL, "pds_hr")} Pds
+                        </span>
+                      </td>
+                      <td className="p-3 text-right text-gray-200 font-bold">
+                        {fleetTotals.totalTaxiFuelL} L
+                      </td>
+                    </>
+                  )}
+                  <td className="p-3 text-right text-gray-500">
+                    ~{Math.round(fleetTotals.totalTaxiFuelL * 0.804)} kg
+                  </td>
                 </tr>
+
+                {/* 2. Enroute Trip Fuel */}
                 <tr>
                   <td className="p-3 font-sans font-bold text-white">2. Enroute Trip Fuel</td>
                   <td className="p-3 font-sans text-gray-400">
                     NavLog corridor burn ({navLogSummary.totalDistanceNm} NM @ {cruiseSpeedKts} kts TAS with winds)
                   </td>
-                  <td className="p-3 text-right text-white font-bold">{icaoFuel.tripFuelL.toLocaleString()} L</td>
-                  <td className="p-3 text-right text-white font-bold">{fleetTripFuelLiters.toLocaleString()} L</td>
-                  <td className="p-3 text-right text-gray-400">~{Math.round(fleetTripFuelLiters * 0.804)} kg</td>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <td key={calc.aircraft.id} className="p-3 text-right text-white font-bold">
+                          {calc.icao.tripFuelL.toLocaleString()} L
+                          <span className="text-[10px] text-gray-400 block font-normal">
+                            ~{convertLitersToUnit(calc.icao.tripFuelL, "pds_hr").toLocaleString()} Pds
+                          </span>
+                        </td>
+                      ))}
+                      <td className="p-3 text-right text-white font-bold">
+                        {fleetTotals.totalTripFuelL.toLocaleString()} L
+                        <span className="text-[10px] text-[#7FD5FF] block font-normal">
+                          ~{convertLitersToUnit(fleetTotals.totalTripFuelL, "pds_hr").toLocaleString()} Pds
+                        </span>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right text-white font-bold">
+                        {icaoFuel.tripFuelL.toLocaleString()} L
+                        <span className="text-[10px] text-gray-400 block font-normal">
+                          ~{convertLitersToUnit(icaoFuel.tripFuelL, "pds_hr").toLocaleString()} Pds
+                        </span>
+                      </td>
+                      <td className="p-3 text-right text-white font-bold">
+                        {fleetTotals.totalTripFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  )}
+                  <td className="p-3 text-right text-gray-400">
+                    ~{Math.round(fleetTotals.totalTripFuelL * 0.804)} kg
+                  </td>
                 </tr>
+
+                {/* 3. Contingency Fuel */}
                 <tr>
                   <td className="p-3 font-sans font-bold text-sky-400">3. Contingency Fuel</td>
-                  <td className="p-3 font-sans text-gray-400">Higher of 5% trip fuel or 5-min cruise burn (ICAO Annex 6)</td>
-                  <td className="p-3 text-right text-sky-400">{icaoFuel.contingencyFuelL} L</td>
-                  <td className="p-3 text-right text-sky-400 font-bold">
-                    {(icaoFuel.contingencyFuelL * effectiveAircraftCount).toLocaleString()} L
+                  <td className="p-3 font-sans text-gray-400">
+                    Higher of 5% trip fuel or 5-min cruise burn (ICAO Annex 6)
                   </td>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <td key={calc.aircraft.id} className="p-3 text-right text-sky-400">
+                          {calc.icao.contingencyFuelL} L
+                        </td>
+                      ))}
+                      <td className="p-3 text-right text-sky-400 font-bold">
+                        {fleetTotals.totalContingencyFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right text-sky-400">{icaoFuel.contingencyFuelL} L</td>
+                      <td className="p-3 text-right text-sky-400 font-bold">
+                        {fleetTotals.totalContingencyFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  )}
                   <td className="p-3 text-right text-gray-500">
-                    ~{Math.round(icaoFuel.contingencyFuelL * effectiveAircraftCount * 0.804)} kg
+                    ~{Math.round(fleetTotals.totalContingencyFuelL * 0.804)} kg
                   </td>
                 </tr>
+
+                {/* 4. Alternate Fuel */}
                 <tr>
                   <td className="p-3 font-sans font-bold text-purple-400">4. Alternate Aerodrome Fuel</td>
                   <td className="p-3 font-sans text-gray-400">
                     Diversion to {icaoFuel.alternateAerodromeName} ({icaoFuel.alternateDistanceNm} NM)
                   </td>
-                  <td className="p-3 text-right text-purple-400">{icaoFuel.alternateFuelL} L</td>
-                  <td className="p-3 text-right text-purple-400 font-bold">
-                    {(icaoFuel.alternateFuelL * effectiveAircraftCount).toLocaleString()} L
-                  </td>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <td key={calc.aircraft.id} className="p-3 text-right text-purple-400">
+                          {calc.icao.alternateFuelL} L
+                        </td>
+                      ))}
+                      <td className="p-3 text-right text-purple-400 font-bold">
+                        {fleetTotals.totalAlternateFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right text-purple-400">{icaoFuel.alternateFuelL} L</td>
+                      <td className="p-3 text-right text-purple-400 font-bold">
+                        {fleetTotals.totalAlternateFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  )}
                   <td className="p-3 text-right text-gray-500">
-                    ~{Math.round(icaoFuel.alternateFuelL * effectiveAircraftCount * 0.804)} kg
+                    ~{Math.round(fleetTotals.totalAlternateFuelL * 0.804)} kg
                   </td>
                 </tr>
+
+                {/* 5. Final Reserve Fuel */}
                 <tr>
                   <td className="p-3 font-sans font-bold text-[#F59E0B]">5. Final Reserve Fuel</td>
                   <td className="p-3 font-sans text-gray-400">
                     Mandatory {isIfrReserve ? "45-min IFR" : "30-min VFR"} reserve at holding speed
                   </td>
-                  <td className="p-3 text-right text-[#F59E0B] font-bold">{icaoFuel.finalReserveFuelL} L</td>
-                  <td className="p-3 text-right text-[#F59E0B] font-bold">{fleetReserveFuelLiters.toLocaleString()} L</td>
-                  <td className="p-3 text-right text-gray-500">~{Math.round(fleetReserveFuelLiters * 0.804)} kg</td>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <td key={calc.aircraft.id} className="p-3 text-right text-[#F59E0B] font-bold">
+                          {calc.icao.finalReserveFuelL} L
+                        </td>
+                      ))}
+                      <td className="p-3 text-right text-[#F59E0B] font-bold">
+                        {fleetTotals.totalReserveFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right text-[#F59E0B] font-bold">{icaoFuel.finalReserveFuelL} L</td>
+                      <td className="p-3 text-right text-[#F59E0B] font-bold">
+                        {fleetTotals.totalReserveFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  )}
+                  <td className="p-3 text-right text-gray-500">
+                    ~{Math.round(fleetTotals.totalReserveFuelL * 0.804)} kg
+                  </td>
                 </tr>
+
+                {/* ICAO Minimum Block Fuel */}
                 <tr className="bg-sky-500/10 font-bold">
                   <td className="p-3 font-sans text-[#7FD5FF]">ICAO Minimum Block Fuel</td>
-                  <td className="p-3 font-sans text-gray-300">Sum of Tiers 1 through 5 (Regulatory Minimum)</td>
-                  <td className="p-3 text-right text-[#7FD5FF]">{icaoFuel.minimumBlockFuelL.toLocaleString()} L</td>
-                  <td className="p-3 text-right text-[#7FD5FF]">
-                    {(icaoFuel.minimumBlockFuelL * effectiveAircraftCount).toLocaleString()} L
+                  <td className="p-3 font-sans text-gray-300">
+                    Sum of Tiers 1 through 5 (Regulatory Minimum)
                   </td>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <td key={calc.aircraft.id} className="p-3 text-right text-[#7FD5FF]">
+                          {calc.icao.minimumBlockFuelL.toLocaleString()} L
+                        </td>
+                      ))}
+                      <td className="p-3 text-right text-[#7FD5FF]">
+                        {fleetTotals.totalMinBlockFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right text-[#7FD5FF]">{icaoFuel.minimumBlockFuelL.toLocaleString()} L</td>
+                      <td className="p-3 text-right text-[#7FD5FF]">
+                        {fleetTotals.totalMinBlockFuelL.toLocaleString()} L
+                      </td>
+                    </>
+                  )}
                   <td className="p-3 text-right text-gray-300">
-                    ~{Math.round(icaoFuel.minimumBlockFuelL * effectiveAircraftCount * 0.804)} kg
+                    ~{Math.round(fleetTotals.totalMinBlockFuelL * 0.804)} kg
                   </td>
                 </tr>
+
+                {/* Tactical Extra Fuel */}
                 {extraDiscretionaryFuelL > 0 && (
                   <tr>
                     <td className="p-3 font-sans font-bold text-emerald-400">6. Tactical Extra Fuel</td>
                     <td className="p-3 font-sans text-gray-400">Commander&apos;s discretionary loiter buffer</td>
-                    <td className="p-3 text-right text-emerald-400">{icaoFuel.extraFuelL} L</td>
-                    <td className="p-3 text-right text-emerald-400 font-bold">
-                      {(icaoFuel.extraFuelL * effectiveAircraftCount).toLocaleString()} L
-                    </td>
+                    {aircraftList.length > 1 ? (
+                      <>
+                        {aircraftCalculations.map((calc) => (
+                          <td key={calc.aircraft.id} className="p-3 text-right text-emerald-400">
+                            {calc.icao.extraFuelL} L
+                          </td>
+                        ))}
+                        <td className="p-3 text-right text-emerald-400 font-bold">
+                          {fleetTotals.totalExtraFuelL.toLocaleString()} L
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="p-3 text-right text-emerald-400">{icaoFuel.extraFuelL} L</td>
+                        <td className="p-3 text-right text-emerald-400 font-bold">
+                          {fleetTotals.totalExtraFuelL.toLocaleString()} L
+                        </td>
+                      </>
+                    )}
                     <td className="p-3 text-right text-gray-500">
-                      ~{Math.round(icaoFuel.extraFuelL * effectiveAircraftCount * 0.804)} kg
+                      ~{Math.round(fleetTotals.totalExtraFuelL * 0.804)} kg
                     </td>
                   </tr>
                 )}
+
+                {/* Total Planned Ramp Fuel */}
                 <tr className="bg-[#001219] font-black text-sm">
                   <td className="p-3 font-sans uppercase text-white">Total Planned Ramp Fuel</td>
-                  <td className="p-3 font-sans text-gray-400 text-xs">Total Fuel Loaded into Airframe Tanks</td>
-                  <td className="p-3 text-right text-emerald-400">{icaoFuel.totalRampFuelL.toLocaleString()} L</td>
-                  <td className="p-3 text-right text-emerald-400 text-base">{fleetTotalFuelLiters.toLocaleString()} L</td>
-                  <td className="p-3 text-right text-white">~{fleetFuelWeightKg.toLocaleString()} kg</td>
+                  <td className="p-3 font-sans text-gray-400 text-xs">
+                    Total Fuel Loaded into Airframe Tanks
+                  </td>
+                  {aircraftList.length > 1 ? (
+                    <>
+                      {aircraftCalculations.map((calc) => (
+                        <td key={calc.aircraft.id} className="p-3 text-right text-emerald-400 font-mono">
+                          {calc.icao.totalRampFuelL.toLocaleString()} L
+                          <span className="text-xs text-gray-300 block font-normal">
+                            ~{convertLitersToUnit(calc.icao.totalRampFuelL, "pds_hr").toLocaleString()} Pds
+                          </span>
+                        </td>
+                      ))}
+                      <td className="p-3 text-right text-emerald-400 text-base font-mono">
+                        {fleetTotals.totalRampFuelL.toLocaleString()} L
+                        <span className="text-xs text-[#7FD5FF] block font-normal">
+                          ~{fleetTotals.totalFuelPds.toLocaleString()} Pds
+                        </span>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="p-3 text-right text-emerald-400 font-mono">
+                        {icaoFuel.totalRampFuelL.toLocaleString()} L
+                        <span className="text-xs text-gray-300 block font-normal">
+                          ~{convertLitersToUnit(icaoFuel.totalRampFuelL, "pds_hr").toLocaleString()} Pds
+                        </span>
+                      </td>
+                      <td className="p-3 text-right text-emerald-400 text-base font-mono">
+                        {fleetTotals.totalRampFuelL.toLocaleString()} L
+                        <span className="text-xs text-[#7FD5FF] block font-normal">
+                          ~{fleetTotals.totalFuelPds.toLocaleString()} Pds
+                        </span>
+                      </td>
+                    </>
+                  )}
+                  <td className="p-3 text-right text-white">
+                    ~{fleetFuelWeightKg.toLocaleString()} kg
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -1161,11 +2208,48 @@ export const MissionPlanningCard = ({
   // Sub-render: Tab 4 - Weight & Balance
   const renderWeightAndBalanceTab = () => (
     <div className="space-y-4">
+      {/* Airframe Selector Tabs if multi-aircraft */}
+      {aircraftList.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 bg-[#001825] p-2 rounded-xl border border-[#0A4D66]/40">
+          <span className="text-[10px] uppercase font-bold text-gray-400 mr-1 flex items-center gap-1.5">
+            <Icon icon="mdi:helicopter" className="w-3.5 h-3.5 text-[#7FD5FF]" />
+            Airframe Envelope:
+          </span>
+          {aircraftList.map((ac, idx) => {
+            const isLead = idx === 0;
+            const isSelected = safeIdx === idx;
+            const profile = AIRCRAFT_PROFILES.find((p) => p.id === ac.profileId);
+            return (
+              <button
+                key={ac.id}
+                type="button"
+                onClick={() => setSelectedAircraftIdx(idx)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold border transition-all ${
+                  isSelected
+                    ? "bg-[#0369A1] text-white border-[#7FD5FF] shadow-sm"
+                    : "bg-[#001219] text-gray-400 border-[#0A4D66]/30 hover:text-white"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isLead ? "bg-[#F59E0B]" : "bg-[#7FD5FF]"
+                  }`}
+                />
+                <span>{ac.callsign}</span>
+                <span className="text-[10px] opacity-75">
+                  ({profile?.name.split(" ")[0] || "Custom"})
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0A4D66]/20 pb-2">
         <div className="flex items-center gap-2">
           <Icon icon="mdi:weight-kilogram" className="w-4 h-4 text-[#7FD5FF]" />
           <h4 className="text-xs font-bold uppercase tracking-wider text-white">
-            Airframe Weight &amp; Balance (Max Takeoff Weight Envelope)
+            Airframe Weight &amp; Balance: {activeAc.callsign} ({AIRCRAFT_PROFILES.find((p) => p.id === activeAc.profileId)?.name})
           </h4>
         </div>
         <div className="flex items-center gap-2">
@@ -1191,7 +2275,10 @@ export const MissionPlanningCard = ({
             {MISSION_EQUIPMENT_OPTIONS.map((opt) => (
               <div
                 key={opt.id}
-                onClick={() => isEditable && setEquipmentConfig(opt.id)}
+                onClick={() =>
+                  isEditable &&
+                  updateSelectedAircraft({ equipmentConfig: opt.id })
+                }
                 className={`p-3 rounded-xl border cursor-pointer transition-all ${
                   equipmentConfig === opt.id
                     ? "bg-[#0A4D66]/40 border-[#7FD5FF] text-white"
@@ -1219,9 +2306,9 @@ export const MissionPlanningCard = ({
             </label>
             <DirectNumberInput
               value={payloadKg}
-              onChange={setPayloadKg}
+              onChange={(val) => updateSelectedAircraft({ payloadKg: val })}
               min={0}
-              max={5000}
+              max={15000}
               unit="kg"
               placeholder="300"
               disabled={!isEditable}

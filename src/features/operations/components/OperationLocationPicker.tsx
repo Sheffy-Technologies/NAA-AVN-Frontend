@@ -55,6 +55,8 @@ type OperationLocationPickerProps = {
   onWaypointRename?: (index: number, name: string) => void;
   onDepartureMove?: (latitude: number, longitude: number) => void;
   onArrivalMove?: (latitude: number, longitude: number) => void;
+  onDepartureClear?: () => void;
+  onArrivalClear?: () => void;
   telemetryTracks?: Array<{
     latitude: number;
     longitude: number;
@@ -456,6 +458,8 @@ export const OperationLocationPicker = ({
   onWaypointRename,
   onDepartureMove,
   onArrivalMove,
+  onDepartureClear,
+  onArrivalClear,
   telemetryTracks = [],
   liveAircraftPositions = [],
   readOnly = false,
@@ -667,6 +671,33 @@ export const OperationLocationPicker = ({
     arrivalPoint,
   ].filter((point): point is [number, number] => point !== null);
 
+  const nearbyTarget = useMemo(() => {
+    if (!contextMenu) return null;
+    const thresholdDegSq = 0.08 * 0.08;
+
+    if (departurePoint) {
+      const dLat = contextMenu.lat - departurePoint[0];
+      const dLng = contextMenu.lng - departurePoint[1];
+      if (dLat * dLat + dLng * dLng < thresholdDegSq) {
+        return { type: "departure" as const };
+      }
+    }
+    if (arrivalPoint) {
+      const dLat = contextMenu.lat - arrivalPoint[0];
+      const dLng = contextMenu.lng - arrivalPoint[1];
+      if (dLat * dLat + dLng * dLng < thresholdDegSq) {
+        return { type: "arrival" as const };
+      }
+    }
+    for (const wp of validWaypoints) {
+      const dLat = contextMenu.lat - wp.point[0];
+      const dLng = contextMenu.lng - wp.point[1];
+      if (dLat * dLat + dLng * dLng < thresholdDegSq) {
+        return { type: "waypoint" as const, index: wp.index, name: wp.name };
+      }
+    }
+    return null;
+  }, [contextMenu, departurePoint, arrivalPoint, validWaypoints]);
 
   const handleQuickJumpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1060,10 +1091,10 @@ export const OperationLocationPicker = ({
         {/* Right-Click Tactical Context Menu */}
         {contextMenu && !readOnly && (
           <div
-            className="fixed z-[3000] w-56 rounded-lg border border-[#0A4D66] bg-[#001825]/98 p-1.5 shadow-2xl backdrop-blur-md text-xs font-sans text-gray-200 space-y-1 animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[3000] w-64 rounded-lg border border-[#0A4D66] bg-[#001825]/98 p-1.5 shadow-2xl backdrop-blur-md text-xs font-sans text-gray-200 space-y-1 animate-in fade-in zoom-in-95 duration-100"
             style={{
-              top: Math.min(contextMenu.y, window.innerHeight - 250),
-              left: Math.min(contextMenu.x, window.innerWidth - 240),
+              top: Math.min(contextMenu.y, window.innerHeight - 280),
+              left: Math.min(contextMenu.x, window.innerWidth - 270),
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1082,6 +1113,110 @@ export const OperationLocationPicker = ({
               </span>
             </div>
 
+            {/* Departure specific options */}
+            {contextMenu.type === "departure" && (
+              <>
+                {onDepartureClear && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDepartureClear();
+                      setContextMenu(null);
+                      showToast("Cleared Departure Aerodrome");
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-400 hover:bg-red-950/60 hover:text-red-200 transition-colors text-left font-semibold"
+                  >
+                    <Icon icon="mdi:trash-can-outline" className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>Delete Departure Aerodrome</span>
+                  </button>
+                )}
+
+                {onCoordinateSelect && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCoordinateSelect("waypoint", contextMenu.lat, contextMenu.lng);
+                      onDepartureClear?.();
+                      setContextMenu(null);
+                      showToast("Converted Departure to Enroute Waypoint");
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
+                  >
+                    <Icon icon="mdi:map-marker-plus" className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>Convert to Enroute Waypoint</span>
+                  </button>
+                )}
+
+                {onArrivalMove && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onArrivalMove(contextMenu.lat, contextMenu.lng);
+                      onDepartureClear?.();
+                      setContextMenu(null);
+                      showToast("Moved to Destination Aerodrome");
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
+                  >
+                    <Icon icon="mdi:airplane-landing" className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>Switch to Destination</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* Arrival / Destination specific options */}
+            {contextMenu.type === "arrival" && (
+              <>
+                {onArrivalClear && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onArrivalClear();
+                      setContextMenu(null);
+                      showToast("Cleared Destination Aerodrome");
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-400 hover:bg-red-950/60 hover:text-red-200 transition-colors text-left font-semibold"
+                  >
+                    <Icon icon="mdi:trash-can-outline" className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>Delete Destination Aerodrome</span>
+                  </button>
+                )}
+
+                {onCoordinateSelect && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onCoordinateSelect("waypoint", contextMenu.lat, contextMenu.lng);
+                      onArrivalClear?.();
+                      setContextMenu(null);
+                      showToast("Converted Destination to Enroute Waypoint");
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
+                  >
+                    <Icon icon="mdi:map-marker-plus" className="w-4 h-4 shrink-0 text-amber-400" />
+                    <span>Convert to Enroute Waypoint</span>
+                  </button>
+                )}
+
+                {onDepartureMove && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onDepartureMove(contextMenu.lat, contextMenu.lng);
+                      onArrivalClear?.();
+                      setContextMenu(null);
+                      showToast("Moved to Departure Aerodrome");
+                    }}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
+                  >
+                    <Icon icon="mdi:airplane-takeoff" className="w-4 h-4 shrink-0 text-emerald-400" />
+                    <span>Switch to Departure</span>
+                  </button>
+                )}
+              </>
+            )}
+
             {/* Waypoint specific options */}
             {contextMenu.type === "waypoint" && (
               <>
@@ -1093,7 +1228,7 @@ export const OperationLocationPicker = ({
                       setContextMenu(null);
                       showToast(`Deleted Checkpoint CP-${contextMenu.index! + 1}`);
                     }}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-400 hover:bg-red-950/60 hover:text-red-200 transition-colors text-left font-medium"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-400 hover:bg-red-950/60 hover:text-red-200 transition-colors text-left font-semibold"
                   >
                     <Icon icon="mdi:trash-can-outline" className="w-4 h-4 shrink-0 text-red-400" />
                     <span>Delete Waypoint</span>
@@ -1126,8 +1261,11 @@ export const OperationLocationPicker = ({
                     type="button"
                     onClick={() => {
                       onDepartureMove(contextMenu.lat, contextMenu.lng);
+                      if (contextMenu.index !== undefined && onWaypointDelete) {
+                        onWaypointDelete(contextMenu.index);
+                      }
                       setContextMenu(null);
-                      showToast("Set as Departure Point");
+                      showToast("Promoted Waypoint to Departure");
                     }}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
                   >
@@ -1141,8 +1279,11 @@ export const OperationLocationPicker = ({
                     type="button"
                     onClick={() => {
                       onArrivalMove(contextMenu.lat, contextMenu.lng);
+                      if (contextMenu.index !== undefined && onWaypointDelete) {
+                        onWaypointDelete(contextMenu.index);
+                      }
                       setContextMenu(null);
-                      showToast("Set as Destination Point");
+                      showToast("Promoted Waypoint to Destination");
                     }}
                     className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
                   >
@@ -1154,46 +1295,98 @@ export const OperationLocationPicker = ({
             )}
 
             {/* Map Canvas right-click options */}
-            {contextMenu.type === "map" && onCoordinateSelect && (
+            {contextMenu.type === "map" && (
               <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onCoordinateSelect("waypoint", contextMenu.lat, contextMenu.lng);
-                    setContextMenu(null);
-                    showToast("Added as Enroute Waypoint");
-                  }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
-                >
-                  <Icon icon="mdi:map-marker-plus" className="w-4 h-4 shrink-0 text-amber-400" />
-                  <span>Add Waypoint Here</span>
-                </button>
+                {/* Proximity detected actions if clicked near an existing fix */}
+                {nearbyTarget && (
+                  <div className="pb-1 mb-1 border-b border-white/10 space-y-1">
+                    {nearbyTarget.type === "departure" && onDepartureClear && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDepartureClear();
+                          setContextMenu(null);
+                          showToast("Cleared Departure Aerodrome");
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-400 hover:bg-red-950/60 hover:text-red-200 transition-colors text-left font-semibold"
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-4 h-4 shrink-0 text-red-400" />
+                        <span>Delete Departure Point</span>
+                      </button>
+                    )}
+                    {nearbyTarget.type === "arrival" && onArrivalClear && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onArrivalClear();
+                          setContextMenu(null);
+                          showToast("Cleared Destination Aerodrome");
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-400 hover:bg-red-950/60 hover:text-red-200 transition-colors text-left font-semibold"
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-4 h-4 shrink-0 text-red-400" />
+                        <span>Delete Destination Point</span>
+                      </button>
+                    )}
+                    {nearbyTarget.type === "waypoint" && onWaypointDelete && nearbyTarget.index !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onWaypointDelete(nearbyTarget.index!);
+                          setContextMenu(null);
+                          showToast(`Deleted Checkpoint CP-${nearbyTarget.index! + 1}`);
+                        }}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-red-400 hover:bg-red-950/60 hover:text-red-200 transition-colors text-left font-semibold"
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-4 h-4 shrink-0 text-red-400" />
+                        <span>Delete Waypoint ({nearbyTarget.name || `CP-${nearbyTarget.index + 1}`})</span>
+                      </button>
+                    )}
+                  </div>
+                )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    onCoordinateSelect("departure", contextMenu.lat, contextMenu.lng);
-                    setContextMenu(null);
-                    showToast("Set as Departure Aerodrome");
-                  }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
-                >
-                  <Icon icon="mdi:airplane-takeoff" className="w-4 h-4 shrink-0 text-emerald-400" />
-                  <span>Set Departure Here</span>
-                </button>
+                {onCoordinateSelect && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCoordinateSelect("waypoint", contextMenu.lat, contextMenu.lng);
+                        setContextMenu(null);
+                        showToast("Added as Enroute Waypoint");
+                      }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
+                    >
+                      <Icon icon="mdi:map-marker-plus" className="w-4 h-4 shrink-0 text-amber-400" />
+                      <span>Add Waypoint Here</span>
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    onCoordinateSelect("arrival", contextMenu.lat, contextMenu.lng);
-                    setContextMenu(null);
-                    showToast("Set as Destination Aerodrome");
-                  }}
-                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
-                >
-                  <Icon icon="mdi:airplane-landing" className="w-4 h-4 shrink-0 text-red-400" />
-                  <span>Set Destination Here</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCoordinateSelect("departure", contextMenu.lat, contextMenu.lng);
+                        setContextMenu(null);
+                        showToast("Set as Departure Aerodrome");
+                      }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
+                    >
+                      <Icon icon="mdi:airplane-takeoff" className="w-4 h-4 shrink-0 text-emerald-400" />
+                      <span>Set Departure Here</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onCoordinateSelect("arrival", contextMenu.lat, contextMenu.lng);
+                        setContextMenu(null);
+                        showToast("Set as Destination Aerodrome");
+                      }}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[#0A4D66]/40 text-gray-200 hover:text-white transition-colors text-left"
+                    >
+                      <Icon icon="mdi:airplane-landing" className="w-4 h-4 shrink-0 text-red-400" />
+                      <span>Set Destination Here</span>
+                    </button>
+                  </>
+                )}
               </>
             )}
 
@@ -1336,6 +1529,17 @@ export const OperationLocationPicker = ({
                     onCoordinateSelect(activeTarget, fix.latitude, fix.longitude);
                     showToast(`Selected ${fix.ident} (${fix.name}) as ${activeTarget.toUpperCase()}`);
                   },
+                  contextmenu: (e) => {
+                    e.originalEvent?.preventDefault?.();
+                    e.originalEvent?.stopPropagation?.();
+                    setContextMenu({
+                      type: "map",
+                      lat: fix.latitude,
+                      lng: fix.longitude,
+                      x: e.originalEvent.clientX,
+                      y: e.originalEvent.clientY,
+                    });
+                  },
                 }}
               >
                 <Tooltip direction="top" offset={[0, -10]}>
@@ -1362,21 +1566,21 @@ export const OperationLocationPicker = ({
                         <button
                           type="button"
                           onClick={() => onCoordinateSelect("departure", fix.latitude, fix.longitude)}
-                          className="w-full text-left px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold transition-colors"
+                          className="w-full text-left px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           Set as Departure Fix
                         </button>
                         <button
                           type="button"
                           onClick={() => onCoordinateSelect("arrival", fix.latitude, fix.longitude)}
-                          className="w-full text-left px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-semibold transition-colors"
+                          className="w-full text-left px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           Set as Arrival Fix
                         </button>
                         <button
                           type="button"
                           onClick={() => onCoordinateSelect("waypoint", fix.latitude, fix.longitude)}
-                          className="w-full text-left px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-semibold transition-colors"
+                          className="w-full text-left px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-semibold transition-colors cursor-pointer"
                         >
                           Add as Waypoint Checkpoint
                         </button>
@@ -1431,6 +1635,31 @@ export const OperationLocationPicker = ({
                     <div className="font-mono text-[#7FD5FF]">MGRS: {mgrs}</div>
                   </div>
                 </Tooltip>
+                {!readOnly && onWaypointDelete && (
+                  <Popup>
+                    <div className="text-xs p-1 space-y-1.5 min-w-[200px] text-gray-900 font-sans">
+                      <div className="font-bold text-sm text-amber-700 flex items-center justify-between">
+                        <span>{label ? `${label} ` : ""}CP-{index + 1}</span>
+                        <Icon icon="mdi:map-marker" className="w-4 h-4 text-amber-600" />
+                      </div>
+                      <div className="font-mono text-[10px] bg-slate-100 p-1 rounded text-gray-700">
+                        <div>{dmsLat}, {dmsLng}</div>
+                        <div className="text-[#0369A1] font-semibold">MGRS: {mgrs}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onWaypointDelete(index);
+                          showToast(`Deleted Checkpoint CP-${index + 1}`);
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-3.5 h-3.5" />
+                        <span>Delete Waypoint</span>
+                      </button>
+                    </div>
+                  </Popup>
+                )}
               </Marker>
             );
           })}
@@ -1468,6 +1697,35 @@ export const OperationLocationPicker = ({
                   </div>
                 </div>
               </Tooltip>
+              {!readOnly && (
+                <Popup>
+                  <div className="text-xs p-1 space-y-1.5 min-w-[200px] text-gray-900 font-sans">
+                    <div className="font-bold text-sm text-emerald-700 flex items-center justify-between">
+                      <span>Departure Aerodrome</span>
+                      <Icon icon="mdi:airplane-takeoff" className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div className="font-mono text-[10px] bg-slate-100 p-1 rounded text-gray-700">
+                      <div>{decimalToDms(departurePoint[0], true)}, {decimalToDms(departurePoint[1], false)}</div>
+                      <div className="text-[#0369A1] font-semibold">
+                        MGRS: {formatMgrsSpaced(latLonToMgrs(departurePoint[0], departurePoint[1]))}
+                      </div>
+                    </div>
+                    {onDepartureClear && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onDepartureClear();
+                          showToast("Cleared Departure Aerodrome");
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-3.5 h-3.5" />
+                        <span>Delete Departure Aerodrome</span>
+                      </button>
+                    )}
+                  </div>
+                </Popup>
+              )}
             </Marker>
           ) : null}
 
@@ -1504,6 +1762,35 @@ export const OperationLocationPicker = ({
                   </div>
                 </div>
               </Tooltip>
+              {!readOnly && (
+                <Popup>
+                  <div className="text-xs p-1 space-y-1.5 min-w-[200px] text-gray-900 font-sans">
+                    <div className="font-bold text-sm text-red-700 flex items-center justify-between">
+                      <span>Destination Aerodrome</span>
+                      <Icon icon="mdi:airplane-landing" className="w-4 h-4 text-red-600" />
+                    </div>
+                    <div className="font-mono text-[10px] bg-slate-100 p-1 rounded text-gray-700">
+                      <div>{decimalToDms(arrivalPoint[0], true)}, {decimalToDms(arrivalPoint[1], false)}</div>
+                      <div className="text-[#0369A1] font-semibold">
+                        MGRS: {formatMgrsSpaced(latLonToMgrs(arrivalPoint[0], arrivalPoint[1]))}
+                      </div>
+                    </div>
+                    {onArrivalClear && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onArrivalClear();
+                          showToast("Cleared Destination Aerodrome");
+                        }}
+                        className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <Icon icon="mdi:trash-can-outline" className="w-3.5 h-3.5" />
+                        <span>Delete Destination Aerodrome</span>
+                      </button>
+                    )}
+                  </div>
+                </Popup>
+              )}
             </Marker>
           ) : null}
 
