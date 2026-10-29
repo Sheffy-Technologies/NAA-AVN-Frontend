@@ -65,7 +65,7 @@ export const AddSupplierPage = () => {
         address: values.address.trim() || null,
       }).unwrap();
 
-      navigate("/dashboard/inventory", {
+      navigate("/dashboard/inventory?tab=suppliers", {
         state: { inventoryTab: "Suppliers" },
       });
     } catch {
@@ -77,7 +77,7 @@ export const AddSupplierPage = () => {
     <div className="px-2 sm:px-0">
       <section className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <BackButton fallbackUrl="/dashboard/inventory" />
+            <BackButton fallbackUrl="/dashboard/inventory?tab=suppliers" label="Back to Suppliers" />
             <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
               Add Supplier
             </h1>

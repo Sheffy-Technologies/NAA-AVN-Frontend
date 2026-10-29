@@ -411,7 +411,7 @@ export const InventoryInfoPage = () => {
     try {
       await deleteInventory(String(inventory.id)).unwrap();
       dispatch(showToast({ message: "Inventory item deleted successfully", type: "success" }));
-      navigate("/dashboard/inventory");
+      navigate("/dashboard/inventory?tab=stock");
     } catch {
       dispatch(showToast({ message: "Failed to delete inventory item", type: "error" }));
     } finally {
@@ -424,7 +424,7 @@ export const InventoryInfoPage = () => {
       <div className="px-2 sm:px-0">
         <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
           <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
-            <BackButton fallbackUrl="/dashboard/inventory" />
+            <BackButton fallbackUrl="/dashboard/inventory?tab=stock" label="Back to Stock" />
           </div>
           <div className="p-6 text-center text-slate-500 dark:text-gray-400">
             Failed to load inventory.
@@ -439,7 +439,7 @@ export const InventoryInfoPage = () => {
       <div className="px-2 sm:px-0">
         <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
           <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
-            <BackButton fallbackUrl="/dashboard/inventory" />
+            <BackButton fallbackUrl="/dashboard/inventory?tab=stock" label="Back to Stock" />
             <span className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">
               Stock Info
             </span>
@@ -460,7 +460,7 @@ export const InventoryInfoPage = () => {
       <section className="bg-white dark:bg-[#001219] border border-slate-200 dark:border-[#0A4D66]/40 rounded-xl overflow-hidden shadow-xs">
         <div className="px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-[#0A4D66]/40 bg-white dark:bg-[#001219] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <BackButton fallbackUrl="/dashboard/inventory" />
+            <BackButton fallbackUrl="/dashboard/inventory?tab=stock" label="Back to Stock" />
             <div className="flex flex-col">
               <span className="text-sm sm:text-base font-semibold tracking-wide text-slate-900 dark:text-white uppercase">
                 Stock Info
@@ -823,8 +823,10 @@ export const InventoryInfoPage = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    navigator.clipboard.writeText(u.serial_number);
-                                    dispatch(showToast({ message: `Copied ${u.serial_number}`, type: "success" }));
+                                    if (u.serial_number) {
+                                      navigator.clipboard.writeText(u.serial_number);
+                                      dispatch(showToast({ message: `Copied ${u.serial_number}`, type: "success" }));
+                                    }
                                   }}
                                   title="Copy Serial Number"
                                   className="text-slate-400 hover:text-sky-500 p-0.5 rounded transition-colors"

@@ -201,6 +201,10 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                 <span className="text-gray-400 block text-[10px] uppercase font-semibold">Linked Purchase Order</span>
                 <Link
                   to={`/dashboard/inventory/purchase-orders/${shipment.purchase_order_id}`}
+                  state={{
+                    from: "/dashboard/inventory?tab=procurement&subtab=shipments",
+                    fromLabel: "Consignments & Shipments",
+                  }}
                   className="font-semibold text-sky-500 hover:underline inline-flex items-center gap-1 mt-0.5"
                 >
                   <span>PO #{shipment.purchase_order_id}</span>

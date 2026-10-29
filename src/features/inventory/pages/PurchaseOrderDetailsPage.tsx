@@ -8,6 +8,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import { exportNaavnExcel } from "@/shared/documents/naavnExcel";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { sanitizeDocumentFileName } from "@/shared/documents/naavnDocument";
+import { printElement } from "@/shared/utils/printElement";
 import { useTheme } from "@/context/ThemeContext";
 import {
   useCreateGoodsReceivedNoteMutation,
@@ -173,6 +174,11 @@ export default function PurchaseOrderDetailsPage() {
       `NAAVN PO ${order?.id ?? ""}${order?.supplier?.name ? ` ${order.supplier.name}` : ""}`,
     );
 
+  const handlePrint = () => {
+    if (!printDocumentRef.current || !order) return;
+    printElement(printDocumentRef.current, `NAAVN-006_PO_${order.id}`);
+  };
+
   const handleDownloadPdf = async () => {
     if (!printDocumentRef.current || !order || isDownloadingPdf) return;
 
@@ -248,7 +254,10 @@ export default function PurchaseOrderDetailsPage() {
         <Icon icon="mdi:alert-circle-outline" className="w-8 h-8 mx-auto mb-2 text-red-500" />
         <p className="font-semibold text-sm">Failed to load purchase order details.</p>
         <div className="mt-4">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton
+            fallbackUrl="/dashboard/inventory?tab=procurement&subtab=purchase-orders"
+            label="Back to Purchase Orders"
+          />
         </div>
       </div>
     );
@@ -276,7 +285,10 @@ export default function PurchaseOrderDetailsPage() {
         isDark ? "bg-[#001219]/80 border-[#0A4D66]/40 shadow-lg shadow-black/20" : "bg-white border-slate-200 shadow-sm"
       )}>
         <div className="flex items-center gap-4">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton
+            fallbackUrl="/dashboard/inventory?tab=procurement&subtab=purchase-orders"
+            label="Back to Purchase Orders"
+          />
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
@@ -316,6 +328,20 @@ export default function PurchaseOrderDetailsPage() {
           >
             <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-sky-500" />
             Preview Form
+          </button>
+          <button
+            type="button"
+            onClick={handlePrint}
+            className={cn(
+              "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all shadow-xs",
+              isDark
+                ? "border-sky-500/30 bg-[#001825] text-sky-400 hover:bg-slate-800"
+                : "border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100"
+            )}
+            title="Print Purchase Order directly (NAAVN-006)"
+          >
+            <Icon icon="mdi:printer" className="w-4 h-4" />
+            Print
           </button>
           <button
             type="button"
@@ -488,15 +514,20 @@ export default function PurchaseOrderDetailsPage() {
         )}>
           <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-[#0A4D66]/40">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
-                <Icon icon="mdi:clipboard-check-outline" className="w-5 h-5" />
+              <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400">
+                <Icon icon="mdi:package-variant-closed-check" className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Stock Received (Goods Received Note)
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Verify arrived quantities and confirm stock entry into NAA inventory.
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+                    Receive Stock — Goods Received Note (GRN)
+                  </h3>
+                  <span className="rounded bg-sky-100 dark:bg-sky-950/80 px-2 py-0.5 text-[10px] font-bold text-sky-700 dark:text-sky-300 border border-sky-300 dark:border-sky-800">
+                    Aviation Stores
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Verify arrived quantities and confirm component stock intake into NA AVN inventory ledger.
                 </p>
               </div>
             </div>
@@ -864,7 +895,7 @@ export default function PurchaseOrderDetailsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrint}
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
                 >
                   <Icon icon="mdi:printer" className="h-4 w-4" />

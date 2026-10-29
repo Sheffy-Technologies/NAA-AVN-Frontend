@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link, useLocation } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
+import { printElement } from "@/shared/utils/printElement";
 import { useTheme } from "@/context/ThemeContext";
 import { BackButton } from "@/shared/ui/button/BackButton";
 import {
@@ -56,6 +57,7 @@ const formatNaira = (value: number | string | null | undefined) => {
 export function RfqDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { isDark } = useTheme();
 
@@ -190,12 +192,22 @@ export function RfqDetailsPage() {
     const params = new URLSearchParams();
     if (id) params.set("rfq_id", id);
     if (approvedQuotation) params.set("bid_id", String(approvedQuotation.id));
-    navigate(`/dashboard/inventory/purchase-orders/new?${params.toString()}`);
+    navigate(`/dashboard/inventory/purchase-orders/new?${params.toString()}`, {
+      state: {
+        from: location.pathname + location.search,
+        fromLabel: `RFQ #${rfq?.rfq_number || id}`,
+      },
+    });
   };
 
   const printDocumentRef = useRef<HTMLDivElement | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handlePrint = () => {
+    if (!printDocumentRef.current || !rfq) return;
+    printElement(printDocumentRef.current, `NAAVN-005_RFQ_${rfq.rfq_number || rfq.id}`);
+  };
 
   const handleDownloadPdf = async () => {
     if (!printDocumentRef.current || !rfq || isDownloadingPdf) return;
@@ -262,7 +274,10 @@ export function RfqDetailsPage() {
       )}>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
-            <BackButton fallbackUrl="/dashboard/inventory" />
+            <BackButton
+              fallbackUrl="/dashboard/inventory?tab=procurement&subtab=quotations"
+              label="Back to Quotations"
+            />
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
@@ -310,6 +325,21 @@ export function RfqDetailsPage() {
             >
               <Icon icon="mdi:file-document-outline" className="w-4 h-4 text-sky-500" />
               Preview Document
+            </button>
+
+            <button
+              type="button"
+              onClick={handlePrint}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all shadow-sm",
+                isDark
+                  ? "bg-[#001825] hover:bg-slate-800 border-sky-500/30 text-sky-400"
+                  : "bg-sky-50 hover:bg-sky-100 border-sky-300 text-sky-700"
+              )}
+              title="Print RFQ form directly (NAAVN-005)"
+            >
+              <Icon icon="mdi:printer" className="w-4 h-4" />
+              Print
             </button>
 
             {(rfq.suppliers?.length ?? 0) > 1 && (
@@ -917,7 +947,7 @@ export function RfqDetailsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrint}
                   className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
                 >
                   <Icon icon="mdi:printer" className="h-4 w-4" />

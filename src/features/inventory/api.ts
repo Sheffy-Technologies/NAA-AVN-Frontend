@@ -78,7 +78,7 @@ export type InventorySerializedUnit = {
   id?: number;
   inventory_id?: number;
   unit_index?: number;
-  serial_number: string;
+  serial_number?: string | null;
   cage_code?: string | null;
   part_number?: string | null;
   nsn?: string | null;

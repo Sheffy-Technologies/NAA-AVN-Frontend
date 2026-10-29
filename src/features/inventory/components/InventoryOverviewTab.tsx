@@ -297,7 +297,14 @@ export const InventoryOverviewTab: React.FC<InventoryOverviewTabProps> = ({
 
           <button
             type="button"
-            onClick={() => navigate("/dashboard/inventory/purchase-orders/new")}
+            onClick={() =>
+              navigate("/dashboard/inventory/purchase-orders/new", {
+                state: {
+                  from: "/dashboard/inventory?tab=inventory-levels",
+                  fromLabel: "Inventory Overview",
+                },
+              })
+            }
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all cursor-pointer"
           >
             <Icon icon="mdi:cart-plus" className="w-4 h-4 text-white" />
@@ -551,7 +558,12 @@ export const InventoryOverviewTab: React.FC<InventoryOverviewTabProps> = ({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    navigate("/dashboard/inventory/purchase-orders/new");
+                    navigate("/dashboard/inventory/purchase-orders/new", {
+                      state: {
+                        from: "/dashboard/inventory?tab=inventory-levels",
+                        fromLabel: "Inventory Overview",
+                      },
+                    });
                   }}
                   className="px-2.5 py-1 text-[11px] rounded font-bold bg-red-600 hover:bg-red-700 text-white shrink-0 shadow-sm"
                 >

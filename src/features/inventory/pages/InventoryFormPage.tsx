@@ -751,9 +751,7 @@ const InventoryFormContent = ({
       } else if (requiresSerialTracking === true) {
         values.units.forEach((u, idx) => {
           const s = u.serial_number.trim();
-          if (!s) {
-            newUnitErrors[idx] = `Serial No is required for Unit #${idx + 1}`;
-          } else if (duplicateSerialSet.has(s.toLowerCase())) {
+          if (s && duplicateSerialSet.has(s.toLowerCase())) {
             newUnitErrors[idx] = `Duplicate Serial No "${s}"`;
           }
         });
@@ -794,16 +792,16 @@ const InventoryFormContent = ({
     const isSerializedActive = isAircraftSpare ? requiresSerialTracking === true : false;
 
     const primarySerial = isSerializedActive
-      ? values.units[0]?.serial_number?.trim() || values.serial_number.trim() || null
-      : null;
+      ? values.units.find((u) => u.serial_number?.trim())?.serial_number?.trim() || values.serial_number.trim() || null
+      : values.serial_number.trim() || null;
     const primaryPart = values.part_number.trim();
 
-    // Prepare units payload: only send serialized units if this is an aircraft spare AND serial tracking is enabled
+    // Prepare units payload: send units if this is an aircraft spare AND serial tracking is enabled
     const unitsPayload = isSerializedActive
       ? values.units.map((u, idx) => ({
           id: u.id,
           unit_index: idx + 1,
-          serial_number: u.serial_number.trim(),
+          serial_number: u.serial_number?.trim() || null,
           cage_code: u.cage_code?.trim() || values.cage_code.trim() || null,
           part_number: u.part_number?.trim() || primaryPart,
           nsn: u.nsn?.trim() || values.nsn.trim() || null,
@@ -977,7 +975,7 @@ const InventoryFormContent = ({
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <BackButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} />
+          <BackButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Back to Stock" />
           <div>
             <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               {pageTitle}
@@ -985,7 +983,7 @@ const InventoryFormContent = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <CancelButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} label="Cancel" size="md" />
+          <CancelButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Cancel" size="md" />
           <button
             type="button"
             onClick={() => handleSubmitInternal(true)}
@@ -1649,8 +1647,7 @@ const InventoryFormContent = ({
                                   (isDup || hasErr) &&
                                     "border-red-500 focus:border-red-500 focus:ring-red-500/30",
                                 )}
-                                placeholder={`Serial for Unit #${idx + 1}`}
-                                required
+                                placeholder={`Serial for Unit #${idx + 1} (optional)`}
                               />
                               {unitErrors[idx] && (
                                 <p className="text-[10px] text-red-500 font-medium">
@@ -2243,7 +2240,7 @@ const InventoryFormContent = ({
           </strong>
         </div>
         <div className="flex items-center gap-3">
-          <CancelButton fallbackUrl="/dashboard/inventory" isDirty={isFormDirty} label="Cancel" size="md" />
+          <CancelButton fallbackUrl="/dashboard/inventory?tab=stock" isDirty={isFormDirty} label="Cancel" size="md" />
           <button
             type="button"
             onClick={() => handleSubmitInternal(true)}
@@ -2341,14 +2338,14 @@ export const InventoryFormPage = () => {
     useUpdateInventoryMutation();
 
   const handleBack = () => {
-    navigate("/dashboard/inventory");
+    navigate("/dashboard/inventory?tab=stock");
   };
 
   if (mode === "edit" && !isInventoryLoading && isInventoryError) {
     return (
       <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton fallbackUrl="/dashboard/inventory?tab=stock" label="Back to Stock" />
           <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
             Edit Stock
           </h1>
@@ -2364,7 +2361,7 @@ export const InventoryFormPage = () => {
     return (
       <div className="px-2 sm:px-4 lg:px-8 py-4 sm:py-6">
         <div className="flex items-center gap-3 mb-4 sm:mb-6">
-          <BackButton fallbackUrl="/dashboard/inventory" />
+          <BackButton fallbackUrl="/dashboard/inventory?tab=stock" label="Back to Stock" />
           <h1 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
             Edit Stock
           </h1>

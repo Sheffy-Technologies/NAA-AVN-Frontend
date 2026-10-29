@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "./Button";
 import { UnsavedChangesModal } from "../modal/UnsavedChangesModal";
+import { useNavigationContext } from "@/shared/utils/navigationContext";
 
 export interface CancelButtonProps {
   onCancel?: () => void;
@@ -24,7 +24,7 @@ export const CancelButton: React.FC<CancelButtonProps> = ({
   size = "sm",
   disabled = false,
 }) => {
-  const navigate = useNavigate();
+  const { navigateBack } = useNavigationContext(fallbackUrl);
   const [showModal, setShowModal] = useState(false);
 
   const executeCancel = () => {
@@ -32,13 +32,7 @@ export const CancelButton: React.FC<CancelButtonProps> = ({
       onCancel();
       return;
     }
-    if (fallbackUrl) {
-      navigate(fallbackUrl);
-    } else if (window.history.state && typeof window.history.state.idx === "number" && window.history.state.idx > 0) {
-      navigate(-1);
-    } else {
-      navigate(-1);
-    }
+    navigateBack();
   };
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {

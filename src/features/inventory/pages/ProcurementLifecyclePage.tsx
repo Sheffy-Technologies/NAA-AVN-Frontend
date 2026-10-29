@@ -390,7 +390,9 @@ export const ProcurementLifecyclePage = () => {
       return;
     }
 
-    navigate(`/dashboard/inventory/purchase-orders/${purchaseOrderId}`);
+    navigate(`/dashboard/inventory/purchase-orders/${purchaseOrderId}`, {
+      state: { from: location.pathname + location.search + (location.hash || ""), fromLabel: "Procurement Lifecycle" },
+    });
   };
 
   const handleOpenGrn = (purchaseOrderId?: number) => {
@@ -1712,7 +1714,10 @@ export const ProcurementLifecyclePage = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center">
-        <BackButton fallbackUrl="/dashboard/inventory" />
+        <BackButton
+          fallbackUrl="/dashboard/inventory?tab=procurement&subtab=pipeline"
+          label="Back to Procurement"
+        />
       </div>
       <div>
         <h1 className="text-2xl font-bold text-[var(--theme-text-primary)]">Procurement Inventory Life Cycle</h1>

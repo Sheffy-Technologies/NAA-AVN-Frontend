@@ -200,7 +200,14 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
 
           <button
             type="button"
-            onClick={() => navigate("/dashboard/inventory/purchase-orders/new")}
+            onClick={() =>
+              navigate("/dashboard/inventory/purchase-orders/new", {
+                state: {
+                  from: "/dashboard/inventory?tab=procurement&subtab=overview",
+                  fromLabel: "Procurement Overview",
+                },
+              })
+            }
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#0369A1] hover:bg-[#0369A1]/90 text-white shadow-sm transition-colors"
           >
             <Icon icon="mdi:cart-plus" className="w-4 h-4" />
@@ -456,9 +463,19 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
                       onClick={(e) =>
                         onInteractiveRowClick(e, () => {
                           if (row.po) {
-                            navigate(`/dashboard/inventory/purchase-orders/${row.po.id}`);
+                            navigate(`/dashboard/inventory/purchase-orders/${row.po.id}`, {
+                              state: {
+                                from: "/dashboard/inventory?tab=procurement&subtab=overview",
+                                fromLabel: "Procurement Overview",
+                              },
+                            });
                           } else if (row.rfq) {
-                            navigate(`/dashboard/inventory/rfq/${row.rfq.id}`);
+                            navigate(`/dashboard/inventory/rfq/${row.rfq.id}`, {
+                              state: {
+                                from: "/dashboard/inventory?tab=procurement&subtab=overview",
+                                fromLabel: "Procurement Overview",
+                              },
+                            });
                           } else {
                             onNavigateSubTab("part-requisitions");
                           }
@@ -533,7 +550,12 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/dashboard/inventory/purchase-orders/${row.po?.id}`);
+                              navigate(`/dashboard/inventory/purchase-orders/${row.po?.id}`, {
+                                state: {
+                                  from: "/dashboard/inventory?tab=procurement&subtab=overview",
+                                  fromLabel: "Procurement Overview",
+                                },
+                              });
                             }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-sky-400 text-[11px] font-semibold transition-colors"
                           >
@@ -545,7 +567,12 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              navigate(`/dashboard/inventory/rfq/${row.rfq?.id}`);
+                              navigate(`/dashboard/inventory/rfq/${row.rfq?.id}`, {
+                                state: {
+                                  from: "/dashboard/inventory?tab=procurement&subtab=overview",
+                                  fromLabel: "Procurement Overview",
+                                },
+                              });
                             }}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded border border-[#0A4D66]/40 hover:bg-[#0A4D66]/30 text-amber-400 text-[11px] font-semibold transition-colors"
                           >
@@ -650,7 +677,12 @@ export const ProcurementOverviewTab: React.FC<ProcurementOverviewTabProps> = ({
                     key={shipment.id}
                     onClick={() => {
                       if (shipment.purchase_order_id) {
-                        navigate(`/dashboard/inventory/purchase-orders/${shipment.purchase_order_id}`);
+                        navigate(`/dashboard/inventory/purchase-orders/${shipment.purchase_order_id}`, {
+                          state: {
+                            from: "/dashboard/inventory?tab=procurement&subtab=overview",
+                            fromLabel: "Procurement Overview",
+                          },
+                        });
                       } else {
                         setSelectedShipmentModal(shipment);
                       }
