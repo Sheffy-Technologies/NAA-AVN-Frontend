@@ -236,7 +236,7 @@ export type CreateInventoryPayload = {
   description?: string;
 };
 
-export type UpdateInventoryPayload = CreateInventoryPayload;
+export type UpdateInventoryPayload = Partial<CreateInventoryPayload>;
 
 export type ProcurementBudget = {
   id: number;

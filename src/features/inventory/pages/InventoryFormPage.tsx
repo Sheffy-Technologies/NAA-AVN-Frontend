@@ -511,7 +511,7 @@ const InventoryFormContent = ({
   const handleQuantityChange = (qtyStr: string) => {
     setValues((prev) => {
       const count = parseInt(qtyStr, 10);
-      if (isNaN(count) || count < 1) {
+      if (isNaN(count) || count < 0) {
         return {
           ...prev,
           current_stock: qtyStr,
@@ -735,8 +735,8 @@ const InventoryFormContent = ({
     }
 
     const qty = parseInt(values.current_stock, 10);
-    if (isNaN(qty) || qty < 1) {
-      newErrors.current_stock = "Quantity must be at least 1";
+    if (isNaN(qty) || qty < 0) {
+      newErrors.current_stock = "Quantity cannot be negative";
     }
 
     // Aircraft Spares Validation
@@ -774,7 +774,8 @@ const InventoryFormContent = ({
       return;
     }
 
-    const currentStockNumeric = parseInt(values.current_stock, 10) || 1;
+    const parsedStock = parseInt(values.current_stock, 10);
+    const currentStockNumeric = isNaN(parsedStock) || parsedStock < 0 ? 0 : parsedStock;
     const unitCostNumeric = values.unit_cost.trim().length > 0 ? Number(values.unit_cost) : 0;
     const reOrderNumeric = values.re_order_level.trim().length > 0 ? Number(values.re_order_level) : 1;
 
