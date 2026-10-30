@@ -1,7 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Modal from "@/shared/ui/modal/Modal";
 import { Icon } from "@/shared/icons/Icon";
-import { useUpdatePassMutation, type Pass, type PassRecordStatus } from "../passApi";
+import {
+  useDeletePassAttachmentMutation,
+  useGetPassFormOptionsQuery,
+  useUpdatePassMutation,
+  useUploadPassAttachmentMutation,
+  type Pass,
+  type PassRecordStatus,
+} from "../passApi";
+import { emptyPassForm, passFormFromPass, passFormPayload, withoutOfficerFields, type PassFormValues } from "../passForm";
+import {
+  PassApplicationFields,
+  PassAttachmentInput,
+  type PassApplicationFieldsHandle,
+} from "./PassApplicationFields";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 
@@ -21,6 +34,17 @@ const statusOptions: { value: PassRecordStatus; label: string }[] = [
 export const EditPassModal = ({ pass, onClose }: Props) => {
   const dispatch = useAppDispatch();
   const [updatePass, { isLoading }] = useUpdatePassMutation();
+  const [uploadAttachment, { isLoading: isUploading }] = useUploadPassAttachmentMutation();
+  const [deleteAttachment] = useDeletePassAttachmentMutation();
+  const fieldsRef = useRef<PassApplicationFieldsHandle>(null);
+  const { data: formOptions } = useGetPassFormOptionsQuery(undefined, { skip: !pass });
+  // A pass already in the workflow stays there even if the workflow is later switched off.
+  const officersViaWorkflow = pass?.officers_via_workflow ?? formOptions?.officers_via_workflow ?? false;
+  const [application, setApplication] = useState<PassFormValues>(emptyPassForm);
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [attachmentRemoved, setAttachmentRemoved] = useState(false);
+  const setField = <K extends keyof PassFormValues>(key: K, value: PassFormValues[K]) =>
+    setApplication((prev) => ({ ...prev, [key]: value }));
 
   const [form, setForm] = useState({
     start_date: "",
@@ -37,6 +61,9 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
         status: pass.status,
         remarks: pass.remarks ?? "",
       });
+      setApplication(passFormFromPass(pass));
+      setAttachment(null);
+      setAttachmentRemoved(false);
     }
   }, [pass]);
 
@@ -59,6 +86,8 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
       await updatePass({
         id: pass.id,
         data: {
+          ...(officersViaWorkflow ? withoutOfficerFields(passFormPayload(application)) : passFormPayload(application)),
+          ...fieldsRef.current?.collectSignatures(),
           start_date: form.start_date,
           end_date: form.end_date,
           duration: computedDuration ?? undefined,
@@ -67,10 +96,20 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
         },
       }).unwrap();
 
+      if (attachment) {
+        try {
+          await uploadAttachment({ id: pass.id, file: attachment }).unwrap();
+        } catch {
+          dispatch(showToast({ message: "Pass saved, but the attachment couldn't be uploaded.", type: "error" }));
+        }
+      }
+
       dispatch(showToast({ message: "Pass updated successfully", type: "success" }));
       onClose();
-    } catch {
-      dispatch(showToast({ message: "Failed to update pass", type: "error" }));
+    } catch (err) {
+      const data = (err as { data?: { message?: string; errors?: Record<string, string[]> } })?.data;
+      const message = (data?.errors && Object.values(data.errors)[0]?.[0]) || data?.message || "Failed to update pass";
+      dispatch(showToast({ message, type: "error" }));
     }
   };
 
@@ -79,7 +118,7 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
     : null;
 
   return (
-    <Modal open={!!pass} onClose={onClose} title="Edit Pass" className="max-w-lg">
+    <Modal open={!!pass} onClose={onClose} title="Edit Leave / Pass Application" className="max-w-3xl! max-h-[92vh] overflow-y-auto">
       <form onSubmit={handleSubmit} className="space-y-4 mt-2">
         {personnelName && (
           <div className="rounded border border-[#0A4D66]/40 bg-[#001825]/60 px-3 py-2 text-sm text-white">
@@ -90,7 +129,7 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Start Date</label>
+            <label className="block text-xs text-gray-400 mb-1"><span className="font-semibold text-[#7FD5FF] mr-1">9.</span>Effective date</label>
             <input
               type="date"
               value={form.start_date}
@@ -100,7 +139,7 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">End Date</label>
+            <label className="block text-xs text-gray-400 mb-1">Ends</label>
             <input
               type="date"
               value={form.end_date}
@@ -116,12 +155,41 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Icon icon="mdi:calendar-range" className="w-4 h-4" />
             <span>
-              Duration:{" "}
+              <span className="font-semibold text-[#7FD5FF] mr-1">8.</span>Number of days required:{" "}
               <strong className="text-white">
                 {computedDuration} day{computedDuration !== 1 ? "s" : ""}
               </strong>
             </span>
           </div>
+        )}
+
+        {pass && (
+          <PassApplicationFields
+            key={pass.id}
+            ref={fieldsRef}
+            values={application}
+            onChange={setField}
+            passId={pass.id}
+            savedSignatures={pass.signatures}
+            officersViaWorkflow={officersViaWorkflow}
+            attachment={
+              <PassAttachmentInput
+                file={attachment}
+                onFile={setAttachment}
+                savedName={pass.has_attachment && !attachmentRemoved ? (pass.attachment_name ?? "Attachment") : null}
+                onRemoveSaved={() => {
+                  if (!window.confirm("Remove the attached file?")) return;
+                  deleteAttachment(pass.id)
+                    .unwrap()
+                    .then(() => {
+                      setAttachmentRemoved(true);
+                      dispatch(showToast({ message: "Attachment removed.", type: "success" }));
+                    })
+                    .catch(() => dispatch(showToast({ message: "The attachment couldn't be removed.", type: "error" })));
+                }}
+              />
+            }
+          />
         )}
 
         <div>
@@ -162,7 +230,7 @@ export const EditPassModal = ({ pass, onClose }: Props) => {
           </button>
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || isUploading}
             className="px-4 py-2 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90 disabled:opacity-50"
           >
             {isLoading ? "Saving..." : "Save Changes"}
