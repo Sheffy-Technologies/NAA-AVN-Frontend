@@ -1,11 +1,19 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Modal from "@/shared/ui/modal/Modal";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
+  useGetPassFormOptionsQuery,
   useInitiatePassMutation,
+  useUploadPassAttachmentMutation,
   type PassRecordStatus,
 } from "../passApi";
+import { emptyPassForm, passFormPayload, withoutOfficerFields, type PassFormValues } from "../passForm";
+import {
+  PassApplicationFields,
+  PassAttachmentInput,
+  type PassApplicationFieldsHandle,
+} from "./PassApplicationFields";
 import { useGetPersonnelQuery } from "../api";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
@@ -47,6 +55,14 @@ export const InitiatePassModal = ({
 }: Props) => {
   const dispatch = useAppDispatch();
   const [initiatePass, { isLoading }] = useInitiatePassMutation();
+  const [uploadAttachment, { isLoading: isUploading }] = useUploadPassAttachmentMutation();
+  const fieldsRef = useRef<PassApplicationFieldsHandle>(null);
+  const { data: formOptions } = useGetPassFormOptionsQuery(undefined, { skip: !open });
+  const officersViaWorkflow = formOptions?.officers_via_workflow ?? false;
+  const [application, setApplication] = useState<PassFormValues>(emptyPassForm);
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const setField = <K extends keyof PassFormValues>(key: K, value: PassFormValues[K]) =>
+    setApplication((prev) => ({ ...prev, [key]: value }));
   const { data: allPersonnelData = [] } = useGetPersonnelQuery(
     { units: [], ranks: [], branches: [], specialties: [], status: [], corps: [] },
     { skip: !!personnelId },
@@ -85,7 +101,9 @@ export const InitiatePassModal = ({
     if (!form.personnel_id || !form.start_date || !form.end_date) return;
 
     try {
-      await initiatePass({
+      const saved = await initiatePass({
+        ...(officersViaWorkflow ? withoutOfficerFields(passFormPayload(application)) : passFormPayload(application)),
+        ...fieldsRef.current?.collectSignatures(),
         personnel_id: Number(form.personnel_id),
         start_date: form.start_date,
         end_date: form.end_date,
@@ -94,7 +112,17 @@ export const InitiatePassModal = ({
         remarks: form.remarks || null,
       }).unwrap();
 
+      if (attachment) {
+        try {
+          await uploadAttachment({ id: saved.id, file: attachment }).unwrap();
+        } catch {
+          dispatch(showToast({ message: "Pass saved, but the attachment couldn't be uploaded. Add it from the pass's page.", type: "error" }));
+        }
+      }
+
       dispatch(showToast({ message: "Pass initiated successfully", type: "success" }));
+      setApplication(emptyPassForm());
+      setAttachment(null);
       setForm({
         personnel_id: personnelId ? String(personnelId) : "",
         start_date: "",
@@ -103,8 +131,10 @@ export const InitiatePassModal = ({
         remarks: "",
       });
       onClose();
-    } catch {
-      dispatch(showToast({ message: "Failed to initiate pass", type: "error" }));
+    } catch (err) {
+      const data = (err as { data?: { message?: string; errors?: Record<string, string[]> } })?.data;
+      const message = (data?.errors && Object.values(data.errors)[0]?.[0]) || data?.message || "Failed to initiate pass";
+      dispatch(showToast({ message, type: "error" }));
     }
   };
 
@@ -113,7 +143,7 @@ export const InitiatePassModal = ({
     : allPersonnel.find((p) => String(p.id) === form.personnel_id);
 
   return (
-    <Modal open={open} onClose={onClose} title="Initiate Pass" className="max-w-lg">
+    <Modal open={open} onClose={onClose} title="Leave / Pass Application" className="max-w-3xl! max-h-[92vh] overflow-y-auto">
       <form onSubmit={handleSubmit} className="space-y-4 mt-2">
         {/* Personnel selector — hidden when personnelId is pre-set */}
         {!personnelId && (
@@ -121,7 +151,20 @@ export const InitiatePassModal = ({
             <label className="block text-xs text-gray-400 mb-1">Personnel</label>
             <select
               value={form.personnel_id}
-              onChange={(e) => setForm((f) => ({ ...f, personnel_id: e.target.value }))}
+              onChange={(e) => {
+                const id = e.target.value;
+                setForm((f) => ({ ...f, personnel_id: id }));
+                // Prefill from the personnel record; anything already typed stays.
+                const person = allPersonnel.find((p) => String(p.id) === id);
+                if (person) {
+                  setApplication((a) => ({
+                    ...a,
+                    place_of_deployment: a.place_of_deployment || person.unit?.name || "",
+                    contact_phone: a.contact_phone || person.phone_number || "",
+                    contact_address: a.contact_address || person.address || "",
+                  }));
+                }
+              }}
               required
               className="w-full rounded border border-[#0A4D66]/40 bg-[#001825] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#7FD5FF]/40"
             >
@@ -159,7 +202,7 @@ export const InitiatePassModal = ({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Start Date</label>
+            <label className="block text-xs text-gray-400 mb-1"><span className="font-semibold text-[#7FD5FF] mr-1">9.</span>Effective date</label>
             <input
               type="date"
               value={form.start_date}
@@ -169,7 +212,7 @@ export const InitiatePassModal = ({
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">End Date</label>
+            <label className="block text-xs text-gray-400 mb-1">Ends</label>
             <input
               type="date"
               value={form.end_date}
@@ -184,9 +227,17 @@ export const InitiatePassModal = ({
         {computedDuration !== null && (
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Icon icon="mdi:calendar-range" className="w-4 h-4" />
-            <span>Duration: <strong className="text-white">{computedDuration} day{computedDuration !== 1 ? "s" : ""}</strong></span>
+            <span><span className="font-semibold text-[#7FD5FF] mr-1">8.</span>Number of days required: <strong className="text-white">{computedDuration} day{computedDuration !== 1 ? "s" : ""}</strong></span>
           </div>
         )}
+
+        <PassApplicationFields
+          ref={fieldsRef}
+          values={application}
+          onChange={setField}
+          officersViaWorkflow={officersViaWorkflow}
+          attachment={<PassAttachmentInput file={attachment} onFile={setAttachment} />}
+        />
 
         <div>
           <label className="block text-xs text-gray-400 mb-1">Status</label>
@@ -226,7 +277,7 @@ export const InitiatePassModal = ({
           </button>
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || isUploading}
             className="px-4 py-2 rounded bg-[#0369A1] text-xs text-white font-medium hover:bg-[#0369A1]/90 disabled:opacity-50"
           >
             {isLoading ? "Submitting..." : "Initiate Pass"}

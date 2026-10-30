@@ -628,15 +628,15 @@ export const PassPage = () => {
                         key={pass.id}
                         tabIndex={0}
                         role="button"
-                        title="Click to view personnel details"
+                        title="Click to view the pass application"
                         onClick={(e) =>
                           onInteractiveRowClick(e, () =>
-                            navigate(`/dashboard/personnel/${pass.personnel_id}`),
+                            navigate(`/dashboard/personnel/pass/${pass.id}`),
                           )
                         }
                         onKeyDown={(e) =>
                           onInteractiveRowKeyDown(e, () =>
-                            navigate(`/dashboard/personnel/${pass.personnel_id}`),
+                            navigate(`/dashboard/personnel/pass/${pass.id}`),
                           )
                         }
                         className={cn(
@@ -731,6 +731,17 @@ export const PassPage = () => {
       >
         {openActionPass && (
           <div className="py-1 text-xs text-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                navigate(`/dashboard/personnel/pass/${openActionPass.id}`);
+                setOpenActionId(null);
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#0A4D66]/40 text-left"
+            >
+              <Icon icon="mdi:file-document-outline" className="w-4 h-4" />
+              View Pass
+            </button>
             <button
               type="button"
               onClick={() => {

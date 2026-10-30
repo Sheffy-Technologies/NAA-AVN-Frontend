@@ -1741,8 +1741,10 @@ export const PersonnelDetailPage = () => {
                       (passData?.personnel?.passes ?? []).map((pass, i) => (
                         <tr
                           key={pass.id}
+                          title="Click to view the pass application"
+                          onClick={() => navigate(`/dashboard/personnel/pass/${pass.id}`)}
                           className={cn(
-                            "border-t transition-colors",
+                            "border-t transition-colors cursor-pointer",
                             isDark
                               ? i % 2 === 0
                                 ? "bg-[#001219]/60 border-[#0A4D66]/30 hover:bg-[#0A4D66]/20"
