@@ -241,15 +241,25 @@ export const StrategicDashboardPage = () => {
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="inline-flex items-center gap-1.5 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0A4D66]/30 disabled:opacity-50"
-        >
-          <Icon icon={isFetching ? "mdi:loading" : "mdi:refresh"} className={cn("h-4 w-4", isFetching && "animate-spin")} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/c2")}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-sky-500/20 border border-sky-500/50 px-3 py-1.5 text-xs font-semibold text-sky-300 hover:bg-sky-500/30 transition-all shadow-sm"
+          >
+            <Icon icon="mdi:shield-airplane" className="h-4 w-4 text-sky-400" />
+            <span>C2 Multi-Segment Display</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            className="inline-flex items-center gap-1.5 rounded border border-[#0A4D66]/40 px-3 py-1.5 text-xs text-gray-300 hover:bg-[#0A4D66]/30 disabled:opacity-50"
+          >
+            <Icon icon={isFetching ? "mdi:loading" : "mdi:refresh"} className={cn("h-4 w-4", isFetching && "animate-spin")} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Tempo */}

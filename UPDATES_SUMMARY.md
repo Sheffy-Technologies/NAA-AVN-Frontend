@@ -228,10 +228,214 @@ The user requested standardizing forms across **Stock Issuance, Receipts (GRN), 
 
 ---
 
-## 11. Verification & Quality Assurance
+## 12. Stakeholder Feedback, System Audit & Root Cause Analysis (November 2026)
+
+### Issue 1: New Memo Submission Reference Collision ("Another memo already uses this reference")
+
+#### Problem Identified (from Executive Feedback Screenshot)
+When an officer (e.g., Ag AD Proc) creates a New Memo (`/dashboard/documents/memos/new`) directed to the Commander (`To: Comd`) with an official military reference (e.g., `NA AVN COMD/G4/100/58`), clicking **"Sign & Submit"** (or **"Save Draft"**) triggers an immediate error toast:
+> **"Another memo already uses this reference."**
+
+#### Why It Happened (System Root Cause)
+1. **Backend Database Strict Global Uniqueness:**
+   - Migration `2026_10_24_000002_create_memos_tables.php` defines `$table->string('reference')->nullable()->unique();`.
+   - In `app/Http/Controllers/MemoController.php` (line 433):
+     ```php
+     if ($data['reference'] && MemoReference::exists($data['reference'], $memo?->id)) {
+         throw ValidationException::withMessages(['reference' => 'Another memo already uses this reference.']);
+     }
+     ```
+   - `MemoReference::exists()` queries across the entire database without global scopes (`Memo::withoutGlobalScopes()`), checking every draft, rejected, or active memo across all users.
+2. **Frontend Double-Submit / State Desynchronization Trap in `MemoFormPage.tsx`:**
+   - On `/dashboard/documents/memos/new`, `memoId` is undefined.
+   - When the user clicks **"Sign & Submit"**, `signAndSubmit()` calls `persist()`.
+   - `persist()` executes `createMemo(payload)`. If `createMemo()` successfully creates the draft record on the server, but the subsequent `submitMemo()` call encounters an error (signature, approving officer, or connection delay), the form remains on `/new` with `memoId` still `undefined`.
+   - Subsequent clicks on **"Sign & Submit"** or **"Save Draft"** re-trigger `createMemo(payload)` with the exact same reference instead of `updateMemo()`, causing the backend to reject it as a duplicate of the memo just saved.
+3. **Visibility Isolation (`MemoVisibilityScope`):**
+   - Because memos are restricted to originators, approvers, and recipients, an officer cannot view other memos sharing that reference. This leaves the user with no visible explanation or way to locate the conflicting record.
+
+#### How We Can Solve It
+1. **Frontend Active Memo ID Tracking:**
+   - Keep a local `activeMemoId` in state inside `MemoFormPage.tsx`. As soon as `persist()` succeeds, record `activeMemoId = saved.id` and switch the form to update mode (`updateMemo`) for subsequent submissions or retries.
+   - Disable submission buttons while `isSaving` is active to eliminate duplicate parallel requests.
+2. **In-Form Reference Validation & Next Folio Suggestion:**
+   - Add debounced on-blur validation for the `reference` field.
+   - If a collision occurs on a military reference ending in a folio (e.g., `.../100/58`), offer a smart action button: **"Use Next Folio (.../59)"**.
+   - If the collision belongs to the user's own un-submitted draft, offer: *"You have an open draft with this reference. [Open Draft]"*.
+3. **Backend Same-User Draft Overwrite:**
+   - If the existing memo with that reference is an un-submitted `draft` belonging to the same originator, update that draft rather than throwing a validation exception.
+
+---
+
+### Issue 2: Shipment & Consignment Tracking Missing Item Manifests
+
+#### Problem Identified (from Stakeholder Feedback: Super Admin John Omole)
+> *"I mentioned in the tracking we should be able to list out items that are to be tracked with the air waybills or so. We are only seeing air waybills and status, nothing to what item or items it is assigned to. This was not done..."*
+
+In the **Shipment & Consignment Tracking Hub** (`/dashboard/inventory?tab=procurement&subtab=shipments`), operators only see high-level metadata (AWB number, carrier, origin/destination, status stage). There is no visibility into the specific aircraft spares, rotables, or tools packed into each consignment.
+
+#### Why It Happened (System Root Cause)
+1. **Shipments Table UX (`ProcurementShipmentsTab.tsx`):**
+   - The table's `Purpose & Cargo` column only displays a broad purpose pill and the generic title (`s.title`), completely omitting the names, part numbers, and quantities of the parts being moved.
+2. **Consignment Details Modal (`ShipmentDetailsModal.tsx`):**
+   - The modal renders carrier details, tracking timeline, and a link to the PO, but contains **no cargo manifest table** listing the parts, NSNs, serials, and quantities assigned to that AWB.
+3. **Creation Form Omission (`CreateShipmentModal.tsx`):**
+   - For PO-linked shipments, the modal does not let users select which specific PO line items are packed into this specific consignment (especially relevant when orders are split into multiple air shipments).
+   - For Standalone Consignments (RTV, MRO repairs, base transfers, emergency AOG parts), there is no manifest item input at all.
+4. **Backend Schema & Payload Limitation:**
+   - The `shipments` table lacks a dedicated item manifest structure (`cargo_manifest` / `shipment_items`), forcing users to cram descriptions into a free-text `notes` field.
+
+#### How We Can Solve It
+1. **Shipment Cargo Manifest Data Structure:**
+   - Add a structured item manifest (`cargo_manifest` JSON or `shipment_items` relationship) to `Shipment` supporting:
+     * Item Description / Name
+     * Part Number (P/N) & Alternate P/N
+     * NATO Stock Number (NSN) or Serial Number
+     * Quantity & Unit of Measure (UOM)
+     * Condition / Remarks (e.g., "Serviceable", "Awaiting Overhaul")
+2. **Consignment Creation Modal Upgrade (`CreateShipmentModal.tsx`):**
+   - **When Linked to a PO:** Auto-populate items from `purchase_order.items`, allowing operators to check/uncheck items and adjust quantities included in this specific AWB package.
+   - **When Standalone (No PO):** Provide an interactive "Add Items to Air Waybill" table allowing technicians to quickly add parts and quantities.
+3. **Tracking Hub Table Display (`ProcurementShipmentsTab.tsx`):**
+   - Add a visible cargo summary directly in the table row (e.g., `"2 Items: Main Rotor Seal Kit (x2), Fuel Pump (x1)"`) with a quick popover or pill counter.
+4. **Comprehensive Consignment Details Modal (`ShipmentDetailsModal.tsx`):**
+   - Add a dedicated **"Tracked Cargo Manifest & Aircraft Spares"** section displaying the full breakdown of parts, part numbers, serials, and quantities assigned to that airwaybill.
+
+---
+
+### Issue 3: Maintenance Inventory — Unserviceable Spares Management Module
+
+#### Problem Identified (from Stakeholder Feedback: Capt. Omole)
+> *"Maintenance Inventory – Unserviceable Spares Management Module: Add a dedicated Unserviceable Spares Register to the Maintenance Inventory Management System to record, track, and manage aircraft components removed from service."*
+
+Currently, the maintenance system records components installed on active aircraft (`Component` records with `asset_id` and installation dates) and general store balances. However, when a component, rotable, or engine is removed from an airframe (e.g., **NA 010** or **NA 011**), there is no dedicated, auditable register to capture:
+- Part Name & Manufacturer Part Number (P/N)
+- Component Serial Number (S/N)
+- Source Aircraft Registration (`NA 010` / `NA 011`)
+- Operating Life Accumulators at Removal:
+  * **TSN:** Time Since New
+  * **TSO:** Time Since Overhaul
+  * **TSI:** Time Since Installation
+  * **CSN:** Cycles Since New (where applicable)
+  * **CSO:** Cycles Since Overhaul (where applicable)
+- Date Removed & Reason for Removal (Defect, scheduled life-limit expiration, premature wear, cannibalization)
+- Component Disposition / Quarantine Status (Awaiting R&O / MRO dispatch, Repairable In-House, Scrap / Beyond Economical Repair [BER], Quarantine Inspection)
+
+#### Why It Happened (System Root Cause)
+1. **Absence of Dedicated Unserviceable Spares Register:**
+   - Removal actions in the system previously detached the component from the aircraft or set a `removed_at` date, but did not transition the component into an active quarantine/unserviceable inventory holding state.
+2. **Missing Counter Snapshots at Time of Removal:**
+   - Operating hours (TSN, TSO, TSI) and cycle counts (CSN, CSO) were not systematically frozen into an unserviceable ledger row upon removal, risking loss of airworthiness traceability.
+3. **Disconnection from Logistics & Consignment Hub:**
+   - Unserviceable parts awaiting external repair (R&O) could not be directly selected and dispatched into the **Shipment & Consignment Tracking Hub** (Air Waybill tracking) for vendor delivery.
+
+#### How We Can Solve It
+1. **Unserviceable Spares Ledger & Schema:**
+   - Create a dedicated database schema and API (`unserviceable_spares` / `component_removals`) capturing:
+     * `part_name`, `part_number`, `serial_number`, `asset_id` (aircraft registration), `ata_chapter_id`
+     * `tsn_hours`, `tso_hours`, `tsi_hours`, `csn_cycles`, `cso_cycles`
+     * `removed_date`, `removed_by_user_id`, `reason_for_removal`, `defect_id` (optional link to logged defect)
+     * `disposition_status`: `quarantine`, `awaiting_mro`, `in_repair`, `ber_scrap`, `serviceable_reclaimed`
+     * `storage_location` / `quarantine_bay`
+     * `airworthiness_tags` / `removal_tag_number`
+2. **UI Integration in Maintenance Hub & Inventory:**
+   - Add a dedicated **"Unserviceable Spares Register"** tab under both Maintenance Inventory (`TrackerInventoryTab`) and Global Inventory (`/dashboard/inventory`).
+   - Include quick filters: All Unserviceable, NA 010, NA 011, Awaiting MRO, Quarantined, Scrapped.
+3. **One-Click Dispatch to Consignment / AWB Tracking:**
+   - Add an action button on any unserviceable component: **"Create R&O Shipment (AWB)"**, linking directly into the Shipment Tracking Hub so outbound repair shipments carry exact part and serial numbers.
+
+---
+
+### Issue 4: Multi-Segment Operations Display (Command & Control C2 Dashboard)
+
+#### Problem Identified (from Stakeholder Feedback: Capt. Omole)
+> *"Additional Feature: Multi-Segment Operations Display (Command Dashboard). Integrate a Multi-Segment Display System into the Nigerian Army Aviation Command Management System. This feature should allow users to divide a single screen into multiple independently configurable panels, enabling simultaneous monitoring of operational, technical, logistical, and administrative information for large monitors, command centres, operations rooms, and individual workstations."*
+
+#### Why It Happened (System Root Cause)
+1. **Tab-Isolated Dashboard Architecture:**
+   - The current `DashboardPage.tsx` uses a traditional tab-switched model (`Operations`, `Maintenance tracking`, `Finances`, `Inventory`, `Personnel`).
+   - In an Operations Room or Command Center setting, switching tabs hides critical real-time information from other domains (e.g., viewing the tactical flight map hides maintenance serviceability and pending approvals).
+2. **Fixed Layout Constraints:**
+   - Existing pages lack modular, resizable panel segmentation (split-screen / grid system) to support multi-monitor setups, wide command displays, or customizable watch-officer workstations.
+
+#### How We Can Solve It
+1. **Multi-Segment Command Grid Engine (C2 Multi-Panel Display):**
+   - Build a flexible multi-panel workspace supporting:
+     * 2-Panel Split (Horizontal / Vertical)
+     * 3-Panel Tri-View
+     * 4-Panel Quad Matrix (2x2)
+     * 6-Panel Command Wall (3x2)
+     * Independent panel controls: **Content Selector**, **Maximize to Fullscreen**, **Minimize**, **Refresh Interval**, and **Drag-to-Swap**.
+2. **Modular C2 Display Widgets:**
+   Implement the 6 operational display modules requested by Capt. Omole:
+   * **Module A: Flight Operations Tracking:** Real-time tactical map, live aircraft positions, tail numbers, flight plan status, route vectors, and ETAs.
+   * **Module B: Weather Intelligence:** Live aerodrome search, METAR & TAF feeds, wind speed/direction dials, cloud base, visibility, and severe weather warnings.
+   * **Module C: Aircraft Maintenance Status:** Fleet readiness status (NA 010 / NA 011), AOG alerts, open defects, components approaching life limits ($\le 50$h, $\le 100$h), and ongoing work orders.
+   * **Module D: Logistics & Inventory:** Serviceable spares inventory, unserviceable spares holding register, outbound/inbound AWB consignments, and critical stock level alerts.
+   * **Module E: Mission Planning & Execution:** Scheduled sorties, mission profiles, pilot/crew readiness, and tasking status.
+   * **Module F: Command Directives & Approvals:** Pending approval requests, urgent executive correspondence, and priority operational alerts.
+3. **Preset Profiles & Full-Screen Ops Room Mode:**
+   - Allow duty officers to save and load display presets (e.g., *"Commander Overview"*, *"Flight Line Ops"*, *"Technical Logistics"*).
+   - Provide a borderless full-screen kiosk toggle for operations center wall displays.
+
+---
+
+## 13. Verification & Quality Assurance
 
 - **Build Check:** Ran `npx tsc --noEmit` and `npx tsc -b` with 0 compiler errors across the entire frontend codebase.
 - **Git Branch Check:** Confirmed target branch is `feature/maintenance` on both Frontend and Backend (never pushed to `main`).
 
 
 
+
+
+## 14. Phase 4 Implementation: Multi-Segment Operations Display (Command C2 Dashboard)
+
+### Overview
+Integrated an operational Multi-Segment Display System into the Nigerian Army Aviation Command Management System. Built specifically as a Command and Control (C2) Operations Display for large wall monitors, operations control rooms, and executive workstations.
+
+### Architecture & Capabilities
+1. **Configurable Multi-Segment Layouts:**
+   - **2-Split (`split_2`):** Dual high-resolution panels side-by-side.
+   - **3-Tri (`tri_3`):** 3-panel split for combined tactical oversight.
+   - **4-Quad (`quad_4`):** 2x2 grid layout providing simultaneous real-time views across 4 primary domains.
+   - **6-Matrix (`matrix_6`):** Comprehensive 3x2 matrix hosting all 6 operational modules concurrently.
+2. **Dynamic Panel Management:**
+   - **Module Selector:** In every panel tile, operators can dynamically swap to any of the 6 display modules on the fly via a quick header dropdown.
+   - **Maximize / Restore:** 1-click expand button allows any panel to take over 100% of the display area, then cleanly restore back to the active grid.
+   - **Fullscreen Kiosk Mode:** Native browser fullscreen mode toggle for wall displays and command center projectors.
+   - **Tactical Clocks:** Synchronized dual digital military clocks displaying **Zulu (UTC)**, **Local (WAT)**, and standard military date format (`DD MMM YYYY`).
+3. **The 6 Command Display Modules:**
+   - **Module A: Flight Operations Tracking (`C2FlightOpsModule`):**
+     - Live fleet serviceability badges (NA 010 & NA 011 Bell 412).
+     - Active sorties, flight status, departure/destination, ETA, route, and tactical mission telemetry.
+   - **Module B: Weather Monitoring & Intel (`C2WeatherModule`):**
+     - Direct selector for key military and operational aerodromes: DNAA (Abuja), DNKA (Kaduna Air Base), DNMM (Lagos), DNKN (Kano), DNPO (Port Harcourt), DNEN (Enugu).
+     - Live METAR & TAF reports, flight category tags (VFR/IFR), wind vectors, visibility/CAVOK, cloud ceilings, QNH altimeter setting, and live refresh.
+   - **Module C: Aircraft Maintenance Status (`C2MaintenanceModule`):**
+     - Serviceable vs. Grounded/AOG fleet counters.
+     - Urgent component wear monitor: airworthiness life limit items approaching overhaul horizon (≤ 50h / ≤ 100h remaining).
+     - Open defects / technical snags and ongoing Work-In-Progress (WIP) work orders.
+   - **Module D: Logistics & Spares Inventory (`C2LogisticsModule`):**
+     - Available serviceable spares stock counts and reorder threshold alerts.
+     - Direct integration with Unserviceable Spares Register (components in stores, awaiting disposition, or sent for external MRO overhaul).
+     - Active Air Waybills (AWB) tracker with multi-item cargo manifests.
+   - **Module E: Mission Planning & Execution (`C2MissionModule`):**
+     - Scheduled Air Tasking Orders (ATO) vs. Active In-Flight sorties.
+     - Mission airframe allocation (NA 010 / NA 011) and Pilot-in-Command (PIC) / aircrew taskings.
+     - Aircrew readiness and flight progress tracking.
+   - **Module F: Command Directives & Approvals (`C2DirectivesModule`):**
+     - Executive pending approvals stream (Memos, Purchase Orders, Spares Requisitions, Mission clearances).
+     - Official correspondence & memo register with security classification badges (SECRET, CONFIDENTIAL, RESTRICTED).
+     - Urgent technical notices and AOG action requirements.
+
+---
+
+## 15. Executive Summary for Commander NAAVN
+
+| # | Item / Feedback | Root Cause / Requirement | Resolution Implemented | Status |
+|---|---|---|---|---|
+| **1** | **New Memo Reference Collision Error** | Reference string collision with existing draft or sequential numbering collision. | Added real-time reference validation endpoint (`GET /memos/check-reference`), auto-update on same-user draft resubmission, and interactive 1-click **"Use next folio"** button. | **COMPLETE** |
+| **2** | **Consignment Tracking Missing Cargo Items** | Shipments table only tracked AWB tracking numbers and carrier status without item manifests. | Added `cargo_manifest` structured JSON schema to backend `shipments` table, interactive cargo item builder in shipment creation, cargo line-item badges in tracking table, and detailed parts manifest in modal. | **COMPLETE** |
+| **3** | **Unserviceable Spares Management Register** | Need dedicated register for removed components from NA 010 & NA 011 with airworthiness counters. | Created backend `unserviceable_spares` table, model, and controller with TSN, TSO, TSI, CSN, CSO tracking, reason for removal, and disposition workflow (In Stores, Sent for Repair/Overhaul, Scrapped, Quarantine). Built dedicated register tab in Inventory and Maintenance Tracker. | **COMPLETE** |
+| **4** | **Multi-Segment C2 Operations Display** | Single-screen multi-panel workstation display for command center monitoring. | Built C2 Operations Display supporting 2-Split, 3-Tri, 4-Quad, and 6-Matrix layouts with live Zulu/Local clocks, fullscreen mode, and 6 interchangeable modules (Flight Ops, Weather, Maintenance, Logistics, Missions, Directives). | **COMPLETE** |

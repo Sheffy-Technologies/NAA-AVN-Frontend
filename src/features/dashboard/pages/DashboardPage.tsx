@@ -788,20 +788,31 @@ export const DashboardPage = () => {
           ))}
         </div>
 
-        {canAccessStrategicDashboard && (
+        <div className="mb-3 flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => navigate("/dashboard/strategic")}
-            className="mb-3 inline-flex shrink-0 items-center gap-2 rounded-lg bg-[#0A4D66] hover:bg-[#083c50] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm border border-transparent transition-all active:scale-[0.98]"
+            onClick={() => navigate("/dashboard/c2")}
+            className="inline-flex items-center gap-2 rounded-lg bg-sky-700 hover:bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm border border-sky-500/40 transition-all active:scale-[0.98]"
+            title="Open Multi-Segment C2 Operations Display"
           >
-            <Icon
-              icon="mdi:radar"
-              className="h-4 w-4 text-white !text-white"
-              style={{ color: "#ffffff" }}
-            />
-            <span>Strategic Command Dashboard</span>
+            <Icon icon="mdi:shield-airplane" className="h-4 w-4 text-white" />
+            <span>C2 Multi-Segment Display</span>
           </button>
-        )}
+          {canAccessStrategicDashboard && (
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/strategic")}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#0A4D66] hover:bg-[#083c50] px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm border border-transparent transition-all active:scale-[0.98]"
+            >
+              <Icon
+                icon="mdi:radar"
+                className="h-4 w-4 text-white !text-white"
+                style={{ color: "#ffffff" }}
+              />
+              <span>Strategic Command Dashboard</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {activeTab === "operations" && (
