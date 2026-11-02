@@ -428,6 +428,34 @@ export const ProcurementShipmentsTab: React.FC = () => {
                           <span className="font-semibold text-slate-900 dark:text-white truncate max-w-56">
                             {s.title || `Consignment #${s.id}`}
                           </span>
+                          {(() => {
+                            const items = (s.cargo_manifest && s.cargo_manifest.length > 0)
+                              ? s.cargo_manifest
+                              : (s.purchase_order?.items && s.purchase_order.items.length > 0)
+                              ? s.purchase_order.items.map((it) => ({
+                                  part_name: it.inventory?.name || it.item_name || "Aircraft Spare Part",
+                                  part_number: it.inventory?.part_number || it.part_number || "P/N-N/A",
+                                  quantity: Number(it.quantity) || 1,
+                                }))
+                              : [];
+                            if (items.length === 0) return null;
+                            const totalQty = items.reduce((acc, curr) => acc + (Number(curr.quantity) || 1), 0);
+                            const summaryText = items
+                              .slice(0, 2)
+                              .map((i) => `${i.part_name || i.part_number} (x${i.quantity || 1})`)
+                              .join(", ") + (items.length > 2 ? ` +${items.length - 2} more` : "");
+                            return (
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 shrink-0">
+                                  <Icon icon="mdi:package-variant-closed" className="w-3 h-3 text-sky-400" />
+                                  <span>{items.length} {items.length === 1 ? "item" : "items"} ({totalQty})</span>
+                                </span>
+                                <span className="text-gray-400 truncate max-w-48 text-[10px]" title={summaryText}>
+                                  {summaryText}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </td>
 

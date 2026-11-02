@@ -556,6 +556,19 @@ export type ShipmentCheckpoint = {
   updated_at?: string;
 };
 
+export type ShipmentCargoItem = {
+  id?: string | number;
+  part_name: string;
+  part_number: string;
+  alternate_part_number?: string | null;
+  serial_number?: string | null;
+  nsn?: string | null;
+  quantity: number;
+  uom?: string | null;
+  condition?: string | null;
+  remarks?: string | null;
+};
+
 export type Shipment = {
   id: number;
   purchase_order_id?: number | null;
@@ -587,6 +600,7 @@ export type Shipment = {
   created_by_user_id?: number | null;
   created_at?: string;
   updated_at?: string;
+  cargo_manifest?: ShipmentCargoItem[];
   checkpoints?: ShipmentCheckpoint[];
   purchase_order?: PurchaseOrder;
   supplier?: InventorySupplier;
@@ -615,6 +629,7 @@ export type CreateShipmentPayload = {
   customs_reference?: string;
   customs_notes?: string;
   notes?: string;
+  cargo_manifest?: ShipmentCargoItem[];
   status?: ShipmentStatus;
 };
 
@@ -1021,6 +1036,7 @@ export const {
   useGetShipmentByIdQuery,
   useGetPurchaseOrderShipmentsQuery,
   useCreateShipmentMutation,
+  useUpdateShipmentMutation,
   useSyncShipmentLiveMutation,
   useUpdateShipmentStatusMutation,
 } = inventoryApi;
