@@ -439,3 +439,18 @@ Integrated an operational Multi-Segment Display System into the Nigerian Army Av
 | **2** | **Consignment Tracking Missing Cargo Items** | Shipments table only tracked AWB tracking numbers and carrier status without item manifests. | Added `cargo_manifest` structured JSON schema to backend `shipments` table, interactive cargo item builder in shipment creation, cargo line-item badges in tracking table, and detailed parts manifest in modal. | **COMPLETE** |
 | **3** | **Unserviceable Spares Management Register** | Need dedicated register for removed components from NA 010 & NA 011 with airworthiness counters. | Created backend `unserviceable_spares` table, model, and controller with TSN, TSO, TSI, CSN, CSO tracking, reason for removal, and disposition workflow (In Stores, Sent for Repair/Overhaul, Scrapped, Quarantine). Built dedicated register tab in Inventory and Maintenance Tracker. | **COMPLETE** |
 | **4** | **Multi-Segment C2 Operations Display** | Single-screen multi-panel workstation display for command center monitoring. | Built C2 Operations Display supporting 2-Split, 3-Tri, 4-Quad, and 6-Matrix layouts with live Zulu/Local clocks, fullscreen mode, and 6 interchangeable modules (Flight Ops, Weather, Maintenance, Logistics, Missions, Directives). | **COMPLETE** |
+
+
+---
+
+## 16. Security Hardening & Data Breach Mitigation (Completed & Pushed)
+
+| Ref | Domain / Area | Vulnerability Mitigated | Resolution & Commits | Status |
+|---|---|---|---|---|
+| **SEC-01** | Database Management | Adminer web client open with `'guest'` middleware | Set `'enabled' => false` and restricted middleware to `['auth', 'role:Super Admin']`. | **RESOLVED & PUSHED** |
+| **SEC-02** | Operations Intel | `/dashboard/c2` lacked permission guard | Wrapped with `guardWithPermissions(..., STRATEGIC_ROUTE_PERMISSIONS)` and hidden for non-strategic users. | **RESOLVED & PUSHED** |
+| **SEC-03** | Maintenance RBAC | `unserviceable-spares` missing from `ApiPermissionRegistry` | Added to `resources()` to ensure complete Spatie permission generation. | **RESOLVED & PUSHED** |
+| **SEC-04** | Telemetry Ingestion | Unauthenticated flight telemetry injection (Garmin) | Added pre-shared webhook secret verification (`GARMIN_WEBHOOK_SECRET`), returning 401 on invalid feeds. | **RESOLVED & PUSHED** |
+| **SEC-05** | Notification Security | Unauthenticated device token registration (IDOR) | Enforced `$request->user()->id` binding, preventing rogue device association. | **RESOLVED & PUSHED** |
+| **SEC-06** | Auth Boundary | Open public account self-registration | Guarded behind `allow_public_registration` flag & `users.create` permission. | **RESOLVED & PUSHED** |
+| **SEC-07** | Debug Monitoring | Telescope payload and query logging exposure | Disabled by default in configuration (`TELESCOPE_ENABLED=false`). | **RESOLVED & PUSHED** |
