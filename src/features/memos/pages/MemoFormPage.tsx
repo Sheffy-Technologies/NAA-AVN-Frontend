@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { BackButton } from "@/shared/ui/button/BackButton";
+import { cn } from "@/shared/utils/cn";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
@@ -9,6 +10,7 @@ import { SignaturePad, type SignaturePadHandle } from "@/features/approvals/comp
 import {
   useCreateMemoMutation,
   useGetMemoOptionsQuery,
+  useLazyCheckMemoReferenceQuery,
   useGetMemoQuery,
   useSubmitMemoMutation,
   useUpdateMemoMutation,
@@ -98,6 +100,9 @@ export const MemoFormPage = () => {
 };
 
 const MemoForm = ({ memoId, initial, existing }: { memoId?: number; initial: FormState; existing?: Memo }) => {
+  const [activeMemoId, setActiveMemoId] = useState<number | undefined>(memoId);
+  const [suggestedRef, setSuggestedRef] = useState<string | null>(null);
+  const [triggerCheckRef, { data: refCheckResult, isFetching: checkingRef }] = useLazyCheckMemoReferenceQuery();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { data: options } = useGetMemoOptionsQuery();
@@ -127,11 +132,20 @@ const MemoForm = ({ memoId, initial, existing }: { memoId?: number; initial: For
       originator_name: form.originator_name?.trim() || null,
     };
 
+    const targetId = activeMemoId ?? memoId;
     let saved: Memo;
     try {
-      saved = memoId ? await updateMemo({ id: memoId, data: payload }).unwrap() : await createMemo(payload).unwrap();
+      saved = targetId ? await updateMemo({ id: targetId, data: payload }).unwrap() : await createMemo(payload).unwrap();
+      if (!targetId && saved?.id) {
+        setActiveMemoId(saved.id);
+      }
     } catch (error) {
-      dispatch(showToast({ message: memoErrorMessage(error), type: "error" }));
+      const msg = memoErrorMessage(error);
+      dispatch(showToast({ message: msg, type: "error" }));
+      const match = msg.match(/Suggested next folio:\s*([^\s]+)/i);
+      if (match?.[1]) {
+        setSuggestedRef(match[1]);
+      }
       return null;
     }
 
@@ -173,11 +187,11 @@ const MemoForm = ({ memoId, initial, existing }: { memoId?: number; initial: For
     try {
       await submitMemo({ id: saved.id, approving_officer_id: form.approving_officer_id, signature: drawn }).unwrap();
       dispatch(showToast({ message: "Memo signed and sent for approval.", type: "success" }));
+      navigate(`/dashboard/documents/memos/${saved.id}`, { replace: true });
     } catch (error) {
       // The draft is saved; it can be submitted again from its page.
       dispatch(showToast({ message: memoErrorMessage(error), type: "error" }));
     }
-    navigate(`/dashboard/documents/memos/${saved.id}`, { replace: true });
   };
 
   const approverOptions = (options?.users ?? []).map((u) => ({
@@ -185,6 +199,24 @@ const MemoForm = ({ memoId, initial, existing }: { memoId?: number; initial: For
     label: u.name,
     description: [u.service_number, u.email].filter(Boolean).join(" · ") || undefined,
   }));
+  const handleReferenceBlur = async () => {
+    const trimmed = form.reference?.trim();
+    if (!trimmed) {
+      setSuggestedRef(null);
+      return;
+    }
+    try {
+      const res = await triggerCheckRef({ reference: trimmed, memo_id: activeMemoId ?? memoId }).unwrap();
+      if (!res.available && res.suggested_reference) {
+        setSuggestedRef(res.suggested_reference);
+      } else {
+        setSuggestedRef(null);
+      }
+    } catch {
+      // Non-blocking
+    }
+  };
+
   const saving = creating || updating || submitting || attaching;
 
   return (
@@ -226,12 +258,60 @@ const MemoForm = ({ memoId, initial, existing }: { memoId?: number; initial: For
               <input className={inputClass} value={form.from} onChange={(e) => set("from", e.target.value)} placeholder="e.g. D Ops" />
             </Field>
             <Field label="Reference" hint="Leave blank to have one generated when you submit.">
-              <input
-                className={inputClass}
-                value={form.reference ?? ""}
-                onChange={(e) => set("reference", e.target.value)}
-                placeholder="e.g. NA AVN COMD/G1/300/31"
-              />
+              <div className="space-y-1.5">
+                <div className="relative">
+                  <input
+                    className={cn(inputClass, refCheckResult && !refCheckResult.available && "border-amber-500/80 focus:border-amber-400")}
+                    value={form.reference ?? ""}
+                    onChange={(e) => {
+                      set("reference", e.target.value);
+                      setSuggestedRef(null);
+                    }}
+                    onBlur={handleReferenceBlur}
+                    placeholder="e.g. NA AVN COMD/G1/300/31"
+                  />
+                  {checkingRef && (
+                    <span className="absolute right-3 top-2.5 text-xs text-sky-400 flex items-center gap-1">
+                      <Icon icon="mdi:loading" className="w-3.5 h-3.5 animate-spin" />
+                    </span>
+                  )}
+                </div>
+
+                {refCheckResult && !refCheckResult.available && (
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300 space-y-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <Icon icon="mdi:alert-circle-outline" className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>{refCheckResult.message || "Another memo already uses this reference."}</span>
+                    </div>
+                    {refCheckResult.is_own_draft && refCheckResult.existing_memo_id && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/dashboard/documents/memos/${refCheckResult.existing_memo_id}`)}
+                        className="text-sky-400 underline font-semibold hover:text-sky-300 block text-left pt-0.5"
+                      >
+                        &rarr; Open your existing draft (#{refCheckResult.existing_memo_id})
+                      </button>
+                    )}
+                    {(suggestedRef || refCheckResult.suggested_reference) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-500/20">
+                        <span className="text-gray-300 font-medium">Use next folio:</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextFolio = suggestedRef || refCheckResult.suggested_reference || "";
+                            set("reference", nextFolio);
+                            setSuggestedRef(null);
+                          }}
+                          className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 font-mono font-bold text-xs border border-amber-500/40 inline-flex items-center gap-1.5 transition-all active:scale-95"
+                        >
+                          <span>{suggestedRef || refCheckResult.suggested_reference}</span>
+                          <Icon icon="mdi:arrow-right-bottom" className="w-3.5 h-3.5 text-amber-400" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </Field>
             <Field label="Date *">
               <input type="date" className={inputClass} value={form.memo_date} onChange={(e) => set("memo_date", e.target.value)} />
