@@ -287,3 +287,4 @@ export const C2LogisticsModule: React.FC = () => {
     </div>
   );
 };
+

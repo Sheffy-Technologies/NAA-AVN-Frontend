@@ -10,3 +10,4 @@ export const C2DashboardPage: React.FC = () => {
 };
 
 export default C2DashboardPage;
+

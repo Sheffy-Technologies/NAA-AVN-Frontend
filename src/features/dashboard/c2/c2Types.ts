@@ -61,3 +61,4 @@ export const C2_MODULE_META: Record<
     description: "Operational directives, pending approvals, urgent memos, priority notices",
   },
 };
+

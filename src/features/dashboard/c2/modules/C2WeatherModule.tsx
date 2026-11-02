@@ -121,3 +121,4 @@ export const C2WeatherModule: React.FC = () => {
     </div>
   );
 };
+
