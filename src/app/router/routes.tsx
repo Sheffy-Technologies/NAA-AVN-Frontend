@@ -953,11 +953,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "c2",
-        element: (
+        element: guardWithPermissions((
           <Suspense fallback={loadingElement}>
             <C2DashboardPage />
           </Suspense>
-        ),
+        ), STRATEGIC_ROUTE_PERMISSIONS),
       },
       {
         path: "strategic",

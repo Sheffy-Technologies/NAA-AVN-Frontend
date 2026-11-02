@@ -788,17 +788,17 @@ export const DashboardPage = () => {
           ))}
         </div>
 
-        <div className="mb-3 flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => navigate("/dashboard/c2")}
-            className="inline-flex items-center gap-2 rounded-lg bg-sky-700 hover:bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm border border-sky-500/40 transition-all active:scale-[0.98]"
-            title="Open Multi-Segment C2 Operations Display"
-          >
-            <Icon icon="mdi:shield-airplane" className="h-4 w-4 text-white" />
-            <span>C2 Multi-Segment Display</span>
-          </button>
-          {canAccessStrategicDashboard && (
+        {canAccessStrategicDashboard && (
+          <div className="mb-3 flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate("/dashboard/c2")}
+              className="inline-flex items-center gap-2 rounded-lg bg-sky-700 hover:bg-sky-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm border border-sky-500/40 transition-all active:scale-[0.98]"
+              title="Open Multi-Segment C2 Operations Display"
+            >
+              <Icon icon="mdi:shield-airplane" className="h-4 w-4 text-white" />
+              <span>C2 Multi-Segment Display</span>
+            </button>
             <button
               type="button"
               onClick={() => navigate("/dashboard/strategic")}
@@ -811,8 +811,8 @@ export const DashboardPage = () => {
               />
               <span>Strategic Command Dashboard</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {activeTab === "operations" && (
