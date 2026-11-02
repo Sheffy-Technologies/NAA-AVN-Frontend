@@ -10,6 +10,7 @@ import { apiError, downloadCsv, today, useTrackerClasses, useTrackerPermissions 
 import { FieldLabel, HelpHeader } from "../trackerUi";
 import { TrackerDialog } from "../components/TrackerDialog";
 import type { TrackerNav } from "../MaintenanceTracker";
+import { UnserviceableSparesRegister } from "@/features/maintenance/components/UnserviceableSparesRegister";
 
 const SHOWN = 300;
 
@@ -154,6 +155,7 @@ export const TrackerInventoryTab = ({ nav }: { nav: TrackerNav }) => {
   const [unit, setUnit] = useState<number | "all">("all");
   const [q, setQ] = useState("");
   const [receiving, setReceiving] = useState<Partial<StockEntryPayload> | null>(null);
+  const [inventoryMode, setInventoryMode] = useState<"serviceable" | "unserviceable">("serviceable");
   const units = data?.units ?? [];
 
   const rows = useMemo(() => {
@@ -177,7 +179,52 @@ export const TrackerInventoryTab = ({ nav }: { nav: TrackerNav }) => {
   const issueLine = (fromUnit: number, partNumber: string | null) => nav.go("issues", { voucher: "new", from: fromUnit, pn: partNumber });
 
   return (
-    <div>
+    <div className="space-y-4">
+      {/* Switcher Bar: Serviceable Warehouse Stock vs Unserviceable Removals Register */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-1.5 rounded-xl bg-[#001825] border border-[#0A4D66]/40">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setInventoryMode("serviceable")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all",
+              inventoryMode === "serviceable"
+                ? "bg-[#0A4D66] text-white shadow-sm"
+                : "text-gray-400 hover:text-white hover:bg-white/5",
+            )}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              Serviceable Stock Matrix
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setInventoryMode("unserviceable")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all",
+              inventoryMode === "unserviceable"
+                ? "bg-rose-600 text-white shadow-sm"
+                : "text-gray-400 hover:text-white hover:bg-white/5",
+            )}
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-400" />
+              Unserviceable Spares Register (Removed Components)
+            </span>
+          </button>
+        </div>
+        <div className="text-[11px] text-gray-400 px-2 hidden sm:block">
+          {inventoryMode === "serviceable"
+            ? "Warehouse holdings across military aviation units"
+            : "Components removed from NA 010 / NA 011 in quarantine & MRO holding"}
+        </div>
+      </div>
+
+      {inventoryMode === "unserviceable" ? (
+        <UnserviceableSparesRegister />
+      ) : (
+        <>
       <div className="mt-cards">
         {units.map((u) => (
           <button key={u.id} type="button" onClick={() => setUnit(u.id)} className={cn("mt-card", unit === u.id && "sel")}>
@@ -303,6 +350,8 @@ export const TrackerInventoryTab = ({ nav }: { nav: TrackerNav }) => {
       </p>
 
       {receiving && <ReceiveStockDialog initial={receiving} units={units} onClose={() => setReceiving(null)} />}
+        </>
+      )}
     </div>
   );
 };

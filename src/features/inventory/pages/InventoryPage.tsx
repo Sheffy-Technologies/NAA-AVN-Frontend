@@ -43,6 +43,7 @@ import { StoreModal } from "@/features/inventory/components/StoreModal";
 import { personName } from "@/features/inventory/procurementDocuments";
 import { StoreInventoryModal } from "@/features/inventory/components/StoreInventoryModal";
 import { DeleteStoreModal } from "@/features/inventory/components/DeleteStoreModal";
+import { UnserviceableSparesRegister } from "@/features/maintenance/components/UnserviceableSparesRegister";
 
 type InventoryStatusLevel = "High" | "Low" | "Critical" | "Medium" | "Unknown";
 
@@ -100,6 +101,11 @@ const INVENTORY_TABS = [
     id: "Shipments",
     label: "Shipments",
     icon: "mdi:truck-fast-outline",
+  },
+  {
+    id: "UnserviceableSpares",
+    label: "Unserviceable Spares",
+    icon: "mdi:archive-alert-outline",
   },
   {
     id: "Suppliers",
