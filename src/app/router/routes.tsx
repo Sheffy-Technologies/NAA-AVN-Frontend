@@ -43,6 +43,11 @@ const StrategicDashboardPage = lazy(() =>
     default: module.StrategicDashboardPage,
   })),
 );
+const C2DashboardPage = lazy(() =>
+  import("@/features/dashboard/pages/C2DashboardPage").then((module) => ({
+    default: module.C2DashboardPage,
+  })),
+);
 const InventoryPage = lazy(() =>
   import("@/features/inventory/pages/InventoryPage").then((module) => ({
     default: module.InventoryPage,
@@ -958,6 +963,14 @@ export const router = createBrowserRouter([
             </Suspense>
           </RequireRole>
         ),
+      },
+      {
+        path: "c2",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <C2DashboardPage />
+          </Suspense>
+        ), STRATEGIC_ROUTE_PERMISSIONS),
       },
       {
         path: "strategic",

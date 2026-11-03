@@ -6,6 +6,7 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import {
   type Shipment,
+  type ShipmentCargoItem,
   useSyncShipmentLiveMutation,
 } from "../api";
 import { ShipmentTrackerStepper } from "./ShipmentTrackerStepper";
@@ -50,6 +51,23 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
     navigator.clipboard.writeText(shipment.tracking_number);
     dispatch(showToast({ message: "AWB copied to clipboard", type: "success" }));
   };
+
+  const manifestItems: ShipmentCargoItem[] = (shipment.cargo_manifest && shipment.cargo_manifest.length > 0)
+    ? shipment.cargo_manifest
+    : (shipment.purchase_order?.items && shipment.purchase_order.items.length > 0)
+    ? shipment.purchase_order.items.map((it, idx) => ({
+        id: it.id || idx,
+        part_name: it.inventory?.name || it.item_name || "Aircraft Spare Part",
+        part_number: it.inventory?.part_number || it.part_number || "P/N-N/A",
+        alternate_part_number: it.inventory?.alternate_support_part_no || null,
+        serial_number: it.inventory?.serial_number || null,
+        nsn: it.inventory?.nsn || null,
+        quantity: Number(it.quantity) || 1,
+        uom: it.inventory?.unit_of_measure || "EA",
+        condition: "Serviceable",
+        remarks: null,
+      }))
+    : [];
 
   const formatDate = (iso?: string | null) => {
     if (!iso) return "—";
@@ -245,6 +263,62 @@ export const ShipmentDetailsModal: React.FC<ShipmentDetailsModalProps> = ({
                   <Icon icon="mdi:airplane" className="w-3.5 h-3.5 text-sky-400" />
                   <span>{shipment.asset.tail_number || shipment.asset.name}</span>
                 </span>
+              </div>
+            )}
+          </div>
+
+          {/* Consignment Cargo Manifest Section */}
+          <div className={cn("p-4 rounded-xl border mb-4 space-y-3", isDark ? "bg-[#001825] border-[#0A4D66]/50" : "bg-slate-50 border-slate-200")}>
+            <div className="flex items-center justify-between pb-2 border-b border-[#0A4D66]/30">
+              <div className="flex items-center gap-2">
+                <Icon icon="mdi:package-variant-closed" className="w-4 h-4 text-sky-400" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200">
+                  Consignment Cargo Manifest ({manifestItems.length} {manifestItems.length === 1 ? "Item" : "Items"})
+                </h3>
+              </div>
+              <span className="text-[11px] text-gray-400">
+                Tracked under AWB: <strong className="font-mono text-sky-400">{shipment.tracking_number}</strong>
+              </span>
+            </div>
+
+            {manifestItems.length === 0 ? (
+              <div className="py-4 text-center text-xs text-gray-400">
+                No individual parts recorded for this consignment.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse min-w-[550px]">
+                  <thead>
+                    <tr className="border-b border-[#0A4D66]/40 text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                      <th className="pb-2 pr-2">#</th>
+                      <th className="pb-2 px-2">Part Description</th>
+                      <th className="pb-2 px-2">Part Number (P/N)</th>
+                      <th className="pb-2 px-2">Serial / NSN</th>
+                      <th className="pb-2 px-2 text-center">Qty / UOM</th>
+                      <th className="pb-2 pl-2">Condition</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A4D66]/20">
+                    {manifestItems.map((item, idx) => (
+                      <tr key={item.id ?? idx} className="hover:bg-white/5 transition-colors">
+                        <td className="py-2 pr-2 font-mono text-[11px] text-gray-400">{idx + 1}</td>
+                        <td className="py-2 px-2 font-medium text-slate-900 dark:text-white">{item.part_name}</td>
+                        <td className="py-2 px-2 font-mono font-semibold text-sky-500 dark:text-sky-400">{item.part_number}</td>
+                        <td className="py-2 px-2 font-mono text-[11px] text-gray-300">
+                          {item.serial_number ? <span>S/N: {item.serial_number}</span> : item.nsn ? <span>NSN: {item.nsn}</span> : <span className="text-gray-500">—</span>}
+                        </td>
+                        <td className="py-2 px-2 text-center font-bold text-emerald-500 dark:text-emerald-400">
+                          {item.quantity} {item.uom || "EA"}
+                        </td>
+                        <td className="py-2 pl-2">
+                          <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            {item.condition || "Serviceable"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))} 
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

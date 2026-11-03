@@ -96,6 +96,15 @@ export const memosApi = createApi({
     getMemoOptions: builder.query<MemoOptions, void>({
       query: () => ({ url: "/memos/options" }),
     }),
+    checkMemoReference: builder.query<{
+      available: boolean;
+      is_own_draft?: boolean;
+      existing_memo_id?: number | null;
+      suggested_reference?: string | null;
+      message?: string;
+    }, { reference: string; memo_id?: number }>({
+      query: (params) => ({ url: "/memos/check-reference", params }),
+    }),
     createMemo: builder.mutation<Memo, MemoPayload>({
       query: (data) => ({ url: "/memos", method: "POST", data }),
       invalidatesTags: [{ type: "Memo", id: "LIST" }],
@@ -151,6 +160,7 @@ export const {
   useGetMemosQuery,
   useGetMemoQuery,
   useGetMemoOptionsQuery,
+  useLazyCheckMemoReferenceQuery,
   useCreateMemoMutation,
   useUpdateMemoMutation,
   useDeleteMemoMutation,

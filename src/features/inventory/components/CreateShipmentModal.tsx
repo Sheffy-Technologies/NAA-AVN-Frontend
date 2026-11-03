@@ -7,6 +7,7 @@ import { showToast } from "@/shared/store/toastSlice";
 import {
   type ShipmentStatus,
   type ShipmentPurpose,
+  type ShipmentCargoItem,
   useCreateShipmentMutation,
   useGetPurchaseOrdersQuery,
   useGetSuppliersQuery,
@@ -139,6 +140,7 @@ export const CreateShipmentModal: React.FC<CreateShipmentModalProps> = ({
   const [initialStatus, setInitialStatus] = useState<ShipmentStatus>("picked_up");
   const [customsReference, setCustomsReference] = useState("");
   const [notes, setNotes] = useState("");
+  const [cargoItems, setCargoItems] = useState<ShipmentCargoItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [createShipment, { isLoading }] = useCreateShipmentMutation();
@@ -168,6 +170,21 @@ export const CreateShipmentModal: React.FC<CreateShipmentModalProps> = ({
       if (po.expected_date_of_delivery && !estimatedDeliveryDate) {
         setEstimatedDeliveryDate(po.expected_date_of_delivery);
       }
+      if (po.items && po.items.length > 0) {
+        const mapped: ShipmentCargoItem[] = po.items.map((it, idx) => ({
+          id: it.id || `po-item-${idx}`,
+          part_name: it.inventory?.name || it.item_name || "Aircraft Spare Part",
+          part_number: it.inventory?.part_number || it.part_number || "P/N-N/A",
+          alternate_part_number: it.inventory?.alternate_support_part_no || null,
+          serial_number: it.inventory?.serial_number || null,
+          nsn: it.inventory?.nsn || null,
+          quantity: Number(it.quantity) || 1,
+          uom: it.inventory?.unit_of_measure || "EA",
+          condition: "Serviceable",
+          remarks: null,
+        }));
+        setCargoItems(mapped);
+      }
     }
   };
 
@@ -185,6 +202,32 @@ export const CreateShipmentModal: React.FC<CreateShipmentModalProps> = ({
     if (!unitIdStr) return;
     const unit = units.find((u) => String(u.id) === unitIdStr);
     if (unit) setOrigin(unit.name);
+  };
+
+  const handleAddCargoItem = () => {
+    setCargoItems((prev) => [
+      ...prev,
+      {
+        id: `custom-${Date.now()}`,
+        part_name: "",
+        part_number: "",
+        serial_number: "",
+        quantity: 1,
+        condition: "Serviceable",
+      },
+    ]);
+  };
+
+  const handleRemoveCargoItem = (index: number) => {
+    setCargoItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateCargoItem = <K extends keyof ShipmentCargoItem>(index: number, field: K, value: ShipmentCargoItem[K]) => {
+    setCargoItems((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
   };
 
   if (!isOpen) return null;
@@ -220,6 +263,7 @@ export const CreateShipmentModal: React.FC<CreateShipmentModalProps> = ({
         status: initialStatus,
         customs_reference: customsReference.trim() || undefined,
         notes: notes.trim() || undefined,
+        cargo_manifest: cargoItems.filter(i => i.part_name.trim() || i.part_number.trim()),
       }).unwrap();
 
       dispatch(
@@ -680,6 +724,122 @@ export const CreateShipmentModal: React.FC<CreateShipmentModalProps> = ({
                 )}
               />
             </div>
+          </div>
+
+          {/* Tracked Cargo Manifest Section */}
+          <div className={cn("p-4 rounded-xl border space-y-3", isDark ? "bg-[#001825] border-[#0A4D66]/50" : "bg-slate-50 border-slate-200")}>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <Icon icon="mdi:package-variant-closed" className="w-4 h-4 text-sky-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-gray-200">
+                    Tracked Cargo Manifest & Aircraft Spares
+                  </span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                    {cargoItems.length} {cargoItems.length === 1 ? "item" : "items"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Specify the individual parts, rotables, or supplies assigned to this Air Waybill
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddCargoItem}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#0A4D66] hover:bg-[#083c50] text-white shadow-sm transition-all"
+              >
+                <Icon icon="mdi:plus" className="w-3.5 h-3.5 text-sky-300" />
+                <span>Add Part</span>
+              </button>
+            </div>
+
+            {cargoItems.length === 0 ? (
+              <div className="text-center py-6 border border-dashed border-[#0A4D66]/40 rounded-lg text-xs text-gray-400 space-y-1">
+                <Icon icon="mdi:cube-outline" className="w-6 h-6 mx-auto opacity-40 text-sky-400" />
+                <p className="font-medium text-gray-300">No items attached to this air waybill yet</p>
+                <p className="text-[11px] text-gray-500">Click &ldquo;Add Part&rdquo; or link a Purchase Order above to auto-populate items.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse min-w-[550px]">
+                  <thead>
+                    <tr className="border-b border-[#0A4D66]/30 text-gray-400 text-[10px] uppercase font-bold tracking-wider">
+                      <th className="pb-1.5 pr-2">Part Description *</th>
+                      <th className="pb-1.5 px-2">Part # (P/N)</th>
+                      <th className="pb-1.5 px-2">Serial / NSN</th>
+                      <th className="pb-1.5 px-2 w-16 text-center">Qty</th>
+                      <th className="pb-1.5 px-2">Condition</th>
+                      <th className="pb-1.5 pl-2 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0A4D66]/20">
+                    {cargoItems.map((item, idx) => (
+                      <tr key={item.id ?? idx} className="py-1">
+                        <td className="py-1.5 pr-2">
+                          <input
+                            type="text"
+                            value={item.part_name}
+                            onChange={(e) => handleUpdateCargoItem(idx, "part_name", e.target.value)}
+                            placeholder="e.g. Hydraulic Actuator"
+                            className="w-full rounded border border-[#0A4D66]/40 bg-[#001219] px-2 py-1 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-sky-500"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="text"
+                            value={item.part_number}
+                            onChange={(e) => handleUpdateCargoItem(idx, "part_number", e.target.value)}
+                            placeholder="e.g. HYD-882-01"
+                            className="w-full rounded border border-[#0A4D66]/40 bg-[#001219] px-2 py-1 text-xs font-mono text-sky-400 placeholder:text-gray-500 focus:outline-none focus:border-sky-500"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <input
+                            type="text"
+                            value={item.serial_number || ""}
+                            onChange={(e) => handleUpdateCargoItem(idx, "serial_number", e.target.value || null)}
+                            placeholder="Optional S/N"
+                            className="w-full rounded border border-[#0A4D66]/40 bg-[#001219] px-2 py-1 text-xs font-mono text-gray-300 placeholder:text-gray-500 focus:outline-none focus:border-sky-500"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2 w-16 text-center">
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateCargoItem(idx, "quantity", Math.max(1, parseInt(e.target.value, 10) || 1))}
+                            className="w-16 rounded border border-[#0A4D66]/40 bg-[#001219] px-1.5 py-1 text-xs text-center font-bold text-emerald-400 focus:outline-none focus:border-sky-500"
+                          />
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <select
+                            value={item.condition || "Serviceable"}
+                            onChange={(e) => handleUpdateCargoItem(idx, "condition", e.target.value)}
+                            className="rounded border border-[#0A4D66]/40 bg-[#001219] px-2 py-1 text-xs text-gray-200 focus:outline-none focus:border-sky-500"
+                          >
+                            <option value="Serviceable">Serviceable</option>
+                            <option value="Factory New">Factory New</option>
+                            <option value="Awaiting Overhaul">Awaiting Overhaul</option>
+                            <option value="Repairable">Repairable</option>
+                            <option value="Defective / RTV">Defective / RTV</option>
+                          </select>
+                        </td>
+                        <td className="py-1.5 pl-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCargoItem(idx)}
+                            className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                            title="Remove part"
+                          >
+                            <Icon icon="mdi:trash-can-outline" className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           <div>

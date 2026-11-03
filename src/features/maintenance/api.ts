@@ -21,6 +21,58 @@ export type MaintenanceDueFilters = {
   part_type?: MaintenanceDuePartType;
 };
 
+export type UnserviceableSpareDisposition =
+  | "quarantine"
+  | "awaiting_mro"
+  | "in_house_repair"
+  | "ber_scrap"
+  | "serviceable_reclaimed";
+
+export type UnserviceableSpare = {
+  id: number;
+  part_name: string;
+  part_number: string;
+  serial_number?: string | null;
+  asset_id: number;
+  asset?: { id: number; name: string; tail_number?: string };
+  ata_chapter_id?: number | null;
+  ata_chapter?: { id: number; code?: string; name: string };
+  tsn_hours?: number | null;
+  tso_hours?: number | null;
+  tsi_hours?: number | null;
+  csn_cycles?: number | null;
+  cso_cycles?: number | null;
+  date_removed: string;
+  removed_by_user_id?: number | null;
+  removed_by?: { id: number; firstname: string; lastname: string };
+  reason_for_removal: string;
+  removal_remarks?: string | null;
+  disposition_status: UnserviceableSpareDisposition;
+  storage_location?: string | null;
+  shipment_id?: number | null;
+  shipment?: { id: number; tracking_number: string; carrier_name?: string; status?: string };
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type CreateUnserviceableSparePayload = {
+  part_name: string;
+  part_number: string;
+  serial_number?: string | null;
+  asset_id: number;
+  ata_chapter_id?: number | null;
+  tsn_hours?: number | null;
+  tso_hours?: number | null;
+  tsi_hours?: number | null;
+  csn_cycles?: number | null;
+  cso_cycles?: number | null;
+  date_removed: string;
+  reason_for_removal: string;
+  removal_remarks?: string | null;
+  disposition_status?: UnserviceableSpareDisposition;
+  storage_location?: string | null;
+};
+
 export type InspectionItemStatus = "overdue" | "due_soon" | "ok" | "not_recorded" | "not_tracked";
 
 /** A recurring task on one aircraft (MaintenanceDueCalculator::programItemsForAssets). */
@@ -426,7 +478,7 @@ export type CreateMaintenanceDefectRequest = {
 export const maintenanceApi = createApi({
   reducerPath: "maintenanceApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["MaintenancePrograms", "WorkOrders", "Defects", "ComplianceRecords"],
+  tagTypes: ["MaintenancePrograms", "WorkOrders", "Defects", "ComplianceRecords", "UnserviceableSpares"],
   endpoints: (builder) => ({
     getMaintenanceMetrics: builder.query<
       MaintenanceMetricsResponse,
@@ -616,6 +668,26 @@ export const maintenanceApi = createApi({
         { type: "WorkOrders", id: "DUE_LIST" },
       ],
     }),
+    getUnserviceableSpares: builder.query<UnserviceableSpare[], { asset_id?: string | number; disposition_status?: string; search?: string } | void>({
+      query: (params) => ({ url: "/unserviceable-spares", params: params || undefined }),
+      providesTags: ["UnserviceableSpares"],
+    }),
+    createUnserviceableSpare: builder.mutation<UnserviceableSpare, CreateUnserviceableSparePayload>({
+      query: (data) => ({ url: "/unserviceable-spares", method: "POST", data }),
+      invalidatesTags: ["UnserviceableSpares"],
+    }),
+    updateUnserviceableSpare: builder.mutation<UnserviceableSpare, { id: number; data: Partial<CreateUnserviceableSparePayload & { shipment_id?: number }> }>({
+      query: ({ id, data }) => ({ url: `/unserviceable-spares/${id}`, method: "PUT", data }),
+      invalidatesTags: ["UnserviceableSpares"],
+    }),
+    deleteUnserviceableSpare: builder.mutation<void, number>({
+      query: (id) => ({ url: `/unserviceable-spares/${id}`, method: "DELETE" }),
+      invalidatesTags: ["UnserviceableSpares"],
+    }),
+    dispatchUnserviceableSpare: builder.mutation<UnserviceableSpare, { id: number; shipment_id: number }>({
+      query: ({ id, shipment_id }) => ({ url: `/unserviceable-spares/${id}/dispatch`, method: "POST", data: { shipment_id } }),
+      invalidatesTags: ["UnserviceableSpares"],
+    }),
   }),
 });
 
@@ -641,4 +713,9 @@ export const {
   useCreateMaintenanceInventoryMutation,
   useUpdateMaintenanceInventoryMutation,
   useUpdateWorkOrderTaskMutation,
+  useGetUnserviceableSparesQuery,
+  useCreateUnserviceableSpareMutation,
+  useUpdateUnserviceableSpareMutation,
+  useDeleteUnserviceableSpareMutation,
+  useDispatchUnserviceableSpareMutation,
 } = maintenanceApi;
