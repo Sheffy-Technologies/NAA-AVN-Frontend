@@ -15,9 +15,9 @@ const KEY_AERODROMES = [
 export const C2WeatherModule: React.FC = () => {
   const [selectedIcao, setSelectedIcao] = useState("DNAA");
   const { data: weather, isLoading, refetch, isFetching } = useGetWeatherBriefingQuery({
-    location: selectedIcao,
-    include_taf: true,
+    stations: selectedIcao,
   });
+  const station = weather?.stations?.[selectedIcao];
 
   const activeAerodrome = KEY_AERODROMES.find((a) => a.icao === selectedIcao) || KEY_AERODROMES[0];
 
@@ -108,14 +108,14 @@ export const C2WeatherModule: React.FC = () => {
         <div className="p-2 rounded bg-black/60 border border-[#0A4D66]/30 font-mono text-[11px] text-emerald-400 leading-relaxed select-all">
           {isLoading
             ? "Fetching aerodrome telemetry..."
-            : weather?.metar || `${selectedIcao} 020800Z 08008KT 9999 SCT025 28/21 Q1013 NOSIG`}
+            : station?.raw_metar || `No METAR available for ${selectedIcao}`}
         </div>
 
         <div className="flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-wider pt-2">
           <span>Aerodrome Forecast (TAF)</span>
         </div>
         <div className="p-2 rounded bg-black/60 border border-[#0A4D66]/30 font-mono text-[11px] text-sky-300 leading-relaxed select-all">
-          {weather?.taf || `TAF ${selectedIcao} 020500Z 0206/0312 09010KT 9999 BKN030 BECMG 0212/0214 06012KT`}
+          {station?.raw_taf || `No TAF available for ${selectedIcao}`}
         </div>
       </div>
     </div>

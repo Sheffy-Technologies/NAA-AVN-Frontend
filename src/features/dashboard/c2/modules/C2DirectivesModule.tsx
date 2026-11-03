@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetApprovalsQuery, useGetPendingApprovalCountQuery } from "@/features/approvals/api";
 import { useGetMemosQuery } from "@/features/memos/api";
@@ -8,13 +7,13 @@ import { useGetDefectRecordsQuery } from "@/features/maintenance/api";
 export const C2DirectivesModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"approvals" | "memos" | "urgent_snags">("approvals");
 
-  const { data: approvalsData, isLoading: loadingApprovals } = useGetApprovalsQuery({ status: "pending", per_page: 15 });
+  const { data: approvalsData, isLoading: loadingApprovals } = useGetApprovalsQuery({ status: "pending" });
   const { data: pendingCount } = useGetPendingApprovalCountQuery();
-  const { data: memosData, isLoading: loadingMemos } = useGetMemosQuery({ per_page: 10 });
+  const { data: memosData, isLoading: loadingMemos } = useGetMemosQuery({ box: "mine" });
   const { data: defects = [], isLoading: loadingDefects } = useGetDefectRecordsQuery();
 
-  const approvals = approvalsData?.data || [];
-  const memos = memosData?.data || [];
+  const approvals = (approvalsData ?? []).slice(0, 15);
+  const memos = (memosData?.data ?? []).slice(0, 10);
   const urgentSnags = defects.filter((d: any) => d.severity === "critical" || d.status === "open" || d.severity === "high");
 
   return (
@@ -145,7 +144,7 @@ export const C2DirectivesModule: React.FC = () => {
               No recent memos logged
             </div>
           ) : (
-            memos.map((memo: any) => (
+            memos.map((memo) => (
               <div
                 key={memo.id}
                 className="p-2 rounded-xl border border-sky-500/30 bg-[#001825] flex items-center justify-between"
@@ -170,7 +169,7 @@ export const C2DirectivesModule: React.FC = () => {
                   <div className="text-[10px] text-gray-400">
                     To: <span className="text-gray-200">{memo.to || "Comd"}</span> &middot; From:{" "}
                     <span className="text-gray-200">{memo.from || "HQ"}</span> &middot;{" "}
-                    {memo.created_at ? new Date(memo.created_at).toLocaleDateString() : ""}
+                    {memo.memo_date || memo.updated_at ? new Date(memo.memo_date || memo.updated_at).toLocaleDateString() : ""}
                   </div>
                 </div>
                 <div className="text-right">

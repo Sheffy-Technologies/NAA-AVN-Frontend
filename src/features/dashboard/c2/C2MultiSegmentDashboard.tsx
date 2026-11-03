@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
-import { C2ModuleKey, C2GridLayout, C2_MODULE_META } from "./c2Types";
+import { type C2ModuleKey, type C2GridLayout, C2_MODULE_META } from "./c2Types";
 
 import { C2FlightOpsModule } from "./modules/C2FlightOpsModule";
 import { C2WeatherModule } from "./modules/C2WeatherModule";

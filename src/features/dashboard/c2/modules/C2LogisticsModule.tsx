@@ -11,15 +11,15 @@ import { useGetUnserviceableSparesQuery } from "@/features/maintenance/api";
 export const C2LogisticsModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"overview" | "unserviceable" | "shipments">("overview");
 
-  const { data: inventoryData, isLoading: loadingInventory } = useGetInventoriesQuery({ per_page: 50 });
-  const { data: shipmentsData, isLoading: loadingShipments } = useGetShipmentsQuery({ per_page: 10 });
+  const { data: inventoryData, isLoading: loadingInventory } = useGetInventoriesQuery();
+  const { data: shipmentsData, isLoading: loadingShipments } = useGetShipmentsQuery();
   const { data: unserviceableData, isLoading: loadingUnserviceable } = useGetUnserviceableSparesQuery();
-  const { data: poData } = useGetPurchaseOrdersQuery({ per_page: 20 });
+  const { data: poData } = useGetPurchaseOrdersQuery();
 
-  const inventoryItems = inventoryData?.data || [];
-  const shipments = shipmentsData?.data || [];
-  const unserviceableSpares = unserviceableData?.data || [];
-  const purchaseOrders = poData?.data || [];
+  const inventoryItems = inventoryData ?? [];
+  const shipments = (shipmentsData ?? []).slice(0, 10);
+  const unserviceableSpares = unserviceableData ?? [];
+  const purchaseOrders = poData ?? [];
 
   // Metrics
   const lowStockItems = inventoryItems.filter(

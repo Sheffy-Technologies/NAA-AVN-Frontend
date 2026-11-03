@@ -433,9 +433,9 @@ export const ProcurementShipmentsTab: React.FC = () => {
                               ? s.cargo_manifest
                               : (s.purchase_order?.items && s.purchase_order.items.length > 0)
                               ? s.purchase_order.items.map((it) => ({
-                                  part_name: it.inventory?.name || it.item_name || "Aircraft Spare Part",
+                                  part_name: it.inventory?.description || it.inventory?.part_name || "Aircraft Spare Part",
                                   part_number: it.inventory?.part_number || it.part_number || "P/N-N/A",
-                                  quantity: Number(it.quantity) || 1,
+                                  quantity: Number(it.quantity_ordered) || 1,
                                 }))
                               : [];
                             if (items.length === 0) return null;

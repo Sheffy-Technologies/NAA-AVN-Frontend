@@ -2,18 +2,22 @@ import React from "react";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import {
-  useGetMaintenanceMetricsQuery,
   useGetMaintenanceDueItemsQuery,
   useGetDefectRecordsQuery,
   useGetWorkOrdersQuery,
 } from "@/features/maintenance/api";
+import { useGetAssetsQuery } from "@/features/assets/api";
 
 export const C2MaintenanceModule: React.FC = () => {
-  const { data: metrics } = useGetMaintenanceMetricsQuery();
+  const { data: aircraft = [] } = useGetAssetsQuery({ type: "aircraft" });
   const { data: dueData, isLoading: loadingDue } = useGetMaintenanceDueItemsQuery();
   const { data: defectRecords = [] } = useGetDefectRecordsQuery();
-  const { data: workOrdersData } = useGetWorkOrdersQuery({ status: "in_progress" });
-  const openWips = workOrdersData?.data || [];
+  const { data: workOrdersData } = useGetWorkOrdersQuery();
+  const openWips = (workOrdersData ?? []).filter((wo) => wo.status === "in_progress");
+
+  const airframeStatus = (a: (typeof aircraft)[number]) => a.serviceability_status ?? a.operation_status;
+  const serviceableCount = aircraft.filter((a) => airframeStatus(a) === "serviceable").length;
+  const groundedCount = aircraft.filter((a) => airframeStatus(a) === "grounded").length;
 
   const dueItems = dueData?.data || [];
   const openDefects = defectRecords.filter((d: any) => d.status !== "resolved" && d.status !== "closed");
@@ -25,7 +29,7 @@ export const C2MaintenanceModule: React.FC = () => {
         <div className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10">
           <span className="text-gray-400 text-[10px] uppercase font-bold block">Serviceable</span>
           <span className="text-xl font-black text-emerald-400 mt-0.5 block">
-            {metrics?.fleet_readiness?.serviceable ?? 1}
+            {serviceableCount}
           </span>
           <span className="text-[10px] text-emerald-300">Airframe NA 010</span>
         </div>
@@ -33,7 +37,7 @@ export const C2MaintenanceModule: React.FC = () => {
         <div className="p-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10">
           <span className="text-gray-400 text-[10px] uppercase font-bold block">AOG / Grounded</span>
           <span className="text-xl font-black text-rose-400 mt-0.5 block">
-            {metrics?.fleet_readiness?.grounded ?? 1}
+            {groundedCount}
           </span>
           <span className="text-[10px] text-rose-300">Airframe NA 011</span>
         </div>
@@ -73,7 +77,7 @@ export const C2MaintenanceModule: React.FC = () => {
                   className="p-2 rounded-xl border border-[#0A4D66]/40 bg-[#001825] flex items-center justify-between text-[11px]"
                 >
                   <div className="flex flex-col">
-                    <span className="font-bold text-white truncate max-w-[160px]">{item.item_name}</span>
+                    <span className="font-bold text-white truncate max-w-[160px]">{item.part_label}</span>
                     <span className="text-[10px] font-mono text-gray-400">
                       {item.asset_tail_number || "NA 010"} &middot; {item.part_number || "P/N-N/A"}
                     </span>
@@ -87,7 +91,7 @@ export const C2MaintenanceModule: React.FC = () => {
                           : "bg-amber-500/20 text-amber-400 border-amber-500/40",
                       )}
                     >
-                      {item.remaining_hours !== undefined ? `${item.remaining_hours}h remaining` : item.status}
+                      {item.hours_remaining != null ? `${item.hours_remaining}h remaining` : item.status}
                     </span>
                   </div>
                 </div>

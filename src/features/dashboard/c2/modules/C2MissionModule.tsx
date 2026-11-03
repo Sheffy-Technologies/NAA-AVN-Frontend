@@ -2,16 +2,18 @@ import React, { useState } from "react";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useGetOperationsQuery } from "@/features/operations/api";
-import { useGetPersonnelQuery } from "@/features/personnel/api";
+import { useGetPersonnelQuery, type PersonnelFilters } from "@/features/personnel/api";
+
+const ALL_PERSONNEL: PersonnelFilters = { branches: [], units: [], ranks: [], corps: [], specialties: [], status: [] };
 
 export const C2MissionModule: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  const { data: operationsData, isLoading: loadingOps } = useGetOperationsQuery({ per_page: 20 });
-  const { data: personnelData, isLoading: loadingCrew } = useGetPersonnelQuery({ per_page: 50 });
+  const { data: operationsData, isLoading: loadingOps } = useGetOperationsQuery();
+  const { data: personnelData, isLoading: loadingCrew } = useGetPersonnelQuery(ALL_PERSONNEL);
 
-  const operations = operationsData?.data || [];
-  const personnelList = personnelData?.data || [];
+  const operations = (operationsData ?? []).slice(0, 20);
+  const personnelList = personnelData ?? [];
 
   // Filter pilots / aircrew
   const aircrews = personnelList.filter(

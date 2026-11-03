@@ -1036,7 +1036,6 @@ export const {
   useGetShipmentByIdQuery,
   useGetPurchaseOrderShipmentsQuery,
   useCreateShipmentMutation,
-  useUpdateShipmentMutation,
   useSyncShipmentLiveMutation,
   useUpdateShipmentStatusMutation,
 } = inventoryApi;

@@ -6,8 +6,8 @@ import { useGetOperationsQuery } from "@/features/operations/api";
 
 export const C2FlightOpsModule: React.FC = () => {
   const { data: aircraftAssets = [], isLoading: loadingAssets } = useGetAssetsQuery({ type: "aircraft" });
-  const { data: operationsData, isLoading: loadingOps } = useGetOperationsQuery({ per_page: 8 });
-  const operations = operationsData?.data || [];
+  const { data: operationsData, isLoading: loadingOps } = useGetOperationsQuery();
+  const operations = (operationsData ?? []).slice(0, 8);
 
   return (
     <div className="h-full flex flex-col space-y-3 p-3 overflow-y-auto text-xs">
@@ -19,7 +19,8 @@ export const C2FlightOpsModule: React.FC = () => {
           <div className="col-span-2 text-center text-gray-500 py-3">No aircraft registered</div>
         ) : (
           aircraftAssets.slice(0, 2).map((ac, idx) => {
-            const isServiceable = ac.status !== "grounded" && ac.status !== "maintenance";
+            const status = ac.serviceability_status ?? ac.operation_status;
+            const isServiceable = status !== "grounded" && status !== "under_maintenance";
             const tail = ac.tail_number || ac.name || `NA 01${idx}`;
             return (
               <div

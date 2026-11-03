@@ -173,13 +173,13 @@ export const CreateShipmentModal: React.FC<CreateShipmentModalProps> = ({
       if (po.items && po.items.length > 0) {
         const mapped: ShipmentCargoItem[] = po.items.map((it, idx) => ({
           id: it.id || `po-item-${idx}`,
-          part_name: it.inventory?.name || it.item_name || "Aircraft Spare Part",
+          part_name: it.inventory?.description || it.inventory?.part_name || "Aircraft Spare Part",
           part_number: it.inventory?.part_number || it.part_number || "P/N-N/A",
           alternate_part_number: it.inventory?.alternate_support_part_no || null,
           serial_number: it.inventory?.serial_number || null,
           nsn: it.inventory?.nsn || null,
-          quantity: Number(it.quantity) || 1,
-          uom: it.inventory?.unit_of_measure || "EA",
+          quantity: Number(it.quantity_ordered) || 1,
+          uom: it.inventory?.unit_of_issue || it.inventory?.measurement_unit || "EA",
           condition: "Serviceable",
           remarks: null,
         }));

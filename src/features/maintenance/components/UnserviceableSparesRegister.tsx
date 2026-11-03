@@ -28,7 +28,7 @@ export const UnserviceableSparesRegister: React.FC = () => {
 
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [selectedAssetFilter, setSelectedAssetFilter] = useState<string>("all");
-  const [selectedDispositionFilter, setSelectedDispositionFilter] = useState<string>("all");
+  const [selectedDispositionFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Edit / Disposition Modal
