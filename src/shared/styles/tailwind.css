@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -26,7 +26,7 @@ html.light #root {
 }
 
 /* ============================================================
-   CUSTOM SCROLLBAR — dark mode
+   CUSTOM SCROLLBAR â€” dark mode
    ============================================================ */
 ::-webkit-scrollbar {
   width: 4px;
@@ -86,13 +86,13 @@ html.light input[type="date"]::-webkit-calendar-picker-indicator {
    remain dark in both modes.
    ============================================================ */
 
-/* ── 1. Content-area base ─────────────────────────────────── */
+/* â”€â”€ 1. Content-area base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light main {
   background-color: #F4F6F9;
   color: #111827;
 }
 
-/* ── 2. Panel / card backgrounds ─────────────────────────── */
+/* â”€â”€ 2. Panel / card backgrounds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /*
    These selectors use CSS attribute substring matching
    ([class*="..."]) to catch all Tailwind arbitrary-value
@@ -116,13 +116,13 @@ html.light main [class*="from-[#001825]"]:not(button):not(a) {
   background-image: none !important;
 }
 
-/* Teal-tinted hover / active backgrounds → light gray */
+/* Teal-tinted hover / active backgrounds â†’ light gray */
 html.light main [class*="bg-[#0A4D66]"]:not([class*="text-"]),
 html.light main [class*="hover:bg-[#0A4D66]"]:hover {
   background-color: #EEF2FF !important;
 }
 
-/* ── 3. Text colour overrides ─────────────────────────────── */
+/* â”€â”€ 3. Text colour overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /*
    Override white text that sits on overridden dark panels.
    Exclude <button> and elements that carry their own
@@ -281,7 +281,7 @@ html.light main :not(button):not(a):not(button *):not(a *)[class*="text-gray-200
   color: #374151 !important;
 }
 
-/* ── 3.1 Button & interactive element contrast & WCAG enforcement ─ */
+/* â”€â”€ 3.1 Button & interactive element contrast & WCAG enforcement â”€ */
 /*
    WCAG 2.1 Contrast Standards:
    - Level AA requires >= 4.5:1 for normal text and >= 3.0:1 for large text.
@@ -365,7 +365,7 @@ button[class*="bg-rose-600"] span:not([class*="text-"]):not([class*="bg-"]) {
   color: #FFFFFF !important;
 }
 
-/* ── 3.2 Sidebar active navigation item high-contrast rules ────────── */
+/* â”€â”€ 3.2 Sidebar active navigation item high-contrast rules â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* In light mode: active sidebar item has soft blue background, so text and icon MUST be deep steel blue (#0369A1, 7.2:1 AAA) */
 html.light aside a.active,
 html.light aside a[class*="bg-blue-50"] {
@@ -396,7 +396,7 @@ html.dark aside a.active .iconify {
   color: #7FD5FF !important;
 }
 
-/* ── 3.3 Light Mode Button, Tab & Action Contrast Enforcement ──────── */
+/* â”€â”€ 3.3 Light Mode Button, Tab & Action Contrast Enforcement â”€â”€â”€â”€â”€â”€â”€â”€ */
 /*
    Prevents white text or white icons on light backgrounds during hover or default state.
    Ensures WCAG 2.2 AA (>= 4.5:1) for all interactive secondary, outline, ghost and icon buttons.
@@ -453,7 +453,7 @@ html.light a[class*="text-slate-800"]:not([role="tab"]):not([class*="tab-link"])
   color: #1e293b !important;
 }
 
-/* ── 3.4 Module & Navigation Tab Styling (Personnel, Pass, Course, Attendance) ──────── */
+/* â”€â”€ 3.4 Module & Navigation Tab Styling (Personnel, Pass, Course, Attendance) â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light a[role="tab"],
 html.light a.tab-link {
   box-shadow: none !important;
@@ -592,7 +592,7 @@ html.light a[class*="border-red"]:hover span {
   color: #b91c1c !important;
 }
 
-/* 3. Ghost and text buttons with light blue / cyan accents in light mode → Dark Blue (#0A4D66) */
+/* 3. Ghost and text buttons with light blue / cyan accents in light mode â†’ Dark Blue (#0A4D66) */
 html.light button[class*="text-[#7FD5FF]"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
 html.light a[class*="text-[#7FD5FF]"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
 html.light button[class*="text-cyan-"]:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369A1]"]):not([class*="bg-red"]):not([class*="bg-emerald"]):not([class*="bg-blue"]),
@@ -644,7 +644,7 @@ html.light main table button:not([class*="bg-[#0A4D66]"]):not([class*="bg-[#0369
   color: #0f172a !important;
 }
 
-/* ── 4. Border overrides ─────────────────────────────────── */
+/* â”€â”€ 4. Border overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light main [class*="border-[#0A4D66]"]:not(button):not(a) {
   border-color: #E5E7EB !important;
 }
@@ -658,7 +658,7 @@ html.light main [class*="border-[#5dbced]"] {
   border-color: #D1D5DB !important;
 }
 
-/* ── 5. Input / textarea / select fields ─────────────────── */
+/* â”€â”€ 5. Input / textarea / select fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light main input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 html.light main textarea,
 html.light main select {
@@ -687,7 +687,7 @@ html.light main select:disabled {
   color: #9CA3AF !important;
 }
 
-/* ── 6. Table overrides ──────────────────────────────────── */
+/* â”€â”€ 6. Table overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light main thead tr {
   background-color: #F9FAFB !important;
 }
@@ -711,7 +711,7 @@ html.light main tbody td {
   border-color: #E5E7EB !important;
 }
 
-/* ── 7. Drop-down menus (absolute/fixed positioned) ──────── */
+/* â”€â”€ 7. Drop-down menus (absolute/fixed positioned) â”€â”€â”€â”€â”€â”€â”€â”€ */
 /*
    Drop-downs rendered inside main (action menus, select
    option lists, custom dropdowns).
@@ -725,7 +725,7 @@ html.light main [class*="bg-[#001219]"][class*="fixed"] {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
 }
 
-/* ── 8. Modals rendered in portal (outside main) ─────────── */
+/* â”€â”€ 8. Modals rendered in portal (outside main) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light .modal-content,
 html.light [data-modal-content] {
   background-color: #FFFFFF !important;
@@ -733,7 +733,7 @@ html.light [data-modal-content] {
   border-color: #E5E7EB !important;
 }
 
-/* ── 9. Hover / active states for dark teal highlights ────── */
+/* â”€â”€ 9. Hover / active states for dark teal highlights â”€â”€â”€â”€â”€â”€ */
 html.light main [class*="hover:bg-[#0A4D66]"]:hover,
 html.light main [class*="focus:bg-[#0A4D66]"]:focus,
 html.light main [class*="hover:shadow-[inset"]:hover {
@@ -741,7 +741,7 @@ html.light main [class*="hover:shadow-[inset"]:hover {
   box-shadow: inset 3px 0 0 0 #2563EB !important;
 }
 
-/* ── 10. Scrollbar inside main ───────────────────────────── */
+/* â”€â”€ 10. Scrollbar inside main â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light main ::-webkit-scrollbar-track {
   background: #F3F4F6;
 }
@@ -752,17 +752,17 @@ html.light main ::-webkit-scrollbar-thumb:hover {
   background: #9CA3AF;
 }
 
-/* ── 11. Auth pages (outside DashboardLayout) ────────────── */
+/* â”€â”€ 11. Auth pages (outside DashboardLayout) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light .bg-auth-gradient {
   background: #F4F6F9 !important;
 }
 
-/* ── 12. Tab border underline in light mode ──────────────── */
+/* â”€â”€ 12. Tab border underline in light mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 html.light main [class*="border-[#0A4D66]/40"][class*="border-b"] {
   border-color: #E5E7EB !important;
 }
 
-/* ── 13. Card label / value text in light mode ───────────── */
+/* â”€â”€ 13. Card label / value text in light mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /*
    stat card labels are text-gray-400 (readable in dark),
    but need to be darker in light mode for contrast.
@@ -781,4 +781,140 @@ html.light main [class*="text-gray-500"] {
 }
 html.light .main-content-bg {
   background: #F4F6F9;
+}
+
+
+/* ============================================================
+   C2 MULTI-SEGMENT DISPLAY TACTICAL PRESERVATION
+   The C2 Dashboard is a dedicated Ops-Room video-wall console.
+   In light mode, it retains its high-contrast tactical dark navy 
+   theme rather than having internal cards bleached white.
+   ============================================================ */
+html.light main [data-c2-dashboard="true"],
+html.light main .c2-dark-scope {
+  background-color: #00101A !important;
+  color: #F1F5F9 !important;
+}
+
+html.light main .c2-dark-scope header,
+html.light main .c2-dark-scope footer {
+  background-color: #001825 !important;
+  border-color: rgba(10, 77, 102, 0.8) !important;
+}
+
+html.light main .c2-dark-scope [class*="bg-[#00101A]"],
+html.light main .c2-dark-scope [class*="bg-[#001420]"],
+html.light main .c2-dark-scope [class*="bg-[#001825]"],
+html.light main .c2-dark-scope [class*="bg-[#001A29]"],
+html.light main .c2-dark-scope [class*="bg-[#001219]"] {
+  background-color: #001420 !important;
+}
+
+html.light main .c2-dark-scope [class*="bg-[#001825]"] {
+  background-color: #001825 !important;
+}
+
+html.light main .c2-dark-scope [class*="bg-[#001219]"] {
+  background-color: #001219 !important;
+}
+
+html.light main .c2-dark-scope [class*="bg-[#00101A]"] {
+  background-color: #00101A !important;
+}
+
+html.light main .c2-dark-scope [class*="bg-[#001A29]"] {
+  background-color: #001A29 !important;
+}
+
+html.light main .c2-dark-scope [class*="border-[#0A4D66]"] {
+  border-color: rgba(10, 77, 102, 0.6) !important;
+}
+
+html.light main .c2-dark-scope select {
+  background-color: #00101A !important;
+  color: #D1D5DB !important;
+  border-color: rgba(10, 77, 102, 0.6) !important;
+}
+
+html.light main .c2-dark-scope select option {
+  background-color: #001825 !important;
+  color: #FFFFFF !important;
+}
+
+html.light main .c2-dark-scope :not(button):not(a)[class*="text-white"] {
+  color: #FFFFFF !important;
+}
+
+html.light main .c2-dark-scope [class*="text-gray-400"] {
+  color: #9CA3AF !important;
+}
+
+html.light main .c2-dark-scope [class*="text-gray-300"] {
+  color: #D1D5DB !important;
+}
+
+html.light main .c2-dark-scope [class*="text-sky-300"],
+html.light main .c2-dark-scope [class*="text-sky-400"] {
+  color: #38BDF8 !important;
+}
+
+html.light main .c2-dark-scope [class*="text-emerald-400"] {
+  color: #34D399 !important;
+}
+
+html.light main .c2-dark-scope [class*="text-amber-300"],
+html.light main .c2-dark-scope [class*="text-amber-400"] {
+  color: #FBBF24 !important;
+}
+
+html.light main .c2-dark-scope [class*="text-rose-400"] {
+  color: #FB7185 !important;
+}
+
+
+/* ============================================================
+   LIGHT MODE: THEATRE & STRATEGIC OPERATIONS MAP TOOLBAR
+   In light mode, the map toolbar should look clean and light
+   rather than dark teal (#001520 / #001825).
+   ============================================================ */
+html.light main .strategic-map-scope > div.border-b.bg-\[\#001825\]\/95,
+html.light main .strategic-map-scope > div.border-b.bg-\[\#001520\],
+html.light main .strategic-map-scope div.bg-\[\#001520\],
+html.light main .strategic-map-scope div.bg-\[\#001825\] {
+  background-color: #F8FAFC !important;
+  border-color: #E2E8F0 !important;
+}
+
+html.light main .strategic-map-scope div.bg-\[\#001219\] {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+}
+
+html.light main .strategic-map-scope button[class*="bg-[#001825]"],
+html.light main .strategic-map-scope div[class*="bg-[#001825]"] {
+  background-color: #FFFFFF !important;
+  border-color: #CBD5E1 !important;
+  color: #1E293B !important;
+}
+
+html.light main .strategic-map-scope button[class*="bg-[#001825]"]:hover {
+  background-color: #F1F5F9 !important;
+  border-color: #0284C7 !important;
+  color: #0369A1 !important;
+}
+
+html.light main .strategic-map-scope span.text-gray-400 {
+  color: #64748B !important;
+}
+
+html.light main .strategic-map-scope h2.text-white {
+  color: #0F172A !important;
+}
+
+html.light main .strategic-map-scope .text-gray-300 {
+  color: #334155 !important;
+}
+
+html.light main .strategic-map-scope div[class*="border-[#0A4D66]"] {
+  border-color: #CBD5E1 !important;
 }

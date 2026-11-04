@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
@@ -710,20 +710,24 @@ export const OperationsOverviewTab = ({
                     )}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-white text-sm">{station.icao}</span>
-                        <span className="text-gray-400 text-[11px] truncate max-w-[130px]">{station.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className={cn("font-mono font-black text-base tracking-wide", isDark ? "text-white" : "text-slate-900")}>
+                          {station.icao}
+                        </span>
+                        <span className={cn("text-xs truncate max-w-[140px]", isDark ? "text-gray-400" : "text-slate-500 font-medium")}>
+                          {station.name}
+                        </span>
                       </div>
 
                       <span
                         className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-bold uppercase border",
+                          "px-2.5 py-0.5 rounded text-[11px] font-black uppercase border tracking-wider",
                           isVfr
-                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                            ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/40"
                             : isMvfr
-                            ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                            ? "bg-amber-500/20 text-amber-500 border-amber-500/40"
                             : isIfr
-                            ? "bg-red-500/20 text-red-400 border-red-500/40"
+                            ? "bg-red-500/20 text-red-500 border-red-500/40"
                             : "bg-gray-800 text-gray-400 border-gray-700",
                         )}
                       >
@@ -731,18 +735,33 @@ export const OperationsOverviewTab = ({
                       </span>
                     </div>
 
-                    <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px] text-gray-300 border-t border-[#0A4D66]/20 pt-1.5">
+                    <div className={cn(
+                      "mt-2.5 grid grid-cols-3 gap-2 border-t pt-2",
+                      isDark ? "border-[#0A4D66]/30 text-gray-200" : "border-slate-200 text-slate-800"
+                    )}>
                       <div>
-                        <span className="text-gray-500 block text-[9px] uppercase">Wind</span>
-                        <span className="font-mono">{station.wind?.label || "Calm"}</span>
+                        <span className={cn("block text-[10px] font-bold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-400")}>
+                          Wind
+                        </span>
+                        <span className={cn("font-mono text-xs font-bold block mt-0.5", isDark ? "text-white" : "text-slate-900")}>
+                          {station.wind?.label || "Calm"}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-gray-500 block text-[9px] uppercase">Altimeter</span>
-                        <span className="font-mono">{station.altimeter_hpa ? `${station.altimeter_hpa} hPa` : "1013"}</span>
+                        <span className={cn("block text-[10px] font-bold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-400")}>
+                          Altimeter
+                        </span>
+                        <span className={cn("font-mono text-xs font-bold block mt-0.5", isDark ? "text-white" : "text-slate-900")}>
+                          {station.altimeter_hpa ? `${station.altimeter_hpa} hPa` : "1013"}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-gray-500 block text-[9px] uppercase">Temp</span>
-                        <span className="font-mono">{station.temperature_c !== null ? `${station.temperature_c}°C` : "-"}</span>
+                        <span className={cn("block text-[10px] font-bold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-400")}>
+                          Temp
+                        </span>
+                        <span className={cn("font-mono text-xs font-bold block mt-0.5", isDark ? "text-white" : "text-slate-900")}>
+                          {station.temperature_c !== null ? `${station.temperature_c}°C` : "-"}
+                        </span>
                       </div>
                     </div>
                   </div>

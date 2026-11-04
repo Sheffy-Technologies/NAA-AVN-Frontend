@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+﻿import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MapContainer,
@@ -36,38 +36,48 @@ interface MapLayerConfig {
   maxZoom: number;
 }
 
+const getTileUrl = (relativePath: string) => {
+  const apiBase = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  if (apiBase && (apiBase.startsWith("http://") || apiBase.startsWith("https://"))) {
+    const trimmedBase = apiBase.replace(/\/+$/, "");
+    const cleanPath = relativePath.replace(/^\/?api\/?/, "");
+    return `${trimmedBase}/${cleanPath}`;
+  }
+  return relativePath;
+};
+
 const MAP_LAYERS: Record<MapLayerMode, MapLayerConfig> = {
   night: {
     label: "Tactical Night",
     icon: "mdi:weather-night",
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: "&copy; CartoDB & OpenStreetMap contributors",
-    maxZoom: 19,
+    url: getTileUrl("/api/map/tiles/dark/{z}/{x}/{y}.png?v=esri2"),
+    attribution: "NAA Tactical Night System",
+    maxZoom: 18,
   },
   imagery: {
     label: "Satellite Imagery",
     icon: "mdi:satellite-variant",
-    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-    attribution: "&copy; Esri World Imagery",
+    url: getTileUrl("/api/map/tiles/imagery/{z}/{x}/{y}.png"),
+    attribution: "Esri World Imagery",
     maxZoom: 18,
   },
   topo: {
     label: "Topographic Relief",
     icon: "mdi:image-filter-hdr",
-    url: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; OpenTopoMap",
+    url: getTileUrl("/api/map/tiles/topo/{z}/{x}/{y}.png"),
+    attribution: "OpenTopoMap",
     maxZoom: 17,
   },
   osm: {
     label: "OpenStreetMap",
     icon: "mdi:map-outline",
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: "&copy; OpenStreetMap contributors",
+    url: getTileUrl("/api/map/tiles/osm/{z}/{x}/{y}.png"),
+    attribution: "OpenStreetMap contributors",
     maxZoom: 19,
   },
 };
 
-const WEATHER_RADAR_URL = "https://tilecache.rainviewer.com/v2/radar/nowcast_latest/256/{z}/{x}/{y}/2/1_1.png";
+const WEATHER_RADAR_URL = getTileUrl("/api/map/tiles/weather/{z}/{x}/{y}.png");
 
 const THEATRE_SECTORS = [
   {
@@ -135,9 +145,9 @@ function calculateOperationDistanceNm(operation: StrategicOperation): number {
 }
 
 const formatDateTime = (value: string | null | undefined) => {
-  if (!value) return "—";
+  if (!value) return "â€”";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
+  if (Number.isNaN(date.getTime())) return "â€”";
   return date.toLocaleString("en-GB", {
     day: "2-digit",
     month: "short",
@@ -310,7 +320,7 @@ export const StrategicOperationsMap = ({
     <div
       ref={mapWrapperRef}
       className={cn(
-        "relative flex flex-col rounded-xl border border-[#0A4D66]/50 bg-[#001219] overflow-hidden shadow-2xl transition-all",
+        "strategic-map-scope relative flex flex-col rounded-xl border border-[#0A4D66]/50 bg-[#001219] overflow-hidden shadow-2xl transition-all",
         isFullscreen ? "h-screen w-screen p-0 rounded-none border-0" : "w-full"
       )}
     >
@@ -562,11 +572,11 @@ export const StrategicOperationsMap = ({
                           {operation.name}
                         </div>
                         <div className="text-[11px] text-gray-300">
-                          {operation.unit || "Joint Air Command"} · {operation.type || "Flight Mission"}
+                          {operation.unit || "Joint Air Command"} Â· {operation.type || "Flight Mission"}
                         </div>
                         <div className="text-[10px] text-gray-400">
                           {operation.departure && operation.arrival
-                            ? `${operation.departure.lat.toFixed(2)}°, ${operation.departure.lng.toFixed(2)}° → ${operation.arrival.lat.toFixed(2)}°, ${operation.arrival.lng.toFixed(2)}°`
+                            ? `${operation.departure.lat.toFixed(2)}Â°, ${operation.departure.lng.toFixed(2)}Â° â†’ ${operation.arrival.lat.toFixed(2)}Â°, ${operation.arrival.lng.toFixed(2)}Â°`
                             : "Enroute"}
                           {totalDistance > 0 && ` (${totalDistance} NM)`}
                         </div>
@@ -601,7 +611,7 @@ export const StrategicOperationsMap = ({
                         </div>
                         <div className="text-gray-300 text-[11px]">{operation.unit}</div>
                         <div className="font-mono text-[10px] text-gray-400">
-                          {operation.departure.lat.toFixed(4)}°, {operation.departure.lng.toFixed(4)}°
+                          {operation.departure.lat.toFixed(4)}Â°, {operation.departure.lng.toFixed(4)}Â°
                         </div>
                         <div className="font-mono text-[10px] text-emerald-300">
                           MGRS: {formatMgrsSpaced(latLonToMgrs(operation.departure.lat, operation.departure.lng))}
@@ -634,7 +644,7 @@ export const StrategicOperationsMap = ({
                         </div>
                         <div className="text-gray-300 text-[11px]">{operation.unit}</div>
                         <div className="font-mono text-[10px] text-gray-400">
-                          {operation.arrival.lat.toFixed(4)}°, {operation.arrival.lng.toFixed(4)}°
+                          {operation.arrival.lat.toFixed(4)}Â°, {operation.arrival.lng.toFixed(4)}Â°
                         </div>
                         <div className="font-mono text-[10px] text-red-300">
                           MGRS: {formatMgrsSpaced(latLonToMgrs(operation.arrival.lat, operation.arrival.lng))}
@@ -667,7 +677,7 @@ export const StrategicOperationsMap = ({
                         </div>
                         <div className="text-[10px] text-gray-400">{operation.name}</div>
                         <div className="font-mono text-[10px] text-gray-300">
-                          {wp.lat.toFixed(4)}°, {wp.lng.toFixed(4)}°
+                          {wp.lat.toFixed(4)}Â°, {wp.lng.toFixed(4)}Â°
                         </div>
                       </div>
                     </Tooltip>
@@ -698,10 +708,10 @@ export const StrategicOperationsMap = ({
                       {unit.name}
                     </div>
                     <div className="text-gray-300 text-[11px]">
-                      {unit.personnel_count} Personnel · {unit.asset_count} Aircraft · {unit.operation_count} Missions
+                      {unit.personnel_count} Personnel Â· {unit.asset_count} Aircraft Â· {unit.operation_count} Missions
                     </div>
                     <div className="font-mono text-[10px] text-gray-400 mt-0.5">
-                      {unit.lat.toFixed(4)}°, {unit.lng.toFixed(4)}° · MGRS:{" "}
+                      {unit.lat.toFixed(4)}Â°, {unit.lng.toFixed(4)}Â° Â· MGRS:{" "}
                       {formatMgrsSpaced(latLonToMgrs(unit.lat, unit.lng))}
                     </div>
                   </div>
@@ -791,7 +801,7 @@ export const StrategicOperationsMap = ({
                         <span className="truncate">{op.unit || "Regional Command"}</span>
                         {distance > 0 && (
                           <>
-                            <span>·</span>
+                            <span>Â·</span>
                             <span className="font-mono text-gray-300">{distance} NM</span>
                           </>
                         )}
@@ -821,7 +831,7 @@ export const StrategicOperationsMap = ({
                   </h3>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  {selectedOperation.unit || "Joint Air Force Command"} · {selectedOperation.type || "Flight Mission"}
+                  {selectedOperation.unit || "Joint Air Force Command"} Â· {selectedOperation.type || "Flight Mission"}
                 </p>
               </div>
               <button
@@ -868,7 +878,7 @@ export const StrategicOperationsMap = ({
                     <Icon icon="mdi:airplane-takeoff" className="w-3.5 h-3.5" /> Departure:
                   </span>
                   <div className="text-right">
-                    <div>{selectedOperation.departure.lat.toFixed(4)}°, {selectedOperation.departure.lng.toFixed(4)}°</div>
+                    <div>{selectedOperation.departure.lat.toFixed(4)}Â°, {selectedOperation.departure.lng.toFixed(4)}Â°</div>
                     <div className="text-[10px] text-gray-400">
                       MGRS: {formatMgrsSpaced(latLonToMgrs(selectedOperation.departure.lat, selectedOperation.departure.lng))}
                     </div>
@@ -882,7 +892,7 @@ export const StrategicOperationsMap = ({
                     <Icon icon="mdi:airplane-landing" className="w-3.5 h-3.5" /> Destination:
                   </span>
                   <div className="text-right">
-                    <div>{selectedOperation.arrival.lat.toFixed(4)}°, {selectedOperation.arrival.lng.toFixed(4)}°</div>
+                    <div>{selectedOperation.arrival.lat.toFixed(4)}Â°, {selectedOperation.arrival.lng.toFixed(4)}Â°</div>
                     <div className="text-[10px] text-gray-400">
                       MGRS: {formatMgrsSpaced(latLonToMgrs(selectedOperation.arrival.lat, selectedOperation.arrival.lng))}
                     </div>
@@ -903,7 +913,7 @@ export const StrategicOperationsMap = ({
                     Waypoints ({selectedOperation.waypoints.length}):
                   </span>{" "}
                   <span className="text-gray-300">
-                    {selectedOperation.waypoints.map((w, i) => w.name || `CP-${i + 1}`).join(" → ")}
+                    {selectedOperation.waypoints.map((w, i) => w.name || `CP-${i + 1}`).join(" â†’ ")}
                   </span>
                 </div>
               )}

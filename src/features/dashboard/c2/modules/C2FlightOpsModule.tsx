@@ -105,7 +105,7 @@ export const C2FlightOpsModule: React.FC = () => {
 
                   <div className="flex items-center justify-between text-[11px] text-gray-300">
                     <span className="truncate max-w-[140px] text-gray-400">
-                      Dep: <strong className="text-white">{op.location || "DNAA (Abuja)"}</strong>
+                      Dep: <strong className="text-white">{op.departure_location || (op.location ? `${op.location.lat.toFixed(2)}, ${op.location.lng.toFixed(2)}` : "DNAA (Abuja)")}</strong>
                     </span>
                     <span className="text-gray-400">
                       ETA: <strong className="text-emerald-400 font-mono">{op.end_time ? op.end_time.slice(11, 16) : "14:30Z"}</strong>
