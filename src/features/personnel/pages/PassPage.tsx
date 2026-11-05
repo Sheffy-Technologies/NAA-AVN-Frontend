@@ -179,8 +179,10 @@ export const PassPage = () => {
           type: "success",
         }),
       );
-    } catch {
-      dispatch(showToast({ message: "Failed to update pass", type: "error" }));
+    } catch (err) {
+      const data = (err as { data?: { message?: string; errors?: Record<string, string[]> } })?.data;
+      const message = (data?.errors && Object.values(data.errors)[0]?.[0]) || data?.message || "Failed to update pass";
+      dispatch(showToast({ message, type: "error" }));
     }
   };
 
