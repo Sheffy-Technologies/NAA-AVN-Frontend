@@ -141,7 +141,10 @@ export const C2MultiSegmentDashboard: React.FC = () => {
     : panels;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)] w-full bg-[#00101A] text-slate-100 rounded-2xl overflow-hidden border border-[#0A4D66]/60 shadow-2xl">
+    <div
+      data-c2-dashboard="true"
+      className="flex flex-col h-[calc(100vh-6rem)] w-full bg-[#00101A] text-slate-100 rounded-2xl overflow-hidden border border-[#0A4D66]/60 shadow-2xl c2-dark-scope"
+    >
       {/* Top Command Bar */}
       <header className="flex-shrink-0 px-4 py-2.5 bg-[#001825] border-b border-[#0A4D66]/80 flex flex-wrap items-center justify-between gap-3 shadow-md">
         {/* Left: Branding & Clocks */}

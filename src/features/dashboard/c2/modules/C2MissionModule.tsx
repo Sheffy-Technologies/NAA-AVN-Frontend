@@ -170,7 +170,7 @@ export const C2MissionModule: React.FC = () => {
                     <div>
                       <span className="font-bold text-white text-[11px] block">{op.name || op.title || `Mission #${op.id}`}</span>
                       <span className="text-[10px] text-gray-400">
-                        {op.operation_type?.name || "Reconnaissance / Patrol"} &middot; {op.location || "North-East Theater"}
+                        {op.operation_type?.name || "Reconnaissance / Patrol"} &middot; {op.departure_location || (op.location ? `${op.location.lat.toFixed(2)}, ${op.location.lng.toFixed(2)}` : "North-East Theater")}
                       </span>
                     </div>
                   </div>
@@ -180,8 +180,8 @@ export const C2MissionModule: React.FC = () => {
                       isLive
                         ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
                         : op.status === "completed"
-                        ? "bg-gray-500/20 text-gray-300 border-gray-500/40"
-                        : "bg-sky-500/20 text-sky-400 border-sky-500/40"
+                          ? "bg-gray-500/20 text-gray-300 border-gray-500/40"
+                          : "bg-sky-500/20 text-sky-400 border-sky-500/40"
                     )}
                   >
                     {isLive ? "In Flight" : op.status?.replace(/_/g, " ") || "Scheduled"}
