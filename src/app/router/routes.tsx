@@ -43,6 +43,11 @@ const StrategicDashboardPage = lazy(() =>
     default: module.StrategicDashboardPage,
   })),
 );
+const VisitorManagementPage = lazy(() =>
+  import("@/features/vms/pages/VisitorManagementPage").then((module) => ({
+    default: module.VisitorManagementPage,
+  })),
+);
 const C2DashboardPage = lazy(() =>
   import("@/features/dashboard/pages/C2DashboardPage").then((module) => ({
     default: module.C2DashboardPage,
@@ -401,6 +406,8 @@ const INVENTORY_ROUTE_PERMISSIONS = ["dashboard.inventories.view", "inventories.
 const MESSAGES_ROUTE_PERMISSIONS: string[] = [];
 const FINANCE_ROUTE_PERMISSIONS = ["dashboard.finance.view", "expenses.viewAny", "budgets.viewAny"];
 const STRATEGIC_ROUTE_PERMISSIONS = ["dashboard.strategic.view"];
+// Visitor Management (external NAAC VMS); keep in step with the Sidebar entry.
+const VMS_ROUTE_PERMISSIONS = ["vms.view"];
 const SECURITY_ROUTE_PERMISSIONS = ["roles.viewAny", "permissions.viewAny", "devices.viewAny", "activity-logs.viewAny"];
 const REPORTS_ROUTE_PERMISSIONS = ["reports.resources.view", "reports.query"];
 // Open to any authenticated user regardless of role, same as messages.
@@ -979,6 +986,14 @@ export const router = createBrowserRouter([
             <StrategicDashboardPage />
           </Suspense>
         ), STRATEGIC_ROUTE_PERMISSIONS),
+      },
+      {
+        path: "visitors",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <VisitorManagementPage />
+          </Suspense>
+        ), VMS_ROUTE_PERMISSIONS),
       },
       {
         path: "maintenance",

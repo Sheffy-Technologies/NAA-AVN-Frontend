@@ -112,6 +112,12 @@ const NAV_ITEMS: NavItem[] = [
     requiredPermissions: ["dashboard.strategic.view"],
   },
   {
+    name: "Visitor Management",
+    path: "/dashboard/visitors",
+    icon: "mdi:badge-account-horizontal-outline",
+    requiredPermissions: ["vms.view"],
+  },
+  {
     name: "Security",
     path: "/dashboard/security",
     icon: "mdi:shield-outline",

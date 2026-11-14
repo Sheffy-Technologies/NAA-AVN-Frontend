@@ -25,6 +25,7 @@ import { accommodationApi } from "@/features/accommodation/api";
 import { documentsApi } from "@/features/documents/api";
 import { memosApi } from "@/features/memos/api";
 import { reportsApi } from "@/features/reports/api";
+import { vmsApi } from "@/features/vms/api";
 import { messagesApi } from "@/features/messages/api";
 import messageComposeReducer from "@/features/messages/composeSlice";
 import { callsApi } from "@/features/calls/api";
@@ -83,6 +84,7 @@ export const store = configureStore({
     [messagesApi.reducerPath]: messagesApi.reducer,
     [callsApi.reducerPath]: callsApi.reducer,
     [reportsApi.reducerPath]: reportsApi.reducer,
+    [vmsApi.reducerPath]: vmsApi.reducer,
     [unitsApi.reducerPath]: unitsApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
@@ -111,6 +113,7 @@ export const store = configureStore({
       messagesApi.middleware,
       callsApi.middleware,
       reportsApi.middleware,
+      vmsApi.middleware,
       unitsApi.middleware,
     ),
   preloadedState: persistedAuthState ? { auth: persistedAuthState } : undefined,
