@@ -158,32 +158,71 @@ export const downloadRecordPdf = (spec: SqExportSpec, record: SqRecord) =>
   );
 
 /** Simple key/value PDF for computed views (pilot currency, unit oversight) on the same NAAVN form. */
+/** Header grid of the summary form (Excel character widths). */
+const SUMMARY_WIDTHS = [8.3, 16, 18, 24, 22, 15, 16];
+/**
+ * Each header column is split into this many grid columns, so a table can have
+ * up to 7 × SUMMARY_SPLIT columns, each in its own cell, while the header
+ * boxes keep their layout.
+ */
+const SUMMARY_SPLIT = 6;
+
+/**
+ * Lays `n` table columns over the grid columns (of widths `gridWidths`) in
+ * proportion to `weights` (equal by default), snapping each boundary to the
+ * grid line closest in actual width. Every column gets at least one grid
+ * column of its own, so no two columns ever share a cell.
+ */
+const tableSpans = (n: number, gridWidths: number[], weights?: number[]): Array<readonly [number, number]> => {
+  const grid = gridWidths.length;
+  const w = Array.from({ length: n }, (_, i) => Math.max(0.1, weights?.[i] ?? 1));
+  const total = w.reduce((sum, x) => sum + x, 0);
+  const gridTotal = gridWidths.reduce((sum, x) => sum + x, 0);
+  // edges[k] = distance from the left of grid line k (0 … grid)
+  const edges = gridWidths.reduce<number[]>((acc, x) => [...acc, acc[acc.length - 1] + x], [0]);
+  const bounds = [0];
+  let cumulative = 0;
+  for (let i = 0; i < n; i += 1) {
+    cumulative += w[i];
+    const target = (cumulative / total) * gridTotal;
+    let ideal = grid;
+    if (i < n - 1) {
+      ideal = edges.reduce((best, edge, k) => (Math.abs(edge - target) < Math.abs(edges[best] - target) ? k : best), 0);
+    }
+    const min = bounds[i] + 1;
+    const max = grid - (n - 1 - i);
+    bounds.push(Math.min(max, Math.max(min, ideal)));
+  }
+  return w.map((_, i) => [bounds[i], bounds[i + 1] - 1] as const);
+};
+
 export const downloadSummaryPdf = (opts: {
   formTitle: string;
   title: string;
   fileName: string;
   fields: Array<[string, string]>;
-  tables?: Array<{ heading: string; headers: string[]; rows: string[][]; empty: string }>;
+  /** `widths`: optional relative width per column (e.g. a notes column at 2). */
+  tables?: Array<{ heading: string; headers: string[]; rows: string[][]; empty: string; widths?: number[] }>;
 }) => {
   const half = Math.ceil(opts.fields.length / 2);
   const toField = ([label, value]: [string, string]) => ({ label: `${label.toUpperCase()}:`, value });
+  const k = SUMMARY_SPLIT;
+  const gridWidths = SUMMARY_WIDTHS.flatMap((w) => Array.from({ length: k }, () => w / k));
+  const span = (a: number, b: number) => [a * k, b * k + k - 1] as const;
   const doc: NaavnDocument = {
     title: opts.formTitle,
     sheetName: opts.title.slice(0, 31),
-    columnWidths: [8.3, 16, 18, 24, 22, 15, 16],
-    layout: { leftLabel: [0, 1], leftValue: [2, 2], rightLabel: [4, 4], rightValue: [5, 6], shipTo: [1, 4] },
+    columnWidths: gridWidths,
+    layout: { leftLabel: span(0, 1), leftValue: span(2, 2), rightLabel: span(4, 4), rightValue: span(5, 6), shipTo: span(1, 4) },
     leftFields: [{ label: "DATE:", value: toCalendarDate(new Date().toISOString()) }, ...opts.fields.slice(0, half).map(toField)],
     rightFields: opts.fields.slice(half).map(toField),
     addressLabel: "SUBJECT",
     shipTo: [opts.title],
     tables: (opts.tables ?? []).map((t) => {
-      const n = t.headers.length;
+      const spans = tableSpans(t.headers.length, gridWidths, t.widths);
       return {
         heading: t.heading.toUpperCase(),
-        columns: t.headers.map((h, i) => {
-          const from = Math.floor((i * 7) / n);
-          return { header: h.toUpperCase(), span: [from, Math.max(from, Math.floor(((i + 1) * 7) / n) - 1)] as const };
-        }),
+        columns: t.headers.map((h, i) => ({ header: h.toUpperCase(), span: spans[i] })),
         rows: t.rows,
         emptyText: t.empty,
       };

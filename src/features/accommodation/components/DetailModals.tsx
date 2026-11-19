@@ -107,6 +107,11 @@ export const ResidentDetailModal = ({ stay, onClose, onAction }: { stay: Occupan
               Edit
             </SecondaryButton>
           )}
+          {has("residence-occupancies.create") && has("residence-occupancies.update") && stay.status === "active" && (
+            <SecondaryButton icon="mdi:home-switch-outline" onClick={() => onAction({ kind: "move", stay })}>
+              Move
+            </SecondaryButton>
+          )}
           {has("residence-occupancies.update") && stay.status === "active" && (
             <PrimaryButton icon="mdi:exit-run" onClick={() => onAction({ kind: "vacate", stay })}>
               Vacate

@@ -3,7 +3,7 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useGetPersonnelQuery } from "@/features/personnel/api";
 import { useGetResidencesQuery, useSaveOccupancyMutation, useVacateOccupancyMutation, type Occupancy } from "../api";
-import { allocateFields, stayFields, toPayload, vacateFields, valuesFrom } from "../accForms";
+import { allocateFields, moveFields, stayFields, toPayload, vacateFields, valuesFrom } from "../accForms";
 import { personName, today } from "../accommodationHelpers";
 import { AccFormModal } from "./AccFormModal";
 
@@ -11,6 +11,7 @@ export type StayModal =
   | { kind: "allocate"; residenceId?: number; categoryId?: number }
   | { kind: "edit"; stay: Occupancy }
   | { kind: "vacate"; stay: Occupancy }
+  | { kind: "move"; stay: Occupancy }
   | null;
 
 const ALL_PERSONNEL = { branches: [], units: [], ranks: [], corps: [], specialties: [], status: [] };
@@ -19,10 +20,12 @@ const ALL_PERSONNEL = { branches: [], units: [], ranks: [], corps: [], specialti
 export const StayModals = ({ modal, onClose }: { modal: StayModal; onClose: () => void }) => {
   const dispatch = useAppDispatch();
   const allocating = modal?.kind === "allocate";
+  const moving = modal?.kind === "move";
   const { data: personnel = [] } = useGetPersonnelQuery(ALL_PERSONNEL, { skip: !allocating });
+  // Moving can go to any category (e.g. on promotion), so every residence is offered.
   const { data: residences = [] } = useGetResidencesQuery(
     allocating && modal.categoryId ? { accommodation_category_id: modal.categoryId } : undefined,
-    { skip: !allocating },
+    { skip: !allocating && !moving },
   );
   const [save] = useSaveOccupancyMutation();
   const [vacate] = useVacateOccupancyMutation();
@@ -31,6 +34,7 @@ export const StayModals = ({ modal, onClose }: { modal: StayModal; onClose: () =
     () =>
       residences
         .filter((r) => r.status === "available" && (r.active_occupancies_count < r.capacity || (allocating && r.id === modal.residenceId)))
+        .filter((r) => !(modal?.kind === "move" && r.id === modal.stay.residence_id))
         .map((r) => ({
           value: r.id,
           label: `${r.name} · ${r.block?.name ?? ""}`,
@@ -72,12 +76,36 @@ export const StayModals = ({ modal, onClose }: { modal: StayModal; onClose: () =
   const { stay } = modal;
   const who = `${personName(stay.personnel)} · ${stay.residence?.name ?? ""}`;
 
+  if (modal.kind === "move") {
+    const fields = moveFields(residenceOptions, stay.move_in_date.slice(0, 10));
+    return (
+      <AccFormModal
+        title="Move to another residence"
+        icon="mdi:home-switch-outline"
+        fields={fields}
+        initial={valuesFrom(fields, null, { move_in_date: today(), dependants: stay.dependants != null ? String(stay.dependants) : "" })}
+        submitLabel="Move"
+        intro={
+          <p className="opacity-80">
+            {personName(stay.personnel)} lives in {stay.residence?.name ?? "a residence"} (since {stay.move_in_date.slice(0, 10)}). They are
+            moved out of it and into the new residence on the date below; both stays are kept in the history.
+          </p>
+        }
+        onSubmit={async (values) => {
+          await save({ data: { ...toPayload(fields, values), personnel_id: stay.personnel_id, move_from_current: true } }).unwrap();
+          done("Resident moved.");
+        }}
+        onClose={onClose}
+      />
+    );
+  }
+
   if (modal.kind === "vacate") {
     return (
       <AccFormModal
         title="Record move-out"
         icon="mdi:exit-run"
-        fields={vacateFields}
+        fields={vacateFields(stay.move_in_date.slice(0, 10))}
         initial={{ move_out_date: today(), vacate_remarks: "" }}
         submitLabel="Vacate"
         intro={<p className="opacity-80">{who} moved in on {stay.move_in_date.slice(0, 10)}. The stay is kept in the residence's history.</p>}
@@ -97,7 +125,7 @@ export const StayModals = ({ modal, onClose }: { modal: StayModal; onClose: () =
       icon="mdi:home-edit-outline"
       fields={fields}
       initial={valuesFrom(fields, stay)}
-      intro={<p className="opacity-80">{who}. To move someone to another residence, vacate this one and allocate the new one.</p>}
+      intro={<p className="opacity-80">{who}. To move them to another residence, use Move on the resident.</p>}
       onSubmit={async (values) => {
         await save({ id: stay.id, data: toPayload(fields, values) }).unwrap();
         done("Stay updated.");

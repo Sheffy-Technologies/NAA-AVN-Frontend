@@ -199,7 +199,20 @@ class Renderer {
     const value = formatValue(field.value);
     this.box(vx, y, vw, FIELD_HEIGHT);
     this.setFontToFit(value, vw, 8, Boolean(field.bold));
-    this.textIn([value], vx, y, vw, FIELD_HEIGHT, "center");
+    if (this.pdf.getTextWidth(value) <= vw - PAD * 2) {
+      this.textIn([value], vx, y, vw, FIELD_HEIGHT, "center");
+      return;
+    }
+
+    // Too long for one line even at the smallest size: up to three small lines, so it never spills over the label.
+    this.setFont(5.5, Boolean(field.bold));
+    const lines = this.wrap(value, vw);
+    const shown = lines.length > 3 ? [lines[0], lines[1], `${lines[2].slice(0, -1)}…`] : lines;
+    const lineGap = 2.1;
+    const tx = vx + vw / 2;
+    shown.forEach((line, i) => {
+      this.pdf.text(line, tx, y + FIELD_HEIGHT / 2 + (i - (shown.length - 1) / 2) * lineGap, { align: "center", baseline: "middle" });
+    });
   }
 
   private fields() {

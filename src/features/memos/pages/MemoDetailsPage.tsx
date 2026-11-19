@@ -4,7 +4,6 @@ import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { BackButton } from "@/shared/ui/button/BackButton";
 import { SearchableSelect } from "@/shared/ui/select/SearchableSelect";
-import { MultiSelect } from "@/shared/ui/multi-select/MultiSelect";
 import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { SignaturePad, type SignaturePadHandle } from "@/features/approvals/components/SignaturePad";
@@ -277,6 +276,53 @@ const useUserOptions = (excludeIds: number[] = []) => {
     .map((u) => ({ value: u.id, label: u.name, description: u.email ?? undefined }));
 };
 
+/**
+ * Pick several people with the same searchable dropdown as the approving
+ * officer (search by name or email); each pick is listed below and can be removed.
+ */
+const RecipientPicker = ({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: number; label: string; description?: string }[];
+  value: number[];
+  onChange: (ids: number[]) => void;
+}) => {
+  const chosen = value.map((id) => options.find((o) => o.value === id)).filter((o): o is (typeof options)[number] => Boolean(o));
+  return (
+    <div className="space-y-2">
+      <span className="text-xs text-gray-400">{label}</span>
+      <SearchableSelect
+        placeholder={chosen.length ? "Add another person" : "Search by name or email"}
+        searchPlaceholder="Search users..."
+        options={options.filter((o) => !value.includes(o.value))}
+        value={null}
+        onChange={(picked) => picked !== null && onChange([...value, Number(picked)])}
+      />
+      {chosen.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5">
+          {chosen.map((o) => (
+            <li key={o.value} className="inline-flex items-center gap-1 rounded-full border border-[#0A4D66]/60 bg-[#0A4D66]/20 pl-2.5 pr-1 py-0.5 text-xs text-gray-100">
+              <span title={o.description}>{o.label}</span>
+              <button
+                type="button"
+                onClick={() => onChange(value.filter((id) => id !== o.value))}
+                className="rounded-full p-0.5 hover:bg-white/10"
+                aria-label={`Remove ${o.label}`}
+              >
+                <Icon icon="mdi:close" className="w-3 h-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
 const SubmitDialog = ({ memo, onClose }: { memo: Memo; onClose: () => void }) => {
   const dispatch = useAppDispatch();
   const padRef = useRef<SignaturePadHandle>(null);
@@ -358,14 +404,7 @@ const DecideDialog = ({ memo, mode, onClose }: { memo: Memo; mode: "approve" | "
       </label>
       {approve && (
         <div className="space-y-1">
-          <MultiSelect
-            label="Copy to (optional)"
-            placeholder="Select users"
-            searchable
-            options={options}
-            selectedValues={recipientIds}
-            onChange={(values) => setRecipientIds(values.map(Number))}
-          />
+          <RecipientPicker label="Copy to (optional)" options={options} value={recipientIds} onChange={setRecipientIds} />
           <p className="text-[11px] text-gray-500">Each person gets an in-app message that the memo needs their attention.</p>
         </div>
       )}
@@ -400,14 +439,7 @@ const CopyDialog = ({ memo, onClose }: { memo: Memo; onClose: () => void }) => {
 
   return (
     <DialogShell title="Copy Memo To" icon="mdi:account-multiple-plus-outline" onClose={onClose}>
-      <MultiSelect
-        label="People"
-        placeholder="Select users"
-        searchable
-        options={options}
-        selectedValues={userIds}
-        onChange={(values) => setUserIds(values.map(Number))}
-      />
+      <RecipientPicker label="People" options={options} value={userIds} onChange={setUserIds} />
       <p className="text-[11px] text-gray-500">They can read the memo in the app and download it as PDF or Word.</p>
       <DialogFooter onClose={onClose} onConfirm={() => void confirm()} busy={isLoading} label="Copy & Notify" />
     </DialogShell>

@@ -135,10 +135,12 @@ export const GeneratorDetailsPage = () => {
       tables: [
         {
           heading: "Run log",
-          headers: ["Date", "On–Off", "Hrs", "Day total", "Cum. hrs", "Open/Recv (L)", "Close/Used (L)", "Operator"],
+          headers: ["Date", "Time on", "Time off", "Hrs", "Day total", "Cum. hrs", "Open/Recv (L)", "Close/Used (L)", "Operator"],
+          widths: [1.15, 0.95, 0.95, 0.6, 0.95, 0.8, 1.1, 1.25, 1.25],
           rows: [...logs].reverse().map((l) => [
             fmtDate(l.usage_date),
-            `${l.time_on}–${l.time_off}`,
+            l.time_on,
+            l.time_off < l.time_on ? `${l.time_off} (+1)` : l.time_off,
             num(l.hours_worked, 2),
             dayTotal(l) !== null ? hoursMinutes(dayTotal(l)) : "",
             num(l.cumulative_hours),
@@ -151,6 +153,7 @@ export const GeneratorDetailsPage = () => {
         {
           heading: "Daily fuel",
           headers: ["Date", "Times used", "Total time worked", "Cum. hrs", "Opening (L)", "Received (L)", "Day closing (L)", "Used (L)", "L/hr"],
+          widths: [1.25, 0.8, 1.45, 0.8, 0.95, 0.95, 1.3, 0.8, 0.7],
           rows: [...days].reverse().map((d) => [
             fmtDate(d.date),
             String(d.runs),
@@ -167,6 +170,7 @@ export const GeneratorDetailsPage = () => {
         {
           heading: "Maintenance",
           headers: ["Date", "Hour-meter", "Type", "Work done", "By", "Restarts countdown"],
+          widths: [1, 1.25, 1.1, 2.3, 1.2, 1.05],
           rows: [...maintenanceLogs].reverse().map((m) => [
             fmtDate(m.service_date),
             `${num(m.hour_meter_reading)} hrs`,

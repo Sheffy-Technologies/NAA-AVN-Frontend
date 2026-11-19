@@ -1,3 +1,4 @@
+import { downloadListPdf } from "@/shared/documents/listPdf";
 export const formatDateShort = (isoString: string | null | undefined): string => {
   if (!isoString) return "-";
   const date = new Date(isoString);
@@ -18,6 +19,26 @@ export const formatTimeShort = (isoString: string | null | undefined): string =>
     minute: "2-digit",
     hour12: false,
   });
+};
+
+export type ExportFormat = "csv" | "pdf";
+
+/**
+ * One list, two formats: the same headers and rows as a CSV, or as a printable
+ * NAAVN PDF (landscape, crests, RESTRICTED, page numbers).
+ */
+export const exportList = (
+  format: ExportFormat,
+  name: string,
+  title: string,
+  headers: string[],
+  rows: (string | number | null | undefined)[][],
+): void => {
+  if (format === "pdf") {
+    downloadListPdf({ title, fileName: name, headers, rows }).catch((error) => console.error("PDF export failed", error));
+    return;
+  }
+  downloadCsv(`${name}.csv`, [headers, ...rows]);
 };
 
 export const downloadCsv = (filename: string, rows: (string | number | null | undefined)[][]): void => {

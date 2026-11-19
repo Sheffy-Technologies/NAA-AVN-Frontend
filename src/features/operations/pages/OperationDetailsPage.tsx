@@ -21,6 +21,7 @@ import { OperationLocationPicker } from "../components/OperationLocationPicker";
 import { WeatherBriefingCard } from "../components/WeatherBriefingCard";
 import { MissionPlanningCard } from "../components/MissionPlanningCard";
 import { SatelliteCommsCard } from "../components/SatelliteCommsCard";
+import { LocstatTab } from "../components/LocstatTab";
 import { AARSignatureTable } from "../components/AARSignatureTable";
 import Modal from "@/shared/ui/modal/Modal";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
@@ -1337,12 +1338,12 @@ export const OperationDetailsPage = () => {
   const [searchParams] = useSearchParams();
   const queryTab = searchParams.get("tab");
   const initialTab =
-    queryTab === "aar" ? "aar" : queryTab === "satcom" ? "satcom" : "operation";
+    queryTab === "aar" ? "aar" : queryTab === "satcom" ? "satcom" : queryTab === "locstat" ? "locstat" : "operation";
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { isDark } = useTheme();
   const contentRef = useRef<HTMLDivElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"operation" | "satcom" | "aar">(initialTab);
+  const [activeTab, setActiveTab] = useState<"operation" | "locstat" | "satcom" | "aar">(initialTab);
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [deleteOperation, { isLoading: isDeleting }] =
@@ -1632,9 +1633,10 @@ export const OperationDetailsPage = () => {
 
         {/* Tab Controls Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-4 mt-6 border-slate-200 dark:border-[#0A4D66]/30">
-          <AppTabs<"operation" | "satcom" | "aar">
+          <AppTabs<"operation" | "locstat" | "satcom" | "aar">
             tabs={[
               { id: "operation", label: "Mission Dossier", icon: "mdi:target" },
+              { id: "locstat", label: "LOCSTAT", icon: "mdi:crosshairs-gps" },
               { id: "satcom", label: "Garmin inReach & Satcom Tracking", icon: "mdi:satellite-variant" },
               { id: "aar", label: "After Action Report (AAR)", icon: "mdi:file-document-outline" },
             ]}
@@ -1669,6 +1671,14 @@ export const OperationDetailsPage = () => {
             isSavingDateTime={isSavingDateTime}
             telemetryTracks={telemetryData?.tracks}
             liveAircraftPositions={telemetryData?.latest_positions}
+          />
+        ) : activeTab === "locstat" ? (
+          <LocstatTab
+            operationId={operation.id}
+            operationName={operation.name}
+            operationStatus={operation.status}
+            unitName={operation.unit?.name}
+            assets={operation.assets}
           />
         ) : activeTab === "satcom" ? (
           <SatelliteCommsCard

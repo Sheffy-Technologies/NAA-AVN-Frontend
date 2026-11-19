@@ -23,6 +23,7 @@ import {
   formatMgrsSpaced,
   decimalToDms,
 } from "@/features/operations/utils/coordinates";
+import { LOCSTAT_STATUS_COLOR, locstatPosition, toDtg } from "@/features/operations/utils/locstat";
 
 type MapView = "ongoing" | "planned" | "completed";
 
@@ -238,6 +239,7 @@ export const StrategicOperationsMap = ({
       if (op.departure) coords.push([op.departure.lat, op.departure.lng]);
       if (op.arrival) coords.push([op.arrival.lat, op.arrival.lng]);
       op.waypoints.forEach((wp) => coords.push([wp.lat, wp.lng]));
+      (op.locstats ?? []).forEach((l) => coords.push([l.lat, l.lng]));
     });
 
     if (showUnits) {
@@ -686,6 +688,36 @@ export const StrategicOperationsMap = ({
               </div>
             );
           })}
+
+          {/* Latest LOCSTAT of each aircraft on an ongoing operation */}
+          {operations.flatMap((operation) =>
+            (operation.locstats ?? []).map((l) => {
+              const color = l.status ? LOCSTAT_STATUS_COLOR[l.status] : "#38BDF8";
+              return (
+                <CircleMarker
+                  key={`locstat-${operation.id}-${l.asset_id ?? "x"}`}
+                  center={[l.lat, l.lng]}
+                  radius={l.status === "emergency" ? 10 : 7}
+                  pathOptions={{ color: "#ffffff", fillColor: color, fillOpacity: 0.95, weight: 2 }}
+                  eventHandlers={{ click: () => navigate(`/dashboard/operations/${operation.id}?tab=locstat`) }}
+                >
+                  <Tooltip direction="top">
+                    <div className="text-xs font-sans">
+                      <div className="font-bold flex items-center gap-1" style={{ color }}>
+                        <Icon icon="mdi:crosshairs-gps" className="w-3.5 h-3.5" />
+                        {l.asset_name ?? "Aircraft"} · {l.source === "garmin" ? "Garmin fix" : l.status_label}
+                      </div>
+                      <div className="text-gray-300 text-[11px]">LOCSTAT {toDtg(l.reported_at)} · Op {operation.name}</div>
+                      <div className="font-mono text-[10px] text-gray-400 mt-0.5">
+                        {locstatPosition({ mgrs: l.mgrs, latitude: l.lat, longitude: l.lng, location_name: l.location_name })}
+                        {l.altitude_ft !== null ? ` · ${l.altitude_ft} ft` : ""}
+                      </div>
+                    </div>
+                  </Tooltip>
+                </CircleMarker>
+              );
+            }),
+          )}
 
           {/* Unit Command Headquarters & Airbases */}
           {showUnits &&

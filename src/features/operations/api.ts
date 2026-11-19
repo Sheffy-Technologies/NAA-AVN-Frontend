@@ -405,6 +405,61 @@ const getOperationLocation = (operation: Operation) => {
   };
 };
 
+/** LOCSTAT: location status report. `garmin` rows are inReach fixes (read-only, no status). */
+export type LocstatStatus = "on_ground" | "airborne" | "holding" | "landed" | "rtb" | "emergency";
+
+export type LocstatEntry = {
+  id: number;
+  key: string;
+  source: "manual" | "garmin";
+  asset_id: number | null;
+  asset_name: string | null;
+  tail_number: string | null;
+  reported_at: string;
+  latitude: number | null;
+  longitude: number | null;
+  mgrs: string | null;
+  location_name: string | null;
+  status: LocstatStatus | null;
+  status_label: string;
+  altitude_ft: number | null;
+  heading: number | null;
+  ground_speed_kt: number | null;
+  fuel_state: string | null;
+  persons_on_board: number | null;
+  next_location: string | null;
+  eta: string | null;
+  reported_by_name: string | null;
+  remarks: string | null;
+  entered_by: string | null;
+};
+
+export type LocstatResponse = {
+  data: LocstatEntry[];
+  /** Latest entry with a position, per aircraft. */
+  latest: LocstatEntry[];
+  statuses: { value: LocstatStatus; label: string }[];
+};
+
+export type LocstatPayload = {
+  asset_id: number;
+  reported_at: string;
+  latitude: number | null;
+  longitude: number | null;
+  mgrs: string | null;
+  location_name: string | null;
+  status: LocstatStatus;
+  altitude_ft: number | null;
+  heading: number | null;
+  ground_speed_kt: number | null;
+  fuel_state: string | null;
+  persons_on_board: number | null;
+  next_location: string | null;
+  eta: string | null;
+  reported_by_name: string | null;
+  remarks: string | null;
+};
+
 export const operationsApi = createApi({
   reducerPath: "operationsApi",
   baseQuery: axiosBaseQuery(),
@@ -415,6 +470,7 @@ export const operationsApi = createApi({
     "OperationDetails",
     "OperationTelemetry",
     "OperationMessages",
+    "OperationLocstats",
   ],
   endpoints: (builder) => ({
     getOperations: builder.query<Operation[], GetOperationsParams | void>({
@@ -627,6 +683,21 @@ export const operationsApi = createApi({
         method: "GET",
         params: params || undefined,
       }),
+    }),
+    getOperationLocstats: builder.query<LocstatResponse, number | string>({
+      query: (operationId) => ({ url: `/operations/${operationId}/locstats`, method: "GET" }),
+      providesTags: (_result, _error, operationId) => [{ type: "OperationLocstats", id: operationId }],
+    }),
+    saveOperationLocstat: builder.mutation<LocstatEntry, { operationId: number; id?: number; data: LocstatPayload }>({
+      query: ({ operationId, id, data }) =>
+        id
+          ? { url: `/operations/${operationId}/locstats/${id}`, method: "PUT", data }
+          : { url: `/operations/${operationId}/locstats`, method: "POST", data },
+      invalidatesTags: (_result, _error, { operationId }) => [{ type: "OperationLocstats", id: operationId }],
+    }),
+    deleteOperationLocstat: builder.mutation<void, { operationId: number; id: number }>({
+      query: ({ operationId, id }) => ({ url: `/operations/${operationId}/locstats/${id}`, method: "DELETE" }),
+      invalidatesTags: (_result, _error, { operationId }) => [{ type: "OperationLocstats", id: operationId }],
     }),
     getOperationTelemetry: builder.query<OperationTelemetryResponse, number | string>({
       query: (operationId) => ({
@@ -846,6 +917,9 @@ export const {
   useGetCommandingOfficersQuery,
   useLogOperationFlightHoursMutation,
   useGetWeatherBriefingQuery,
+  useGetOperationLocstatsQuery,
+  useSaveOperationLocstatMutation,
+  useDeleteOperationLocstatMutation,
   useGetOperationTelemetryQuery,
   useGetOperationSatelliteMessagesQuery,
   useSendSatelliteMessageMutation,

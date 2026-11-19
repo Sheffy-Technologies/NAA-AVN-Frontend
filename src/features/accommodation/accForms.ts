@@ -67,7 +67,25 @@ export const allocateFields = (residences: AccOption[], personnel: AccOption[]):
   { name: "allocation_reference", label: "Allocation letter / ref.", type: "text" },
   { name: "dependants", label: "Dependants living in", type: "number", min: 0 },
   { name: "notes", label: "Notes", type: "textarea" },
+  {
+    name: "move_from_current",
+    label: "If this person already lives in a residence, move them out of it on the move-in date",
+    type: "checkbox",
+    wide: true,
+  },
 ];
+
+/** Moving a resident: the new residence and the date; the old stay is closed on that date. */
+export const moveFields = (residences: AccOption[], movedInOn: string): AccField[] => [
+  { name: "residence_id", label: "New residence", type: "search-select", required: true, options: residences, wide: true, help: "Only residences in use with a free space are listed." },
+  { name: "move_in_date", label: "Date of the move", type: "date", required: true, max: laterOf(today(), movedInOn), help: "They move out of the current residence and into the new one on this date." },
+  { name: "expected_move_out_date", label: "Expected move-out", type: "date" },
+  { name: "allocation_reference", label: "Allocation letter / ref.", type: "text" },
+  { name: "dependants", label: "Dependants living in", type: "number", min: 0 },
+  { name: "notes", label: "Notes", type: "textarea" },
+];
+
+const laterOf = (a: string, b: string) => (a > b ? a : b);
 
 /** Editing a stay: who and where are fixed (vacate and re-allocate to move someone). */
 export const stayFields = (vacated: boolean): AccField[] => [
@@ -80,7 +98,11 @@ export const stayFields = (vacated: boolean): AccField[] => [
   ...(vacated ? [{ name: "vacate_remarks", label: "Vacating remarks", type: "textarea" as const }] : []),
 ];
 
-export const vacateFields: AccField[] = [
-  { name: "move_out_date", label: "Date moved out", type: "date", required: true, max: today() },
+/**
+ * Built when the form opens, so "today" is never stale in a desktop window left
+ * open overnight. A stay that hasn't started yet can end on its move-in date.
+ */
+export const vacateFields = (movedInOn: string): AccField[] => [
+  { name: "move_out_date", label: "Date moved out", type: "date", required: true, max: laterOf(today(), movedInOn) },
   { name: "vacate_remarks", label: "Remarks", type: "textarea", placeholder: "e.g. Posted out; keys returned; condition of the residence" },
 ];

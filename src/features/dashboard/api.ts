@@ -335,6 +335,24 @@ export type StrategicOperation = {
   waypoints: StrategicOperationWaypoint[];
   assets: string[];
   asset_details?: StrategicOperationAssetDetail[];
+  /** Latest LOCSTAT position per aircraft; only for ongoing operations. */
+  locstats?: StrategicLocstat[];
+};
+
+export type StrategicLocstat = {
+  asset_id: number | null;
+  asset_name: string | null;
+  tail_number: string | null;
+  lat: number;
+  lng: number;
+  mgrs: string | null;
+  location_name: string | null;
+  status: "on_ground" | "airborne" | "holding" | "landed" | "rtb" | "emergency" | null;
+  status_label: string;
+  source: "manual" | "garmin";
+  reported_at: string;
+  altitude_ft: number | null;
+  heading: number | null;
 };
 
 export type StrategicGroundedAircraft = {

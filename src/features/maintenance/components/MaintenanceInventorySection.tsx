@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { downloadListPdf } from "@/shared/documents/listPdf";
 import { Icon } from "@iconify/react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/shared/utils/cn";
@@ -42,6 +43,13 @@ export type MaintenanceInventorySubTab =
 interface MaintenanceInventorySectionProps {
   initialSubTab?: MaintenanceInventorySubTab;
 }
+
+const EXPORT_TITLES: Record<string, string> = {
+  "maintenance-stocks.csv": "Maintenance Hub stock",
+  "maintenance-parts-requests.csv": "Maintenance parts requests",
+  "maintenance-parts-used.csv": "Maintenance parts used",
+  "maintenance-suppliers.csv": "Maintenance suppliers",
+};
 
 export const MaintenanceInventorySection = ({
   initialSubTab = "stocks",
@@ -306,6 +314,87 @@ export const MaintenanceInventorySection = ({
     URL.revokeObjectURL(link.href);
   };
 
+  /** Exports the sub-tab on screen as CSV or as a printable NAAVN PDF. */
+  const exportShown = (format: "csv" | "pdf") => {
+    const out = (filename: string, headers: string[], rows: (string | number)[][]) => {
+      if (format === "csv") {
+        handleExportCsv(filename, headers, rows);
+        return;
+      }
+      downloadListPdf({ title: EXPORT_TITLES[filename] ?? "Maintenance inventory", fileName: filename.replace(/\.csv$/, ""), headers, rows }).catch((error) =>
+        console.error("PDF export failed", error),
+      );
+    };
+
+                if (shownSubTab === "stocks") {
+                  out(
+                    "maintenance-stocks.csv",
+                    [
+                      "Part Number",
+                      "Description",
+                      "Store",
+                      "Current Stock",
+                      "Reorder Level",
+                      "Unit Cost",
+                      "Measurement Unit",
+                    ],
+                    filteredStocks.map((s) => [
+                      s.part_number,
+                      s.description,
+                      s.store,
+                      s.current_stock,
+                      s.re_order_level,
+                      s.unit_cost,
+                      s.measurement_unit,
+                    ]),
+                  );
+                } else if (shownSubTab === "requisitions") {
+                  out(
+                    "maintenance-parts-requests.csv",
+                    ["Request", "Date", "Status", "Part Number", "Description", "Quantity", "Issued to Hub", "Work Order"],
+                    hubRequests.flatMap((r) =>
+                      r.lines.map((l) => [
+                        r.request_number,
+                        formatDate(r.request_date),
+                        r.status,
+                        l.part_number ?? "",
+                        l.description ?? "",
+                        l.quantity ?? 0,
+                        l.issued_quantity ?? 0,
+                        l.work_order?.work_order_number ?? "",
+                      ]),
+                    ),
+                  );
+                } else if (shownSubTab === "parts-used") {
+                  out(
+                    "maintenance-parts-used.csv",
+                    ["Date", "Part Number", "Description", "Work Order", "Drawn", "Returned", "By", "Note"],
+                    hubDraws.map((d) => [
+                      formatDate(d.movement_date ?? d.created_at),
+                      d.part_number ?? "",
+                      d.description ?? "",
+                      d.work_order_number ?? "",
+                      d.quantity,
+                      d.returned_quantity,
+                      d.drawn_by ?? "",
+                      d.note ?? "",
+                    ]),
+                  );
+                } else if (shownSubTab === "suppliers") {
+                  out(
+                    "maintenance-suppliers.csv",
+                    ["ID", "Name", "Phone Number", "Email", "Address"],
+                    filteredSuppliers.map((s) => [
+                      s.id,
+                      s.name,
+                      s.contact ?? "-",
+                      s.email ?? "-",
+                      s.address ?? "-",
+                    ]),
+                  );
+                }
+  };
+
   return (
     <div className="space-y-5">
       {/* Subtab Pill Navigation */}
@@ -534,75 +623,7 @@ export const MaintenanceInventorySection = ({
             {/* Export CSV Button */}
             <button
               type="button"
-              onClick={() => {
-                if (shownSubTab === "stocks") {
-                  handleExportCsv(
-                    "maintenance-stocks.csv",
-                    [
-                      "Part Number",
-                      "Description",
-                      "Store",
-                      "Current Stock",
-                      "Reorder Level",
-                      "Unit Cost",
-                      "Measurement Unit",
-                    ],
-                    filteredStocks.map((s) => [
-                      s.part_number,
-                      s.description,
-                      s.store,
-                      s.current_stock,
-                      s.re_order_level,
-                      s.unit_cost,
-                      s.measurement_unit,
-                    ]),
-                  );
-                } else if (shownSubTab === "requisitions") {
-                  handleExportCsv(
-                    "maintenance-parts-requests.csv",
-                    ["Request", "Date", "Status", "Part Number", "Description", "Quantity", "Issued to Hub", "Work Order"],
-                    hubRequests.flatMap((r) =>
-                      r.lines.map((l) => [
-                        r.request_number,
-                        formatDate(r.request_date),
-                        r.status,
-                        l.part_number ?? "",
-                        l.description ?? "",
-                        l.quantity ?? 0,
-                        l.issued_quantity ?? 0,
-                        l.work_order?.work_order_number ?? "",
-                      ]),
-                    ),
-                  );
-                } else if (shownSubTab === "parts-used") {
-                  handleExportCsv(
-                    "maintenance-parts-used.csv",
-                    ["Date", "Part Number", "Description", "Work Order", "Drawn", "Returned", "By", "Note"],
-                    hubDraws.map((d) => [
-                      formatDate(d.movement_date ?? d.created_at),
-                      d.part_number ?? "",
-                      d.description ?? "",
-                      d.work_order_number ?? "",
-                      d.quantity,
-                      d.returned_quantity,
-                      d.drawn_by ?? "",
-                      d.note ?? "",
-                    ]),
-                  );
-                } else if (shownSubTab === "suppliers") {
-                  handleExportCsv(
-                    "maintenance-suppliers.csv",
-                    ["ID", "Name", "Phone Number", "Email", "Address"],
-                    filteredSuppliers.map((s) => [
-                      s.id,
-                      s.name,
-                      s.contact ?? "-",
-                      s.email ?? "-",
-                      s.address ?? "-",
-                    ]),
-                  );
-                }
-              }}
+              onClick={() => exportShown("csv")}
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
                 isDark
@@ -612,6 +633,19 @@ export const MaintenanceInventorySection = ({
             >
               <Icon icon="mdi:microsoft-excel" className="w-4 h-4" />
               <span>Export CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => exportShown("pdf")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                isDark
+                  ? "border-emerald-500/40 text-emerald-300 hover:bg-emerald-950/20"
+                  : "border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100",
+              )}
+            >
+              <Icon icon="mdi:file-pdf-box" className="w-4 h-4" />
+              <span>Export PDF</span>
             </button>
           </div>
         </div>

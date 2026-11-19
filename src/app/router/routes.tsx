@@ -770,6 +770,14 @@ export const router = createBrowserRouter([
         ), INVENTORY_ROUTE_PERMISSIONS),
       },
       {
+        path: "inventory/purchase-orders/:id/edit",
+        element: guardWithPermissions((
+          <Suspense fallback={loadingElement}>
+            <PurchaseOrderFormPage />
+          </Suspense>
+        ), INVENTORY_ROUTE_PERMISSIONS),
+      },
+      {
         path: "inventory/purchase-orders/:id",
         element: guardWithPermissions((
           <Suspense fallback={loadingElement}>

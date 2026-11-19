@@ -376,8 +376,11 @@ export type UpdatePurchaseOrderPayload = {
   order_date?: string | null;
   expected_date_of_delivery?: string | null;
   status?: "draft" | "sent" | "received";
+  /** Lines with an `id` update that line; lines without one are added; lines left out are removed. Draft orders only. */
   items?: Array<{
-    inventory_id: number;
+    id?: number;
+    inventory_id?: number;
+    new_inventory?: NewInventoryPayload;
     part_number?: string | null;
     quantity_ordered?: number;
     quantity_received?: number | null;

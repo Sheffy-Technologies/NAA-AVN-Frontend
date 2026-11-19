@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ApprovalPanel } from "@/features/approvals/components/ApprovalPanel";
+import { useGetRecordApprovalQuery } from "@/features/approvals/api";
 import { Icon } from "@/shared/icons/Icon";
 import { cn } from "@/shared/utils/cn";
 import { useAppDispatch, useAppSelector } from "@/shared/hooks/redux";
@@ -41,8 +42,15 @@ const todayIso = () => new Date().toISOString().slice(0, 10);
 
 export default function PurchaseOrderDetailsPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const currentUser = useAppSelector((state) => state.auth.user);
+  const canViewApprovals = (currentUser?.permissions ?? []).includes("approvals.viewAny");
+  const { data: recordApproval } = useGetRecordApprovalQuery(
+    { module: "purchase-orders", id: Number(id) },
+    { skip: !canViewApprovals || !id },
+  );
+  const approvalState = recordApproval?.current?.status;
   const printDocumentRef = useRef<HTMLDivElement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [grnFormOpen, setGrnFormOpen] = useState(false);
@@ -59,7 +67,7 @@ export default function PurchaseOrderDetailsPage() {
     isLoading,
     isError,
     refetch,
-  } = useGetPurchaseOrderByIdQuery(id || "", { skip: !id });
+  } = useGetPurchaseOrderByIdQuery(id || "", { skip: !id, refetchOnMountOrArgChange: true });
 
   const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
   const [isUpdateShipmentOpen, setIsUpdateShipmentOpen] = useState(false);
@@ -265,6 +273,14 @@ export default function PurchaseOrderDetailsPage() {
 
   const isReceived = (order.status ?? "").toLowerCase() === "received";
   const isSent = (order.status ?? "").toLowerCase() === "sent";
+  const isDraft = !isReceived && !isSent;
+  // Only a draft can be edited, and not while an approver has it or after they signed it off.
+  const editBlockedReason =
+    approvalState === "pending"
+      ? "Awaiting approval: withdraw the request to edit"
+      : approvalState === "approved"
+        ? "Already approved: the order can no longer be changed"
+        : null;
 
   return (
     <div className="space-y-6">
@@ -316,6 +332,23 @@ export default function PurchaseOrderDetailsPage() {
 
         {/* Action Buttons Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
+          {isDraft && (
+            <button
+              type="button"
+              onClick={() => navigate(`/dashboard/inventory/purchase-orders/${order.id}/edit`)}
+              disabled={editBlockedReason !== null}
+              title={editBlockedReason ?? "Edit this draft purchase order"}
+              className={cn(
+                "inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all shadow-xs disabled:opacity-50 disabled:cursor-not-allowed",
+                isDark
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                  : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              )}
+            >
+              <Icon icon="mdi:pencil-outline" className="w-4 h-4" />
+              Edit
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setIsPreviewOpen(true)}

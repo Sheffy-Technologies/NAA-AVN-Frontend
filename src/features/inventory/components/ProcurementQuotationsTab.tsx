@@ -15,7 +15,7 @@ import {
   useGetSuppliersQuery,
   type SupplierQuotation,
 } from "../api";
-import { formatDateShort, formatTimeShort, downloadCsv, onInteractiveRowClick } from "../inventoryUtils";
+import { formatDateShort, formatTimeShort, onInteractiveRowClick, exportList, type ExportFormat } from "../inventoryUtils";
 
 export const ProcurementQuotationsTab: React.FC = () => {
   const { isDark } = useTheme();
@@ -202,7 +202,7 @@ export const ProcurementQuotationsTab: React.FC = () => {
   };
 
   // CSV Exports
-  const handleExportQuotationsCsv = () => {
+  const handleExportQuotationsCsv = (format: ExportFormat = "csv") => {
     const headers = ["Quote #", "Supplier", "Linked RFQ", "Amount", "Currency", "Valid Until", "Status"];
     const rows = filteredQuotations.map((q) => [
       q.quotation_number || `QT-${q.id}`,
@@ -213,10 +213,10 @@ export const ProcurementQuotationsTab: React.FC = () => {
       formatDateShort(q.valid_until),
       q.status || "Submitted",
     ]);
-    downloadCsv("supplier-quotations.csv", [headers, ...rows]);
+    exportList(format, "supplier-quotations", "Supplier quotations", headers, rows);
   };
 
-  const handleExportRfqsCsv = () => {
+  const handleExportRfqsCsv = (format: ExportFormat = "csv") => {
     const headers = ["RFQ #", "Requisition Ref", "Date Issued", "Suppliers Invited", "Status"];
     const rows = filteredRfqs.map((r) => [
       r.rfq_number || `RFQ #${r.id}`,
@@ -225,7 +225,7 @@ export const ProcurementQuotationsTab: React.FC = () => {
       String(r.suppliers?.length ?? 0),
       r.status || "Sent",
     ]);
-    downloadCsv("rfqs.csv", [headers, ...rows]);
+    exportList(format, "rfqs", "Requests for quotation (RFQ)", headers, rows);
   };
 
   return (
@@ -347,11 +347,19 @@ export const ProcurementQuotationsTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={viewSection === "quotations" ? handleExportQuotationsCsv : handleExportRfqsCsv}
+              onClick={() => (viewSection === "quotations" ? handleExportQuotationsCsv("csv") : handleExportRfqsCsv("csv"))}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
               <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
               <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => (viewSection === "quotations" ? handleExportQuotationsCsv("pdf") : handleExportRfqsCsv("pdf"))}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+            >
+              <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span className="text-slate-700 dark:text-slate-200 font-semibold">Export PDF</span>
             </button>
 
             <button

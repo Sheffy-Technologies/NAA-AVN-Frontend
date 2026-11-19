@@ -19,7 +19,8 @@ import {
   type SparesRequestLine,
   type SparesRequestStatus,
 } from "../api";
-import { apiError, fmtDate, safeFileName, today, useTrackerClasses, useTrackerPermissions } from "../trackerHelpers";
+import { apiError, downloadCsv, fmtDate, safeFileName, today, useTrackerClasses, useTrackerPermissions } from "../trackerHelpers";
+import { downloadListPdf } from "@/shared/documents/listPdf";
 import { HelpHeader, StatusPill } from "../trackerUi";
 import { NaavnLogo, Paper } from "../components/NaavnPaper";
 import { downloadPaperPdf, printPaper } from "../components/paperPrint";
@@ -60,11 +61,38 @@ const SparesRequestList = ({ nav }: { nav: TrackerNav }) => {
     }
   };
 
+  /** The list as shown, for CSV or a printable NAAVN PDF. */
+  const exportList = (format: "csv" | "pdf") => {
+    const headers = ["Request", "Date", "Aircraft", "Lines", "Parts requested", "Work order(s)", "Status"];
+    const rows = requests.map((r) => [
+      r.request_number,
+      fmtDate(r.request_date),
+      [...new Set(r.lines.map((l) => l.aircraft_registration).filter(Boolean))].join(", ") || "–",
+      String(r.lines_count ?? r.lines.length),
+      r.lines.map((l) => `${l.part_number || l.description || "?"} × ${l.quantity ?? 1}`).join("; ") || "–",
+      [...new Set(r.lines.map((l) => l.work_order?.work_order_number).filter(Boolean))].join(", ") || "–",
+      STATUS[r.status].label,
+    ]);
+    if (format === "csv") {
+      downloadCsv("spares-requests.csv", [headers, ...rows]);
+      return;
+    }
+    downloadListPdf({ title: "Spares requests (NAAVN-007)", fileName: "spares-requests", headers, rows, widths: [1.6, 1, 1.1, 0.5, 3, 1.4, 0.9] }).catch((e) =>
+      dispatch(showToast({ message: apiError(e, "Couldn't create the PDF."), type: "error" })),
+    );
+  };
+
   return (
     <div>
       <div className="mt-bar">
         <span className={cn("text-xs", c.muted)}>Requests are filed from a work order, or start a blank one here.</span>
         <span className="flex-1" />
+        <Button size="sm" variant="secondary" onClick={() => exportList("csv")} disabled={!requests.length}>
+          Export CSV
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => exportList("pdf")} disabled={!requests.length}>
+          Export PDF
+        </Button>
         {perms.has("spares-requests.create") && (
           <Button size="sm" onClick={start} isLoading={creating}>
             New request

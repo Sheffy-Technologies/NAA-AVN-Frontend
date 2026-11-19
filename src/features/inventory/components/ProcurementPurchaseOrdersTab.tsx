@@ -12,7 +12,7 @@ import {
   useUpdatePurchaseOrderMutation,
   type PurchaseOrder,
 } from "../api";
-import { formatDateShort, downloadCsv, onInteractiveRowClick } from "../inventoryUtils";
+import { formatDateShort, onInteractiveRowClick, exportList, type ExportFormat } from "../inventoryUtils";
 
 interface ProcurementPurchaseOrdersTabProps {
   onOpenCreatePo?: () => void;
@@ -144,7 +144,7 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
   };
 
   // CSV Export
-  const handleExportCsv = () => {
+  const handleExportCsv = (format: ExportFormat = "csv") => {
     const headers = [
       "PO Reference",
       "Supplier",
@@ -161,7 +161,7 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
       formatDateShort(o.expected_date_of_delivery),
       String(o.items?.length ?? 0),
     ]);
-    downloadCsv("purchase-orders.csv", [headers, ...rows]);
+    exportList(format, "purchase-orders", "Purchase orders", headers, rows);
   };
 
   return (
@@ -231,11 +231,19 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleExportCsv}
+              onClick={() => handleExportCsv("csv")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
               <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
               <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExportCsv("pdf")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+            >
+              <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span className="text-slate-700 dark:text-slate-200 font-semibold">Export PDF</span>
             </button>
 
             <Link
@@ -353,6 +361,23 @@ export const ProcurementPurchaseOrdersTab: React.FC<ProcurementPurchaseOrdersTab
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {isDraft && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/dashboard/inventory/purchase-orders/${order.id}/edit`, {
+                                state: { from: "/dashboard/inventory?tab=procurement&subtab=purchase-orders", fromLabel: "Purchase Orders" },
+                              });
+                            }}
+                            title="Edit this draft purchase order"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[11px] font-semibold transition-colors"
+                          >
+                            <Icon icon="mdi:pencil-outline" className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+
                         {isDraft && (
                           <button
                             type="button"

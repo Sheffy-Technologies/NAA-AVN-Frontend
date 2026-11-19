@@ -22,6 +22,8 @@ import { downloadElementAsPdf } from "@/shared/utils/downloadPdf";
 import { AppTabs } from "@/shared/ui/tabs/AppTabs";
 import { BackButton } from "@/shared/ui/button/BackButton";
 import { LinkedAccountCard } from "../components/LinkedAccountCard";
+import { FlightHoursModal } from "../components/FlightHoursModal";
+import { FlightStatusBadge } from "../components/FlightStatusBadge";
 import { NumberedPagination } from "@/shared/ui/pagination/NumberedPagination";
 
 type PersonnelStatus = "Active" | "Grounded" | "Medical";
@@ -67,6 +69,10 @@ type PersonnelDetail = {
     trainingHours?: number;
   }[];
   isPilot: boolean;
+  /** Server-side: has a real call sign, so flight status is tracked. */
+  serverIsPilot: boolean;
+  /** Show the flight cards: a pilot, or anyone with flight hours. */
+  showFlight: boolean;
   isEngineer: boolean;
   yearsOfExperience?: string;
   lastFlightDate: string | null;
@@ -157,18 +163,21 @@ const statusDotColor: Record<PersonnelStatus, string> = {
 
 type FlightStatus = "no_flights" | "current" | "due_for_flight" | "overdue";
 
-const FLIGHT_STATUS_LABELS: Record<FlightStatus, string> = {
-  no_flights: "No Flights Logged",
-  current: "Current",
-  due_for_flight: "Due for Flight",
-  overdue: "Overdue for Flight",
-};
-
 const FLIGHT_STATUS_COLORS: Record<FlightStatus, string> = {
   no_flights: "text-gray-400",
   current: "text-emerald-400",
   due_for_flight: "text-amber-400",
   overdue: "text-red-400",
+};
+
+/** "in 12 days", "today" or "5 days overdue" for a YYYY-MM-DD date. */
+const daysUntilLabel = (date: string) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const [y, m, d] = date.slice(0, 10).split("-").map(Number);
+  const days = Math.round((new Date(y, m - 1, d).getTime() - today.getTime()) / 86_400_000);
+  if (days === 0) return "Due today";
+  return days > 0 ? `In ${days} day${days === 1 ? "" : "s"}` : `${-days} day${days === -1 ? "" : "s"} overdue`;
 };
 
 const COURSE_STATUS_COLORS: Record<CourseStatus, string> = {
@@ -236,6 +245,7 @@ export const PersonnelDetailPage = () => {
     return { present, absent, late: attendanceLogs.filter((l) => l.status === "late").length, rate, daysTillNextLeave };
   }, [attendanceLogs, apiPerson]);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [showFlightHours, setShowFlightHours] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   const handleDeletePersonnel = async () => {
@@ -431,7 +441,8 @@ export const PersonnelDetailPage = () => {
       branchName.includes("flying") ||
       specName.includes("pilot");
 
-    const isPilot = hasPilotIndicator && !isExplicitNonPilot;
+    // The server's is_pilot (a real call sign) always wins over the name heuristics.
+    const isPilot = apiPerson.is_pilot === true || (hasPilotIndicator && !isExplicitNonPilot);
 
     // Derive overall years of experience for non-pilot personnel
     let earliestDate: string | null = null;
@@ -490,6 +501,8 @@ export const PersonnelDetailPage = () => {
       totalTrainingHours,
       aircraftHours: parsedPlatforms,
       isPilot,
+      serverIsPilot: apiPerson.is_pilot === true,
+      showFlight: isPilot || totalFlightTimeHours > 0,
       isEngineer: isEngineerRole,
       yearsOfExperience,
       lastFlightDate: apiPerson.last_flight_date,
@@ -739,20 +752,36 @@ export const PersonnelDetailPage = () => {
           </div>
 
           <div
+            role={person?.showFlight ? "button" : undefined}
+            tabIndex={person?.showFlight ? 0 : undefined}
+            onClick={() => person?.showFlight && setShowFlightHours(true)}
+            onKeyDown={(e) => {
+              if (person?.showFlight && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                setShowFlightHours(true);
+              }
+            }}
+            title={person?.showFlight ? "See the flights behind these hours" : undefined}
             className={cn(
               "p-3.5 rounded-xl border flex flex-col gap-1 transition-all",
               isDark ? "bg-[#001825]/60 border-[#0A4D66]/30" : "bg-slate-50 border-slate-200/80",
+              person?.showFlight && (isDark ? "cursor-pointer hover:border-cyan-500/60" : "cursor-pointer hover:border-sky-400"),
             )}
           >
-            <span className={cn("text-[10px] font-semibold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
-              {person?.isPilot ? "Logbook Hours" : "Service Record"}
+            <span className={cn("text-[10px] font-semibold uppercase tracking-wider flex items-center justify-between gap-2", isDark ? "text-gray-400" : "text-slate-500")}>
+              {person?.showFlight ? "Logbook Hours" : "Service Record"}
+              {person?.showFlight && <Icon icon="mdi:chevron-right" className="w-3.5 h-3.5" />}
             </span>
             <span className={cn("text-sm font-bold truncate", isDark ? "text-cyan-300" : "text-sky-700")}>
-              {person?.isPilot ? `${person.totalFlightTimeHours} Flight Hours` : person?.yearsOfExperience || "Active Duty"}
+              {person?.showFlight ? `${person.totalFlightTimeHours} Flight Hours` : person?.yearsOfExperience || "Active Duty"}
             </span>
-            <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>
-              {person?.ratings.length ?? 0} Certified Ratings
-            </span>
+            {person?.showFlight ? (
+              <FlightStatusBadge status={person.flightStatus} isPilot={person.serverIsPilot} className="self-start" />
+            ) : (
+              <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>
+                {person?.ratings.length ?? 0} Certified Ratings
+              </span>
+            )}
           </div>
 
           <div
@@ -1247,7 +1276,7 @@ export const PersonnelDetailPage = () => {
                   </div>
 
                   {/* Pilot Flight Hours Breakdown Card */}
-                  {person.isPilot && (
+                  {person.showFlight && (
                     <div
                       className={cn(
                         "rounded-2xl border p-5 text-xs sm:text-sm space-y-3.5 transition-all",
@@ -1259,10 +1288,27 @@ export const PersonnelDetailPage = () => {
                           <Icon icon="mdi:airplane-clock" className="w-4 h-4" />
                           <span>Logged Aircrew Flight Hours</span>
                         </div>
-                        <div className={cn("text-base font-extrabold tracking-wide", isDark ? "text-white" : "text-slate-900")}>
+                        <button
+                          type="button"
+                          onClick={() => setShowFlightHours(true)}
+                          title="See the flights behind these hours"
+                          className={cn("text-base font-extrabold tracking-wide hover:underline", isDark ? "text-white" : "text-slate-900")}
+                        >
                           {person.totalFlightTimeHours} <span className={cn("text-xs font-normal", isDark ? "text-cyan-400" : "text-sky-600")}>HRS</span>
-                        </div>
+                        </button>
                       </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowFlightHours(true)}
+                        className={cn(
+                          "w-full inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors",
+                          isDark ? "border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10" : "border-sky-300 text-sky-700 hover:bg-sky-50",
+                        )}
+                      >
+                        <Icon icon="mdi:format-list-bulleted" className="w-4 h-4" />
+                        View flights &amp; logs behind these hours
+                      </button>
 
                       {/* Operational vs Training Dual Breakdown */}
                       <div className="grid grid-cols-2 gap-2.5">
@@ -1417,7 +1463,7 @@ export const PersonnelDetailPage = () => {
                   )}
 
                   {/* Flight Currency Card */}
-                  {person.isPilot && (
+                  {person.showFlight && (
                     <div
                       className={cn(
                         "rounded-2xl border p-5 text-xs sm:text-sm space-y-3 transition-all",
@@ -1428,17 +1474,13 @@ export const PersonnelDetailPage = () => {
                         <div className={cn("text-[10px] font-bold uppercase tracking-wider", isDark ? "text-gray-400" : "text-slate-500")}>
                           Flight Currency Status
                         </div>
-                        {person.flightStatus && (
-                          <span
-                            className={cn(
-                              "text-xs font-semibold px-2 py-0.5 rounded-full border",
-                              FLIGHT_STATUS_COLORS[person.flightStatus],
-                            )}
-                          >
-                            {FLIGHT_STATUS_LABELS[person.flightStatus]}
-                          </span>
-                        )}
+                        <FlightStatusBadge status={person.flightStatus} isPilot={person.serverIsPilot} />
                       </div>
+                      {!person.serverIsPilot && (
+                        <p className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>
+                          Flight status is tracked for personnel with a call sign. Add one to this record to track it.
+                        </p>
+                      )}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-0.5">
                           <span className={cn("text-[11px]", isDark ? "text-gray-400" : "text-slate-500")}>Last Logged Flight</span>
@@ -1463,6 +1505,11 @@ export const PersonnelDetailPage = () => {
                                 })
                               : "—"}
                           </span>
+                          {person.nextFlightDueDate && (
+                            <span className={cn("text-[11px]", FLIGHT_STATUS_COLORS[person.flightStatus ?? "current"])}>
+                              {daysUntilLabel(person.nextFlightDueDate)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2091,6 +2138,14 @@ export const PersonnelDetailPage = () => {
         )}
       </section>
 
+      {apiPerson && (
+        <FlightHoursModal
+          personnelId={apiPerson.id}
+          personName={[apiPerson.rank?.name, apiPerson.firstname, apiPerson.lastname].filter(Boolean).join(" ")}
+          open={showFlightHours}
+          onClose={() => setShowFlightHours(false)}
+        />
+      )}
       <InitiatePassModal
         open={showInitiatePassModal}
         onClose={() => setShowInitiatePassModal(false)}

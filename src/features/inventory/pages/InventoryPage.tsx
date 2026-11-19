@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, type ChangeEvent, useRef } from "react";
+import { downloadListPdf } from "@/shared/documents/listPdf";
 import { StockIssuesTab } from "@/features/stock-issues/components/StockIssuesTab";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/shared/icons/Icon";
@@ -255,6 +256,17 @@ const SUPPLIER_IMPORT_FIELDS: ImportCsvField[] = [
   { key: "email", label: "Email", required: false, example: "sales@skyparts.com" },
   { key: "address", label: "Address", required: false, example: "12 Airport Road, Lagos" },
 ];
+
+type ExportFormat = "csv" | "pdf";
+
+/** The same headers and rows go to CSV or to a printable NAAVN PDF. */
+const exportList = (format: ExportFormat, name: string, title: string, headers: string[], rows: string[][]) => {
+  if (format === "pdf") {
+    downloadListPdf({ title, fileName: name, headers, rows }).catch((error) => console.error("PDF export failed", error));
+    return;
+  }
+  downloadCsv(`${name}.csv`, [headers, ...rows]);
+};
 
 const downloadCsv = (filename: string, rows: string[][]) => {
   const content = rows
@@ -1143,7 +1155,7 @@ export const InventoryPage = () => {
     );
   }, [storesData, storeTypeFilter, storeSearchQuery]);
 
-  const handleExportStores = () => {
+  const handleExportStores = (format: ExportFormat = "csv") => {
     const headers = [
       "Store Name",
       "Code",
@@ -1166,7 +1178,7 @@ export const InventoryPage = () => {
       s.description || "-",
       formatDateShort(s.created_at),
     ]);
-    downloadCsv("inventory-stores.csv", [headers, ...rows]);
+    exportList(format, "inventory-stores", "Inventory stores", headers, rows);
   };
 
   const supplierStats = useMemo(() => {
@@ -1194,7 +1206,7 @@ export const InventoryPage = () => {
     });
   };
 
-  const handleExportStocks = () => {
+  const handleExportStocks = (format: ExportFormat = "csv") => {
     const headers = ["Item Description", "Part Number", "Unit", "Aircraft Type", "Category", "Store", "Stock Level", "Current Stock", "Reorder Level", "Last Updated"];
     const rows = filteredInventoryRows.map((r) => [
       r.description || r.partName,
@@ -1208,10 +1220,10 @@ export const InventoryPage = () => {
       String(r.reorderLevel),
       formatDateShort(r.lastUpdated),
     ]);
-    downloadCsv("inventories.csv", [headers, ...rows]);
+    exportList(format, "inventories", "Inventory", headers, rows);
   };
 
-  const handleExportRequisitions = () => {
+  const handleExportRequisitions = (format: ExportFormat = "csv") => {
     const headers = ["Date", "Time", "Requesting Location", "Status", "Approved By", "Last Updated By"];
     const rows = (requisitionsData ?? []).map((r) => {
       const lastUpdatedBy = typeof r.last_updated_by === "string" ? r.last_updated_by : (r.last_updated_by?.name ?? "-");
@@ -1225,10 +1237,10 @@ export const InventoryPage = () => {
         lastUpdatedBy,
       ];
     });
-    downloadCsv("requisitions.csv", [headers, ...rows]);
+    exportList(format, "requisitions", "Inventory requisitions", headers, rows);
   };
 
-  const handleExportSuppliers = () => {
+  const handleExportSuppliers = (format: ExportFormat = "csv") => {
     const headers = ["Supplier", "Phone Number", "Email", "Address", "Created"];
     const rows = suppliersData.map((s) => [
       s.name,
@@ -1237,7 +1249,7 @@ export const InventoryPage = () => {
       s.address || "-",
       formatDateShort(s.created_at),
     ]);
-    downloadCsv("suppliers.csv", [headers, ...rows]);
+    exportList(format, "suppliers", "Suppliers", headers, rows);
   };
 
   const resetFilters = () => {
@@ -1692,11 +1704,19 @@ export const InventoryPage = () => {
 
                 <button
                   type="button"
-                  onClick={handleExportStocks}
+                  onClick={() => handleExportStocks("csv")}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
                   <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                   <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExportStocks("pdf")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+                >
+                  <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Export PDF</span>
                 </button>
                 <button
                   type="button"
@@ -2213,11 +2233,19 @@ export const InventoryPage = () => {
 
                 <button
                   type="button"
-                  onClick={handleExportRequisitions}
+                  onClick={() => handleExportRequisitions("csv")}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
                   <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                   <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExportRequisitions("pdf")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+                >
+                  <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Export PDF</span>
                 </button>
                 <Link
                   to="/dashboard/inventory/requisitions/add"
@@ -2597,11 +2625,19 @@ export const InventoryPage = () => {
 
                 <button
                   type="button"
-                  onClick={handleExportSuppliers}
+                  onClick={() => handleExportSuppliers("csv")}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
                 >
                   <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                   <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExportSuppliers("pdf")}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+                >
+                  <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                  <span className="text-slate-700 dark:text-slate-200 font-semibold">Export PDF</span>
                 </button>
                 <button
                   type="button"
@@ -2984,11 +3020,19 @@ export const InventoryPage = () => {
 
                   <button
                     type="button"
-                    onClick={handleExportStores}
+                    onClick={() => handleExportStores("csv")}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 shadow-sm transition-colors whitespace-nowrap"
                   >
                     <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
                     <span>Export CSV</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleExportStores("pdf")}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 shadow-sm transition-colors whitespace-nowrap"
+                  >
+                    <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+                    <span>Export PDF</span>
                   </button>
 
                   <button

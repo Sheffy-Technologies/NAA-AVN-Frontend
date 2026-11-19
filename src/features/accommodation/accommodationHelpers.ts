@@ -25,7 +25,11 @@ export const personName = (p?: OccupantPersonnel | null) =>
 export const fmtDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "–";
 
-export const today = () => new Date().toISOString().slice(0, 10);
+/** Today's date where the user is (not UTC, which is still "yesterday" here between midnight and 01:00). */
+export const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 export const apiError = (error: unknown, fallback = "Something went wrong.") => {
   const data = (error as { data?: { message?: string; errors?: Record<string, string[]> } })?.data;

@@ -10,7 +10,7 @@ import {
   useGetStockMovementsQuery,
   useGetSuppliersQuery,
 } from "../api";
-import { formatDateShort, formatTimeShort, downloadCsv, onInteractiveRowClick, onInteractiveRowKeyDown } from "../inventoryUtils";
+import { formatDateShort, formatTimeShort, onInteractiveRowClick, onInteractiveRowKeyDown, exportList, type ExportFormat } from "../inventoryUtils";
 
 interface ProcurementPartRequisitionsTabProps {
   onNavigateToRfq?: (rfqId: number) => void;
@@ -169,7 +169,7 @@ export const ProcurementPartRequisitionsTab: React.FC<ProcurementPartRequisition
   };
 
   // CSV Export
-  const handleExportCsv = () => {
+  const handleExportCsv = (format: ExportFormat = "csv") => {
     const headers = [
       "Requisition ID",
       "Work Order",
@@ -184,7 +184,7 @@ export const ProcurementPartRequisitionsTab: React.FC<ProcurementPartRequisition
       `${formatDateShort(r.created_at)} ${formatTimeShort(r.created_at)}`,
       existingRfqMovementIds.has(r.id) ? "RFQ Dispatched" : "Pending RFQ",
     ]);
-    downloadCsv("part-requisitions.csv", [headers, ...rows]);
+    exportList(format, "part-requisitions", "Part requisitions", headers, rows);
   };
 
   const allPendingSelected = useMemo(() => {
@@ -273,11 +273,19 @@ export const ProcurementPartRequisitionsTab: React.FC<ProcurementPartRequisition
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleExportCsv}
+              onClick={() => handleExportCsv("csv")}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
             >
               <Icon icon="mdi:download" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
               <span className="text-slate-700 dark:text-slate-200 font-semibold">Export CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExportCsv("pdf")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/60 hover:text-slate-900 dark:hover:text-white shadow-sm transition-colors whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-[#0284C7]"
+            >
+              <Icon icon="mdi:file-pdf-box" className="w-4 h-4 text-slate-700 dark:text-slate-300" />
+              <span className="text-slate-700 dark:text-slate-200 font-semibold">Export PDF</span>
             </button>
 
             <button

@@ -136,7 +136,10 @@ export type OccupancyPayload = Partial<
     | "notes"
     | "vacate_remarks"
   >
->;
+> & {
+  /** Allocation only: move the person out of their current residence on the move-in date. */
+  move_from_current?: boolean;
+};
 
 type ListParams = Record<string, string | number | undefined>;
 

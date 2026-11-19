@@ -1,15 +1,18 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams, useLocation } from "react-router-dom";
 import {
   type ProcurementBudget,
   type ProcurementCurrency,
   type CreatePurchaseOrderPayload,
+  type PurchaseOrder,
   useGetBudgetsQuery,
   useGetCurrenciesQuery,
   useGetRfqsQuery,
   useGetSuppliersQuery,
   useGetSupplierQuotationsQuery,
   useCreatePurchaseOrderMutation,
+  useGetPurchaseOrderByIdQuery,
+  useUpdatePurchaseOrderMutation,
   useGetInventoriesQuery,
   useGetExpenseCategoriesQuery,
 } from "../api";
@@ -49,6 +52,8 @@ type ItemDraft = {
 };
 
 type PurchaseOrderItemPayload = {
+  /** Set for a line that already exists on the order being edited. */
+  id?: number;
   inventory_id?: number;
   new_inventory?: NewInventoryPayload;
   part_number?: string | null;
@@ -60,6 +65,8 @@ type PurchaseOrderItemPayload = {
 export default function PurchaseOrderFormPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { id: editId } = useParams<{ id: string }>();
+  const isEdit = Boolean(editId);
   const [searchParams] = useSearchParams();
   const initialRfqId = searchParams.get("rfq_id") ?? "";
   const initialBidId = searchParams.get("bid_id") ?? "";
@@ -67,12 +74,14 @@ export default function PurchaseOrderFormPage() {
   const locationState = location.state as { from?: string; fromLabel?: string } | null;
   const returnUrl =
     locationState?.from ||
-    (initialRfqId
+    (isEdit
+      ? `/dashboard/inventory/purchase-orders/${editId}`
+      : initialRfqId
       ? `/dashboard/inventory/rfq/${initialRfqId}`
       : "/dashboard/inventory?tab=procurement&subtab=purchase-orders");
   const returnLabel =
     locationState?.fromLabel ||
-    (initialRfqId ? "Back to RFQ" : "Back to Purchase Orders");
+    (isEdit ? "Back to Purchase Order" : initialRfqId ? "Back to RFQ" : "Back to Purchase Orders");
 
   const { data: suppliers = [] } = useGetSuppliersQuery();
   const { data: inventories = [] } = useGetInventoriesQuery();
@@ -81,7 +90,16 @@ export default function PurchaseOrderFormPage() {
   const { data: currencies = [] } = useGetCurrenciesQuery();
   const { data: rfqs = [] } = useGetRfqsQuery();
   const { data: quotations = [] } = useGetSupplierQuotationsQuery();
-  const [createPurchaseOrder, { isLoading }] = useCreatePurchaseOrderMutation();
+  const [createPurchaseOrder, { isLoading: isCreating }] = useCreatePurchaseOrderMutation();
+  const [updatePurchaseOrder, { isLoading: isUpdating }] = useUpdatePurchaseOrderMutation();
+  const isLoading = isCreating || isUpdating;
+  const {
+    data: existingOrder,
+    isLoading: isLoadingOrder,
+    isError: isOrderError,
+  } = useGetPurchaseOrderByIdQuery(editId ?? "", { skip: !isEdit, refetchOnMountOrArgChange: true });
+  const existingStatus = (existingOrder?.status || "draft").toLowerCase();
+  const isLocked = isEdit && !!existingOrder && existingStatus !== "draft";
 
   // Skip approved quotations whose RFQ no longer exists: picking one would send an
   // rfq_id the API rejects ("The selected rfq id is invalid.").
@@ -157,9 +175,19 @@ export default function PurchaseOrderFormPage() {
   const [newInventory, setNewInventory] = useState<NewInventoryDraft>(emptyNewInventoryDraft);
   const [error, setError] = useState<string | null>(null);
 
+  const [rfqItemsSynced, setRfqItemsSynced] = useState(false);
+  // Edit mode: fill the form and lines from the saved order once it has loaded.
+  const [loadedOrderId, setLoadedOrderId] = useState<number | null>(null);
+  if (isEdit && existingOrder && loadedOrderId !== existingOrder.id) {
+    setLoadedOrderId(existingOrder.id);
+    setBidSynced(true);
+    setRfqItemsSynced(true);
+    setForm(formFromOrder(existingOrder));
+    setItems(itemsFromOrder(existingOrder));
+  }
+
   // Preselect items from the parts requisition (stock movement) the RFQ was raised
   // from, since the RFQ/quotation/PO chain all trace back to the same requisition.
-  const [rfqItemsSynced, setRfqItemsSynced] = useState(false);
   if (!rfqItemsSynced && form.rfq_id && items.length === 0 && rfqs.length > 0) {
     const linkedRfq = rfqById.get(Number(form.rfq_id));
     if (linkedRfq) {
@@ -313,14 +341,35 @@ export default function PurchaseOrderFormPage() {
     if (form.expected_date_of_delivery.trim() !== "") {
       payload.expected_date_of_delivery = form.expected_date_of_delivery;
     }
-    if (form.status) payload.status = form.status;
+    // Editing never changes the status: sending goes through "Send to Vendor"
+    // (and approval, when active), receiving through "Receive Stock".
+    if (form.status && !isEdit) payload.status = form.status;
 
     try {
-      await createPurchaseOrder(payload).unwrap();
+      if (isEdit && editId) {
+        await updatePurchaseOrder({
+          id: editId,
+          body: {
+            ...payload,
+            supplier_id: payload.supplier_id ?? null,
+            rfq_id: payload.rfq_id ?? null,
+            name: payload.name ?? null,
+            order_date: payload.order_date ?? null,
+            expected_date_of_delivery: payload.expected_date_of_delivery ?? null,
+          },
+        }).unwrap();
+      } else {
+        await createPurchaseOrder(payload).unwrap();
+      }
       navigate(returnUrl);
     } catch (err: unknown) {
-      const responseError = err as { data?: { message?: string } };
-      setError(responseError?.data?.message || "Failed to create purchase order.");
+      const responseError = err as { data?: { message?: string; errors?: Record<string, string[]> } };
+      const firstFieldError = Object.values(responseError?.data?.errors ?? {})[0]?.[0];
+      setError(
+        firstFieldError ||
+          responseError?.data?.message ||
+          (isEdit ? "Failed to update purchase order." : "Failed to create purchase order."),
+      );
     }
   };
 
@@ -340,10 +389,12 @@ export default function PurchaseOrderFormPage() {
           />
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Create Purchase Order
+              {isEdit ? `Edit Purchase Order #${editId}` : "Create Purchase Order"}
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Draft and issue official procurement purchase order to registered suppliers.
+              {isEdit
+                ? "Change the order while it is still a draft."
+                : "Draft and issue official procurement purchase order to registered suppliers."}
             </p>
           </div>
         </div>
@@ -355,6 +406,28 @@ export default function PurchaseOrderFormPage() {
         )}
       </div>
 
+      {isEdit && isLoadingOrder && (
+        <div className="p-4 rounded-xl border text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+          <Icon icon="mdi:loading" className="w-4 h-4 animate-spin" />
+          Loading purchase order...
+        </div>
+      )}
+
+      {isEdit && isOrderError && (
+        <div className="p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs font-semibold text-rose-500 flex items-center gap-2">
+          <Icon icon="mdi:alert-circle" className="w-4 h-4 shrink-0" />
+          Failed to load purchase order #{editId}.
+        </div>
+      )}
+
+      {isLocked && (
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-2">
+          <Icon icon="mdi:lock-outline" className="w-4 h-4 shrink-0" />
+          This purchase order is {existingStatus}. Only draft purchase orders can be edited.
+        </div>
+      )}
+
+      {(!isEdit || (existingOrder && !isLocked)) && (
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Section 1: Vendor & Quotation Selection */}
         <div className={cn(
@@ -581,6 +654,7 @@ export default function PurchaseOrderFormPage() {
               />
             </div>
 
+{!isEdit && (
             <div>
               <label htmlFor="po-status" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
                 Initial Order Status
@@ -605,6 +679,7 @@ export default function PurchaseOrderFormPage() {
                 <option value="received">Received into Stock</option>
               </select>
             </div>
+            )}
           </div>
         </div>
 
@@ -846,10 +921,48 @@ export default function PurchaseOrderFormPage() {
               icon={isLoading ? "mdi:loading" : "mdi:check-bold"}
               className={cn("w-4 h-4", isLoading && "animate-spin")}
             />
-            {isLoading ? "Creating..." : "Create Purchase Order"}
+            {isEdit
+              ? isLoading ? "Saving..." : "Save Changes"
+              : isLoading ? "Creating..." : "Create Purchase Order"}
           </button>
         </div>
       </form>
+      )}
     </div>
   );
+}
+
+const dateInput = (value?: string | null) => (value ? String(value).slice(0, 10) : "");
+
+function formFromOrder(order: PurchaseOrder): PurchaseOrderFormState {
+  return {
+    approved_bid_id: "",
+    rfq_id: order.rfq_id ? String(order.rfq_id) : "",
+    supplier_id: order.supplier_id ? String(order.supplier_id) : "",
+    budget_id: order.budget_id ? String(order.budget_id) : "",
+    currency_id: order.currency_id ? String(order.currency_id) : "",
+    name: order.name ?? "",
+    order_date: dateInput(order.order_date),
+    expected_date_of_delivery: dateInput(order.expected_date_of_delivery),
+    status: "draft",
+  };
+}
+
+function itemsFromOrder(order: PurchaseOrder): PurchaseOrderItemPayload[] {
+  return (order.items ?? []).map((line) => {
+    const item: PurchaseOrderItemPayload = {
+      id: line.id,
+      inventory_id: line.inventory_id,
+      quantity_ordered: Number(line.quantity_ordered ?? 1),
+    };
+    const partNumber = line.part_number || line.inventory?.part_number;
+    if (partNumber) item.part_number = partNumber;
+    if (line.quantity_received !== null && line.quantity_received !== undefined) {
+      item.quantity_received = Number(line.quantity_received);
+    }
+    if (line.unit_price !== null && line.unit_price !== undefined && line.unit_price !== "") {
+      item.unit_price = Number(line.unit_price);
+    }
+    return item;
+  });
 }

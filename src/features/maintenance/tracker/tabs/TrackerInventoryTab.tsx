@@ -7,6 +7,7 @@ import { useAppDispatch } from "@/app/store";
 import { showToast } from "@/shared/store/toastSlice";
 import { useCreateStockEntryMutation, useGetPartCatalogQuery, useGetStockMatrixQuery, type StockEntryPayload } from "../api";
 import { apiError, downloadCsv, today, useTrackerClasses, useTrackerPermissions } from "../trackerHelpers";
+import { downloadListPdf } from "@/shared/documents/listPdf";
 import { FieldLabel, HelpHeader } from "../trackerUi";
 import { TrackerDialog } from "../components/TrackerDialog";
 import type { TrackerNav } from "../MaintenanceTracker";
@@ -170,11 +171,17 @@ export const TrackerInventoryTab = ({ nav }: { nav: TrackerNav }) => {
   const one = unit !== "all";
   const home = one ? unit : units[0]?.id;
 
-  const exportCsv = () =>
-    downloadCsv("inventory.csv", [
-      ["Part number", "Description", "Type", ...units.map((u) => u.name), "Total"],
-      ...(data?.rows ?? []).filter((r) => r.total !== 0).map((r) => [r.part_number, r.description, r.item_type, ...units.map((u) => qty(r, u.id)), r.total]),
-    ]);
+  const exportTable = (format: "csv" | "pdf") => {
+    const headers = ["Part number", "Description", "Type", ...units.map((u) => u.name), "Total"];
+    const body = (data?.rows ?? []).filter((r) => r.total !== 0).map((r) => [r.part_number, r.description, r.item_type, ...units.map((u) => qty(r, u.id)), r.total]);
+    if (format === "csv") {
+      downloadCsv("inventory.csv", [headers, ...body]);
+      return;
+    }
+    downloadListPdf({ title: "Spares stock by unit", fileName: "inventory", headers, rows: body }).catch((e) =>
+      console.error("PDF export failed", e),
+    );
+  };
 
   const issueLine = (fromUnit: number, partNumber: string | null) => nav.go("issues", { voucher: "new", from: fromUnit, pn: partNumber });
 
@@ -252,8 +259,11 @@ export const TrackerInventoryTab = ({ nav }: { nav: TrackerNav }) => {
           <input type="checkbox" checked={includeZero} onChange={(e) => setIncludeZero(e.target.checked)} /> Include catalog items with no stock
         </label>
         <span className="mt-sp" />
-        <Button size="sm" variant="excel" onClick={exportCsv}>
+        <Button size="sm" variant="excel" onClick={() => exportTable("csv")}>
           Export CSV
+        </Button>
+<Button size="sm" variant="secondary" onClick={() => exportTable("pdf")}>
+          Export PDF
         </Button>
         {perms.has("stock-issues.create") && home && (
           <Button size="sm" variant="secondary" onClick={() => issueLine(home, null)}>

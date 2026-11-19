@@ -225,10 +225,72 @@ export type UploadImageResponse = {
   data: string;
 };
 
+export type FlightStatus = "no_flights" | "current" | "due_for_flight" | "overdue";
+
+/** One operation flight that counts toward total flight hours (GET /personnel/{id}/flight-hours). */
+export type PersonnelFlightRow = {
+  id: number;
+  operation_id: number;
+  operation_name: string;
+  operation_status: string | null;
+  /** Deleted operations still count toward the total today; shown so the sum is explained. */
+  operation_deleted: boolean;
+  /** False when the operation is outside the viewer's units. */
+  can_open: boolean;
+  is_flight: boolean;
+  date: string | null;
+  start_date_time: string | null;
+  end_date_time: string | null;
+  asset_id: number | null;
+  asset_name: string | null;
+  tail_number: string | null;
+  role: "pilot" | "co_pilot";
+  other_crew: string | null;
+  hours: number;
+  /** entered = hours typed on the operation; times = worked out from takeoff/landing. */
+  hours_source: "entered" | "times" | "none";
+  landings: number | null;
+  logged_to_aircraft: boolean;
+  /** Only flights (is_flight) with a start date move the last-flight date. */
+  counts_for_currency: boolean;
+};
+
+export type PersonnelExperienceRow = {
+  id: number;
+  asset_id: number | null;
+  asset_name: string | null;
+  tail_number: string | null;
+  hours: number;
+  operational_hours: number | null;
+  training_hours: number | null;
+  notes: string | null;
+  recorded_at: string | null;
+};
+
+export type PersonnelFlightHours = {
+  total_hours: number;
+  flight_hours: number;
+  experience_hours: number;
+  flights: PersonnelFlightRow[];
+  experience: PersonnelExperienceRow[];
+  by_aircraft: { asset_id: number | null; asset_name: string | null; tail_number: string | null; flights: number; hours: number }[];
+  currency: {
+    is_pilot: boolean;
+    call_sign: string | null;
+    /** null when the person has no call sign (not tracked). */
+    flight_status: FlightStatus | null;
+    last_flight_date: string | null;
+    next_flight_due_date: string | null;
+    interval_weeks: number;
+    /** Negative when overdue. */
+    days_until_due: number | null;
+  };
+};
+
 export const personnelApi = createApi({
   reducerPath: "personnelApi",
   baseQuery: axiosBaseQuery(),
-  tagTypes: ["Personnel", "MyPersonnel", "PersonnelLinkOptions", "PersonnelActivity"],
+  tagTypes: ["Personnel", "MyPersonnel", "PersonnelLinkOptions", "PersonnelActivity", "PersonnelFlightHours"],
   endpoints: (builder) => ({
     getPersonnel: builder.query<Personnel[], PersonnelFilters>({
       query: (filters) => ({
@@ -321,6 +383,10 @@ export const personnelApi = createApi({
       },
       invalidatesTags: ["MyPersonnel"],
     }),
+    getPersonnelFlightHours: builder.query<PersonnelFlightHours, string | number>({
+      query: (id) => ({ url: `/personnel/${id}/flight-hours`, method: "GET" }),
+      providesTags: (_r, _e, id) => [{ type: "PersonnelFlightHours", id }],
+    }),
     getPersonnelById: builder.query<Personnel, string | number>({
       query: (id) => ({
         url: `/personnel/${id}`,
@@ -393,6 +459,7 @@ export type MyPersonnelResponse = {
 };
 
 export const {
+  useGetPersonnelFlightHoursQuery,
   useLinkPersonnelUserMutation,
   useGetPersonnelLinkOptionsQuery,
   useGetPersonnelActivityLogsQuery,
